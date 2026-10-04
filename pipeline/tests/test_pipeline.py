@@ -63,6 +63,22 @@ def test_missing_values_are_not_zero():
                            status="suppressed", source_id="s")
 
 
+def test_validate_finds_observations_without_references():
+    # 観測値は番号で持ち外部キーの制約がないので、参照先がないことは検証で見つける
+    from tdm.validate import validate
+    conn = connect(":memory:")
+    init_schema(conn)
+    catalog = load_indicators()
+    upsert_indicators(conn, catalog)
+    insert_observation(conn, entity_id="nowhere", indicator_id="population_total",
+                       definition_version="9", period_start="2020-10-01", period_end="2020-10-01",
+                       period_kind="point", value=1.0, status="observed", source_id="unknown")
+    errors = validate(conn, catalog).errors
+    assert "外部キー違反: obs.entity_k = nowhere" in errors
+    assert "外部キー違反: obs.source_k = unknown" in errors
+    assert any("指標の定義がない観測値 population_total 9" in e for e in errors)
+
+
 def test_manifest_lists_every_file_with_hash(built):
     manifest = load(built, "manifest.json")
     paths = {f["path"] for f in manifest["files"]}
