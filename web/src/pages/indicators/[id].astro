@@ -1,0 +1,110 @@
+---
+import Base from "../../layouts/Base.astro";
+import AdSlot from "../../components/AdSlot.astro";
+import { loadAreas, loadIndicators, loadSources, loadValues } from "../../lib/data";
+import { formatValue, STATUS_LABEL } from "../../lib/format";
+import type { Indicator } from "../../lib/types";
+
+export function getStaticPaths() {
+  return loadIndicators().map((ind) => ({ params: { id: ind.id }, props: { ind } }));
+}
+const { ind } = Astro.props as { ind: Indicator };
+const sources = new Map(loadSources().map((s) => [s.source_id, s]));
+const period = ind.periods.find((p) => p.period === ind.default_period)!;
+const areas = loadAreas();
+const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
+const prefNames = new Map(areas.prefectures.map((p) => [p.code, p.name]));
+const coverage = ind.prefectures ?? [];
+const partial = areas.prefectures.length > 1 && coverage.length > 0 && coverage.length < areas.prefectures.length;
+const rows = (loadValues(ind.id, period.period, "municipalities")?.rows ?? [])
+  .filter((r) => munis.has(r.entity_id))
+  .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
+const levelLabel = { prefecture: "都道府県", municipality: "市区町村", small_area: "町丁・字等" } as const;
+const levelOrder = ["prefecture", "municipality", "small_area"] as const;
+// 全国の公開版では、都道府県別の値（市区町村の分子・分母の合計など）も表にする
+const prefRows = areas.prefectures.length > 1 && period.levels.includes("prefecture")
+  ? (loadValues(ind.id, period.period, "prefectures")?.rows ?? [])
+      .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
+  : [];
+---
+<Base title={ind.name} description={`${ind.name}（${ind.unit}）の意味・計算方法・対象範囲と、市区町村別の値。${ind.description}`}>
+  <header class="page-head">
+    <p class="eyebrow">{ind.category}</p>
+    <h1>{ind.name}</h1>
+    <p class="lead">{ind.description}</p>
+    <div class="actions">
+      <a class="button" href={`/map/?i=${ind.id}`}>地図で見る</a>
+      <a class="button secondary" href="/#indicators">指標の一覧</a>
+    </div>
+  </header>
+
+  <section class="sheet">
+  <h2>計算方法</h2>
+  <p>{ind.method}</p>
+  {ind.caveats.length > 0 && (
+    <div class="note">
+      <strong>読み取りの注意</strong>
+      <ul>{ind.caveats.map((c) => <li>{c}</li>)}</ul>
+    </div>
+  )}
+
+  <h2>掲載している時点と粒度</h2>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>時点</th><th>粒度</th><th>出典</th></tr></thead>
+    <tbody>
+      {ind.periods.map((p) => (
+        <tr>
+          <td>{p.label}</td>
+          <td>{levelOrder.filter((l) => p.levels.includes(l)).map((l) => levelLabel[l]).join("・")}</td>
+          <td>{p.source_ids.map((id) => sources.get(id)?.title ?? id).join("／")}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  </div>
+  </section>
+
+  <section class="sheet">
+  {partial && (
+    <p class="note">この指標は{coverage.map((c) => prefNames.get(c) ?? c).join("・")}だけの値です（元データがその範囲の機関のものです）。</p>
+  )}
+  {prefRows.length > 0 && (
+    <>
+      <h2>都道府県別の値（{period.label}）</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>都道府県</th><th class="num">{ind.name}</th><th>備考</th></tr></thead>
+          <tbody>
+            {prefRows.map((r) => (
+              <tr>
+                <td>{prefNames.get(r.entity_id.slice(5))}</td>
+                <td class="num">{formatValue(r, ind)}</td>
+                <td class="muted">{r.note ?? (r.value === null ? "" : STATUS_LABEL[r.status])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )}
+  <h2>市区町村別の値（{period.label}）</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>市区町村</th>{areas.prefectures.length > 1 && <th>都道府県</th>}<th class="num">{ind.name}</th><th>備考</th></tr></thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr>
+            <td><a href={`/areas/${r.entity_id}/`}>{munis.get(r.entity_id)!.name}</a></td>
+            {areas.prefectures.length > 1 && <td>{prefNames.get(munis.get(r.entity_id)!.prefecture)}</td>}
+            <td class="num">{formatValue(r, ind)}</td>
+            <td class="muted">{r.value === null ? "" : STATUS_LABEL[r.status]}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">定義の版: {ind.definition_version}</p>
+  </section>
+  <AdSlot name="page" />
+</Base>

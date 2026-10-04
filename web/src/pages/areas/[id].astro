@@ -1,0 +1,107 @@
+---
+// 地域ページ。初期は市区町村のみ生成し、町丁目は内容が整ったものから追加する（設計書 第12章）。
+import Base from "../../layouts/Base.astro";
+import AdSlot from "../../components/AdSlot.astro";
+import { loadAreas, loadIndicators, loadSources, loadValues } from "../../lib/data";
+import { formatFraction, formatValue, rankOf } from "../../lib/format";
+import type { Municipality } from "../../lib/types";
+
+export function getStaticPaths() {
+  const areas = loadAreas();
+  return areas.municipalities.map((m) => ({ params: { id: m.id }, props: { muni: m } }));
+}
+const { muni } = Astro.props as { muni: Municipality };
+const areas = loadAreas();
+const byId = new Map(areas.municipalities.map((m) => [m.id, m]));
+const neighbors = muni.neighbors.map((id) => byId.get(id)!).filter(Boolean);
+const sources = new Map(loadSources().map((s) => [s.source_id, s]));
+
+const stats = loadIndicators().map((ind) => {
+  const period = ind.periods.find((p) => p.period === ind.default_period)!;
+  const rows = loadValues(ind.id, period.period, "municipalities")?.rows ?? [];
+  const row = rows.find((r) => r.entity_id === muni.id);
+  return {
+    // 順位は同じ都道府県の市区町村の中で数える
+    ind, period, row, rank: rankOf(rows.filter((r) => r.entity_id.startsWith(`muni-${muni.prefecture}`)), muni.id),
+    neighborRows: neighbors.map((n) => ({ n, row: rows.find((r) => r.entity_id === n.id) })),
+  };
+});
+const usedSources = [...new Set(stats.flatMap((s) => s.period.source_ids))].map((id) => sources.get(id)).filter(Boolean);
+const pop = stats.find((s) => s.ind.id === "population_total");
+const pref = areas.prefectures.find((p) => p.code === muni.prefecture)?.name ?? "";
+const place = [pref, muni.region].filter(Boolean).join("・");
+const description = `${muni.name}（${place}）の人口・年齢構成などを公開データで紹介。` +
+  (pop?.row?.value != null ? `人口は${formatValue(pop.row, pop.ind)}（${pop.period.label}）。` : "") +
+  "近隣の市区町村との比較と出典つき。";
+---
+<Base title={`${muni.name}のデータ`} description={description}>
+  <header class="page-head">
+    <p class="eyebrow">{place}</p>
+    <h1>{muni.name}のデータ</h1>
+    <div class="actions"><a class="button" href={`/map/?a=${muni.id}`}>地図で{muni.name}を見る</a></div>
+  </header>
+
+  <section class="sheet">
+  <h2>主な指標</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>指標</th><th class="num">値</th><th class="num">{pref}内の順位</th><th>時点</th></tr></thead>
+      <tbody>
+        {stats.map(({ ind, period, row, rank }) => (
+          <tr>
+            <td><a href={`/indicators/${ind.id}/`}>{ind.name}</a>
+              {formatFraction(row, ind) && <div class="muted">{formatFraction(row, ind)}</div>}
+            </td>
+            <td class="num">{formatValue(row, ind)}</td>
+            <td class="num">{rank ? `${rank.rank}位／${rank.total}` : "—"}</td>
+            <td>{period.label}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">順位は値の大きい順です。大きいほど良い・悪いという意味ではありません。</p>
+
+  {neighbors.length > 0 && (
+    <>
+      <h2>となりの市区町村と比べる</h2>
+      <div class="table-scroll">
+        <table class="compare">
+          <thead>
+            <tr><th>指標</th><th class="num">{muni.name}</th>
+              {neighbors.map((n) => <th class="num"><a href={`/areas/${n.id}/`}>{n.name}</a></th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {stats.map(({ ind, row, neighborRows }) => (
+              <tr>
+                <td>{ind.name}</td>
+                <td class="num"><strong>{formatValue(row, ind)}</strong></td>
+                {neighborRows.map(({ row: r }) => <td class="num">{formatValue(r, ind)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )}
+
+  </section>
+
+  <section class="sheet">
+  <h2>データの読み方</h2>
+  <ul>
+    {stats.flatMap(({ ind }) => ind.caveats.slice(0, 1).map((c) => <li>{ind.name}: {c}</li>))}
+    <li>町丁目ごとの値は<a href={`/map/?a=${muni.id}`}>地図</a>で拡大すると確認できます（{muni.small_area_count}地域）。</li>
+  </ul>
+
+  <h2>出典</h2>
+  <ul>
+    {usedSources.map((s) => (
+      <li>{s!.attribution}{s!.modification_note && `（${s!.modification_note}）`}
+        <span class="muted">取得日 {s!.retrieved_at.slice(0, 10)}</span></li>
+    ))}
+  </ul>
+  </section>
+  <AdSlot name="page" />
+</Base>

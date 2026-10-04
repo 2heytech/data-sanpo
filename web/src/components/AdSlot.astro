@@ -1,0 +1,16 @@
+---
+// 広告枠。AdSense の発行者IDと広告ユニットIDが設定されたときだけ描く（未設定なら何も出さない）。
+// 置き場所: トップの指標一覧の途中（top）、指標・地域などのページの本文の後（page）、地図の情報欄の下（map）。
+// 地図や操作部品のすぐ隣には置かない（誤クリックを招く配置を避ける）。
+import { ADSENSE_CLIENT, adSlotId } from "../lib/ads";
+interface Props { name: "top" | "page" | "map" }
+const slot = adSlotId(Astro.props.name);
+const show = ADSENSE_CLIENT && slot;
+---
+{show && (
+  <aside class="ad-slot" aria-label="広告">
+    <ins class="adsbygoogle" style="display:block" data-ad-client={ADSENSE_CLIENT} data-ad-slot={slot}
+         data-ad-format="auto" data-full-width-responsive="true"></ins>
+    <script is:inline>(window.adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </aside>
+)}

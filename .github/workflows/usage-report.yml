@@ -1,0 +1,25 @@
+# 指標の利用回数を集計して、実行結果の Summary に表で表示する（設計変更記録 #32）。
+name: Indicator usage
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "集計する日数"
+        type: number
+        default: 30
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Report
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: python web/scripts/usage-report.py "${{ inputs.days }}" | tee -a "$GITHUB_STEP_SUMMARY"

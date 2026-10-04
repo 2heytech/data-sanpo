@@ -1,0 +1,332 @@
+# 実データの取得 → 検証 → 公開版の生成 → サイトのビルド（→ 任意でデプロイ）を手動で実行する。
+# 元データ・管理DBは private リポジトリの Artifacts に保存する（設計書 第10章「保存と復旧」）。
+# site_only をオンにすると、データは作り直さずに前回公開したデータでサイトだけビルドする（design-changes #63）。
+name: Data release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: "公開版ID（空なら日時から自動作成）"
+        required: false
+        default: ""
+      deploy:
+        description: "ビルド後に Cloudflare へデプロイする"
+        type: boolean
+        default: false
+      preview:
+        description: "ビルドしたサイトと画面写真を site-preview ブランチに置く"
+        type: boolean
+        default: true
+      prefectures:
+        description: "取り込む都道府県（例: 13,14。all で全国）。空なら deploy のとき全国、それ以外は東京都だけ"
+        required: false
+        default: ""
+      site_only:
+        description: "データは作り直さず、前回公開した全国のデータでサイトだけビルドする（画面・文言の修正用。pipeline/ を変えたときは使えない）"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # 全国の国勢調査（約22万の町丁・字等 × 3時点）を取り込むと長くかかる（design-changes #52）
+    timeout-minutes: 330
+    env:
+      RELEASE_ID: ${{ inputs.release_id }}
+      PREFS_INPUT: ${{ inputs.prefectures }}
+      SITE_ONLY: ${{ inputs.site_only }}
+      # 前回公開した全国のデータを置く GitHub Release（タグ名）。Artifacts の容量（無料500MB）に数えない
+      PUBLISHED_DATA_TAG: published-data
+      # 全国の元ファイルを置く GitHub Release（タグ名）。キャッシュが消えたときに e-Stat から取り直さない（#64）
+      RAW_SOURCES_TAG: raw-sources
+      PYTHONUNBUFFERED: "1"  # 取得・取込の途中経過がすぐログに出るようにする
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # site_only で、前回公開したデータを作ったコミットからの pipeline/ の変更を調べるため
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Decide release id
+        if: env.SITE_ONLY != 'true'
+        run: |
+          if [ -z "$RELEASE_ID" ]; then
+            echo "RELEASE_ID=$(date -u +%Y%m%d-%H%M)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          fi
+
+      # 公開（deploy）は必ず全国で作る。プレビューは既定で東京都だけにして、Actions の時間を節約する
+      - name: Decide prefectures
+        if: env.SITE_ONLY != 'true'
+        env:
+          DEPLOY: ${{ inputs.deploy }}
+        run: |
+          prefs="$PREFS_INPUT"
+          if [ -z "$prefs" ]; then
+            if [ "$DEPLOY" = "true" ]; then prefs=all; else prefs=13; fi
+          fi
+          if [ "$DEPLOY" = "true" ] && [ "$prefs" != "all" ]; then
+            echo "::error::公開（deploy=true）は全国（prefectures=all か空）で実行してください。指定: $prefs"
+            exit 1
+          fi
+          echo "TDM_PREFS=$prefs" >> "$GITHUB_ENV"
+          echo "PREFS_KEY=${prefs//,/-}" >> "$GITHUB_ENV"   # キャッシュのキーにカンマは使えない
+          echo "取り込む都道府県: $prefs"
+
+      # 全国の取込は元ファイル・管理DB・公開用ファイルで標準のディスクに収まらないので、使わないツールを消して空ける。
+      # setup-python が使う /opt/hostedtoolcache/Python は残す
+      - name: Free disk space
+        if: env.SITE_ONLY != 'true' && env.TDM_PREFS == 'all'
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/local/share/powershell /usr/share/swift || true
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h /
+          free -h
+
+      # 国勢調査の元ファイル（都道府県ごと）は変わらないので、キャッシュから戻して e-Stat から取り直さない。
+      # 取得済みのファイルは fetch が読み飛ばす（URL が同じ場合）
+      - name: Restore raw sources cache
+        id: rawcache
+        if: env.SITE_ONLY != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: raw-${{ env.PREFS_KEY }}-${{ hashFiles('pipeline/config/sources.toml') }}
+          # sources.toml が変わっても、同じ都道府県の範囲の前回分を優先して戻す（全国の取得は1時間以上かかる）。
+          # 2行目は旧形式のキー（都道府県が後ろ）で保存された全国の取得結果を戻すための移行用
+          restore-keys: |
+            raw-${{ env.PREFS_KEY }}-
+            raw-0c2288ac13af031c05987e1605fd0aa34e86358f40b9632b293fd818066e1f34-${{ env.PREFS_KEY }}
+            raw-
+
+      # Actions のキャッシュは7日使わないと消え、10GB を超えると古いものから追い出され、ブランチで作ったものは main から
+      # 読めない。全国の元ファイルがキャッシュから戻らなかったときは、main で保存した Release から戻す（取り直すと70分以上かかる）
+      - name: Restore raw sources from release
+        if: env.SITE_ONLY != 'true' && env.TDM_PREFS == 'all' && !startsWith(steps.rawcache.outputs.cache-matched-key, 'raw-all-')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          name=$(.github/scripts/release-archive.sh latest "$RAW_SOURCES_TAG" raw-)
+          if [ -z "$name" ]; then
+            echo "Release $RAW_SOURCES_TAG に元ファイルがないので、出典から取得します"
+            exit 0
+          fi
+          .github/scripts/release-archive.sh restore "$RAW_SOURCES_TAG" "$name" data/raw
+          du -sh data/raw
+
+      - name: Install pipeline
+        if: env.SITE_ONLY != 'true'
+        run: python -m pip install -e "pipeline[dev]"
+
+      - name: Fetch sources
+        id: fetch
+        if: env.SITE_ONLY != 'true'
+        working-directory: pipeline
+        # 取得が止まったときに全体の時間を使い切らないよう上限を置く
+        timeout-minutes: 120
+        run: python -m tdm fetch
+
+      - name: Save raw sources cache
+        if: always() && steps.fetch.outcome != 'skipped'
+        uses: actions/cache/save@v4
+        with:
+          path: data/raw
+          key: raw-${{ env.PREFS_KEY }}-${{ hashFiles('pipeline/config/sources.toml') }}
+
+      # main の全国の取得結果を Release にも保存する（中身が前回と同じなら上げない）。名前は元ファイルの中身のハッシュ
+      # （取得日時を書く _fetch.json は除く）
+      - name: Save raw sources to release
+        if: env.SITE_ONLY != 'true' && env.TDM_PREFS == 'all' && github.ref == 'refs/heads/main' && steps.fetch.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          name="raw-$(cd data/raw && find . -type f ! -name _fetch.json -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16)"
+          if [ "$(.github/scripts/release-archive.sh latest "$RAW_SOURCES_TAG" raw-)" = "$name" ]; then
+            echo "元ファイルは前回保存した $name と同じなので上げません"
+          else
+            .github/scripts/release-archive.sh save "$RAW_SOURCES_TAG" "$name" data/raw .
+          fi
+
+      # 都道府県ごとの元ファイルは東京都の分だけ表示する（全国だと数千ファイルになるため）
+      - name: Show fetched files (列名の確認用)
+        if: always() && env.SITE_ONLY != 'true'
+        run: |
+          du -sh data/raw || true
+          find data/raw -type f -printf '%10s  %p\n' | grep -Ev '/(0[1-9]|1[0-24-9]|[2-4][0-9])/' | sort -k2 || true
+          for f in $(find data/raw -type f \( -name '*.txt' -o -name '*.csv' \) | grep -Ev '/(0[1-9]|1[0-24-9]|[2-4][0-9])/'); do
+            echo "== $f"; head -n 3 "$f" | iconv -f CP932 -t UTF-8 || head -n 3 "$f"
+          done
+
+      # 全国ではメモリの上限を決めて動かす。上限を超えたときにランナーごと落ちる（ログが残らない）のではなく、
+      # この処理だけが止まって途中経過（最大メモリつき）が残るようにする
+      - name: Build data release
+        if: env.SITE_ONLY != 'true'
+        working-directory: pipeline
+        run: |
+          cmd=(python -m tdm build --release-id "$RELEASE_ID" --note "GitHub Actions run ${{ github.run_id }}")
+          free -m
+          if [ "$TDM_PREFS" = "all" ]; then
+            sudo -E systemd-run --scope --quiet -p MemoryMax=6G -p MemorySwapMax=2G \
+              --uid="$(id -u)" --gid="$(id -g)" -- env "PATH=$PATH" "${cmd[@]}"
+          else
+            "${cmd[@]}"
+          fi
+
+      - name: Show disk usage
+        if: always() && env.SITE_ONLY != 'true'
+        run: |
+          df -h /
+          free -h
+          du -sh data/* data/releases/* 2>/dev/null || true
+
+      # 都道府県別の元ファイルはキャッシュに保存済みでバックアップにも入れないので、サイトのビルド前に消して空ける
+      - name: Remove per-prefecture raw files
+        if: env.SITE_ONLY != 'true' && env.TDM_PREFS == 'all'
+        run: |
+          find data/raw -type d -regextype posix-extended -regex '.*/(0[1-9]|1[0-24-9]|[2-4][0-9])' -prune -exec rm -rf {} + || true
+          df -h /
+
+      # 前回公開した全国のデータ（公開用ファイル。管理DBは含まない）を GitHub Release から戻す。
+      # データを作ったコミットから pipeline/ が変わっていれば、データの形や中身が今のコードと合わない恐れがあるので止める
+      - name: Restore published data (site_only)
+        if: env.SITE_ONLY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 名前は data-<公開版ID>
+          name=$(.github/scripts/release-archive.sh latest "$PUBLISHED_DATA_TAG" data-)
+          if [ -z "$name" ]; then
+            echo "::error::前回公開したデータ（Release $PUBLISHED_DATA_TAG）がありません。一度 site_only をオフにして全国で公開してください"
+            exit 1
+          fi
+          .github/scripts/release-archive.sh restore "$PUBLISHED_DATA_TAG" "$name" data/releases
+          id="${name#data-}"
+          manifest="data/releases/$id/manifest.json"
+          commit=$(jq -r '.git_commit // empty' "$manifest")
+          echo "前回公開したデータ: $id（作成 $(jq -r .created_at "$manifest")、コミット ${commit:-不明}）"
+          if [ -z "$commit" ] || ! git cat-file -e "$commit^{commit}" 2>/dev/null; then
+            echo "::error::データを作ったコミットが分からないため、今のコードと合うか確かめられません。site_only をオフにして公開してください"
+            exit 1
+          fi
+          # テストや説明だけの変更は公開用ファイルに影響しないので見ない
+          paths=(pipeline/tdm pipeline/config pipeline/pyproject.toml)
+          if ! git diff --quiet "$commit" HEAD -- "${paths[@]}"; then
+            echo "::error::データを作ったあとに取込・書き出しの処理（pipeline/tdm・pipeline/config）が変わっています。site_only をオフにしてデータから作り直してください"
+            git diff --stat "$commit" HEAD -- "${paths[@]}"
+            exit 1
+          fi
+          echo "RELEASE_ID=$id" >> "$GITHUB_ENV"
+          echo "TDM_PREFS=all" >> "$GITHUB_ENV"
+
+      - name: Build site
+        working-directory: web
+        env:
+          DATA_RELEASE_DIR: ../data/releases/${{ env.RELEASE_ID }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          ALLOW_INDEXING: ${{ vars.ALLOW_INDEXING }}
+          # 変数（Variables）でも Secrets でも受け付ける。トークンはページに載る公開値。
+          CF_WEB_ANALYTICS_TOKEN: ${{ vars.CF_WEB_ANALYTICS_TOKEN || secrets.CF_WEB_ANALYTICS_TOKEN }}
+          # 広告（AdSense）。未設定なら広告枠は出ない（docs/design-changes.md #51）
+          ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
+          ADSENSE_SLOT_TOP: ${{ vars.ADSENSE_SLOT_TOP }}
+          ADSENSE_SLOT_PAGE: ${{ vars.ADSENSE_SLOT_PAGE }}
+          ADSENSE_SLOT_MAP: ${{ vars.ADSENSE_SLOT_MAP }}
+        run: |
+          npm ci
+          npm run prepare-data
+          npm run build
+
+      # 全国の公開版は管理DBが数GB・公開用ファイルも数百MBあり、private リポジトリの Artifacts の容量（無料500MB）を
+      # 超えるので上げない（東京都だけのときだけ上げる）。全国のデータは元ファイルのキャッシュから作り直せる
+      - name: Upload data release
+        if: env.TDM_PREFS != 'all'
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-release-${{ env.RELEASE_ID }}
+          path: |
+            data/releases/${{ env.RELEASE_ID }}
+            data/releases/${{ env.RELEASE_ID }}.sqlite
+          retention-days: 30
+
+      # 全国の国勢調査の元ファイルは大きく、Actions のキャッシュに残るので、バックアップは東京都の分と都道府県別でない出典だけ
+      - name: Collect raw sources for backup
+        if: always() && env.SITE_ONLY != 'true'
+        run: |
+          mkdir -p raw-backup
+          (cd data/raw && find . -type f | grep -Ev '/(0[1-9]|1[0-24-9]|[2-4][0-9])/' | cpio -pdm ../../raw-backup 2>/dev/null) || true
+
+      - name: Upload raw sources (非公開のバックアップ)
+        if: always() && env.SITE_ONLY != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-sources-${{ env.RELEASE_ID }}
+          path: raw-backup
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Upload site
+        if: env.TDM_PREFS != 'all'
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-${{ env.RELEASE_ID }}
+          path: web/dist
+          retention-days: 7
+
+      - name: Take screenshots
+        if: ${{ inputs.preview }}
+        working-directory: web
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          (cd dist && python -m http.server 4321 --bind 127.0.0.1 >/dev/null 2>&1 &)
+          sleep 2
+          node scripts/screenshots.mjs http://127.0.0.1:4321 ../preview/screenshots
+
+      # 非公開のまま確認できるよう、ビルド結果を専用ブランチに置く（履歴は残さず毎回置き換える）。
+      # 全国版のプレビューは容量が大きいので、町丁目のファイルは東京都の分だけ残す（区市町村の値・境界は全国）
+      - name: Push site-preview branch
+        if: ${{ inputs.preview }}
+        run: |
+          cp -r web/dist preview/site
+          for d in preview/site/data/*/; do
+            find "$d"values -name '[0-9][0-9].json' ! -name '13.json' -delete 2>/dev/null || true
+            find "$d"boundaries "$d"areas -regextype posix-extended -regex '.*/[0-9]{5}\.(geo)?json' ! -regex '.*/13[0-9]{3}\.(geo)?json' -delete 2>/dev/null || true
+            find "$d"search-index -name '*.json' ! -name '13.json' -delete 2>/dev/null || true
+          done
+          cd preview
+          printf '# サイトのプレビュー\n\n公開版 %s（run %s）のビルド結果。site/ を静的サーバーで開くと確認できる（例: npx serve site）。\n' "$RELEASE_ID" "${{ github.run_id }}" > README.md
+          git init -q -b site-preview
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "プレビュー: 公開版 $RELEASE_ID"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" site-preview
+
+      - name: Deploy to Cloudflare
+        if: ${{ inputs.deploy }}
+        working-directory: web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN が未設定です（Settings → Secrets and variables → Actions）"
+            exit 1
+          fi
+          npx wrangler deploy
+
+      # 全国のデータで公開したら、次の site_only のために公開用ファイルを GitHub Release に保存する
+      - name: Save published data
+        if: inputs.deploy && env.SITE_ONLY != 'true' && env.TDM_PREFS == 'all'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/release-archive.sh save "$PUBLISHED_DATA_TAG" "data-$RELEASE_ID" data/releases "$RELEASE_ID"

@@ -1,0 +1,215 @@
+---
+import Base from "../../layouts/Base.astro";
+import AdSlot from "../../components/AdSlot.astro";
+import { readFileSync } from "node:fs";
+import { DATA_BASE } from "../../lib/data";
+const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
+const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
+---
+<Base title="地図" preload={maplibreUrl} description="全国の都道府県・市区町村・町丁目の人口や年齢構成などを色分けした地図。地域名で検索し、指標と時点を切り替えて比べられます。" wide>
+  <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl}>
+    <aside class="panel panel-conditions" aria-label="表示する条件">
+      <div class="search">
+        <label for="search-input">地域を検索</label>
+        <input id="search-input" type="search" placeholder="例: 新宿区、本町一丁目" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-controls="search-results" />
+        <ul id="search-results" role="listbox" hidden></ul>
+      </div>
+      <label class="field">指標 <select id="indicator-select"></select></label>
+      <!-- 犯罪など、種別と基準（件数・人口当たり）を切り替える指標 -->
+      <div id="facets" class="field facets" hidden>
+        <label class="inline">種別 <select id="facet-type"></select></label>
+        <label class="inline">基準 <select id="facet-basis"></select></label>
+      </div>
+      <div class="field period">
+        <div class="period-head">
+          <label for="period-range">時点</label>
+          <output id="period-label" for="period-range"></output>
+        </div>
+        <div class="period-control">
+          <button type="button" id="period-play" aria-pressed="false" aria-label="時点を順に再生">▶</button>
+          <input id="period-range" type="range" min="0" max="0" step="1" value="0" />
+        </div>
+        <div id="period-ticks" class="period-ticks" aria-hidden="true"></div>
+        <p id="period-note" class="muted small" hidden></p>
+        <label id="aggregate-wrap" class="inline check" hidden><input type="checkbox" id="aggregate-toggle" />
+          <span id="aggregate-label">直近5年の合計で見る</span></label>
+      </div>
+      <div id="legend" class="legend" aria-live="polite"></div>
+      <fieldset class="field view-options">
+        <legend>表示</legend>
+        <label class="inline">範囲
+          <select id="region-jump">
+            <!-- 公開版の都道府県から地図の処理で作る -->
+            <option value="mainland">東京都（区部・多摩）</option>
+          </select>
+        </label>
+        <label class="inline check"><input type="checkbox" id="colors-toggle" checked /> 色分けを表示</label>
+        <label class="inline check"><input type="checkbox" id="labels-toggle" checked /> 地名を表示</label>
+        <label class="inline check"><input type="checkbox" id="values-toggle" checked /> 地名の下に数値を表示</label>
+        <label class="inline check"><input type="checkbox" id="stations-toggle" /> 駅を表示（乗降客数）</label>
+        <p id="stations-legend" class="muted small" hidden></p>
+        <label class="inline check"><input type="checkbox" id="schools-toggle" /> 公立小中学校を表示（児童・生徒数）</label>
+        <p id="schools-legend" class="muted small" hidden></p>
+        <label class="inline check"><input type="checkbox" id="land-toggle" /> 地価公示を表示（標準地の価格）</label>
+        <p id="land-legend" class="muted small" hidden></p>
+        <label class="inline check"><input type="checkbox" id="nursery-toggle" /> 認可保育所を表示（定員）</label>
+        <p id="nursery-legend" class="muted small" hidden></p>
+        <label class="inline check"><input type="checkbox" id="basemap-toggle" /> 航空写真</label>
+        <button type="button" id="locate">現在地へ移動</button>
+      </fieldset>
+    </aside>
+    <div class="map-wrap">
+      <div id="map" role="region" aria-label="地図"></div>
+      <!-- 左右の欄の表示・非表示（地図を広く見る） -->
+      <button type="button" class="panel-toggle left" data-panel="left" aria-pressed="false" aria-label="条件の欄を隠す" title="条件の欄を隠す">‹</button>
+      <button type="button" class="panel-toggle right" data-panel="right" aria-pressed="false" aria-label="情報の欄を隠す" title="情報の欄を隠す">›</button>
+    </div>
+    <aside class="panel panel-info" aria-label="地域の情報">
+      <section id="pick-detail" class="detail station-detail" aria-live="polite" hidden></section>
+      <section id="station-detail" class="detail station-detail" aria-live="polite" hidden></section>
+      <section id="school-detail" class="detail station-detail" aria-live="polite" hidden></section>
+      <section id="land-detail" class="detail station-detail" aria-live="polite" hidden></section>
+      <section id="nursery-detail" class="detail station-detail" aria-live="polite" hidden></section>
+      <section id="detail" class="detail" aria-live="polite">
+        <p class="muted">地図をクリックするか、地域名で検索してください。</p>
+      </section>
+      <details id="list-wrap">
+        <summary>一覧で見る</summary>
+        <div id="list"></div>
+      </details>
+      <p class="muted small">
+        背景地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>。
+        <a href="/sources/">統計の出典</a>・<a href="/about/#terms">利用規約</a>
+      </p>
+      <AdSlot name="map" />
+    </aside>
+  </div>
+</Base>
+
+<script>
+  import { initMapApp } from "../../map/app";
+  const root = document.querySelector<HTMLElement>(".map-app")!;
+  void initMapApp(root, root.dataset.base!, root.dataset.maplibre!);
+</script>
+
+<style is:global>
+  /* 左: 条件、中央: 地図、右: 地域の情報 */
+  .map-app {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr) 360px;
+    height: calc(100dvh - var(--header-h));
+  }
+  .map-wrap { position: relative; min-height: 300px; }
+  /* 左右の欄を隠したときは、その列を0にして地図を広げる */
+  .map-app.hide-left { grid-template-columns: 0 minmax(0, 1fr) 360px; }
+  .map-app.hide-right { grid-template-columns: 300px minmax(0, 1fr) 0; }
+  .map-app.hide-left.hide-right { grid-template-columns: 0 minmax(0, 1fr) 0; }
+  .map-app.hide-left .panel-conditions, .map-app.hide-right .panel-info { display: none; }
+  /* 欄を隠しても地図が真ん中の列に残るよう、列を固定する */
+  .panel-conditions { grid-column: 1; grid-row: 1; }
+  .map-wrap { grid-column: 2; grid-row: 1; }
+  .panel-info { grid-column: 3; grid-row: 1; }
+  .panel-toggle {
+    position: absolute; top: 50%; z-index: 3; transform: translateY(-50%);
+    width: 22px; height: 56px; padding: 0; border: 1px solid var(--line); background: rgba(255,255,255,.95);
+    font-size: 1.1rem; line-height: 1; color: var(--fg); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  }
+  .panel-toggle.left { left: 0; border-left: 0; border-radius: 0 6px 6px 0; }
+  .panel-toggle.right { right: 0; border-right: 0; border-radius: 6px 0 0 6px; }
+  .panel-toggle:hover { background: var(--panel); }
+  .pick-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+  .pick-list button {
+    width: 100%; text-align: left; font: inherit; padding: 6px 10px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+  }
+  .pick-list button:hover { background: var(--panel); }
+  #map { position: absolute; inset: 0; }
+  .panel { overflow-y: auto; padding: 14px 16px; background: var(--surface); min-width: 0; }
+  .panel-conditions { border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; background: #fbfcfe; }
+  .panel-info { border-left: 1px solid var(--line); }
+  .panel label, .panel legend { display: block; font-weight: 700; font-size: 0.82rem; color: #3a4757; letter-spacing: .02em; }
+  .panel select, .panel input[type="search"] {
+    width: 100%; font: inherit; font-size: 0.95rem; padding: 7px 10px; margin-top: 4px;
+    border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--fg);
+  }
+  .panel select:focus, .panel input[type="search"]:focus { border-color: var(--accent); outline: 2px solid rgba(11,92,173,.2); }
+  .panel input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+  .legend, .view-options { border-top: 1px solid var(--line); padding-top: 12px; }
+  .panel label.inline { display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 0.9rem; color: var(--fg); letter-spacing: 0; }
+  .panel label.inline select { width: auto; flex: 1; margin: 0; }
+  .panel label.check { gap: 6px; }
+  /* display を指定した要素でも hidden で隠す（種別・基準、5年合計のチェック） */
+  .panel [hidden] { display: none !important; }
+  .facets { display: flex; flex-direction: column; gap: 6px; }
+  .facets label.inline { font-weight: 600; }
+  .period.aggregate #period-range, .period.aggregate .period-ticks, .period.aggregate #period-play { opacity: 0.4; }
+  .view-options { border: 0; border-top: 1px solid var(--line); padding: 12px 0 0; margin: 0; display: grid; gap: 6px; }
+  .view-options button {
+    justify-self: start; font: inherit; font-size: 0.9rem; padding: 4px 10px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--surface); cursor: pointer;
+  }
+  .period-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  #period-label { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .period-control { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .period-control input { flex: 1; accent-color: var(--accent); }
+  #period-play {
+    flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--surface); cursor: pointer; font-size: 0.8rem;
+  }
+  #period-play[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #period-play:disabled { opacity: 0.4; cursor: default; }
+  .period-ticks { display: flex; justify-content: space-between; margin-left: 40px; font-size: 0.8rem; color: var(--muted); }
+  .period-ticks span { cursor: pointer; }
+  .period-ticks span[aria-current="true"] { color: var(--fg); font-weight: 700; }
+  .search { position: relative; }
+  #search-results {
+    position: absolute; z-index: 5; left: 0; right: 0; margin: 2px 0 0; padding: 0; list-style: none;
+    background: #fff; border: 1px solid var(--line); border-radius: 6px; max-height: 50vh; overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  }
+  #search-results li { padding: 6px 10px; cursor: pointer; }
+  #search-results li[aria-selected="true"], #search-results li:hover { background: var(--panel); }
+  .legend { font-size: 0.85rem; }
+  .legend ul { list-style: none; padding: 0; margin: 4px 0; }
+  .legend li { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 18px; height: 12px; border: 1px solid rgba(0,0,0,.2); flex: none; }
+  .legend .swatch.blank { background: transparent; border-style: dashed; }
+  .legend.dimmed { opacity: 0.45; }
+  .detail .value { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .detail h2 { margin: 0.2em 0; font-size: 1.2rem; }
+  .station-detail { position: relative; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px; }
+  .station-detail .close {
+    position: absolute; top: 0; right: 0; border: 0; background: none; font-size: 1.2rem; cursor: pointer; color: var(--muted);
+  }
+  #stations-legend, #schools-legend, #land-legend, #nursery-legend { margin: -2px 0 0 22px; }
+  .land-bins { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px; }
+  .land-bins .sw {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: -1px;
+    border: 1px solid #fff; box-shadow: 0 0 0 1px #bbb;
+  }
+  .trend-scroll { max-height: 260px; overflow-y: auto; }
+  .trend { margin: 8px 0; font-size: 0.85rem; width: 100%; }
+  .panel table th, .panel table td { padding: 5px 6px; }
+  .panel thead th { font-size: 0.78rem; }
+  .trend td, .trend th { white-space: nowrap; }
+  .trend caption { text-align: left; font-weight: 600; }
+  .trend tr[aria-current="true"] td { font-weight: 700; background: var(--panel); }
+  .small { font-size: 0.8rem; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  #list table { font-size: 0.85rem; }
+  @media (max-width: 1100px) {
+    .map-app { grid-template-columns: 260px minmax(0, 1fr) 300px; }
+    .map-app.hide-left { grid-template-columns: 0 minmax(0, 1fr) 300px; }
+    .map-app.hide-right { grid-template-columns: 260px minmax(0, 1fr) 0; }
+  }
+  @media (max-width: 860px) {
+    .map-app, .map-app.hide-left, .map-app.hide-right, .map-app.hide-left.hide-right { grid-template-columns: 1fr; height: auto; }
+    .panel-toggle { display: none; }
+    .panel-conditions, .map-wrap, .panel-info { grid-column: auto; grid-row: auto; }
+    /* スマートフォンでは地図を先に出し、条件と情報はその下に置く */
+    .map-wrap { height: 68dvh; order: 1; }
+    .panel-conditions { order: 2; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+    .panel-info { order: 3; border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  }
+</style>

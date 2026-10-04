@@ -1,0 +1,1759 @@
+# 出典の定義。版（ファイルhash）ごとに sources テーブルへ登録される。
+# download_url は e-Stat 統計GIS の一括ダウンロードURL（2026-10-03 に GitHub Actions から
+# 取得できることを確認）。統計表の statsId は集計単位ごとに異なる（T001081 は小地域、
+# T001100 等は地域メッシュ）ので、変更時はファイルの KEY_CODE が11桁かを確認する。
+# 取得できない場合は url の公開ページから手動でダウンロードして data/raw/<キー>/ に置く。
+# per_prefecture = true の出典は都道府県ごとに取得し、download_url の {pref} を都道府県コード2桁に置き換えて
+# data/raw/<キー>/<都道府県コード>/ に置く。prefectures を書いた出典はその都道府県だけ取得する（design-changes #52）。
+
+[census2020_small_area_boundary]
+per_prefecture = true
+title = "令和2年国勢調査 小地域（町丁・字等）境界データ（世界測地系緯度経度・Shapefile）"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=2&aggregateUnitForBoundary=A&toukeiCode=00200521&toukeiYear=2020&serveyId=A002005212020&coordsys=1&format=shape&datum=2011"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?dlserveyId=A002005212020&code={pref}&coordSys=1&format=shape&downloadType=5&datum=2011"
+files = ["*.shp", "*.dbf", "*.shx", "*.prj"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 国勢調査 小地域境界データ"
+modification_note = "境界を表示用に簡略化し、市区町村界を合成して作成"
+redistributable = true
+
+[census2020_small_area_population]
+per_prefecture = true
+title = "令和2年国勢調査 小地域集計 男女別人口総数及び世帯総数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2020&aggregateUnit=A&serveyId=A002005212020&statsId=T001081"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T001081&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "町丁・字等別の値を地域IDに対応付けて作成"
+redistributable = true
+
+[census2020_small_area_age]
+per_prefecture = true
+title = "令和2年国勢調査 小地域集計 年齢（5歳階級、4区分）別、男女別人口"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2020&aggregateUnit=A&serveyId=A002005212020&statsId=T001082"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T001082&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "年齢区分別人口から割合を算出して作成"
+redistributable = true
+
+# 最終学歴は統計GISに町丁・字等の表がないため、e-Stat「ファイル」の小地域集計CSV（第13表）を使う。
+# format = "estat_files" で統計GISの表と同じ形に読み替える（docs/design-changes.md #27-2）。
+# statInfId は 2026-10-03 に GitHub Actions から取得して列名・秘匿処理の表記を確認した。
+[census2020_small_area_education]
+per_prefecture = true
+# statInfId は都道府県ごとに違うので、取得時に e-Stat の一覧から表番号で探す（東京都は確認済みの値）
+estat_lookup = { tstat = "000001136464", tclass1 = "000001136472", table = "第13表" }
+known_ids = { "13" = "000032210414" }
+title = "令和2年国勢調査 小地域集計 第13表 男女，在学か否かの別・最終卒業学校の種類別人口（15歳以上）－町丁・字等"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001136464&toukei=00200521&cycle=0&tclass1=000001136472&layout=datalist&page=1&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId={id}&fileKind=1"
+download_filename = "h13_{pref}.csv"
+files = ["*.csv"]
+format = "estat_files"
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "最終卒業学校の種類別人口から割合を算出して作成"
+redistributable = true
+
+# 平成27年（2015年）国勢調査。時系列の比較用（docs/design-changes.md #20）。
+# statsId は 2026-10-03 に GitHub Actions から取得して列名を確認した。
+[census2010_small_area_boundary]
+per_prefecture = true
+title = "平成22年国勢調査 小地域（町丁・字等）境界データ（世界測地系緯度経度・Shapefile）"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=2&aggregateUnitForBoundary=A&toukeiCode=00200521&toukeiYear=2010&serveyId=A002005212010&coordsys=1&format=shape&datum=2000"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?dlserveyId=A002005212010&code={pref}&coordSys=1&format=shape&downloadType=5&datum=2000"
+files = ["*.shp", "*.dbf", "*.shx", "*.prj"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 国勢調査 小地域境界データ"
+modification_note = "2010年の値を2020年の境界と比べられるか判定するために使用（測地系は JGD2000。面積の比較には影響しない）"
+redistributable = true
+
+[census2010_small_area_population]
+per_prefecture = true
+title = "平成22年国勢調査 小地域集計 男女別人口総数及び世帯総数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2010&aggregateUnit=A&serveyId=A002005212010&statsId=T000572"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000572&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 小地域集計"
+modification_note = "町丁・字等別の値を2020年の地域IDに対応付けて作成"
+redistributable = true
+
+[census2010_small_area_age]
+per_prefecture = true
+title = "平成22年国勢調査 小地域集計 年齢（5歳階級、4区分）別、男女別人口"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2010&aggregateUnit=A&serveyId=A002005212010&statsId=T000573"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000573&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 小地域集計"
+modification_note = "年齢区分別人口から割合を算出して作成"
+redistributable = true
+
+[census2015_small_area_boundary]
+per_prefecture = true
+title = "平成27年国勢調査 小地域（町丁・字等）境界データ（世界測地系緯度経度・Shapefile）"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=2&aggregateUnitForBoundary=A&toukeiCode=00200521&toukeiYear=2015&serveyId=A002005212015&coordsys=1&format=shape&datum=2011"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?dlserveyId=A002005212015&code={pref}&coordSys=1&format=shape&downloadType=5&datum=2011"
+files = ["*.shp", "*.dbf", "*.shx", "*.prj"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 国勢調査 小地域境界データ"
+modification_note = "2015年の値を2020年の境界と比べられるか判定するために使用"
+redistributable = true
+
+[census2015_small_area_population]
+per_prefecture = true
+title = "平成27年国勢調査 小地域集計 男女別人口総数及び世帯総数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2015&aggregateUnit=A&serveyId=A002005212015&statsId=T000848"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000848&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 小地域集計"
+modification_note = "町丁・字等別の値を2020年の地域IDに対応付けて作成"
+redistributable = true
+
+[census2015_small_area_age]
+per_prefecture = true
+title = "平成27年国勢調査 小地域集計 年齢（5歳階級、4区分）別、男女別人口"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2015&aggregateUnit=A&serveyId=A002005212015&statsId=T000849"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000849&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 小地域集計"
+modification_note = "年齢区分別人口から割合を算出して作成"
+redistributable = true
+
+# 暮らし方（世帯人員・家族類型・住宅の所有の関係・住宅の建て方）。統計GISの小地域集計（docs/design-changes.md #39）。
+# statsId と列名は 2026-10-03 に GitHub Actions から取得して確認した。
+
+[census2010_small_area_household_size]
+per_prefecture = true
+title = "平成22年国勢調査 小地域集計 世帯人員別一般世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2010&aggregateUnit=A&serveyId=A002005212010&statsId=T000574"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000574&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2010_small_area_family_type]
+per_prefecture = true
+title = "平成22年国勢調査 小地域集計 世帯の家族類型別一般世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2010&aggregateUnit=A&serveyId=A002005212010&statsId=T000575"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000575&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2010_small_area_tenure]
+per_prefecture = true
+title = "平成22年国勢調査 小地域集計 住宅の所有の関係別一般世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2010&aggregateUnit=A&serveyId=A002005212010&statsId=T000576"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000576&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2010_small_area_building_type]
+per_prefecture = true
+title = "平成22年国勢調査 小地域集計 住宅の建て方別主世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2010&aggregateUnit=A&serveyId=A002005212010&statsId=T000577"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000577&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2015_small_area_household_size]
+per_prefecture = true
+title = "平成27年国勢調査 小地域集計 世帯人員別一般世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2015&aggregateUnit=A&serveyId=A002005212015&statsId=T000850"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000850&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2015_small_area_family_type]
+per_prefecture = true
+title = "平成27年国勢調査 小地域集計 世帯の家族類型別一般世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2015&aggregateUnit=A&serveyId=A002005212015&statsId=T000851"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000851&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2015_small_area_tenure]
+per_prefecture = true
+title = "平成27年国勢調査 小地域集計 住宅の所有の関係別一般世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2015&aggregateUnit=A&serveyId=A002005212015&statsId=T000852"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000852&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2015_small_area_building_type]
+per_prefecture = true
+title = "平成27年国勢調査 小地域集計 住宅の建て方別主世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2015&aggregateUnit=A&serveyId=A002005212015&statsId=T000853"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000853&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_household_size]
+per_prefecture = true
+title = "令和2年国勢調査 小地域集計 世帯人員別一般世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2020&aggregateUnit=A&serveyId=A002005212020&statsId=T001083"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T001083&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_family_type]
+per_prefecture = true
+title = "令和2年国勢調査 小地域集計 世帯の家族類型別一般世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2020&aggregateUnit=A&serveyId=A002005212020&statsId=T001084"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T001084&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_tenure]
+per_prefecture = true
+title = "令和2年国勢調査 小地域集計 住宅の所有の関係別一般世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2020&aggregateUnit=A&serveyId=A002005212020&statsId=T001085"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T001085&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_building_type]
+per_prefecture = true
+title = "令和2年国勢調査 小地域集計 住宅の建て方別主世帯数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2020&aggregateUnit=A&serveyId=A002005212020&statsId=T001086"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T001086&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "世帯数から割合を算出して作成"
+redistributable = true
+
+# 働き方（産業・従業上の地位・職業）。統計GISの小地域集計（docs/design-changes.md #40）。
+# statsId と列名は 2026-10-03 に GitHub Actions から取得して確認した。2010年は T000587（産業・従業上の地位）があるが
+# 区市町村の行がなく、職業の表は統計GISにないため使わない。
+
+[census2015_small_area_industry_status]
+per_prefecture = true
+title = "平成27年国勢調査 小地域集計 産業（大分類）別、従業上の地位別15歳以上就業者数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2015&aggregateUnit=A&serveyId=A002005212015&statsId=T000865"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000865&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 小地域集計"
+modification_note = "就業者数から割合を算出して作成"
+redistributable = true
+
+[census2015_small_area_occupation]
+per_prefecture = true
+title = "平成27年国勢調査 小地域集計 職業（大分類）別15歳以上就業者数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2015&aggregateUnit=A&serveyId=A002005212015&statsId=T000866"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T000866&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 小地域集計"
+modification_note = "就業者数から割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_industry_status]
+per_prefecture = true
+title = "令和2年国勢調査 小地域集計 産業（大分類）別、従業上の地位別15歳以上就業者数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2020&aggregateUnit=A&serveyId=A002005212020&statsId=T001103"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T001103&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "就業者数から割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_occupation]
+per_prefecture = true
+title = "令和2年国勢調査 小地域集計 職業（大分類）別15歳以上就業者数"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200521&toukeiYear=2020&aggregateUnit=A&serveyId=A002005212020&statsId=T001104"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T001104&code={pref}&downloadType=2"
+files = ["*.txt", "*.csv"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "就業者数から割合を算出して作成"
+redistributable = true
+
+# 外国人人口（町丁・字等）。統計GISにないため e-Stat「ファイル」の小地域集計CSV（第2表）を使う（docs/design-changes.md #41）。
+# 2026-10-03 に GitHub Actions から取得して列名・秘匿処理の表記を確認した（男女の列がなく、外国人人口の列名は1行上）。
+[census2020_small_area_foreign]
+per_prefecture = true
+# statInfId は都道府県ごとに違うので、取得時に e-Stat の一覧から表番号で探す（東京都は確認済みの値）
+estat_lookup = { tstat = "000001136464", tclass1 = "000001136472", table = "第2表" }
+known_ids = { "13" = "000032163274" }
+title = "令和2年国勢調査 小地域集計 第2表 男女別人口，外国人人口及び世帯数－町丁・字等"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001136464&toukei=00200521&cycle=0&tclass1=000001136472&layout=datalist&page=1&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId={id}&fileKind=1"
+download_filename = "h02_{pref}.csv"
+files = ["*.csv"]
+format = "estat_files"
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "外国人人口から割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_commute]
+per_prefecture = true
+# statInfId は都道府県ごとに違うので、取得時に e-Stat の一覧から表番号で探す（東京都は確認済みの値）
+estat_lookup = { tstat = "000001136464", tclass1 = "000001136472", table = "第17-1表" }
+known_ids = { "13" = "000032226983" }
+title = "令和2年国勢調査 小地域集計 第17-1表 男女，利用交通手段別通勤者・通学者数（15歳以上）－町丁・字等"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001136464&toukei=00200521&cycle=0&tclass1=000001136472&layout=datalist&page=1&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId={id}&fileKind=1"
+download_filename = "h17-1_{pref}.csv"
+files = ["*.csv"]
+format = "estat_files"
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "利用交通手段別の通勤者・通学者数から割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_school]
+per_prefecture = true
+# statInfId は都道府県ごとに違うので、取得時に e-Stat の一覧から表番号で探す（東京都は確認済みの値）
+estat_lookup = { tstat = "000001136464", tclass1 = "000001136472", table = "第14表" }
+known_ids = { "13" = "000032210461" }
+title = "令和2年国勢調査 小地域集計 第14表 男女，在学学校・未就学の種類別人口－町丁・字等"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001136464&toukei=00200521&cycle=0&tclass1=000001136472&layout=datalist&page=1&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId={id}&fileKind=1"
+download_filename = "h14_{pref}.csv"
+files = ["*.csv"]
+format = "estat_files"
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "大学・大学院の在学者数を合計し、人口に対する割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_residence_5y]
+per_prefecture = true
+# statInfId は都道府県ごとに違うので、取得時に e-Stat の一覧から表番号で探す（東京都は確認済みの値）
+estat_lookup = { tstat = "000001136464", tclass1 = "000001136472", table = "第19表" }
+known_ids = { "13" = "000032181229" }
+title = "令和2年国勢調査 小地域集計 第19表 男女，5年前の常住地別人口－町丁・字等"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001136464&toukei=00200521&cycle=0&tclass1=000001136472&layout=datalist&page=1&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId={id}&fileKind=1"
+download_filename = "h19_{pref}.csv"
+files = ["*.csv"]
+format = "estat_files"
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "5年前の常住地別人口から割合を算出して作成"
+redistributable = true
+
+[census2020_small_area_residence_period]
+per_prefecture = true
+# statInfId は都道府県ごとに違うので、取得時に e-Stat の一覧から表番号で探す（東京都は確認済みの値）
+estat_lookup = { tstat = "000001136464", tclass1 = "000001136472", table = "第18表" }
+known_ids = { "13" = "000032181182" }
+title = "令和2年国勢調査 小地域集計 第18表 男女，居住期間別人口－町丁・字等"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001136464&toukei=00200521&cycle=0&tclass1=000001136472&layout=datalist&page=1&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId={id}&fileKind=1"
+download_filename = "h18_{pref}.csv"
+files = ["*.csv"]
+format = "estat_files"
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 小地域集計"
+modification_note = "居住期間別人口から割合を算出して作成"
+redistributable = true
+
+# 平成27年は男女の列がなく、総数・男・女の値が横に並ぶ（列名がくり返す）。列名は「総数（居住期間）」
+[census2015_small_area_residence_period]
+per_prefecture = true
+prefectures = ["13"]  # 都道府県ごとの statInfId を調べるまで東京都だけ
+title = "平成27年国勢調査 小地域集計 東京都 第13表 居住期間（6区分），男女別人口－町丁・字等"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001080615&toukei=00200521"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031580926&fileKind=1"
+download_filename = "t13_13.csv"
+files = ["*.csv"]
+format = "estat_files"
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 小地域集計"
+modification_note = "居住期間別人口から割合を算出して作成"
+redistributable = true
+
+# 昼間人口（区市町村）。犯罪の昼間人口当たり件数の分母（docs/design-changes.md #14・#28）。
+# 東京都の統計「東京都の昼間人口（令和2年国勢調査）」表1。2026-10-03 に GitHub Actions から取得して確認。
+[tokyo_daytime_2020]
+kind = "tokyo_daytime"
+period = "2020-10-01"
+title = "東京都の昼間人口（従業地・通学地による人口）令和2年 表1 地域、昼間・常住、男女別人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2020/tj-20index.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2020/tj20zv0100.csv"
+download_filename = "tj20zv0100.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「東京都の昼間人口（令和2年国勢調査）」"
+modification_note = "区市町村別の昼間人口を地域IDに対応付けて作成"
+redistributable = true
+
+# 平成27年・平成22年の昼間人口（昼夜間人口比率の時系列用、docs/design-changes.md #42）。2026-10-03 に GitHub Actions から取得して確認。
+[tokyo_daytime_2015]
+kind = "tokyo_daytime"
+period = "2015-10-01"
+title = "東京都の昼間人口（従業地・通学地による人口）平成27年 表1 地域、昼間・常住、男女別人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2015/tj-15index.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2015/tj15zv0100.csv"
+download_filename = "tj15zv0100.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「東京都の昼間人口（平成27年国勢調査）」"
+modification_note = "区市町村別の昼間人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_daytime_2010]
+kind = "tokyo_daytime"
+period = "2010-10-01"
+title = "東京都の昼間人口（従業地・通学地による人口）平成22年 表1 地域、昼間・夜間、男女別人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2010/tj-10index.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2010/tj10zv0100.csv"
+download_filename = "tj10zv0100.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「東京都の昼間人口（平成22年国勢調査）」"
+modification_note = "区市町村別の昼間人口を地域IDに対応付けて作成"
+redistributable = true
+
+# 外国人人口（区市町村、国籍・地域別、各年1月1日現在）。東京都の統計「外国人人口」表3（docs/design-changes.md #41）。
+# 2026-10-03 に GitHub Actions から取得して列名を確認した。平成28年以前は韓国・朝鮮が1列、台湾が中国に含まれるため平成29年から。
+
+[tokyo_foreign_2017]
+kind = "tokyo_foreign"
+period = "2017-01-01"
+title = "外国人人口 2017年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2017/ga17010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2017/ga17ev0300.csv"
+download_filename = "ga17ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_foreign_2018]
+kind = "tokyo_foreign"
+period = "2018-01-01"
+title = "外国人人口 2018年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2018/ga18010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2018/ga18ev0300.csv"
+download_filename = "ga18ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_foreign_2019]
+kind = "tokyo_foreign"
+period = "2019-01-01"
+title = "外国人人口 2019年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2019/ga19010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2019/ga19ev0300.csv"
+download_filename = "ga19ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_foreign_2020]
+kind = "tokyo_foreign"
+period = "2020-01-01"
+title = "外国人人口 2020年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2020/ga20010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2020/ga20ev0300.csv"
+download_filename = "ga20ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_foreign_2021]
+kind = "tokyo_foreign"
+period = "2021-01-01"
+title = "外国人人口 2021年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2021/ga21010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2021/ga21ev0300.csv"
+download_filename = "ga21ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_foreign_2022]
+kind = "tokyo_foreign"
+period = "2022-01-01"
+title = "外国人人口 2022年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2022/ga22010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2022/ga22ev0300.csv"
+download_filename = "ga22ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_foreign_2023]
+kind = "tokyo_foreign"
+period = "2023-01-01"
+title = "外国人人口 2023年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2023/ga23010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2023/ga23ev0300.csv"
+download_filename = "ga23ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_foreign_2024]
+kind = "tokyo_foreign"
+period = "2024-01-01"
+title = "外国人人口 2024年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2024/ga24010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2024/ga24ev0300.csv"
+download_filename = "ga24ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_foreign_2025]
+kind = "tokyo_foreign"
+period = "2025-01-01"
+title = "外国人人口 2025年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2025/ga25010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2025/ga25ev0300.csv"
+download_filename = "ga25ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+[tokyo_foreign_2026]
+kind = "tokyo_foreign"
+period = "2026-01-01"
+title = "外国人人口 2026年1月1日現在 表3 区市町村、国籍・地域別外国人人口"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2026/ga26010000.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/gaikoku/2026/ga26ev0300.csv"
+download_filename = "ga26ev0300.csv"
+files = ["*.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「外国人人口」"
+modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
+redistributable = true
+
+# 犯罪の認知件数（警視庁、年計）。年ごとのCSV。形式は pipeline/tdm/ingest/keishicho_crime.py を参照。
+# 2026-10-03 に GitHub Actions から取得して列名・名称の形式を確認した（docs/design-changes.md #28）。
+
+[keishicho_crime_2019]
+kind = "keishicho_crime"
+year = 2019
+title = "区市町村の町丁別、罪種別及び手口別認知件数（平成31年・令和元年・年計）"
+provider = "警視庁"
+url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.html"
+download_url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.files/H31.csv"
+download_filename = "H31.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：警視庁「区市町村の町丁別、罪種別及び手口別認知件数」"
+modification_note = "町丁目名を地域IDに対応付け、人口当たりの件数を算出して作成（公表当時の暫定値）"
+redistributable = true
+
+[keishicho_crime_2020]
+kind = "keishicho_crime"
+year = 2020
+title = "区市町村の町丁別、罪種別及び手口別認知件数（令和2年・年計）"
+provider = "警視庁"
+url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.html"
+download_url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.files/R2.csv"
+download_filename = "R2.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：警視庁「区市町村の町丁別、罪種別及び手口別認知件数」"
+modification_note = "町丁目名を地域IDに対応付け、人口当たりの件数を算出して作成（公表当時の暫定値）"
+redistributable = true
+
+[keishicho_crime_2021]
+kind = "keishicho_crime"
+year = 2021
+title = "区市町村の町丁別、罪種別及び手口別認知件数（令和3年・年計）"
+provider = "警視庁"
+url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.html"
+download_url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.files/R3.csv"
+download_filename = "R3.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：警視庁「区市町村の町丁別、罪種別及び手口別認知件数」"
+modification_note = "町丁目名を地域IDに対応付け、人口当たりの件数を算出して作成（公表当時の暫定値）"
+redistributable = true
+
+[keishicho_crime_2022]
+kind = "keishicho_crime"
+year = 2022
+title = "区市町村の町丁別、罪種別及び手口別認知件数（令和4年・年計）"
+provider = "警視庁"
+url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.html"
+download_url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.files/R4.csv"
+download_filename = "R4.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：警視庁「区市町村の町丁別、罪種別及び手口別認知件数」"
+modification_note = "町丁目名を地域IDに対応付け、人口当たりの件数を算出して作成（公表当時の暫定値）"
+redistributable = true
+
+[keishicho_crime_2023]
+kind = "keishicho_crime"
+year = 2023
+title = "区市町村の町丁別、罪種別及び手口別認知件数（令和5年・年計）"
+provider = "警視庁"
+url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.html"
+download_url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.files/R5.csv"
+download_filename = "R5.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：警視庁「区市町村の町丁別、罪種別及び手口別認知件数」"
+modification_note = "町丁目名を地域IDに対応付け、人口当たりの件数を算出して作成（公表当時の暫定値）"
+redistributable = true
+
+[keishicho_crime_2024]
+kind = "keishicho_crime"
+year = 2024
+title = "区市町村の町丁別、罪種別及び手口別認知件数（令和6年・年計）"
+provider = "警視庁"
+url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.html"
+download_url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.files/R6.csv"
+download_filename = "R6.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：警視庁「区市町村の町丁別、罪種別及び手口別認知件数」"
+modification_note = "町丁目名を地域IDに対応付け、人口当たりの件数を算出して作成（公表当時の暫定値）"
+redistributable = true
+
+[keishicho_crime_2025]
+kind = "keishicho_crime"
+year = 2025
+title = "区市町村の町丁別、罪種別及び手口別認知件数（令和7年・年計）"
+provider = "警視庁"
+url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.html"
+download_url = "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/ninchikensu.files/R7.csv"
+download_filename = "R7.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：警視庁「区市町村の町丁別、罪種別及び手口別認知件数」"
+modification_note = "町丁目名を地域IDに対応付け、人口当たりの件数を算出して作成（公表当時の暫定値）"
+redistributable = true
+
+# 駅の利用者数（国土交通省 国土数値情報 S12）。2011〜2024年度の値が1つのファイルに入っている。
+# 形式は pipeline/tdm/ingest/mlit_stations.py を参照（docs/design-changes.md #33）。
+[mlit_s12_2024]
+prefectures = ["13"]  # 元データは全国。駅の点のファイルを都道府県ごとに分けるまで東京都だけ
+kind = "mlit_stations"
+title = "国土数値情報 駅別乗降客数データ（2024年度版）"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-S12-2024.html"
+download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/S12/S12-25/S12-25_GML.zip"
+files = ["UTF-8/S12-*_NumberOfPassengers.geojson"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（国土数値情報 オープンデータ）"
+license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
+attribution = "出典：国土交通省 国土数値情報（駅別乗降客数データ）"
+modification_note = "東京都内の駅を抜き出し、事業者ごとに駅をまとめて作成"
+redistributable = true
+
+# 地価公示（国土交通省 国土数値情報 L01、東京都）。2026年の公示の標準地に、1983年からの価格の推移が入っている。
+[mlit_l01_2026]
+kind = "mlit_landprice"
+title = "国土数値情報 地価公示データ（2026年、東京都）"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L01-2026.html"
+download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/L01/L01-26/L01-26_13_GML.zip"
+files = ["L01-*_13.geojson"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（国土数値情報 オープンデータ）"
+license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
+attribution = "出典：国土交通省 国土数値情報（地価公示データ）"
+modification_note = "標準地ごとの価格の推移を抜き出して作成"
+redistributable = true
+
+# 公立小学校・中学校・義務教育学校の児童・生徒数（東京都教育委員会「東京都公立学校一覧」、各年度5月1日現在）。
+# 1年度に6ファイル（学校種別ごとの一覧と住所）。ファイル名は年度ごとに付け方が違うので、学校一覧の
+# CSVページから 2026-10-03 に GitHub Actions で確認した。形式は pipeline/tdm/ingest/tokyo_schools.py を参照。
+[tokyo_schools_2025]
+kind = "tokyo_schools"
+school_year = 2025
+title = "令和7年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2025年5月1日現在）"
+provider = "東京都教育委員会"
+url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2025/report2025_csv"
+files = ["*_counts.csv", "*_address.csv"]
+encoding = "cp932"
+license = "東京都教育委員会ホームページの利用条件による"
+license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
+modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
+redistributable = true
+[tokyo_schools_2025.download_files]
+"elementary_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_shougakkou_ichiran"
+"elementary_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_shougakkou_address"
+"junior_high_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_chuugakkou_ichiran"
+"junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_chuugakkou_address"
+"compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_gimu_ichiran"
+"compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_gimu_address"
+[tokyo_schools_2024]
+kind = "tokyo_schools"
+school_year = 2024
+title = "令和6年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2024年5月1日現在）"
+provider = "東京都教育委員会"
+url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2024/report2024_01_csv"
+files = ["*_counts.csv", "*_address.csv"]
+encoding = "cp932"
+license = "東京都教育委員会ホームページの利用条件による"
+license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
+modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
+redistributable = true
+[tokyo_schools_2024.download_files]
+"elementary_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_shougakkou-ichiran"
+"elementary_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_shougakkou-address"
+"junior_high_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_chuugakkou-ichiran"
+"junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_chuugakkou-address"
+"compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_gimu-ichiran"
+"compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_gimu-address"
+[tokyo_schools_2023]
+kind = "tokyo_schools"
+school_year = 2023
+title = "令和5年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2023年5月1日現在）"
+provider = "東京都教育委員会"
+url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2023/report2023_01_csv"
+files = ["*_counts.csv", "*_address.csv"]
+encoding = "cp932"
+license = "東京都教育委員会ホームページの利用条件による"
+license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
+modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
+redistributable = true
+[tokyo_schools_2023.download_files]
+"elementary_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-ichiran_9"
+"elementary_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-address_4"
+"junior_high_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-ichiran_9"
+"junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-address_3"
+"compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-ichiran_9"
+"compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-address_3"
+[tokyo_schools_2022]
+kind = "tokyo_schools"
+school_year = 2022
+title = "令和4年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2022年5月1日現在）"
+provider = "東京都教育委員会"
+url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2022/report2022_03_csv"
+files = ["*_counts.csv", "*_address.csv"]
+encoding = "cp932"
+license = "東京都教育委員会ホームページの利用条件による"
+license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
+modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
+redistributable = true
+[tokyo_schools_2022.download_files]
+"elementary_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-ichiran_3-1"
+"elementary_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-address_3"
+"junior_high_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-ichiran_3-1"
+"junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-adress"
+"compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-ichiran_3-1"
+"compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-adress"
+[tokyo_schools_2021]
+kind = "tokyo_schools"
+school_year = 2021
+title = "令和3年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2021年5月1日現在）"
+provider = "東京都教育委員会"
+url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2021/school_lists2021_csv"
+files = ["*_counts.csv", "*_address.csv"]
+encoding = "cp932"
+license = "東京都教育委員会ホームページの利用条件による"
+license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
+modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
+redistributable = true
+[tokyo_schools_2021.download_files]
+"elementary_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-ichiran_2-1"
+"elementary_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-address_2"
+"junior_high_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-ichiran_2-1"
+"junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-address_2"
+"compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-ichiran_2-1"
+"compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-address_2"
+
+# 住所から学校の位置を求めるための街区の代表点（国土交通省 位置参照情報、街区レベル 24.0a、2025年版）。
+# 2026-10-03 に GitHub Actions から取得して列名を確認した。サイトにはこのファイル自体は載せない。
+[mlit_isj_2025]
+kind = "isj_gazetteer"
+level = "block"
+title = "位置参照情報 街区レベル（東京都・2025年版 24.0a）"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/isj/index.html"
+download_url = "https://nlftp.mlit.go.jp/isj/dls/data/24.0a/13000-24.0a.zip"
+files = ["13_*.csv"]
+encoding = "cp932"
+license = "位置参照情報ダウンロードサービス 利用約款"
+license_url = "https://nlftp.mlit.go.jp/isj/agreement.html"
+attribution = "「位置参照情報」（国土交通省）を加工して作成"
+modification_note = "学校の住所の位置を求めるために使用"
+redistributable = true
+
+# 街区レベルのない町村（瑞穂町・日の出町・檜原村・奥多摩町や島しょの一部）を補う大字・町丁目レベル（19.0b、2025年版）。
+[mlit_isj_oaza_2025]
+kind = "isj_gazetteer"
+level = "oaza"
+title = "位置参照情報 大字・町丁目レベル（東京都・2025年版 19.0b）"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/isj/index.html"
+download_url = "https://nlftp.mlit.go.jp/isj/dls/data/19.0b/13000-19.0b.zip"
+files = ["13_*.csv"]
+encoding = "cp932"
+license = "位置参照情報ダウンロードサービス 利用約款"
+license_url = "https://nlftp.mlit.go.jp/isj/agreement.html"
+attribution = "「位置参照情報」（国土交通省）を加工して作成"
+modification_note = "学校の住所の位置を求めるために使用"
+redistributable = true
+
+# 交通事故（警察庁 交通事故統計情報のオープンデータ、本票）。全国のファイルから東京都（警視庁）の行だけ残す
+[npa_traffic_2019]
+cache = true  # 過去の年のファイルは変わらないので、取得済みなら取り直さない
+kind = "npa_traffic"
+year = 2019
+title = "交通事故統計情報のオープンデータ 本票（2019年）"
+provider = "警察庁"
+url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2019/opendata_2019.html"
+download_url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2019/honhyo_2019.csv"
+download_filename = "honhyo_2019.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "公共データ利用規約（第1.0版）"
+license_url = "https://www.npa.go.jp/rules/index.html"
+attribution = "出典：警察庁「交通事故統計情報のオープンデータ」（https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html）"
+modification_note = "警察庁「交通事故統計情報のオープンデータ」を加工して作成（事故の地点を町丁目・区市町村に集計）"
+redistributable = true
+
+[npa_traffic_2020]
+cache = true  # 過去の年のファイルは変わらないので、取得済みなら取り直さない
+kind = "npa_traffic"
+year = 2020
+title = "交通事故統計情報のオープンデータ 本票（2020年）"
+provider = "警察庁"
+url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2020/opendata_2020.html"
+download_url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2020/honhyo_2020.csv"
+download_filename = "honhyo_2020.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "公共データ利用規約（第1.0版）"
+license_url = "https://www.npa.go.jp/rules/index.html"
+attribution = "出典：警察庁「交通事故統計情報のオープンデータ」（https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html）"
+modification_note = "警察庁「交通事故統計情報のオープンデータ」を加工して作成（事故の地点を町丁目・区市町村に集計）"
+redistributable = true
+
+[npa_traffic_2021]
+cache = true  # 過去の年のファイルは変わらないので、取得済みなら取り直さない
+kind = "npa_traffic"
+year = 2021
+title = "交通事故統計情報のオープンデータ 本票（2021年）"
+provider = "警察庁"
+url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2021/opendata_2021.html"
+download_url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2021/honhyo_2021.csv"
+download_filename = "honhyo_2021.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "公共データ利用規約（第1.0版）"
+license_url = "https://www.npa.go.jp/rules/index.html"
+attribution = "出典：警察庁「交通事故統計情報のオープンデータ」（https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html）"
+modification_note = "警察庁「交通事故統計情報のオープンデータ」を加工して作成（事故の地点を町丁目・区市町村に集計）"
+redistributable = true
+
+[npa_traffic_2022]
+cache = true  # 過去の年のファイルは変わらないので、取得済みなら取り直さない
+kind = "npa_traffic"
+year = 2022
+title = "交通事故統計情報のオープンデータ 本票（2022年）"
+provider = "警察庁"
+url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2022/opendata_2022.html"
+download_url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2022/honhyo_2022.csv"
+download_filename = "honhyo_2022.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "公共データ利用規約（第1.0版）"
+license_url = "https://www.npa.go.jp/rules/index.html"
+attribution = "出典：警察庁「交通事故統計情報のオープンデータ」（https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html）"
+modification_note = "警察庁「交通事故統計情報のオープンデータ」を加工して作成（事故の地点を町丁目・区市町村に集計）"
+redistributable = true
+
+[npa_traffic_2023]
+cache = true  # 過去の年のファイルは変わらないので、取得済みなら取り直さない
+kind = "npa_traffic"
+year = 2023
+title = "交通事故統計情報のオープンデータ 本票（2023年）"
+provider = "警察庁"
+url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2023/opendata_2023.html"
+download_url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2023/honhyo_2023.csv"
+download_filename = "honhyo_2023.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "公共データ利用規約（第1.0版）"
+license_url = "https://www.npa.go.jp/rules/index.html"
+attribution = "出典：警察庁「交通事故統計情報のオープンデータ」（https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html）"
+modification_note = "警察庁「交通事故統計情報のオープンデータ」を加工して作成（事故の地点を町丁目・区市町村に集計）"
+redistributable = true
+
+[npa_traffic_2024]
+cache = true  # 過去の年のファイルは変わらないので、取得済みなら取り直さない
+kind = "npa_traffic"
+year = 2024
+title = "交通事故統計情報のオープンデータ 本票（2024年）"
+provider = "警察庁"
+url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2024/opendata_2024.html"
+download_url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2024/honhyo_2024.csv"
+download_filename = "honhyo_2024.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "公共データ利用規約（第1.0版）"
+license_url = "https://www.npa.go.jp/rules/index.html"
+attribution = "出典：警察庁「交通事故統計情報のオープンデータ」（https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html）"
+modification_note = "警察庁「交通事故統計情報のオープンデータ」を加工して作成（事故の地点を町丁目・区市町村に集計）"
+redistributable = true
+
+[npa_traffic_2025]
+cache = true  # 過去の年のファイルは変わらないので、取得済みなら取り直さない
+kind = "npa_traffic"
+year = 2025
+title = "交通事故統計情報のオープンデータ 本票（2025年）"
+provider = "警察庁"
+url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2025/opendata_2025.html"
+download_url = "https://www.npa.go.jp/publications/statistics/koutsuu/opendata/2025/honhyo_2025.csv"
+download_filename = "honhyo_2025.csv"
+files = ["*.csv"]
+encoding = "cp932"
+license = "公共データ利用規約（第1.0版）"
+license_url = "https://www.npa.go.jp/rules/index.html"
+attribution = "出典：警察庁「交通事故統計情報のオープンデータ」（https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html）"
+modification_note = "警察庁「交通事故統計情報のオープンデータ」を加工して作成（事故の地点を町丁目・区市町村に集計）"
+redistributable = true
+
+
+# 令和7年国勢調査の人口速報（東京都、区市町村別）。町丁・字等の速報はない。確定値・小地域集計が出たら置き換える
+[tokyo_census2025_preliminary]
+kind = "census_preliminary"
+title = "令和7年国勢調査 人口及び世帯数（速報） 表3 区市町村別人口及び世帯数"
+provider = "東京都総務局統計部"
+url = "https://www.toukei.metro.tokyo.lg.jp/kokutyo/2025/kt25s-data.htm"
+download_url = "https://www.toukei.metro.tokyo.lg.jp/kokutyo/2025/kt25sv0300.csv"
+files = ["kt25sv0300.csv"]
+encoding = "utf-8-sig"
+period = "2025-10-01"
+table = "population"
+columns = { "人口総数" = "人口／総数／令和7（2025）年（人）", "世帯総数" = "世帯／総数／令和7（2025）年（世帯）" }
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都総務局統計部「令和7年国勢調査 人口及び世帯数（速報）」"
+modification_note = "区市町村別の人口・世帯数を抜き出し、人口密度・増減率・1世帯あたり人数を算出して作成"
+redistributable = true
+
+[soumu_tax_2023]
+kind = "soumu_tax"
+fiscal_year = 2023
+title = "市町村税課税状況等の調 令和5年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_23.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-23-b.xlsx"
+files = ["J51-23-b.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+[soumu_tax_2024]
+kind = "soumu_tax"
+fiscal_year = 2024
+title = "市町村税課税状況等の調 令和6年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_24.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-24-b.xlsx"
+files = ["J51-24-b.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+[soumu_tax_2025]
+kind = "soumu_tax"
+fiscal_year = 2025
+title = "市町村税課税状況等の調 令和7年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_25.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-25-b.xlsx"
+files = ["J51-25-b.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+# 都内の保育サービスの状況（東京都 報道発表、各年4月1日現在）表4 区市町村別の状況。1ファイルに当年と前年の2時点がある。
+# 2022年は発表の Excel の所在を確かめられなかったため、2023年の発表の前年の列を使う。
+[tokyo_childcare_2026]
+kind = "tokyo_childcare"
+years = [2026]
+title = "都内の保育サービスの状況について（2026年4月1日現在） 表4 区市町村別の状況"
+provider = "東京都福祉局"
+url = "https://www.metro.tokyo.lg.jp/documents/d/tosei/20260828_05_05"
+download_url = "https://www.metro.tokyo.lg.jp/documents/d/tosei/20260828_05_05"
+download_filename = "hoiku_2026.xlsx"
+files = ["hoiku_2026.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都福祉局「都内の保育サービスの状況について」"
+modification_note = "区市町村別の待機児童数を抜き出し、保育サービス利用児童数と就学前児童人口から利用率を算出して作成"
+redistributable = true
+
+[tokyo_childcare_2025]
+kind = "tokyo_childcare"
+years = [2025]
+title = "都内の保育サービスの状況について（2025年4月1日現在） 表4 区市町村別の状況"
+provider = "東京都福祉局"
+url = "https://www.metro.tokyo.lg.jp/information/press/2025/08/2025082917"
+download_url = "https://www.metro.tokyo.lg.jp/documents/d/tosei/20250829_17_04"
+download_filename = "hoiku_2025.xlsx"
+files = ["hoiku_2025.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都福祉局「都内の保育サービスの状況について」"
+modification_note = "区市町村別の待機児童数を抜き出し、保育サービス利用児童数と就学前児童人口から利用率を算出して作成"
+redistributable = true
+
+[tokyo_childcare_2024]
+kind = "tokyo_childcare"
+years = [2024]
+title = "都内の保育サービスの状況について（2024年4月1日現在） 表4 区市町村別の状況"
+provider = "東京都福祉局"
+url = "https://www.metro.tokyo.lg.jp/information/press/2024/08/2024083002"
+download_url = "https://www.metro.tokyo.lg.jp/documents/d/tosei/02_01_511"
+download_filename = "hoiku_2024.xlsx"
+files = ["hoiku_2024.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都福祉局「都内の保育サービスの状況について」"
+modification_note = "区市町村別の待機児童数を抜き出し、保育サービス利用児童数と就学前児童人口から利用率を算出して作成"
+redistributable = true
+
+[tokyo_childcare_2023]
+kind = "tokyo_childcare"
+years = [2023, 2022]
+title = "都内の保育サービスの状況について（2023年4月1日現在） 表4 区市町村別の状況"
+provider = "東京都福祉局"
+url = "https://www.spt.metro.tokyo.lg.jp/tosei/hodohappyo/press/2023/07/26/02.html"
+download_url = "https://www.spt.metro.tokyo.lg.jp/tosei/hodohappyo/press/2023/07/26/documents/02_01.xlsx"
+download_filename = "hoiku_2023.xlsx"
+files = ["hoiku_2023.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都福祉局「都内の保育サービスの状況について」"
+modification_note = "区市町村別の待機児童数を抜き出し、保育サービス利用児童数と就学前児童人口から利用率を算出して作成"
+redistributable = true
+
+[tokyo_childcare_2021]
+kind = "tokyo_childcare"
+years = [2021]
+title = "都内の保育サービスの状況について（2021年4月1日現在） 表4 区市町村別の状況"
+provider = "東京都福祉局"
+url = "https://www.spt.metro.tokyo.lg.jp/tosei/hodohappyo/press/2021/07/28/02.html"
+download_url = "https://www.spt.metro.tokyo.lg.jp/tosei/hodohappyo/press/2021/07/28/documents/02_03.xlsx"
+download_filename = "hoiku_2021.xlsx"
+files = ["hoiku_2021.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都福祉局「都内の保育サービスの状況について」"
+modification_note = "区市町村別の待機児童数を抜き出し、保育サービス利用児童数と就学前児童人口から利用率を算出して作成"
+redistributable = true
+
+
+# 都道の街路樹（東京都建設局）。1本ごとの位置と樹種。23区を先、多摩を後に書く（出典を区部・多摩で分けるため）
+[tokyo_street_trees_ku]
+kind = "tokyo_street_trees"
+period = "2026-04-01"
+title = "都道の街路樹（23区）"
+provider = "東京都建設局"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000020d0000000031"
+download_url = "https://www.opendata.metro.tokyo.lg.jp/kensetsu/tokyo_gairoju.csv"
+files = ["tokyo_gairoju.csv"]
+encoding = "cp932"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都建設局「都道の街路樹」"
+modification_note = "街路樹の位置を町丁目・区市町村の境界に重ね、本数と樹種を数えて作成"
+redistributable = true
+
+[tokyo_street_trees_tama]
+kind = "tokyo_street_trees"
+period = "2026-04-01"
+title = "都道の街路樹（多摩）"
+provider = "東京都建設局"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000020d0000000031"
+download_url = "https://www.opendata.metro.tokyo.lg.jp/kensetsu/tokyo_tama_gairoju.csv"
+files = ["tokyo_tama_gairoju.csv"]
+encoding = "utf-8-sig"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都建設局「都道の街路樹」"
+modification_note = "街路樹の位置を町丁目・区市町村の境界に重ね、本数と樹種を数えて作成"
+redistributable = true
+
+[tokyo_election_2024_tochiji_touhyou]
+kind = "tokyo_election"
+period = "2024-07-07"
+layout = "turnout"
+encoding = "utf-8-sig"
+title = "令和6年7月7日執行 東京都知事選挙 投票結果"
+provider = "東京都選挙管理委員会"
+url = "https://www.senkyo.metro.tokyo.lg.jp/election/tochiji-all/tochiji-sokuhou2024/csv"
+download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r6_tochiji_touhyo"
+download_filename = "r6_tochiji_touhyo.csv"
+files = ["r6_tochiji_touhyo.csv"]
+license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
+license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+attribution = "出典：東京都選挙管理委員会「選挙結果」"
+modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
+redistributable = true
+
+[tokyo_election_2024_shugiin_touhyou]
+kind = "tokyo_election"
+period = "2024-10-27"
+layout = "turnout"
+encoding = "utf-8-sig"
+title = "令和6年10月27日執行 衆議院（比例代表選出）議員選挙 投票結果"
+provider = "東京都選挙管理委員会"
+url = "https://www.senkyo.metro.tokyo.lg.jp/election/shuugiin-all/shuugiin-sokuhou202410/csv"
+download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r6_syuugiin_hirei_touhyou"
+download_filename = "r6_syuugiin_hirei_touhyou.csv"
+files = ["r6_syuugiin_hirei_touhyou.csv"]
+license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
+license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+attribution = "出典：東京都選挙管理委員会「選挙結果」"
+modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
+redistributable = true
+
+[tokyo_election_2024_shugiin_hirei]
+kind = "tokyo_election"
+period = "2024-10-27"
+layout = "shugiin_hirei"
+encoding = "utf-8-sig"
+title = "令和6年10月27日執行 衆議院（比例代表選出）議員選挙 届出政党等別得票数"
+provider = "東京都選挙管理委員会"
+url = "https://www.senkyo.metro.tokyo.lg.jp/election/shuugiin-all/shuugiin-sokuhou202410/csv"
+download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r6_syuugiin_hirei_kaihyou2"
+download_filename = "r6_syuugiin_hirei_kaihyou2.csv"
+files = ["r6_syuugiin_hirei_kaihyou2.csv"]
+license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
+license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+attribution = "出典：東京都選挙管理委員会「選挙結果」"
+modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
+redistributable = true
+
+[tokyo_election_2025_togikai_touhyou]
+kind = "tokyo_election"
+period = "2025-06-22"
+layout = "turnout"
+encoding = "utf-8-sig"
+title = "令和7年6月22日執行 東京都議会議員選挙 投票結果"
+provider = "東京都選挙管理委員会"
+url = "https://www.senkyo.metro.tokyo.lg.jp/election/togikai-all/togikai-sokuhou2025/csv"
+download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r7_togikai_touhyou"
+download_filename = "r7_togikai_touhyou.csv"
+files = ["r7_togikai_touhyou.csv"]
+license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
+license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+attribution = "出典：東京都選挙管理委員会「選挙結果」"
+modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
+redistributable = true
+
+[tokyo_election_2025_sangiin_touhyou]
+kind = "tokyo_election"
+period = "2025-07-20"
+layout = "turnout"
+encoding = "utf-8-sig"
+title = "令和7年7月20日執行 参議院（比例代表選出）議員選挙 投票結果"
+provider = "東京都選挙管理委員会"
+url = "https://www.senkyo.metro.tokyo.lg.jp/election/sanngiin-all/sanngiin-sokuhou2025/csv"
+download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r7_sangiin_hirei_touhyou0724"
+download_filename = "r7_sangiin_hirei_touhyou0724.csv"
+files = ["r7_sangiin_hirei_touhyou0724.csv"]
+license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
+license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+attribution = "出典：東京都選挙管理委員会「選挙結果」"
+modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
+redistributable = true
+
+[tokyo_election_2025_sangiin_hirei]
+kind = "tokyo_election"
+period = "2025-07-20"
+layout = "sangiin_hirei"
+encoding = "utf-8-sig"
+title = "令和7年7月20日執行 参議院（比例代表選出）議員選挙 政党等別得票総数 開票区別一覧"
+provider = "東京都選挙管理委員会"
+url = "https://www.senkyo.metro.tokyo.lg.jp/election/sanngiin-all/sanngiin-sokuhou2025/csv"
+download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r7_sangiin_hirei_kaihyou0724"
+download_filename = "r7_sangiin_hirei_kaihyou0724.csv"
+files = ["r7_sangiin_hirei_kaihyou0724.csv"]
+license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
+license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+attribution = "出典：東京都選挙管理委員会「選挙結果」"
+modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
+redistributable = true
+
+[tokyo_election_2026_shugiin_touhyou]
+kind = "tokyo_election"
+period = "2026-02-08"
+layout = "turnout"
+encoding = "utf-8-sig"
+title = "令和8年2月8日執行 衆議院（比例代表選出）議員選挙 投票結果"
+provider = "東京都選挙管理委員会"
+url = "https://www.senkyo.metro.tokyo.lg.jp/election/shuugiin-all/shuugiin-sokuhou202602/csv"
+download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r8_syuugiin_hirei_touhyou"
+download_filename = "r8_syuugiin_hirei_touhyou.csv"
+files = ["r8_syuugiin_hirei_touhyou.csv"]
+license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
+license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+attribution = "出典：東京都選挙管理委員会「選挙結果」"
+modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
+redistributable = true
+
+[tokyo_election_2026_shugiin_hirei]
+kind = "tokyo_election"
+period = "2026-02-08"
+layout = "shugiin_hirei"
+encoding = "utf-8-sig"
+title = "令和8年2月8日執行 衆議院（比例代表選出）議員選挙 届出政党等別得票数"
+provider = "東京都選挙管理委員会"
+url = "https://www.senkyo.metro.tokyo.lg.jp/election/shuugiin-all/shuugiin-sokuhou202602/csv"
+download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r8_syuugiin_hirei_kaihyou2"
+download_filename = "r8_syuugiin_hirei_kaihyou2.csv"
+files = ["r8_syuugiin_hirei_kaihyou2.csv"]
+license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
+license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+attribution = "出典：東京都選挙管理委員会「選挙結果」"
+modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
+redistributable = true
+
+# 認可保育所の一覧（東京都福祉局「社会福祉施設等一覧」、令和7年10月1日時点）。東京都オープンデータカタログ
+# t000054d0000000374（CC BY）。xlsx のシート「認可保育所」を使う。形式は pipeline/tdm/ingest/tokyo_nurseries.py を参照。
+[tokyo_nurseries_2025]
+kind = "tokyo_nurseries"
+period = "2025-10-01"
+title = "社会福祉施設等一覧（令和7年10月1日時点） 認可保育所"
+provider = "東京都福祉局"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000054d0000000374"
+download_url = "https://www.fukushi.metro.tokyo.lg.jp/documents/d/fukushi/202510-2-1-xlsx"
+download_filename = "shisetsu_2025.xlsx"
+files = ["shisetsu_2025.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都福祉局「社会福祉施設等一覧」"
+modification_note = "認可保育所の施設名・所在地・認可定員を抜き出し、所在地から位置を求めて作成"
+redistributable = true
+
+# ふるさと納税の受入額・受入件数（総務省「ふるさと納税に関する現況調査結果」令和8年度調査、平成20〜令和7年度）。
+# 1つの xlsx に全国の都道府県・市区町村の全年度が入っている。形式は pipeline/tdm/ingest/soumu_furusato.py を参照。
+[soumu_furusato_2026]
+kind = "soumu_furusato"
+title = "ふるさと納税に関する現況調査結果（令和8年度実施） 各自治体の受入額及び受入件数（平成20年度〜令和7年度）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/furusato/archive/"
+download_url = "https://www.soumu.go.jp/main_content/001084990.xlsx"
+files = ["001084990.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「ふるさと納税に関する現況調査結果」"
+modification_note = "各自治体の受入額（千円）を百万円に直し、受入件数とともに年度ごとに抜き出して作成"
+redistributable = true
+
+# 公立小学校卒業者の進路（東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」小学校 第1表）。
+# 区市町村別は報告書の前年度の卒業者（令和7年度版＝令和7年3月卒業）。形式は pipeline/tdm/ingest/tokyo_jhs_progress.py を参照。
+
+[tokyo_jhs_progress_2025]
+kind = "tokyo_jhs_progress"
+period = "2025-03-31"
+title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2025年3月卒業） 小学校 第1表 状況別卒業者数"
+provider = "東京都教育委員会"
+url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/career_report/report2025"
+download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7-sotsugo-01"
+download_filename = "sotsugo01_2025.xlsx"
+files = ["sotsugo01_2025.xlsx"]
+license = "東京都教育委員会ホームページの利用条件による（統計表の数値から率を計算して掲載）"
+license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
+modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
+redistributable = true
+
+[tokyo_jhs_progress_2024]
+kind = "tokyo_jhs_progress"
+period = "2024-03-31"
+title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2024年3月卒業） 小学校 第1表 状況別卒業者数"
+provider = "東京都教育委員会"
+url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/career_report/report2024"
+download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/statistics_and_research_report2024_sotsugo-01_r61119"
+download_filename = "sotsugo01_2024.xlsx"
+files = ["sotsugo01_2024.xlsx"]
+license = "東京都教育委員会ホームページの利用条件による（統計表の数値から率を計算して掲載）"
+license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
+modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
+redistributable = true
+
+[tokyo_jhs_progress_2023]
+kind = "tokyo_jhs_progress"
+period = "2023-03-31"
+title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2023年3月卒業） 小学校 第1表 状況別卒業者数"
+provider = "東京都教育委員会"
+url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/career_report/report2023"
+download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/sotsugo-01_4"
+download_filename = "sotsugo01_2023.xlsx"
+files = ["sotsugo01_2023.xlsx"]
+license = "東京都教育委員会ホームページの利用条件による（統計表の数値から率を計算して掲載）"
+license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
+modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
+redistributable = true
+
+[tokyo_jhs_progress_2022]
+kind = "tokyo_jhs_progress"
+period = "2022-03-31"
+title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2022年3月卒業） 小学校 第1表 状況別卒業者数"
+provider = "東京都教育委員会"
+url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/career_report/report2022"
+download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/sotsugo-01_3"
+download_filename = "sotsugo01_2022.xlsx"
+files = ["sotsugo01_2022.xlsx"]
+license = "東京都教育委員会ホームページの利用条件による（統計表の数値から率を計算して掲載）"
+license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
+modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
+redistributable = true
+
+# 外国人延べ宿泊者数（観光庁「宿泊旅行統計調査」年の確定値 集計結果の第2表）。都道府県別だけ公表されている。
+# 過去の年は値が変わらないので取得済みのファイルを使う（cache）。形式は pipeline/tdm/ingest/mlit_inbound.py を参照。
+[mlit_inbound_2025]
+kind = "mlit_inbound"
+year = 2025
+title = "宿泊旅行統計調査 2025年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/content/002010340.xlsx"
+download_filename = "shukuhaku_2025.xlsx"
+files = ["shukuhaku_2025.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2024]
+kind = "mlit_inbound"
+year = 2024
+title = "宿泊旅行統計調査 2024年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/content/001905499.xlsx"
+download_filename = "shukuhaku_2024.xlsx"
+files = ["shukuhaku_2024.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2023]
+kind = "mlit_inbound"
+year = 2023
+title = "宿泊旅行統計調査 2023年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/content/001750679.xlsx"
+download_filename = "shukuhaku_2023.xlsx"
+files = ["shukuhaku_2023.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2022]
+kind = "mlit_inbound"
+year = 2022
+title = "宿泊旅行統計調査 2022年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001616676.xlsx"
+download_filename = "shukuhaku_2022.xlsx"
+files = ["shukuhaku_2022.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2021]
+kind = "mlit_inbound"
+year = 2021
+title = "宿泊旅行統計調査 2021年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001488438.xlsx"
+download_filename = "shukuhaku_2021.xlsx"
+files = ["shukuhaku_2021.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2020]
+kind = "mlit_inbound"
+year = 2020
+title = "宿泊旅行統計調査 2020年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001411547.xlsx"
+download_filename = "shukuhaku_2020.xlsx"
+files = ["shukuhaku_2020.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2019]
+kind = "mlit_inbound"
+year = 2019
+title = "宿泊旅行統計調査 2019年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001350484.xlsx"
+download_filename = "shukuhaku_2019.xlsx"
+files = ["shukuhaku_2019.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2018]
+kind = "mlit_inbound"
+year = 2018
+title = "宿泊旅行統計調査 2018年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/content/001295984.xlsx"
+download_filename = "shukuhaku_2018.xlsx"
+files = ["shukuhaku_2018.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2017]
+kind = "mlit_inbound"
+year = 2017
+title = "宿泊旅行統計調査 2017年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/content/001247521.xlsx"
+download_filename = "shukuhaku_2017.xlsx"
+files = ["shukuhaku_2017.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2016]
+kind = "mlit_inbound"
+year = 2016
+title = "宿泊旅行統計調査 2016年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/content/001190399.xlsx"
+download_filename = "shukuhaku_2016.xlsx"
+files = ["shukuhaku_2016.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+[mlit_inbound_2015]
+kind = "mlit_inbound"
+year = 2015
+title = "宿泊旅行統計調査 2015年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+provider = "観光庁"
+url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
+download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001312940.xlsx"
+download_filename = "shukuhaku_2015.xlsx"
+files = ["shukuhaku_2015.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：観光庁「宿泊旅行統計調査」"
+modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+redistributable = true
+
+# 全国学力・学習状況調査（国立教育政策研究所）の都道府県別「調査結果概況」（公立）。都道府県ごとのフォルダにある。
+# 過去の年度の結果は国立国会図書館のアーカイブ（WARP）に移っているため、令和7年度だけ取り込む。
+# 形式は pipeline/tdm/ingest/nier_gakuryoku.py を参照。
+[nier_gakuryoku_2025_p]
+kind = "nier_gakuryoku"
+school = "p"
+period = "2025-04-17"
+per_prefecture = true
+title = "令和7年度 全国学力・学習状況調査 都道府県別 調査結果概況（小学校・公立）"
+provider = "国立教育政策研究所"
+url = "https://www.nier.go.jp/25chousakekkahoukoku/factsheet/prefecture_city.html"
+download_url = "https://www.nier.go.jp/25chousakekkahoukoku/factsheet/{pref_dir}/{pref}p_25r.xlsx"
+files = ["*p_25r.xlsx"]
+cache = true
+pref_dirs = { "01" = "01_hokkaido", "02" = "02_aomori", "03" = "03_iwate", "04" = "04_miyagi", "05" = "05_akita", "06" = "06_yamagata", "07" = "07_fukushima", "08" = "08_ibaraki", "09" = "09_tochigi", "10" = "10_gunma", "11" = "11_saitama", "12" = "12_chiba", "13" = "13_tokyo", "14" = "14_kanagawa", "15" = "15_niigata", "16" = "16_toyama", "17" = "17_ishikawa", "18" = "18_fukui", "19" = "19_yamanashi", "20" = "20_nagano", "21" = "21_gifu", "22" = "22_shizuoka", "23" = "23_aichi", "24" = "24_mie", "25" = "25_shiga", "26" = "26_kyoto", "27" = "27_osaka", "28" = "28_hyougo", "29" = "29_nara", "30" = "30_wakayama", "31" = "31_tottori", "32" = "32_shimane", "33" = "33_okayama", "34" = "34_hiroshima", "35" = "35_yamaguchi", "36" = "36_tokushima", "37" = "37_kagawa", "38" = "38_ehime", "39" = "39_kouchi", "40" = "40_fukuoka", "41" = "41_saga", "42" = "42_nagasaki", "43" = "43_kumamoto", "44" = "44_ohita", "45" = "45_miyazaki", "46" = "46_kagoshima", "47" = "47_okinawa" }
+license = "文部科学省ウェブサイト利用規約（国立教育政策研究所のコンテンツに適用、CC BY 4.0 と互換）"
+license_url = "https://www.nier.go.jp/11_copyright/"
+attribution = "出典：国立教育政策研究所「全国学力・学習状況調査」"
+modification_note = "都道府県（公立）の教科ごとの平均正答率を抜き出して作成"
+redistributable = true
+
+[nier_gakuryoku_2025_m]
+kind = "nier_gakuryoku"
+school = "m"
+period = "2025-04-17"
+per_prefecture = true
+title = "令和7年度 全国学力・学習状況調査 都道府県別 調査結果概況（中学校・公立）"
+provider = "国立教育政策研究所"
+url = "https://www.nier.go.jp/25chousakekkahoukoku/factsheet/prefecture_city.html"
+download_url = "https://www.nier.go.jp/25chousakekkahoukoku/factsheet/{pref_dir}/{pref}m_25rs.xlsx"
+files = ["*m_25rs.xlsx"]
+cache = true
+pref_dirs = { "01" = "01_hokkaido", "02" = "02_aomori", "03" = "03_iwate", "04" = "04_miyagi", "05" = "05_akita", "06" = "06_yamagata", "07" = "07_fukushima", "08" = "08_ibaraki", "09" = "09_tochigi", "10" = "10_gunma", "11" = "11_saitama", "12" = "12_chiba", "13" = "13_tokyo", "14" = "14_kanagawa", "15" = "15_niigata", "16" = "16_toyama", "17" = "17_ishikawa", "18" = "18_fukui", "19" = "19_yamanashi", "20" = "20_nagano", "21" = "21_gifu", "22" = "22_shizuoka", "23" = "23_aichi", "24" = "24_mie", "25" = "25_shiga", "26" = "26_kyoto", "27" = "27_osaka", "28" = "28_hyougo", "29" = "29_nara", "30" = "30_wakayama", "31" = "31_tottori", "32" = "32_shimane", "33" = "33_okayama", "34" = "34_hiroshima", "35" = "35_yamaguchi", "36" = "36_tokushima", "37" = "37_kagawa", "38" = "38_ehime", "39" = "39_kouchi", "40" = "40_fukuoka", "41" = "41_saga", "42" = "42_nagasaki", "43" = "43_kumamoto", "44" = "44_ohita", "45" = "45_miyazaki", "46" = "46_kagoshima", "47" = "47_okinawa" }
+license = "文部科学省ウェブサイト利用規約（国立教育政策研究所のコンテンツに適用、CC BY 4.0 と互換）"
+license_url = "https://www.nier.go.jp/11_copyright/"
+attribution = "出典：国立教育政策研究所「全国学力・学習状況調査」"
+modification_note = "都道府県（公立）の教科ごとの平均正答率を抜き出して作成"
+redistributable = true
+
+# 中学校の生徒数（文部科学省「学校基本調査」令和7年度 市町村別学年別生徒数 計・国立・公立・私立、e-Stat）。
+# 学校の所在地で数える。形式は pipeline/tdm/ingest/estat_school_basic.py を参照。
+[estat_school_basic_2025]
+kind = "estat_school_basic"
+period = "2025-05-01"
+title = "学校基本調査 令和7年度 中学校 市町村別学年別生徒数（計・国立・公立・私立）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+files = ["total.xlsx", "national.xlsx", "public.xlsx", "private.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+modification_note = "区市町村別の中学校の生徒数（国立・公立・私立）から割合を算出して作成"
+redistributable = true
+
+[estat_school_basic_2025.download_files]
+"total.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393498"
+"national.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393499"
+"public.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393500"
+"private.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393501"

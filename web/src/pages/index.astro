@@ -1,0 +1,224 @@
+---
+// トップページ: ロゴと「地図をひらく」を大きく置き、その下に指標の一覧（ジャンル別の表）をまとめる
+// （指標の一覧ページはここに集約した。docs/design-changes.md #47）。
+import Base from "../layouts/Base.astro";
+import AdSlot from "../components/AdSlot.astro";
+import CategoryIcon from "../components/CategoryIcon.astro";
+import { loadAreas, loadIndicators, loadPlace } from "../lib/data";
+import type { Indicator } from "../lib/types";
+
+const indicators = loadIndicators();
+const areas = loadAreas();
+const regions = ["区部", "多摩", "島しょ"] as const;  // 東京都の地域区分
+
+// ジャンル（指標の category）の並び。ここにないジャンルは最後に出る
+const GENRES: { title: string; categories: string[] }[] = [
+  { title: "人と暮らし", categories: ["人口・世帯", "年齢構成", "暮らし方", "外国人住民", "子育て"] },
+  { title: "仕事と学び", categories: ["働き方", "通勤・通学", "学歴", "教育"] },
+  { title: "安全", categories: ["犯罪", "交通事故"] },
+  { title: "所得と税", categories: ["所得・税"] },
+  { title: "まちと土地", categories: ["交通", "地価", "緑", "観光"] },
+  { title: "選挙", categories: ["選挙"] },
+];
+// 地図の点で見るデータ（地域の塗り分けではなく、駅・学校・地点ごとの値）。地図で点の表示をオンにして開く
+const POINTS = [
+  { file: "station_passengers", category: "交通", show: "stations" },
+  { file: "school_enrollment", category: "教育", show: "schools" },
+  { file: "land_price", category: "地価", show: "land" },
+  { file: "nursery_capacity", category: "子育て", show: "nurseries" },
+].flatMap((p) => {
+  const d = loadPlace(p.file);
+  if (!d) return [];
+  const first = d.periods[0]?.label.match(/\d{4}/)?.[0];
+  const last = d.periods[d.periods.length - 1]?.label.match(/\d{4}/)?.[0];
+  return [{ ...p, name: d.name, unit: d.unit, description: d.description, years: first === last ? `${last}年` : `${first}〜${last}年` }];
+});
+const hasCategory = (c: string) => indicators.some((i) => i.category === c) || POINTS.some((p) => p.category === c);
+const known = new Set(GENRES.flatMap((g) => g.categories));
+const rest = [...new Set(indicators.map((i) => i.category))].filter((c) => !known.has(c));
+if (rest.length) GENRES.push({ title: "その他", categories: rest });
+
+// 種別・基準で切り替える指標（犯罪・交通事故など）は、基準（件数・100人当たり）の違いを1行にまとめる
+const COUNT_BASES = new Set(["件数", "人数", "割合"]);
+// 種別ごとの説明が同じ形の組（政党別の得票率）は、種別も1行にまとめて種別名を並べる
+const GROUPED_FAMILIES = new Set(["vote_share"]);
+interface Row { main: Indicator; variants: Indicator[]; grouped?: boolean }
+function rowsOf(category: string): Row[] {
+  const list = indicators.filter((i) => i.category === category);
+  const rows: Row[] = [];
+  for (const ind of list) {
+    if (!ind.family || !ind.facets) {
+      rows.push({ main: ind, variants: [] });
+      continue;
+    }
+    if (GROUPED_FAMILIES.has(ind.family)) {
+      const members = list.filter((o) => o.family === ind.family);
+      if (members[0] === ind) rows.push({ main: ind, variants: members, grouped: true });
+      continue;
+    }
+    // 同じ種別の指標のうち、件数・人数・割合の基準のもの（なければ最初のもの）を行の代表にする
+    const same = list.filter((o) => o.family === ind.family && o.facets?.type === ind.facets!.type);
+    const main = same.find((o) => COUNT_BASES.has(o.facets!.basis)) ?? same[0];
+    if (main !== ind) continue;
+    rows.push({ main, variants: same.filter((o) => o !== main) });
+  }
+  return rows;
+}
+
+// 時点の表示（例: 2010・2015・2020年、2019〜2025年）
+function yearsOf(ind: Indicator): string {
+  const years = [...new Set(ind.periods.filter((p) => !p.aggregate)
+    .map((p) => Number(p.period.slice(0, 4))))].sort((a, b) => a - b);
+  if (!years.length) return "";
+  const consecutive = years.every((y, k) => k === 0 || y - years[k - 1] === 1);
+  const text = years.length >= 3 && consecutive ? `${years[0]}〜${years[years.length - 1]}年` : `${years.join("・")}年`;
+  return ind.periods.some((p) => p.aggregate) ? `${text}（5年合計も）` : text;
+}
+const basisLabel = (i: Indicator) => i.facets?.basis.replace("あたり", "当たり") ?? i.name;
+// まとめた行の名前と説明（例: 「比例代表の得票率（自由民主党）」→「比例代表の得票率」、説明の政党名は「各政党」に）
+const groupName = (i: Indicator) => i.name.replace(/（[^（）]*）$/, "");
+const groupDescription = (i: Indicator) => i.description.replace(i.facets!.type, "各政党");
+---
+<Base title="全国データさんぽ" description="全国の都道府県・市区町村・町丁目の人口・暮らし・安全などを、国勢調査などの公開データで色分けした地図サイト。">
+  <section class="hero">
+    <h1><img src="/logo.svg" alt="全国データさんぽ" width="339" height="70" /></h1>
+    <p class="lead">全国の都道府県・市区町村・町丁目を、国勢調査などの公開データで色分けした地図です。</p>
+    <a class="button big" href="/map/">地図をひらく</a>
+  </section>
+
+  <section class="sheet">
+    <h2 id="indicators">掲載している指標</h2>
+    <p class="muted small">指標名を選ぶと、意味・計算方法・注意点のページを開きます。</p>
+    <nav class="toc" aria-label="ジャンル">
+      {GENRES.filter((g) => g.categories.some(hasCategory)).map((g, k) => <a href={`#genre-${k}`}>{g.title}</a>)}
+    </nav>
+    {GENRES.filter((g) => g.categories.some(hasCategory)).map((g, k) => (
+      <section class="genre">
+        <h3 id={`genre-${k}`}>{g.title}</h3>
+        {g.categories.filter(hasCategory).map((c) => (
+          <div class="category">
+            <h4><CategoryIcon category={c} />{c}</h4>
+            <div class="table-scroll">
+              <table class="indicator-table">
+                <thead><tr><th>指標</th><th class="hide-sp">単位</th><th class="hide-sp">時点</th><th>内容</th></tr></thead>
+                <tbody>
+                  {rowsOf(c).map(({ main, variants, grouped }) => grouped ? (
+                    <tr>
+                      <td>
+                        <strong>{groupName(main)}</strong>
+                        <div class="small">{variants.map((v, k) => (<>{k > 0 && "・"}<a href={`/indicators/${v.id}/`}>{v.facets!.type}</a></>))}</div>
+                        <div class="small muted show-sp">{main.unit}・{yearsOf(main)}</div>
+                      </td>
+                      <td class="nowrap hide-sp">{main.unit}</td>
+                      <td class="nowrap hide-sp">{yearsOf(main)}</td>
+                      <td>{groupDescription(main)}</td>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <td>
+                        <a href={`/indicators/${main.id}/`}><strong>{main.name}</strong></a>
+                        {variants.length > 0 && (
+                          <div class="small">{variants.map((v, k) => (<>{k > 0 && "・"}<a href={`/indicators/${v.id}/`}>{basisLabel(v)}</a></>))}</div>
+                        )}
+                        <div class="small muted show-sp">{main.unit}・{yearsOf(main)}</div>
+                      </td>
+                      <td class="nowrap hide-sp">{main.unit}</td>
+                      <td class="nowrap hide-sp">{yearsOf(main)}</td>
+                      <td>{main.description}</td>
+                    </tr>
+                  ))}
+                  {POINTS.filter((p) => p.category === c).map((p) => (
+                    <tr>
+                      <td>
+                        <a href={`/map/?show=${p.show}`}><strong>{p.name}</strong></a>
+                        <div class="small muted">地図の点で表示</div>
+                        <div class="small muted show-sp">{p.unit}・{p.years}</div>
+                      </td>
+                      <td class="nowrap hide-sp">{p.unit}</td>
+                      <td class="nowrap hide-sp">{p.years}</td>
+                      <td>{p.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </section>
+    ))}
+  </section>
+
+  <AdSlot name="top" />
+
+  <section class="sheet">
+    <h2>使い方</h2>
+    <ol class="steps">
+      <li><strong>地域を選ぶ</strong>検索欄に市区町村名や町名を入れるか、地図をクリックします。</li>
+      <li><strong>指標を切り替える</strong>同じ時点・同じ定義の値で地図の色が変わります。</li>
+      <li><strong>時点を動かす</strong>スライドバー（▶で再生）で、時点ごとの変化を追えます。</li>
+      <li><strong>拡大して比べる</strong>町丁目ごとの値を、色だけでなく数値と一覧でも確認できます。</li>
+    </ol>
+  </section>
+
+  <section class="sheet">
+    <h2 id="areas">地域から探す</h2>
+    {areas.prefectures.map((pref) => {
+      const inPref = areas.municipalities.filter((m) => m.prefecture === pref.code);
+      // 東京都は区部・多摩・島しょに分け、ほかの道府県は政令指定都市の区をまとめずに並べる
+      const groups = pref.code === "13"
+        ? regions.map((r) => ({ title: r, list: inPref.filter((m) => m.region === r) }))
+        : [{ title: "", list: inPref }];
+      const body = groups.filter((g) => g.list.length > 0).map((g) => (
+        <section>
+          {g.title && <h4>{g.title}</h4>}
+          <ul class="area-links">{g.list.map((m) => <li><a href={`/areas/${m.id}/`}>{m.name}</a></li>)}</ul>
+        </section>
+      ));
+      return areas.prefectures.length > 1
+        ? <details open={pref.code === "13"}><summary>{pref.name}（{inPref.length}）</summary>{body}</details>
+        : <section><h3>{pref.name}</h3>{body}</section>;
+    })}
+  </section>
+</Base>
+
+<style>
+  .hero {
+    text-align: center; padding: 44px 20px 32px; margin: 0 0 24px; border-radius: var(--radius);
+    background: radial-gradient(120% 90% at 50% 0%, #ffffff 0%, #eef4fb 60%, #e3edf8 100%);
+    border: 1px solid var(--line); box-shadow: var(--shadow);
+  }
+  .hero h1 { margin: 0; }
+  .hero h1 img { width: min(520px, 92%); height: auto; }
+  .lead { font-size: 1.12rem; margin: 18px 0 26px; color: #2c3a4a; }
+  .button.big { font-size: 1.3rem; padding: 16px 52px; box-shadow: 0 6px 18px rgba(11, 92, 173, .35); }
+  .genre h3 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.8em; scroll-margin-top: 100px; }
+  #indicators { scroll-margin-top: 100px; }
+  .category h4 { display: flex; align-items: center; gap: 8px; font-size: 1rem; margin: 1.4em 0 0.5em; }
+  .indicator-table th { white-space: nowrap; }
+  .indicator-table td:first-child { min-width: 16em; }
+  .indicator-table td:last-child { min-width: 16em; color: #2c3a4a; }
+  .show-sp, .sp-only { display: none; }
+  .steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .steps li { counter-increment: step; position: relative; padding: 12px 12px 12px 52px; border: 1px solid var(--line); border-radius: 10px; }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 12px; top: 12px; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 0.9rem;
+  }
+  .steps strong { display: block; color: var(--ink); }
+  .area-links { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .area-links a {
+    display: inline-block; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px;
+    text-decoration: none; font-size: 0.92rem; background: var(--surface);
+  }
+  .area-links a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  @media (max-width: 720px) {
+    .hero { padding: 28px 14px 22px; }
+    .lead { font-size: 1rem; }
+    .sp-only { display: inline; }
+    .steps { grid-template-columns: 1fr; }
+    .hide-sp { display: none; }
+    .show-sp { display: block; }
+    .indicator-table td:first-child { min-width: 9em; width: 42%; }
+    .indicator-table td:last-child { min-width: 0; font-size: 0.88rem; }
+  }
+</style>

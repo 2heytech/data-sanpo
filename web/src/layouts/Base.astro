@@ -1,0 +1,122 @@
+---
+import { ADSENSE_CLIENT } from "../lib/ads";
+import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
+import { RELEASE, loadAreas } from "../lib/data";
+import { ALLOW_INDEXING } from "../lib/indexing";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  wide?: boolean;
+  preload?: string;
+}
+const { title, description, wide = false, preload } = Astro.props;
+const fullTitle = title === "全国データさんぽ" ? title : `${title} | 全国データさんぽ`;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const indexable = ALLOW_INDEXING;
+// ヘッダーの表示中の地域。全国の公開版では「全国」、1つの都道府県だけならその名前
+const { prefectures } = loadAreas();
+const areaLabel = prefectures.length === 1 ? prefectures[0].name : "全国";
+const nav = [
+  ["/#indicators", "指標"],
+  ["/sources/", "出典"],
+  ["/about/", "このサイトについて"],
+];
+const onMap = Astro.url.pathname.startsWith("/map/");
+---
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <script is:inline define:vars={{ siteHost: Astro.site?.host ?? "" }}>
+      // 旧アドレス（workers.dev）と www で開かれたら独自ドメインへ移す（設計変更記録 #61）。
+      // www は Cloudflare の Redirect Rules でも転送する。workers.dev はそこで扱えないのでここで移す。
+      if (siteHost && (location.hostname === "tokyo-data-map.2heytech.workers.dev" || location.hostname === "www." + siteHost)) {
+        location.replace("https://" + siteHost + location.pathname + location.search + location.hash);
+      }
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {!indexable && <meta name="robots" content="noindex, nofollow" />}
+    <meta property="og:site_name" content="全国データさんぽ" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    {preload && <link rel="modulepreload" href={preload} />}
+    <script>
+      // 外部サイトへのリンクは別タブで開く（地図の情報欄など、後から差し込まれるリンクも含む）
+      document.addEventListener("click", (e) => {
+        const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+        if (a && a.origin !== location.origin && /^https?:$/.test(a.protocol) && !a.target) {
+          a.target = "_blank";
+          a.rel = "noopener";
+        }
+      });
+    </script>
+    {CF_WEB_ANALYTICS_TOKEN && (
+      <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={JSON.stringify({ token: CF_WEB_ANALYTICS_TOKEN })}></script>
+    )}
+    {ADSENSE_CLIENT && (
+      <script is:inline async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+        crossorigin="anonymous"></script>
+    )}
+  </head>
+  <body class={wide ? "wide" : ""}>
+    <a class="skip" href="#main">本文へ移動</a>
+    <header class="site-header">
+      <a class="brand" href="/"><img src="/logo.svg" alt="全国データさんぽ" width="164" height="34" /></a>
+      <!-- 表示中の地域。全国版では都道府県の切り替えをここに置く -->
+      <span class="area-chip" title="表示中の地域">{areaLabel}</span>
+      <nav aria-label="サイト内">
+        {nav.map(([href, label]) => (
+          <a href={href} aria-current={Astro.url.pathname.startsWith(href) ? "page" : undefined}>{label}</a>
+        ))}
+        <a class="nav-cta" href="/map/" aria-current={onMap ? "page" : undefined}>地図をひらく</a>
+      </nav>
+    </header>
+    {RELEASE.is_fixture && (
+      <p class="fixture-banner" role="note">
+        開発用の架空データを表示しています。地名・数値は実在しません。
+      </p>
+    )}
+    <main id="main"><slot /></main>
+    {!wide && (
+      <footer class="site-footer">
+        <div class="inner">
+          <div>
+            <a class="brand-foot" href="/"><img src="/logo-dark.svg" alt="全国データさんぽ" width="155" height="32" /></a>
+            <p class="small">全国の都道府県・市区町村・町丁目を、国勢調査などの公開データで色分けした地図サイトです。</p>
+          </div>
+          <div>
+            <h2>見る</h2>
+            <ul>
+              <li><a href="/map/">地図</a></li>
+              <li><a href="/#indicators">指標の一覧</a></li>
+              <li><a href="/#areas">地域から探す</a></li>
+            </ul>
+          </div>
+          <div>
+            <h2>このサイトについて</h2>
+            <ul>
+              <li><a href="/sources/">出典と利用条件</a></li>
+              <li><a href="/about/#terms">利用規約</a></li>
+              <li><a href="/about/#privacy">プライバシー</a></li>
+              <li><a href="/about/">運営情報</a></li>
+            </ul>
+          </div>
+          <p class="fine">
+            背景地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>。
+            統計は各出典を加工して作成しています。データ版 {RELEASE.release_id}
+          </p>
+        </div>
+      </footer>
+    )}
+  </body>
+</html>

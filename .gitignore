@@ -1,0 +1,16 @@
+# データ（元ファイル・SQLite・公開版）は Git に含めない。元データは別のバックアップ先に保存する
+/data/
+web/public/data/
+web/public/vendor/
+web/src/generated/
+web/dist/
+web/.astro/
+web/.wrangler/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/
+.env
+.dev.vars

@@ -1,0 +1,28 @@
+{
+  "name": "tokyo-data-map-web",
+  "scripts": {
+    "fixture": "cd ../pipeline && python3 -m tdm fixture --out ../data/fixture && cd ../web && DATA_RELEASE_DIR=../data/fixture/releases/dev-fixture node scripts/prepare-data.mjs",
+    "prepare-data": "node scripts/prepare-data.mjs",
+    "predev": "node scripts/copy-vendor.mjs",
+    "dev": "astro dev",
+    "prebuild": "node scripts/copy-vendor.mjs",
+    "build": "astro build",
+    "preview": "wrangler dev",
+    "check": "astro check",
+    "test": "vitest run",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
+    "astro": "^7.3.5",
+    "maplibre-gl": "^6.11.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.147.0"
+  },
+  "private": true,
+  "type": "module"
+}

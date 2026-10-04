@@ -1,0 +1,55 @@
+# 取り込む国勢調査の時点（古い順）。地図の境界は最後（最新）の時点のものを使う。
+# 過去の時点の町丁・字等の値は、同じ地域コードで面積がほぼ同じ（差 5% 以内）地域だけ
+# 最新の境界に重ねて表示する（docs/design-changes.md #20）。
+# 各時点の表（population・age・education・household_size・family_type・tenure・building_type・
+# industry_status・occupation・foreign・commute・school・residence_5y）は
+# indicators.toml の table で参照する。
+# 表を書いていない時点は、その表を使う指標を取り込まない（最終学歴は10年ごとの調査項目。
+# 2010年の産業・従業上の地位の表は区市町村の行がなく、職業の表は統計GISにないため、働き方は2015年から）。
+
+[[census]]
+period = "2010-10-01"
+label = "2010年"
+boundary_version = "census2010"
+boundary = "census2010_small_area_boundary"
+population = "census2010_small_area_population"
+age = "census2010_small_area_age"
+household_size = "census2010_small_area_household_size"
+family_type = "census2010_small_area_family_type"
+tenure = "census2010_small_area_tenure"
+building_type = "census2010_small_area_building_type"
+
+[[census]]
+period = "2015-10-01"
+label = "2015年"
+boundary_version = "census2015"
+boundary = "census2015_small_area_boundary"
+population = "census2015_small_area_population"
+age = "census2015_small_area_age"
+household_size = "census2015_small_area_household_size"
+family_type = "census2015_small_area_family_type"
+tenure = "census2015_small_area_tenure"
+building_type = "census2015_small_area_building_type"
+industry_status = "census2015_small_area_industry_status"
+occupation = "census2015_small_area_occupation"
+residence_period = "census2015_small_area_residence_period"
+
+[[census]]
+period = "2020-10-01"
+label = "2020年"
+boundary_version = "census2020"
+boundary = "census2020_small_area_boundary"
+population = "census2020_small_area_population"
+age = "census2020_small_area_age"
+household_size = "census2020_small_area_household_size"
+family_type = "census2020_small_area_family_type"
+tenure = "census2020_small_area_tenure"
+building_type = "census2020_small_area_building_type"
+industry_status = "census2020_small_area_industry_status"
+occupation = "census2020_small_area_occupation"
+foreign = "census2020_small_area_foreign"
+commute = "census2020_small_area_commute"
+school = "census2020_small_area_school"
+residence_5y = "census2020_small_area_residence_5y"
+residence_period = "census2020_small_area_residence_period"
+education = "census2020_small_area_education"

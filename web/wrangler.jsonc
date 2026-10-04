@@ -1,0 +1,20 @@
+// Cloudflare Workers Static Assets（設計書 第11章）。
+// 静的ファイル（ページを含む）はそのまま返し、/api/* だけ worker/index.ts が処理する（指標の利用回数、設計変更記録 #32）。
+// ページを Worker に通すと表示のたびに無料枠（1日10万回）を使うため、独自ドメインへの転送は Worker でしない（#61）。
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tokyo-data-map",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "html_handling": "force-trailing-slash",
+    "run_worker_first": ["/api/*"]
+  },
+  // 指標の利用回数（指標 ID と open/switch の別だけ）。無料枠で使える。
+  "analytics_engine_datasets": [
+    { "binding": "USAGE", "dataset": "tdm_indicator_usage" }
+  ]
+}

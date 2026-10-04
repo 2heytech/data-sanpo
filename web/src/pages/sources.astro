@@ -1,0 +1,46 @@
+---
+import Base from "../layouts/Base.astro";
+import { loadSources, RELEASE } from "../lib/data";
+const sources = loadSources();
+---
+<Base title="出典と利用条件" description="全国データさんぽで使用している統計データ・地図の出典、利用条件、加工方法。">
+  <header class="page-head">
+    <p class="eyebrow">このサイトについて</p>
+    <h1>出典と利用条件</h1>
+    <p class="lead">このサイトの統計は、以下の公開データを加工して作成しています。値は出典の公表値そのものではなく、加工・計算した値を含みます。</p>
+  </header>
+  <section class="sheet">
+  <div class="table-scroll">
+    <table class="sources-table">
+      <thead>
+        <tr><th>データ</th><th>提供者</th><th>利用条件</th><th>取得日</th></tr>
+      </thead>
+      <tbody>
+        {sources.map((s) => (
+          <tr>
+            <td>
+              <strong>{s.url ? <a href={s.url} target="_blank" rel="noopener">{s.title}</a> : s.title}</strong>
+              <div class="small">出典表記: {s.attribution}</div>
+              {s.modification_note && <div class="small muted">加工: {s.modification_note}</div>}
+              <div class="small muted">ファイルhash <code>{s.file_sha256.slice(0, 16)}…</code></div>
+            </td>
+            <td>{s.provider}</td>
+            <td>{s.license_url ? <a href={s.license_url} target="_blank" rel="noopener">{s.license}</a> : s.license}</td>
+            <td class="num">{s.retrieved_at.slice(0, 10)}</td>
+          </tr>
+        ))}
+        <tr>
+          <td><strong><a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a></strong>
+            <div class="small">背景地図（淡色地図・写真）</div></td>
+          <td>国土地理院</td>
+          <td><a href="https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html" target="_blank" rel="noopener">国土地理院コンテンツ利用規約</a></td>
+          <td class="num">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <h2>ソフトウェア</h2>
+  <p>地図の表示に <a href="https://maplibre.org/" target="_blank" rel="noopener">MapLibre GL JS</a>（BSD-3-Clause）を使用しています。</p>
+  <p class="muted">データ版: {RELEASE.release_id}（作成 {RELEASE.created_at.slice(0, 10)}）</p>
+  </section>
+</Base>
