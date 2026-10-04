@@ -1,0 +1,16 @@
+# 一時的な確認用（東京都のサイトが User-Agent で 403 を返すか）。確認後にブランチごと消す
+name: tmp-ua-test
+on:
+  push:
+    branches: [tmp-ua-test]
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for ua in "data-sanpo/0.1 (+https://github.com/2heytech/data-sanpo)" "tokyo-data-map/0.1 (+https://github.com/2heytech/tokyo-data-map)" "Python-urllib/3.12" "Mozilla/5.0"; do
+            for u in https://www.toukei.metro.tokyo.lg.jp/tyukanj/2020/tj20zv0100.csv https://www.metro.tokyo.lg.jp/documents/d/tosei/20260828_05_05 https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-ichiran_9; do
+              echo "$(curl -s -o /dev/null -w '%{http_code}' -A "$ua" "$u") | $ua | $u"
+            done
+          done
+          curl -s https://api.ipify.org; echo
