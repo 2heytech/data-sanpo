@@ -25,7 +25,7 @@ from pathlib import Path
 from shapely.geometry import Point, shape
 from shapely.strtree import STRtree
 
-from ..db import insert_observation, upsert_entity
+from ..db import insert_observation, load_geometry, upsert_entity
 from ..regions import prefecture_of
 
 FIRST_YEAR = 2011
@@ -105,7 +105,7 @@ def _municipality_index(conn: sqlite3.Connection, boundary_version: str, prefs: 
            WHERE b.boundary_version = ?""", (boundary_version,)).fetchall()
     rows = [r for r in rows if prefs is None or prefecture_of(r["entity_id"]) in prefs]
     ids = [r["entity_id"] for r in rows]
-    geoms = [shape(json.loads(r["geometry"])) for r in rows]
+    geoms = [load_geometry(r["geometry"]) for r in rows]
     return ids, geoms, STRtree(geoms)
 
 

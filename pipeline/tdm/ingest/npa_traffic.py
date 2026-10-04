@@ -18,15 +18,14 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import sqlite3
 from collections import Counter
 from pathlib import Path
 
-from shapely.geometry import Point, shape
+from shapely.geometry import Point
 from shapely.strtree import STRtree
 
-from ..db import insert_observation
+from ..db import insert_observation, load_geometry
 from ..regions import TOKYO, prefecture_of
 
 # 警察の都道府県コード → 全国地方公共団体コードの都道府県（コード表 codebook_2025 の「都道府県コード」）
@@ -90,7 +89,7 @@ class _Index:
         # 取り込んだ事故の範囲（都道府県）の地域だけ。範囲外の地域を0件にしない
         rows = [r for r in rows if prefs is None or prefecture_of(r["entity_id"]) in prefs]
         self.ids = [r["entity_id"] for r in rows]
-        self.geoms = [shape(json.loads(r["geometry"])) for r in rows]
+        self.geoms = [load_geometry(r["geometry"]) for r in rows]
         self.tree = STRtree(self.geoms)
 
     def locate(self, point: Point) -> str | None:

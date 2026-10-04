@@ -5,17 +5,16 @@
 """
 from __future__ import annotations
 
-import json
 import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
 import shapefile  # pyshp
-from shapely.geometry import Polygon, mapping, shape
+from shapely.geometry import Polygon, shape
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-from ..db import upsert_entity
+from ..db import dump_geometry, upsert_entity
 from ..regions import (PREFECTURES, municipality_entity_id, prefecture_entity_id, region_of,
                        small_area_entity_id)
 
@@ -126,5 +125,5 @@ def _insert_boundary(conn, version, entity_id, reference_date, source_id, geom, 
              bbox_south = excluded.bbox_south, bbox_east = excluded.bbox_east,
              bbox_north = excluded.bbox_north""",
         (f"{version}:{entity_id}", version, entity_id, reference_date, source_id,
-         json.dumps(mapping(geom)), area_m2, area_source, west, south, east, north),
+         dump_geometry(geom), area_m2, area_source, west, south, east, north),
     )
