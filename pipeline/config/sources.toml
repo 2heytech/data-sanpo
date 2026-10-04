@@ -862,58 +862,19 @@ modification_note = "標準地ごとの価格の推移を抜き出して作成"
 redistributable = true
 
 # 公立小学校・中学校・義務教育学校の児童・生徒数（東京都教育委員会「東京都公立学校一覧」、各年度5月1日現在）。
-# 1年度に6ファイル（学校種別ごとの一覧と住所）。ファイル名は年度ごとに付け方が違うので、学校一覧の
-# CSVページから 2026-10-03 に GitHub Actions で確認した。形式は pipeline/tdm/ingest/tokyo_schools.py を参照。
-[tokyo_schools_2025]
-kind = "tokyo_schools"
-school_year = 2025
-title = "令和7年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2025年5月1日現在）"
-provider = "東京都教育委員会"
-url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2025/report2025_csv"
-files = ["*_counts.csv", "*_address.csv"]
-encoding = "cp932"
-license = "東京都教育委員会ホームページの利用条件による"
-license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
-attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
-modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
-redistributable = true
-[tokyo_schools_2025.download_files]
-"elementary_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_shougakkou_ichiran"
-"elementary_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_shougakkou_address"
-"junior_high_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_chuugakkou_ichiran"
-"junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_chuugakkou_address"
-"compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_gimu_ichiran"
-"compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_gimu_address"
-[tokyo_schools_2024]
-kind = "tokyo_schools"
-school_year = 2024
-title = "令和6年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2024年5月1日現在）"
-provider = "東京都教育委員会"
-url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2024/report2024_01_csv"
-files = ["*_counts.csv", "*_address.csv"]
-encoding = "cp932"
-license = "東京都教育委員会ホームページの利用条件による"
-license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
-attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
-modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
-redistributable = true
-[tokyo_schools_2024.download_files]
-"elementary_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_shougakkou-ichiran"
-"elementary_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_shougakkou-address"
-"junior_high_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_chuugakkou-ichiran"
-"junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_chuugakkou-address"
-"compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_gimu-ichiran"
-"compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r6_gimu-address"
+# 1年度に6ファイル（学校種別ごとの一覧と住所）。形式は pipeline/tdm/ingest/tokyo_schools.py を参照。
+# 東京都オープンデータカタログ（CC BY 4.0）に載っている令和5年度分だけを使う。都教委のサイトにある
+# ほかの年度はカタログに載っておらず、サイトの利用条件は転用を認めていないため使わない（docs/design-changes.md #70）。
 [tokyo_schools_2023]
 kind = "tokyo_schools"
 school_year = 2023
 title = "令和5年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2023年5月1日現在）"
 provider = "東京都教育委員会"
-url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2023/report2023_01_csv"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000021d2000000176"
 files = ["*_counts.csv", "*_address.csv"]
 encoding = "cp932"
-license = "東京都教育委員会ホームページの利用条件による"
-license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
 modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
 redistributable = true
@@ -924,46 +885,6 @@ redistributable = true
 "junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-address_3"
 "compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-ichiran_9"
 "compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-address_3"
-[tokyo_schools_2022]
-kind = "tokyo_schools"
-school_year = 2022
-title = "令和4年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2022年5月1日現在）"
-provider = "東京都教育委員会"
-url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2022/report2022_03_csv"
-files = ["*_counts.csv", "*_address.csv"]
-encoding = "cp932"
-license = "東京都教育委員会ホームページの利用条件による"
-license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
-attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
-modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
-redistributable = true
-[tokyo_schools_2022.download_files]
-"elementary_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-ichiran_3-1"
-"elementary_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-address_3"
-"junior_high_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-ichiran_3-1"
-"junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-adress"
-"compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-ichiran_3-1"
-"compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-adress"
-[tokyo_schools_2021]
-kind = "tokyo_schools"
-school_year = 2021
-title = "令和3年度 公立学校統計調査報告書【東京都公立学校一覧】小学校・中学校・義務教育学校（2021年5月1日現在）"
-provider = "東京都教育委員会"
-url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/list_of_public_school/school_lists2021/school_lists2021_csv"
-files = ["*_counts.csv", "*_address.csv"]
-encoding = "cp932"
-license = "東京都教育委員会ホームページの利用条件による"
-license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
-attribution = "出典：東京都教育委員会「公立学校統計調査報告書【東京都公立学校一覧】」"
-modification_note = "学校ごとの児童・生徒数を、住所から求めた位置に表示して作成"
-redistributable = true
-[tokyo_schools_2021.download_files]
-"elementary_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-ichiran_2-1"
-"elementary_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/shougakkou-address_2"
-"junior_high_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-ichiran_2-1"
-"junior_high_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/chuugakkou-address_2"
-"compulsory_counts.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-ichiran_2-1"
-"compulsory_address.csv" = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/gimu-address_2"
 
 # 住所から学校の位置を求めるための街区の代表点（国土交通省 位置参照情報、街区レベル 24.0a、2025年版）。
 # 2026-10-03 に GitHub Actions から取得して列名を確認した。サイトにはこのファイル自体は載せない。
@@ -1118,7 +1039,6 @@ attribution = "出典：警察庁「交通事故統計情報のオープンデ�
 modification_note = "警察庁「交通事故統計情報のオープンデータ」を加工して作成（事故の地点を町丁目・区市町村に集計）"
 redistributable = true
 
-
 # 令和7年国勢調査の人口速報（東京都、区市町村別）。町丁・字等の速報はない。確定値・小地域集計が出たら置き換える
 [tokyo_census2025_preliminary]
 kind = "census_preliminary"
@@ -1256,7 +1176,6 @@ attribution = "出典：東京都福祉局「都内の保育サービスの状�
 modification_note = "区市町村別の待機児童数を抜き出し、保育サービス利用児童数と就学前児童人口から利用率を算出して作成"
 redistributable = true
 
-
 # 都道の街路樹（東京都建設局）。1本ごとの位置と樹種。23区を先、多摩を後に書く（出典を区部・多摩で分けるため）
 [tokyo_street_trees_ku]
 kind = "tokyo_street_trees"
@@ -1288,6 +1207,9 @@ attribution = "出典：東京都建設局「都道の街路樹」"
 modification_note = "街路樹の位置を町丁目・区市町村の境界に重ね、本数と樹種を数えて作成"
 redistributable = true
 
+# 選挙結果（東京都選挙管理委員会、開票区別）。東京都オープンデータカタログ（CC BY 4.0）に載っている選挙だけを使う
+# （都知事 R6・衆院 R6.10・都議 R7・参院 R7）。都議 R7・参院 R7 はカタログのデータセット番号を作業環境から確かめられて
+# いないので、url はカタログの検索結果にしている。形式は pipeline/tdm/ingest/tokyo_election.py を参照。
 [tokyo_election_2024_tochiji_touhyou]
 kind = "tokyo_election"
 period = "2024-07-07"
@@ -1295,12 +1217,12 @@ layout = "turnout"
 encoding = "utf-8-sig"
 title = "令和6年7月7日執行 東京都知事選挙 投票結果"
 provider = "東京都選挙管理委員会"
-url = "https://www.senkyo.metro.tokyo.lg.jp/election/tochiji-all/tochiji-sokuhou2024/csv"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000023d2000000055"
 download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r6_tochiji_touhyo"
 download_filename = "r6_tochiji_touhyo.csv"
 files = ["r6_tochiji_touhyo.csv"]
-license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
-license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都選挙管理委員会「選挙結果」"
 modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
 redistributable = true
@@ -1312,12 +1234,12 @@ layout = "turnout"
 encoding = "utf-8-sig"
 title = "令和6年10月27日執行 衆議院（比例代表選出）議員選挙 投票結果"
 provider = "東京都選挙管理委員会"
-url = "https://www.senkyo.metro.tokyo.lg.jp/election/shuugiin-all/shuugiin-sokuhou202410/csv"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000023d2000000064"
 download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r6_syuugiin_hirei_touhyou"
 download_filename = "r6_syuugiin_hirei_touhyou.csv"
 files = ["r6_syuugiin_hirei_touhyou.csv"]
-license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
-license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都選挙管理委員会「選挙結果」"
 modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
 redistributable = true
@@ -1329,12 +1251,12 @@ layout = "shugiin_hirei"
 encoding = "utf-8-sig"
 title = "令和6年10月27日執行 衆議院（比例代表選出）議員選挙 届出政党等別得票数"
 provider = "東京都選挙管理委員会"
-url = "https://www.senkyo.metro.tokyo.lg.jp/election/shuugiin-all/shuugiin-sokuhou202410/csv"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000023d2000000064"
 download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r6_syuugiin_hirei_kaihyou2"
 download_filename = "r6_syuugiin_hirei_kaihyou2.csv"
 files = ["r6_syuugiin_hirei_kaihyou2.csv"]
-license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
-license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都選挙管理委員会「選挙結果」"
 modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
 redistributable = true
@@ -1346,12 +1268,12 @@ layout = "turnout"
 encoding = "utf-8-sig"
 title = "令和7年6月22日執行 東京都議会議員選挙 投票結果"
 provider = "東京都選挙管理委員会"
-url = "https://www.senkyo.metro.tokyo.lg.jp/election/togikai-all/togikai-sokuhou2025/csv"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset?q=%E6%9D%B1%E4%BA%AC%E9%83%BD%E8%AD%B0%E4%BC%9A%E8%AD%B0%E5%93%A1%E9%81%B8%E6%8C%99%20%E4%BB%A4%E5%92%8C7%E5%B9%B4"
 download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r7_togikai_touhyou"
 download_filename = "r7_togikai_touhyou.csv"
 files = ["r7_togikai_touhyou.csv"]
-license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
-license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都選挙管理委員会「選挙結果」"
 modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
 redistributable = true
@@ -1363,12 +1285,12 @@ layout = "turnout"
 encoding = "utf-8-sig"
 title = "令和7年7月20日執行 参議院（比例代表選出）議員選挙 投票結果"
 provider = "東京都選挙管理委員会"
-url = "https://www.senkyo.metro.tokyo.lg.jp/election/sanngiin-all/sanngiin-sokuhou2025/csv"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset?q=%E5%8F%82%E8%AD%B0%E9%99%A2%E8%AD%B0%E5%93%A1%E9%81%B8%E6%8C%99%20%E4%BB%A4%E5%92%8C7%E5%B9%B4"
 download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r7_sangiin_hirei_touhyou0724"
 download_filename = "r7_sangiin_hirei_touhyou0724.csv"
 files = ["r7_sangiin_hirei_touhyou0724.csv"]
-license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
-license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都選挙管理委員会「選挙結果」"
 modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
 redistributable = true
@@ -1380,46 +1302,12 @@ layout = "sangiin_hirei"
 encoding = "utf-8-sig"
 title = "令和7年7月20日執行 参議院（比例代表選出）議員選挙 政党等別得票総数 開票区別一覧"
 provider = "東京都選挙管理委員会"
-url = "https://www.senkyo.metro.tokyo.lg.jp/election/sanngiin-all/sanngiin-sokuhou2025/csv"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset?q=%E5%8F%82%E8%AD%B0%E9%99%A2%E8%AD%B0%E5%93%A1%E9%81%B8%E6%8C%99%20%E4%BB%A4%E5%92%8C7%E5%B9%B4"
 download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r7_sangiin_hirei_kaihyou0724"
 download_filename = "r7_sangiin_hirei_kaihyou0724.csv"
 files = ["r7_sangiin_hirei_kaihyou0724.csv"]
-license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
-license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
-attribution = "出典：東京都選挙管理委員会「選挙結果」"
-modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
-redistributable = true
-
-[tokyo_election_2026_shugiin_touhyou]
-kind = "tokyo_election"
-period = "2026-02-08"
-layout = "turnout"
-encoding = "utf-8-sig"
-title = "令和8年2月8日執行 衆議院（比例代表選出）議員選挙 投票結果"
-provider = "東京都選挙管理委員会"
-url = "https://www.senkyo.metro.tokyo.lg.jp/election/shuugiin-all/shuugiin-sokuhou202602/csv"
-download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r8_syuugiin_hirei_touhyou"
-download_filename = "r8_syuugiin_hirei_touhyou.csv"
-files = ["r8_syuugiin_hirei_touhyou.csv"]
-license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
-license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
-attribution = "出典：東京都選挙管理委員会「選挙結果」"
-modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
-redistributable = true
-
-[tokyo_election_2026_shugiin_hirei]
-kind = "tokyo_election"
-period = "2026-02-08"
-layout = "shugiin_hirei"
-encoding = "utf-8-sig"
-title = "令和8年2月8日執行 衆議院（比例代表選出）議員選挙 届出政党等別得票数"
-provider = "東京都選挙管理委員会"
-url = "https://www.senkyo.metro.tokyo.lg.jp/election/shuugiin-all/shuugiin-sokuhou202602/csv"
-download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r8_syuugiin_hirei_kaihyou2"
-download_filename = "r8_syuugiin_hirei_kaihyou2.csv"
-files = ["r8_syuugiin_hirei_kaihyou2.csv"]
-license = "東京都選挙管理委員会ホームページのサイトポリシーによる（選挙結果の数値から率を計算して掲載）"
-license_url = "https://www.senkyo.metro.tokyo.lg.jp/policy"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都選挙管理委員会「選挙結果」"
 modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
 redistributable = true
@@ -1458,63 +1346,19 @@ redistributable = true
 
 # 公立小学校卒業者の進路（東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」小学校 第1表）。
 # 区市町村別は報告書の前年度の卒業者（令和7年度版＝令和7年3月卒業）。形式は pipeline/tdm/ingest/tokyo_jhs_progress.py を参照。
+# 東京都オープンデータカタログ（CC BY 4.0）に載っている令和7年度報告（令和7年3月卒業）だけを使う。
 
 [tokyo_jhs_progress_2025]
 kind = "tokyo_jhs_progress"
 period = "2025-03-31"
 title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2025年3月卒業） 小学校 第1表 状況別卒業者数"
 provider = "東京都教育委員会"
-url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/career_report/report2025"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000021d2000000192"
 download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7-sotsugo-01"
 download_filename = "sotsugo01_2025.xlsx"
 files = ["sotsugo01_2025.xlsx"]
-license = "東京都教育委員会ホームページの利用条件による（統計表の数値から率を計算して掲載）"
-license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
-attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
-modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
-redistributable = true
-
-[tokyo_jhs_progress_2024]
-kind = "tokyo_jhs_progress"
-period = "2024-03-31"
-title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2024年3月卒業） 小学校 第1表 状況別卒業者数"
-provider = "東京都教育委員会"
-url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/career_report/report2024"
-download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/statistics_and_research_report2024_sotsugo-01_r61119"
-download_filename = "sotsugo01_2024.xlsx"
-files = ["sotsugo01_2024.xlsx"]
-license = "東京都教育委員会ホームページの利用条件による（統計表の数値から率を計算して掲載）"
-license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
-attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
-modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
-redistributable = true
-
-[tokyo_jhs_progress_2023]
-kind = "tokyo_jhs_progress"
-period = "2023-03-31"
-title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2023年3月卒業） 小学校 第1表 状況別卒業者数"
-provider = "東京都教育委員会"
-url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/career_report/report2023"
-download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/sotsugo-01_4"
-download_filename = "sotsugo01_2023.xlsx"
-files = ["sotsugo01_2023.xlsx"]
-license = "東京都教育委員会ホームページの利用条件による（統計表の数値から率を計算して掲載）"
-license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
-attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
-modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
-redistributable = true
-
-[tokyo_jhs_progress_2022]
-kind = "tokyo_jhs_progress"
-period = "2022-03-31"
-title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2022年3月卒業） 小学校 第1表 状況別卒業者数"
-provider = "東京都教育委員会"
-url = "https://www.kyoiku.metro.tokyo.lg.jp/about/statistics_and_research/career_report/report2022"
-download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/sotsugo-01_3"
-download_filename = "sotsugo01_2022.xlsx"
-files = ["sotsugo01_2022.xlsx"]
-license = "東京都教育委員会ホームページの利用条件による（統計表の数値から率を計算して掲載）"
-license_url = "https://www.kyoiku.metro.tokyo.lg.jp/policy/web"
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
 modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
 redistributable = true

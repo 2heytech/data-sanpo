@@ -518,16 +518,17 @@ def _write_land_prices(directory: Path, rnd: random.Random) -> Path:
 
 # 公立学校一覧（東京都教育委員会の CSV 形式、cp932）と位置参照情報（街区レベル）。
 # (学校番号, 学校種別, 設置者, 学校名, 住所, 掲載年度, 想定)
-SCHOOL_YEARS = range(2021, 2026)
+# 使うのは東京都オープンデータカタログに載っている令和5年度分だけ（sources.toml の tokyo_schools_2023）。
+SCHOOL_YEARS = (2023,)
 SCHOOLS = [
     ("990010", "elementary", "サンプル区", "見本", "見本町1-2", SCHOOL_YEARS, "街区"),
     ("990020", "elementary", "サンプル区", "見本第二", "見本町1-99", SCHOOL_YEARS, "町丁目"),
     ("990030", "elementary", "ためし市", "ためし", "どこにもない町1-1", SCHOOL_YEARS, "位置なし"),
-    ("990040", "elementary", "サンプル区", "見本第三", "見本町1-3", range(2021, 2024), "閉校"),
+    ("990040", "elementary", "サンプル区", "見本第三", "見本町1-3", SCHOOL_YEARS, "街区"),
     ("990110", "junior_high", "サンプル区", "見本", "見本町1-3-5", SCHOOL_YEARS, "街区"),
     ("990110", "junior_high", "東京都", "(見本・通信制）", "サンプル区見本町1-3-5", SCHOOL_YEARS, "通信制"),
     ("990120", "junior_high", "東京都", "見本高等学校附属", "ためし市試験町2-5-1", SCHOOL_YEARS, "都立"),
-    ("990210", "compulsory", "かりの村", "かりの小中学校", "仮置10", range(2023, 2026), "義務教育学校"),
+    ("990210", "compulsory", "かりの村", "かりの小中学校", "仮置10", SCHOOL_YEARS, "義務教育学校"),
     ("990050", "elementary", "ためし市", "遠方", "遠い町500", SCHOOL_YEARS, "大字レベル"),
     ("990060", "elementary", "かりの村", "かりの", "22", SCHOOL_YEARS, "大字を書かない住所"),
 ]
@@ -595,8 +596,8 @@ def _write_schools(directory: Path, rnd: random.Random) -> dict[str, Path]:
                 rows.append([number, founder, name, str(sum(g))] + cells
                             + [str(x) for x in [rnd.randint(0, 9), 20, 2]][:len(head) - 4 - len(cells)])
                 total_all += sum(g)
-                # 2021年度の住所は区市町村名から書かれている（実データと同じ）
-                written = address if (founder == "東京都" or year > 2021) else founder + address
+                # 区市町村名から書かれた住所の例（令和3年度の実データにあった書き方）
+                written = founder + address if number == "990020" else address
                 addresses.append([number, founder, name, "100-0000", written, "03-0000-0000", "ミホン"])
             rows.append(["合計", "", "", str(total_all)] + [""] * (len(head) - 4))
             _write_cp932(d / f"{school_type}_counts.csv", head, rows)
