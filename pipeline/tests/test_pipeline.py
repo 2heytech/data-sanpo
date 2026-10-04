@@ -558,7 +558,7 @@ def test_stations_are_per_operator_and_keep_duplicates_apart(built):
 
 def test_schools_are_located_from_addresses(built):
     sc = load(built, "places/school_enrollment.json")
-    assert [p["label"] for p in sc["periods"]][-1] == "2025年5月1日現在" and len(sc["periods"]) == 5
+    assert [p["label"] for p in sc["periods"]] == ["2023年5月1日現在"]   # カタログに載っている年度だけ
     by = {s["id"]: s for s in sc["schools"]}
     # 通信制の課程は学校の点にしない（同じ学校番号の中学校の値に混ぜない）
     assert by["school-990110"]["name"] == "見本中学校"
@@ -574,8 +574,6 @@ def test_schools_are_located_from_addresses(built):
     # 学年別の合計が総数。「-」は該当なし（0人）
     k = by["school-990210"]
     assert k["values"][-1] == sum(v[-1] for v in k["by_grade"].values()) and k["by_grade"]["2年"][-1] == 0
-    # 掲載のない年度は値なし（0 にしない）
-    assert k["values"][:2] == [None, None] and by["school-990040"]["values"][3:] == [None, None]
     # 街区レベルにない大字は大字・町丁目レベルで補う。大字を書かない住所は大字が1つの町村だけ
     assert by["school-990050"]["precision"] == "町丁目" and by["school-990050"]["coord"] == [139.68, 35.7]
     assert by["school-990060"]["coord"] == [139.37, 34.71]
