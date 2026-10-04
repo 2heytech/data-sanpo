@@ -84,40 +84,61 @@ CREATE TABLE IF NOT EXISTS indicators (
   PRIMARY KEY (indicator_id, definition_version)
 );
 
-CREATE TABLE IF NOT EXISTS observations (
-  obs_id               INTEGER PRIMARY KEY,
-  entity_id            TEXT NOT NULL REFERENCES entities(entity_id),
-  indicator_id         TEXT NOT NULL,
-  definition_version   TEXT NOT NULL,
-  period_start         TEXT NOT NULL,
-  period_end           TEXT NOT NULL,
-  period_kind          TEXT NOT NULL CHECK (period_kind IN
-                         ('point', 'calendar_year', 'fiscal_year', 'month_to_date', 'multi_year')),
-  dimension_key        TEXT NOT NULL DEFAULT 'all',
-  value                REAL,
-  numerator            REAL,
-  denominator          REAL,
-  status               TEXT NOT NULL CHECK (status IN
-                         ('observed', 'estimated', 'derived', 'missing', 'suppressed',
-                          'withheld', 'not_applicable')),
-  source_id            TEXT NOT NULL REFERENCES sources(source_id),
-  denominator_source_id TEXT REFERENCES sources(source_id),
-  boundary_id          TEXT REFERENCES boundaries(boundary_id),
-  coverage_note        TEXT,
-  method_note          TEXT,
-  updated_at           TEXT NOT NULL,
-  FOREIGN KEY (indicator_id, definition_version)
-    REFERENCES indicators(indicator_id, definition_version),
-  -- 値がない行は value を NULL にし、ゼロに置き換えない
-  CHECK ((status IN ('missing', 'suppressed', 'withheld', 'not_applicable')) = (value IS NULL)),
-  -- 指標を先頭にする。取込は指標ごとにまとめて書くので、全国（数千万行）でも索引の更新が局所的になる。
-  -- 指標・時点での検索もこの索引で引ける
-  UNIQUE (indicator_id, definition_version, period_start, period_end, source_id,
-          dimension_key, entity_id)
+-- 観測値。全国では数千万行になるので、文字列（地域ID・指標ID・時点・出典など）は keys の番号で持ち、
+-- 1行を小さくする（2026-10-04、design-changes #69）。読むときは下の observations ビューで文字列に戻る。
+-- 書き込みは tdm.db.insert_observation だけが行う（値の検査もそこで行う）。
+CREATE TABLE IF NOT EXISTS keys (
+  key_id INTEGER PRIMARY KEY,
+  key    TEXT NOT NULL UNIQUE
 );
--- 次の2つは一括取込の間は外し、取込の最後に作り直す（tdm.db.SECONDARY_INDEXES）
-CREATE INDEX IF NOT EXISTS idx_obs_lookup ON observations(entity_id, indicator_id, period_start);
-CREATE INDEX IF NOT EXISTS idx_obs_source ON observations(source_id);
+
+CREATE TABLE IF NOT EXISTS obs (
+  -- 指標を先頭にする。取込は指標ごとにまとめて書くので、全国でも書き込みが局所的になる。指標・時点での検索もこれで引ける
+  indicator_k            INTEGER NOT NULL,
+  definition_version_k   INTEGER NOT NULL,
+  period_start_k         INTEGER NOT NULL,
+  period_end_k           INTEGER NOT NULL,
+  source_k               INTEGER NOT NULL,
+  dimension_k            INTEGER NOT NULL,
+  entity_k               INTEGER NOT NULL,
+  period_kind_k          INTEGER NOT NULL,
+  -- 値がない行は value を NULL にし、ゼロに置き換えない
+  value                  REAL,
+  numerator              REAL,
+  denominator            REAL,
+  status_k               INTEGER NOT NULL,
+  denominator_source_k   INTEGER,
+  boundary_k             INTEGER,
+  coverage_note_k        INTEGER,
+  method_note_k          INTEGER,
+  updated_at_k           INTEGER NOT NULL,
+  PRIMARY KEY (indicator_k, definition_version_k, period_start_k, period_end_k, source_k,
+               dimension_k, entity_k)
+) WITHOUT ROWID;
+-- 次は一括取込の間は外し、取込の最後に作り直す（tdm.db.SECONDARY_INDEXES）
+CREATE INDEX IF NOT EXISTS idx_obs_entity ON obs(entity_k, indicator_k, period_start_k);
+
+CREATE VIEW IF NOT EXISTS observations AS
+SELECT ke.key AS entity_id, ki.key AS indicator_id, kd.key AS definition_version,
+       kps.key AS period_start, kpe.key AS period_end, kpk.key AS period_kind,
+       kdim.key AS dimension_key, o.value, o.numerator, o.denominator, kst.key AS status,
+       ksrc.key AS source_id, kds.key AS denominator_source_id, kb.key AS boundary_id,
+       kcn.key AS coverage_note, kmn.key AS method_note, ku.key AS updated_at
+FROM obs o
+JOIN keys ki ON ki.key_id = o.indicator_k
+JOIN keys kd ON kd.key_id = o.definition_version_k
+JOIN keys kps ON kps.key_id = o.period_start_k
+JOIN keys kpe ON kpe.key_id = o.period_end_k
+JOIN keys ksrc ON ksrc.key_id = o.source_k
+JOIN keys kdim ON kdim.key_id = o.dimension_k
+JOIN keys ke ON ke.key_id = o.entity_k
+JOIN keys kpk ON kpk.key_id = o.period_kind_k
+JOIN keys kst ON kst.key_id = o.status_k
+LEFT JOIN keys kds ON kds.key_id = o.denominator_source_k
+LEFT JOIN keys kb ON kb.key_id = o.boundary_k
+LEFT JOIN keys kcn ON kcn.key_id = o.coverage_note_k
+LEFT JOIN keys kmn ON kmn.key_id = o.method_note_k
+JOIN keys ku ON ku.key_id = o.updated_at_k;
 
 CREATE TABLE IF NOT EXISTS releases (
   release_id    TEXT PRIMARY KEY,

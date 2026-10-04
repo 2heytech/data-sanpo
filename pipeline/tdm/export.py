@@ -14,13 +14,13 @@ import subprocess
 from collections import defaultdict
 from pathlib import Path
 
-from shapely.geometry import MultiPolygon, Polygon, mapping, shape
+from shapely.geometry import MultiPolygon, Polygon, mapping
 from shapely.ops import unary_union
 from shapely.strtree import STRtree
 
 from . import SCHEMA_VERSION
 from .breaks import diverging_breaks, nice_breaks
-from .db import now_iso
+from .db import load_geometry, now_iso
 from .progress import progress
 from .regions import PREFECTURES, prefecture_entity_id, prefecture_of
 
@@ -52,8 +52,7 @@ def _round_coords(obj, digits=COORD_DIGITS):
     return obj
 
 
-def _simplified(geometry_json: str, tolerance: float, digits: int = COORD_DIGITS) -> dict:
-    geom = shape(json.loads(geometry_json))
+def _simplified(geom, tolerance: float, digits: int = COORD_DIGITS) -> dict:
     simple = geom.simplify(tolerance, preserve_topology=True)
     if simple.is_empty:
         simple = geom
@@ -196,7 +195,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
     muni_names = {r["entity_id"]: r["name"] for r in muni_rows}
 
     # --- 境界 ---------------------------------------------------------------
-    muni_shapes = {r["entity_id"]: shape(json.loads(r["geometry"])) for r in muni_rows}
+    muni_shapes = {r["entity_id"]: load_geometry(r["geometry"]) for r in muni_rows}
     neighbors = _neighbors(muni_shapes)
     pref_names = {r["entity_id"]: r["name"] for r in conn.execute(
         "SELECT entity_id, name FROM entities WHERE entity_type = 'prefecture'")}
@@ -206,7 +205,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
     _write(out, f"{bdir}/municipalities.geojson", {
         "type": "FeatureCollection",
         "features": [{"type": "Feature", "properties": {"id": r["entity_id"], "name": r["name"]},
-                      "geometry": _simplified(r["geometry"], NATION_TOLERANCE, NATION_DIGITS)}
+                      "geometry": _simplified(muni_shapes[r["entity_id"]], NATION_TOLERANCE, NATION_DIGITS)}
                      for r in muni_rows]})
     munis_by_pref: dict[str, list] = defaultdict(list)
     for r in muni_rows:
@@ -215,7 +214,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
         _write(out, f"{bdir}/municipalities/{pref}.geojson", {
             "type": "FeatureCollection",
             "features": [{"type": "Feature", "properties": {"id": r["entity_id"], "name": r["name"]},
-                          "geometry": _simplified(r["geometry"], MUNI_TOLERANCE)} for r in rows]})
+                          "geometry": _simplified(muni_shapes[r["entity_id"]], MUNI_TOLERANCE)} for r in rows]})
     # 都道府県界: 区市町村の形を合わせて作る（縮小したときに都道府県の値で色分けする。#52）
     pref_shapes = {pref: unary_union([muni_shapes[r["entity_id"]] for r in rows])
                    for pref, rows in munis_by_pref.items()}
@@ -231,13 +230,13 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
         by_muni[r["parent_id"]].append(r)
     centers: dict[str, list[float]] = {}
     for muni_id, rows in by_muni.items():
-        geoms = dict(conn.execute(
+        geoms = {eid: load_geometry(g) for eid, g in conn.execute(
             """SELECT b.entity_id, b.geometry FROM boundaries b
                JOIN entities e ON e.entity_id = b.entity_id
                WHERE e.parent_id = ? AND e.entity_type = 'small_area' AND b.boundary_version = ?""",
-            (muni_id, boundary_version)).fetchall())
+            (muni_id, boundary_version))}
         for r in rows:
-            p = shape(json.loads(geoms[r["entity_id"]])).representative_point()
+            p = geoms[r["entity_id"]].representative_point()
             centers[r["entity_id"]] = [round(p.x, 5), round(p.y, 5)]
         _write(out, f"{bdir}/{_code(muni_id)}.geojson", {
             "type": "FeatureCollection",
