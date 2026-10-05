@@ -151,6 +151,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # public_raw = false の出典（利用条件で再配布に制限のある自治体分を含む元ファイル）は公開の Release に上げない
+          # （毎回出典から取り直す。docs/design-changes.md #71）
+          export ARCHIVE_EXCLUDE="$(python3 -c 'import tomllib; c = tomllib.load(open("pipeline/config/sources.toml", "rb")); print(" ".join(k for k, v in c.items() if v.get("public_raw") is False))')"
+          echo "公開の Release に上げない出典: ${ARCHIVE_EXCLUDE:-なし}"
           name="raw-$(cd data/raw && find . -type f ! -name _fetch.json -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16)"
           if [ "$(.github/scripts/release-archive.sh latest "$RAW_SOURCES_TAG" raw-)" = "$name" ]; then
             echo "元ファイルは前回保存した $name と同じなので上げません"

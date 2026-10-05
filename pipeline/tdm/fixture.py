@@ -124,7 +124,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
                             random.Random(f"{seed}-{year}-14"), "14", OTHER_MUNICIPALITIES)
         out.update({f"{k}_14": v for k, v in other.items()})
     out["daytime"] = _write_daytime(directory, base, random.Random(f"{seed}-daytime"))
-    out["census2025_preliminary"] = _write_preliminary(directory, base, random.Random(f"{seed}-preliminary"))
+    out.update(_write_census2025(directory, base))
     out["daytime_2015"] = _write_daytime_past(directory, 2015, base, random.Random(f"{seed}-daytime-2015"))
     out["daytime_2010"] = _write_daytime_past(directory, 2010, base, random.Random(f"{seed}-daytime-2010"))
     out["foreign_census"] = _write_foreign_census(directory, base, random.Random(f"{seed}-foreign"))
@@ -138,6 +138,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out["stations"] = _write_stations(directory, random.Random(f"{seed}-stations"))
     out.update(_write_schools(directory, random.Random(f"{seed}-schools")))
     out["land_price"] = _write_land_prices(directory, random.Random(f"{seed}-land"))
+    out.update(_write_mlit_facilities(directory))
     out["street_trees"] = _write_street_trees(directory, random.Random(f"{seed}-trees"))
     for year, years in CHILDCARE_FILES.items():
         out[f"childcare_{year}"] = _write_childcare(directory, year, years, random.Random(f"{seed}-childcare-{year}"))
@@ -490,13 +491,14 @@ LAND_POINTS = [
     ("13299", "ためし", "000", 1, 139.650, 35.670, 1995),
     ("13299", "ためし", "009", 1, 139.680, 35.700, 2001),     # 工業地
     ("13901", "どこか", "000", 1, 139.900, 35.900, 1990),     # 境界データにない市区町村（取り込まない）
+    ("14199", "みほん中", "000", 1, 139.620, 35.470, 1990),   # 神奈川県（都道府県ごとのファイル）
 ]
 
 
 def _write_land_prices(directory: Path, rnd: random.Random) -> Path:
+    """地価公示（都道府県ごとのファイル。data/raw/mlit_l01_2026/<都道府県>/L01-26_<都道府県>.geojson）。"""
     d = directory / "mlit_l01_2026"
-    d.mkdir(parents=True, exist_ok=True)
-    features = []
+    features: dict[str, list] = {}
     for city5, city_name, use, seq, lon, lat, since in LAND_POINTS:
         level = {"000": 400_000, "005": 2_000_000, "009": 250_000}[use]
         prices = []
@@ -508,12 +510,59 @@ def _write_land_prices(directory: Path, rnd: random.Random) -> Path:
                  "L01_024": city_name, "L01_025": f"東京都{city_name}見本町１丁目{seq}番", "L01_026": "_",
                  "L01_027": 120 + seq, "L01_028": "住宅", "L01_048": "見本", "L01_050": 600, "L01_051": "1中専"}
         props.update({f"L01_{62 + i:03d}": v for i, v in enumerate(prices)})
-        features.append({"type": "Feature", "properties": props,
-                         "geometry": {"type": "Point", "coordinates": [lon, lat]}})
-    path = d / "L01-26_13.geojson"
+        features.setdefault(city5[:2], []).append({"type": "Feature", "properties": props,
+                                                   "geometry": {"type": "Point", "coordinates": [lon, lat]}})
+    for pref, feats in features.items():
+        _write_geojson(d / pref / f"L01-26_{pref}.geojson", feats)
+    return d
+
+
+def _write_geojson(path: Path, features: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False),
                     encoding="utf-8")
-    return d
+
+
+def _point(props: dict, lon: float, lat: float) -> dict:
+    return {"type": "Feature", "properties": props, "geometry": {"type": "Point", "coordinates": [lon, lat]}}
+
+
+# 国土数値情報 学校データ（P29）。東京都以外の公立小中学校の位置だけを使う
+MLIT_SCHOOLS = [   # (都道府県, 市区町村, 学校コード, 分類, 名称, 管理者, 休校区分, 経度, 緯度)
+    ("14", "14199", "B114199000001", "16001", "みほん市立標本小学校", "3", "1", 139.615, 35.465),
+    ("14", "14199", "B114199000002", "16002", "みほん市立標本中学校", "3", "1", 139.625, 35.468),
+    ("14", "14199", "B114199000003", "16014", "みほん市立標本学園", "3", "1", 139.630, 35.470),
+    ("14", "14199", "C114199000004", "16001", "標本学院小学校", "4", "1", 139.618, 35.462),   # 私立（除く）
+    ("14", "14199", "D114199000005", "16004", "神奈川県立標本高等学校", "2", "1", 139.622, 35.461),  # 高校（除く）
+    ("14", "14199", "B114199000006", "16001", "みほん市立旧標本小学校", "3", "9", 139.611, 35.466),  # 休校（除く）
+    ("13", "13199", "B113199000001", "16001", "サンプル区立見本小学校", "3", "1", 139.705, 35.665),  # 東京都（除く）
+]
+# 国土数値情報 福祉施設データ（P14）。保育所（050401）の位置だけを使う。14199 は神奈川県の所管として利用条件で除かれる
+MLIT_WELFARE = [   # (都道府県, 市区町村名, 市区町村, 小分類, 名称, 経度, 緯度)
+    ("14", "みほん市中区", "14199", "050401", "標本保育園", 139.617, 35.466),
+    ("14", "みほん市中区", "14199", "050400", "標本幼稚園", 139.619, 35.467),
+    ("13", "サンプル区", "13199", "050401", "見本保育園", 139.706, 35.666),
+]
+
+
+def _write_mlit_facilities(directory: Path) -> dict[str, Path]:
+    schools: dict[str, list] = {}
+    for pref, city5, code, kind, name, founder, open_, lon, lat in MLIT_SCHOOLS:
+        schools.setdefault(pref, []).append(_point({
+            "P29_001": city5, "P29_002": code, "P29_003": kind, "P29_004": name,
+            "P29_005": f"{PREF_NAMES[pref]}{name[:3]}標本町1-1", "P29_006": founder, "P29_007": open_,
+            "P29_008": "00", "P29_009": None}, lon, lat))
+    for pref, feats in schools.items():
+        _write_geojson(directory / "mlit_p29_2023" / pref / f"P29-23_{pref}_GML" / f"P29-23_{pref}.geojson", feats)
+    welfare: dict[str, list] = {}
+    for pref, city_name, city5, cls, name, lon, lat in MLIT_WELFARE:
+        welfare.setdefault(pref, []).append(_point({
+            "P14_001": PREF_NAMES[pref], "P14_002": city_name, "P14_003": city5, "P14_004": "標本町1-2",
+            "P14_005": "05", "P14_006": cls[:4], "P14_007": cls, "P14_008": name, "P14_009": 5, "P14_010": 1},
+            lon, lat))
+    for pref, feats in welfare.items():
+        _write_geojson(directory / "mlit_p14_2023" / pref / f"P14-23_{pref}_GML" / f"P14-23_{pref}.geojson", feats)
+    return {"mlit_schools": directory / "mlit_p29_2023", "mlit_welfare": directory / "mlit_p14_2023"}
 
 
 # 公立学校一覧（東京都教育委員会の CSV 形式、cp932）と位置参照情報（街区レベル）。
@@ -630,6 +679,7 @@ STATIONS = [
     ("試験公園", "900030", "900030", "架空鉄道", "公園線", 139.6550, 35.6950, "private"),
     ("見本新町", "900040", "900040", "東日本旅客鉄道", "見本線", 139.7450, 35.6700, "opened2015"),
     ("県外", "900050", "900050", "架空鉄道", "県外線", 139.0000, 36.5000, "value"),
+    ("標本", "900060", "900060", "架空鉄道", "標本線", 139.6200, 35.4700, "value"),   # 神奈川県（全国版の確認用）
 ]
 
 
@@ -667,30 +717,99 @@ def _write_stations(directory: Path, rnd: random.Random) -> Path:
 
 
 # 昼間人口（東京都の統計 表1 の形式、UTF-8 BOM付き）
-def _write_preliminary(directory: Path, base: dict, rnd: random.Random) -> Path:
-    """令和7年国勢調査の人口速報（都の表3の形式、UTF-8 BOM付き）。区市町村の行は地域階層 4。"""
-    d = directory / "tokyo_census2025_preliminary"
-    d.mkdir(parents=True, exist_ok=True)
-    header = ["地域階層", "地域コード", "地域", "人口／総数／令和7（2025）年（人）", "人口／構成比／令和7（2025）年（％）",
-              "人口／総数／令和2（2020）年（人）", "世帯／総数／令和7（2025）年（世帯）",
-              "世帯／総数／1世帯当たり人員／令和7（2025）年（人）"]
-    rows, total_pop, total_hh = [], 0, 0
-    for city5, city_name, town, west, south in MUNICIPALITIES:
+def census2025_values(base: dict, seed: int = 42) -> dict[str, dict[str, int]]:
+    """2025年国勢調査（人口等基本集計）の見本の値。市区町村 → 列名 → 値（テストでも使う）。"""
+    rnd = random.Random(f"{seed}-census2025")
+    out = {}
+    for city5, _, town, west, south in MUNICIPALITIES + OTHER_MUNICIPALITIES:
         before = sum(base[k][0][0] for k, _, _ in _cells(city5, town, west, south))
         pop = round(before * rnd.uniform(0.95, 1.06))
+        young = round(pop * rnd.uniform(0.08, 0.14))
+        old = round(pop * rnd.uniform(0.18, 0.3))
+        unknown = round(pop * 0.01)
         hh = round(pop / rnd.uniform(1.7, 2.2))
-        rows.append(["4", city5, city_name, pop, "", before, hh, round(pop / hh, 2)])
-        total_pop, total_hh = total_pop + pop, total_hh + hh
-    rows.insert(0, ["0", "13000", "東京都総数", total_pop, 100, "", total_hh, ""])
-    rows.insert(1, ["1", "13100", "区部", total_pop, "", "", total_hh, ""])   # 区部などの行は使わない
-    path = d / "kt25sv0300.csv"
-    with path.open("w", encoding="utf-8-sig", newline="") as f:
-        wr = csv.writer(f)
-        wr.writerow(header)
-        wr.writerows(rows)
-        wr.writerow([""] * len(header))
-        wr.writerow(["令和7年国勢調査  人口及び世帯数（速報）"] + [""] * (len(header) - 1))
-    return d
+        general = hh - 3
+        out[city5] = {"人口": pop, "世帯数": hh, "一般世帯数": general, "15歳未満": young,
+                      "15～64歳": pop - young - old - unknown, "65歳以上": old,
+                      "単独世帯": round(general * rnd.uniform(0.3, 0.6)),
+                      "18歳未満世帯員のいる": round(general * rnd.uniform(0.1, 0.25))}
+    return out
+
+
+def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
+    """令和7年国勢調査 人口等基本集計の e-Stat の Excel（表1-1・2-7・6-3・9-1 の形式）。
+    地域識別コード a（都道府県）・1（政令指定都市の市全体）・9（2000年の市区町村）の行は取り込まない。"""
+    from .xlsx import write_sheet
+    vals = census2025_values(base)
+    names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
+    areas = [("a", "13", "13000", "東京都"), ("a", "14", "14000", "神奈川県"), ("1", "14", "14190", "みほん市")]
+    areas += [("0" if c.startswith("131") or c.startswith("141") else "2" if c[2] == "2" else "3", c[:2], c, names[c])
+              for c in vals]
+    total = lambda pref, key: sum(v[key] for c, v in vals.items() if c[:2] == pref)
+    def value(code, key):
+        if code in vals:
+            return vals[code][key]
+        return total(code[:2], key) + 7   # 都道府県・市全体の行（使わないことを確かめるため合計と少しずらす）
+    out = {}
+
+    def save(key: str, fname: str, rows: list[list]) -> None:
+        d = directory / key
+        d.mkdir(parents=True, exist_ok=True)
+        write_sheet(d / fname, rows, fname.removesuffix(".xlsx"))
+        out[key] = d
+
+    title = [["令和７年国勢調査　人口等基本集計"], ["見本"], [], ["1) 注記"]]
+    # 表1-1: 地域の列は 2000年と2025年の両方。地域名の先頭は並び順の番号（コードではない）
+    rows = title + [[None] * 6 + ["表章項目", "人口", "人口", "人口", "世帯数", "世帯数"],
+                    [None] * 6 + ["事項名", "男女", "男女", "男女", "世帯の種類", "世帯の種類"],
+                    [None] * 6 + ["項目名", "0_総数", "1_男", "2_女", "0_総数", "1_一般世帯"],
+                    [None] * 6 + ["表章単位", "人", "人", "人", "世帯", "世帯"],
+                    ["地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域", "2025年_都道府県",
+                     "2025年_地域コード", "地域名", " "]]
+    for k, (level, pref, code, label) in enumerate(areas):
+        pop = value(code, "人口")
+        rows.append([level, f"{pref}_{PREF_NAMES[pref]}", code, "2000", f"{pref}_{PREF_NAMES[pref]}", code,
+                     f"{1000 + k}_{label}", pop, pop // 2, pop - pop // 2, value(code, "世帯数"), value(code, "一般世帯数")])
+    rows.append(["9", "13_東京都", "13199", "2000", "13_東京都", "13199", "9999_旧サンプル町", 5, 3, 2, 2, 2])
+    save("census2025_municipal_population", "b01_01.xlsx", rows)
+    # 表2-7: 国籍総数か日本人・男女の分類の列が地域の前にある
+    rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * 4,
+                    [None] * 8 + ["事項名"] + ["年齢"] * 4,
+                    [None] * 8 + ["項目名", "00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上"],
+                    [None] * 8 + ["表章単位"] + ["人"] * 4,
+                    ["国籍総数か日本人", "男女", "地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域",
+                     "2025年_都道府県", "2025年_地域コード", "地域名", " "]]
+    for nat, ratio in (("0_国籍総数", 1.0), ("1_うち日本人", 0.9)):
+        for sex, share in (("0_総数", 1.0), ("1_男", 0.48), ("2_女", 0.52)):
+            for level, pref, code, label in areas:
+                f = ratio * share
+                rows.append([nat, sex, level, f"{pref}_{PREF_NAMES[pref]}", code, "2000", f"{pref}_{PREF_NAMES[pref]}",
+                             code, f"{code}_{label}", round(value(code, "人口") * f)]
+                            + [round(value(code, c) * f) for c in ("15歳未満", "15～64歳", "65歳以上")])
+    save("census2025_municipal_age", "b02_07.xlsx", rows)
+    # 表6-3: 地域名の先頭が市区町村コード
+    rows = title + [[None, None, "表章項目", "一般世帯数", "一般世帯数", "一般世帯人員"],
+                    [None, None, "事項名", "世帯人員の人数", "世帯人員の人数", None],
+                    [None, None, "項目名", "00_総数", "01_世帯人員が1人", None],
+                    [None, None, "表章単位", "世帯", "世帯", "人"],
+                    ["地域識別コード", "都道府県", "地域名", " "]]
+    for level, pref, code, label in areas:
+        rows.append([level, f"{pref}_{PREF_NAMES[pref]}", f"{code}_{label}", value(code, "一般世帯数"),
+                     value(code, "単独世帯"), value(code, "人口") - 10])
+    save("census2025_municipal_household_size", "b06_03.xlsx", rows)
+    # 表9-1: 世帯の家族類型の分類の列が地域の後ろにある
+    rows = title + [[None] * 4 + ["表章項目", "一般世帯数", "一般世帯数"],
+                    [None] * 4 + ["事項名", "世帯員の年齢による世帯の種類", "世帯員の年齢による世帯の種類"],
+                    [None] * 4 + ["項目名", "0_総数", "4_うち18歳未満世帯員のいる一般世帯"],
+                    [None] * 4 + ["表章単位", "世帯", "世帯"],
+                    ["地域識別コード", "都道府県", "地域名", "階層レベル（世帯の家族類型）", "世帯の家族類型", " "]]
+    for level, pref, code, label in areas:
+        rows.append([level, f"{pref}_{PREF_NAMES[pref]}", f"{code}_{label}", "1", "0_総数",
+                     value(code, "一般世帯数"), value(code, "18歳未満世帯員のいる")])
+        rows.append([level, f"{pref}_{PREF_NAMES[pref]}", f"{code}_{label}", "1", "3_単独世帯",
+                     value(code, "単独世帯"), "-"])
+    save("census2025_municipal_family_type", "b09_01.xlsx", rows)
+    return out
 
 
 def _write_daytime(directory: Path, base: dict, rnd: random.Random) -> Path:

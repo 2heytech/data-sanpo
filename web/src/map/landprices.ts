@@ -1,9 +1,10 @@
 // 地価公示の点レイヤー（国土数値情報「地価公示データ」）。標準地ごとの最新の価格（円/㎡）で円を塗り分ける。
-// 「地価公示を表示」をオンにしたときに初めて places/land_price.json を読み込む。
+// 「地価公示を表示」をオンにしたときに初めて places/land_price.json を読み込み、標準地の一覧は地図に映っている
+// 都道府県の分だけ読む（createPrefLoader）。
 // 地域の平均ではなく選ばれた1地点の価格であることを凡例と詳細に明記する。
 // 価格は住宅地の数万円から都心の商業地の数千万円まで桁が違うので、切りのよい桁ごとの区切りで色を分ける。
-import type { Map as MapLibreMap } from "maplibre-gl";
-import type { PointLayer } from "./points";
+import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, LandPriceFile, LandPoint } from "../lib/types";
 
@@ -48,7 +49,13 @@ export function landBins(): string[] {
 export function initLandPrices(o: Options): LandPriceLayer {
   let data: LandPriceFile | null = null;
   let byId = new Map<string, LandPoint>();
+  let shownCount = 0;
   const latest = () => (data ? data.periods.length - 1 : 0);
+  const loader = createPrefLoader<LandPoint>({
+    map: o.map, fetchJSON: o.fetchJSON, id: "land_price", key: "points",
+    active: () => o.toggle.checked,
+    onChange: (items) => render(items),
+  });
 
   async function load(): Promise<boolean> {
     if (data) return true;
@@ -59,20 +66,8 @@ export function initLandPrices(o: Options): LandPriceLayer {
       o.legend.textContent = "この公開版には地価公示のデータがありません。";
       return false;
     }
-    byId = new Map(data.points.map((p) => [p.id, p]));
-    const i = latest();
-    const shown = data.points.filter((p) => p.values[i] != null);
-    o.map.addSource("landprices", {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        features: shown.map((p) => ({
-          type: "Feature",
-          properties: { id: p.id, name: p.name, v: p.values[i] },
-          geometry: { type: "Point", coordinates: p.coord },
-        })),
-      } as never,
-    });
+    loader.init(data);
+    o.map.addSource("landprices", { type: "geojson", data: { type: "FeatureCollection", features: [] } as never });
     const v = ["get", "v"];
     const color = ["step", v, LAND_COLORS[0], ...LAND_BREAKS.flatMap((b, k) => [b, LAND_COLORS[k + 1]])];
     const radius = ["interpolate", ["linear"], ["zoom"], 9, 2.5, 12, 4.5, 15, 7];
@@ -101,12 +96,37 @@ export function initLandPrices(o: Options): LandPriceLayer {
     });
     o.map.on("mouseenter", LAYER, () => (o.map.getCanvas().style.cursor = "pointer"));
     o.map.on("mouseleave", LAYER, () => (o.map.getCanvas().style.cursor = ""));
+    o.map.on("zoomend", updateLegend);
+    if (data.points) render(data.points);   // 古い公開版（1ファイルに全件）
+    updateLegend();
+    return true;
+  }
+
+  function updateLegend() {
+    if (!data) return;
     const bins = landBins();
     o.legend.innerHTML =
-      `${esc(data.periods[i].label)}の標準地の価格（1㎡あたり、${formatNumber(shown.length, 0)}地点）。地域の平均ではなく1地点の価格です。` +
+      `${esc(data.periods[latest()].label)}の標準地の価格（1㎡あたり${shownCount ? `、読み込んだ${formatNumber(shownCount, 0)}地点` : ""}）。` +
+      `地域の平均ではなく1地点の価格です。` + (loader.tooFar() ? "標準地は地図を拡大すると表示します。" : "") +
       `<span class="land-bins">${LAND_COLORS.map((c, k) =>
         `<span><span class="sw" style="background:${c}"></span>${esc(bins[k])}</span>`).join("")}</span>`;
-    return true;
+  }
+
+  /** 読み込んだ標準地（都道府県の分が増えるたびに全体）を地図に描き直す */
+  function render(items: LandPoint[]) {
+    byId = new Map(items.map((p) => [p.id, p]));
+    const i = latest();
+    const shown = items.filter((p) => p.values[i] != null);
+    shownCount = shown.length;
+    (o.map.getSource("landprices") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: shown.map((p) => ({
+        type: "Feature",
+        properties: { id: p.id, name: p.name, v: p.values[i] },
+        geometry: { type: "Point", coordinates: p.coord },
+      })),
+    } as never);
+    updateLegend();
   }
 
   async function setVisible(on: boolean) {
@@ -119,6 +139,7 @@ export function initLandPrices(o: Options): LandPriceLayer {
       if (o.map.getLayer(id)) o.map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     }
     if (!on) showPoint(null);
+    else void loader.refresh();
   }
   o.toggle.addEventListener("change", () => void setVisible(o.toggle.checked));
 
@@ -186,10 +207,11 @@ export function initLandPrices(o: Options): LandPriceLayer {
   const initial = new URLSearchParams(location.search).get("lp");
   if (initial) {
     o.toggle.checked = true;
-    void setVisible(true).then(() => {
-      const p = byId.get(initial);
+    void setVisible(true).then(async () => {
+      // 標準地のIDは land-<市区町村コード>-… なので、都道府県が分かる
+      const p = await loader.find((x) => x.id === initial, /^land-(\d\d)/.exec(initial)?.[1]);
       if (!p) return;
-      o.map.jumpTo({ center: p.coord, zoom: Math.max(o.map.getZoom(), 14.5) });
+      o.map.jumpTo({ center: p.coord, zoom: Math.max(o.map.getZoom(), 14.5, PLACES_MIN_ZOOM) });
       showPoint(initial);
     });
   }

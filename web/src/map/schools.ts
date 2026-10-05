@@ -1,9 +1,10 @@
 // 公立小中学校の点レイヤー（東京都教育委員会「東京都公立学校一覧」）。円の面積を最新年度の児童・生徒数に対応させる
 // （設計書 第6章「駅と学校: 点レイヤーとポップアップ。人数を円の面積に対応させ、集計単位を明記」）。
-// 「公立小中学校を表示」をオンにしたときに初めて places/school_enrollment.json を読み込む。
+// 「公立小中学校を表示」をオンにしたときに初めて places/school_enrollment.json を読み込み、学校の一覧は地図に映っている
+// 都道府県の分だけ読む（createPrefLoader）。東京都以外は児童・生徒数の公開データがなく、国土数値情報の位置だけを小さな点で出す。
 // 学校に通う子どもの数で、周辺に住む子どもの数ではないことを凡例と詳細に明記する。
-import type { Map as MapLibreMap } from "maplibre-gl";
-import type { PointLayer } from "./points";
+import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, SchoolsFile, School } from "../lib/types";
 
@@ -34,7 +35,15 @@ export type SchoolLayer = PointLayer;
 export function initSchools(o: Options): SchoolLayer {
   let data: SchoolsFile | null = null;
   let byId = new Map<string, School>();
+  let unlocated = 0;
   const latest = () => (data ? data.periods.length - 1 : 0);
+  const loader = createPrefLoader<School>({
+    map: o.map, fetchJSON: o.fetchJSON, id: "school_enrollment", key: "schools",
+    active: () => o.toggle.checked,
+    onChange: (items) => render(items),
+  });
+  // 最新年度の一覧にない（閉校した）学校は描かない。位置だけの学校（東京都以外）は値がなくても描く
+  const current = (s: School) => s.location_only || s.status[latest()] !== null;
 
   async function load(): Promise<boolean> {
     if (data) return true;
@@ -45,25 +54,8 @@ export function initSchools(o: Options): SchoolLayer {
       o.legend.textContent = "この公開版には学校のデータがありません。";
       return false;
     }
-    byId = new Map(data.schools.map((s) => [s.id, s]));
-    const i = latest();
-    // 最新年度の一覧にない（閉校した）学校と、位置を求められなかった学校は描かない
-    const shown = data.schools.filter((s) => s.coord && s.status[i] !== null);
-    const unlocated = data.schools.filter((s) => !s.coord && s.status[i] !== null).length;
-    o.map.addSource("schools", {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        features: shown.map((s) => ({
-          type: "Feature",
-          properties: {
-            id: s.id, name: s.name, t: s.school_type, v: s.values[i] ?? -1,
-            n: s.values[i] != null ? `${formatNumber(s.values[i]!, 0)}人` : "",
-          },
-          geometry: { type: "Point", coordinates: s.coord },
-        })),
-      } as never,
-    });
+    loader.init(data);
+    o.map.addSource("schools", { type: "geojson", data: { type: "FeatureCollection", features: [] } as never });
     const v = ["get", "v"];
     const size = (k: number, min: number) => ["case", ["<", v, 0], min, ["max", min, ["*", ["sqrt", v], k]]];
     const radius = ["interpolate", ["linear"], ["zoom"], 9, size(0.05, 1.5), 12, size(0.16, 2.5), 15, size(0.48, 4)];
@@ -101,11 +93,42 @@ export function initSchools(o: Options): SchoolLayer {
     });
     o.map.on("mouseenter", LAYER, () => (o.map.getCanvas().style.cursor = "pointer"));
     o.map.on("mouseleave", LAYER, () => (o.map.getCanvas().style.cursor = ""));
-    o.legend.innerHTML =
-      `円の面積は${esc(data.periods[i].label)}の児童・生徒数（学校に通う人数）。` +
-      `<span style="color:${COLOR.elementary}">●</span>小学校 <span style="color:${COLOR.junior_high}">●</span>中学校・義務教育学校。` +
-      (unlocated ? `住所から位置を求められなかった${unlocated}校は表示していません。` : "");
+    o.map.on("moveend", updateLegend);
+    if (data.schools) render(data.schools);   // 古い公開版（1ファイルに全件）
+    updateLegend();
     return true;
+  }
+
+  function updateLegend() {
+    if (!data) return;
+    const only = loader.locationOnlyInView().length > 0;
+    o.legend.innerHTML =
+      `円の面積は${esc(data.periods[latest()].label)}の児童・生徒数（学校に通う人数）。` +
+      `<span style="color:${COLOR.elementary}">●</span>小学校 <span style="color:${COLOR.junior_high}">●</span>中学校・義務教育学校。` +
+      (unlocated ? `住所から位置を求められなかった${unlocated}校は表示していません。` : "") +
+      (only ? "児童・生徒数は東京都だけです。ほかの道府県は学校の位置だけを小さな点で表示しています。" : "") +
+      (loader.tooFar() ? "学校は地図を拡大すると表示します。" : "");
+  }
+
+  /** 読み込んだ学校（都道府県の分が増えるたびに全体）を地図に描き直す */
+  function render(items: School[]) {
+    byId = new Map(items.map((s) => [s.id, s]));
+    const i = latest();
+    // 位置を求められなかった学校は描かない
+    const shown = items.filter((s) => s.coord && current(s));
+    unlocated = items.filter((s) => !s.coord && current(s)).length;
+    (o.map.getSource("schools") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: shown.map((s) => ({
+        type: "Feature",
+        properties: {
+          id: s.id, name: s.name, t: s.school_type, v: s.values[i] ?? -1,
+          n: s.values[i] != null ? `${formatNumber(s.values[i]!, 0)}人` : "",
+        },
+        geometry: { type: "Point", coordinates: s.coord },
+      })),
+    } as never);
+    updateLegend();
   }
 
   async function setVisible(on: boolean) {
@@ -118,6 +141,7 @@ export function initSchools(o: Options): SchoolLayer {
       if (o.map.getLayer(id)) o.map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     }
     if (!on) showSchool(null);
+    else void loader.refresh();
   }
   o.toggle.addEventListener("change", () => void setVisible(o.toggle.checked));
 
@@ -136,6 +160,7 @@ export function initSchools(o: Options): SchoolLayer {
       return;
     }
     const p = data.periods;
+    if (s.location_only) return showLocationOnly(s);
     // 最新年度に一覧にない学校は、最後に載っていた年度を表示する
     let i = latest();
     while (i > 0 && s.values[i] == null) i--;
@@ -165,7 +190,7 @@ export function initSchools(o: Options): SchoolLayer {
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="学校の情報を閉じる">×</button>
-      <p class="muted">${esc(o.municipalityName(s.municipality_id))}・${esc(s.founder)}立</p>
+      <p class="muted">${esc(o.municipalityName(s.municipality_id))}・${esc(founderText(s))}</p>
       <h2>${esc(s.name)}</h2>
       <p class="muted small">${esc(s.type_label)}${s.address ? `・${esc(s.address)}` : ""}</p>
       <div>${esc(data.name)}（${esc(p[i].label)}）</div>
@@ -181,6 +206,22 @@ export function initSchools(o: Options): SchoolLayer {
     o.onPanel();
   }
 
+  /** 東京都以外の学校（国土数値情報の位置だけ。児童・生徒数の公開データがない） */
+  function showLocationOnly(s: School) {
+    const srcs = [...new Set(data!.source_ids.map((id) => o.sources.get(id)?.attribution ?? id))];
+    o.panel.hidden = false;
+    o.panel.innerHTML = `
+      <button type="button" class="close" data-close aria-label="学校の情報を閉じる">×</button>
+      <p class="muted">${esc(o.municipalityName(s.municipality_id))}・${esc(founderText(s))}</p>
+      <h2>${esc(s.name)}</h2>
+      <p class="muted small">${esc(s.type_label)}${s.address ? `・${esc(s.address)}` : ""}</p>
+      <div>${esc(data!.name)}</div>
+      <div class="value">公開データなし</div>
+      <p class="note small">児童・生徒数は東京都の学校だけです。ほかの道府県は、国土数値情報「学校データ」（${esc(s.as_of ?? "")}）の学校の位置だけを表示しています。</p>
+      <p class="muted small">${srcs.map(esc).join("／")}</p>`;
+    o.onPanel();
+  }
+
   o.panel.addEventListener("click", (e) => {
     if ((e.target as HTMLElement).closest("[data-close]")) showSchool(null);
   });
@@ -189,10 +230,11 @@ export function initSchools(o: Options): SchoolLayer {
   const initial = new URLSearchParams(location.search).get("sc");
   if (initial) {
     o.toggle.checked = true;
-    void setVisible(true).then(() => {
-      const s = byId.get(initial);
+    void setVisible(true).then(async () => {
+      // 国土数値情報の学校コード（例: B113210200138）は3〜4文字目が都道府県。都教委の学校番号は東京都
+      const s = await loader.find((x) => x.id === initial, /^school-[A-Z]\d(\d\d)/.exec(initial)?.[1] ?? "13");
       if (!s) return;
-      if (s.coord) o.map.jumpTo({ center: s.coord, zoom: Math.max(o.map.getZoom(), 14.5) });
+      if (s.coord) o.map.jumpTo({ center: s.coord, zoom: Math.max(o.map.getZoom(), 14.5, PLACES_MIN_ZOOM) });
       showSchool(initial);
     });
   }
@@ -210,6 +252,11 @@ export function initSchools(o: Options): SchoolLayer {
     show: showSchool,
     isOpen: () => !o.panel.hidden,
   };
+}
+
+/** 設置者（東京都は「千代田区」など → 「千代田区立」。国土数値情報は「市区町村立」「都道府県立」） */
+function founderText(s: School): string {
+  return s.founder.endsWith("立") ? s.founder : `${s.founder}立`;
 }
 
 function esc(s: string): string {

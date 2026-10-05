@@ -94,6 +94,35 @@ def _write(out: Path, rel: str, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
+def _location_only(info: dict, ok_sources: set[str]) -> list:
+    """値がなく位置だけを載せる点（東京都以外の学校・保育所。国土数値情報には人数・定員がない）。"""
+    return [e for e in info.values()
+            if e["lon"] is not None and e["loc_source"] in ok_sources
+            and json.loads(e["attributes"] or "{}").get("location_only")]
+
+
+def _write_places(out: Path, indicator_id: str, meta: dict, key: str, items: list[dict]) -> None:
+    """点の一覧を都道府県ごとのファイル（places/<指標>/<都道府県>.json）に分けて書き、places/<指標>.json には
+    共通の情報（名前・時点・出典など）と、都道府県ごとの件数と範囲（bbox: 西・南・東・北）を書く。
+    全国では1ファイルが大きくなるので、地図は表示している範囲の都道府県のファイルだけを読む（docs/design-changes.md #71）。"""
+    by_pref: dict[str, list[dict]] = defaultdict(list)
+    for it in items:
+        by_pref[prefecture_of(it["municipality_id"])].append(it)
+    prefs = {}
+    for pref, lst in sorted(by_pref.items()):
+        coords = [it["coord"] for it in lst if it.get("coord")]
+        bbox = ([min(c[0] for c in coords), min(c[1] for c in coords),
+                 max(c[0] for c in coords), max(c[1] for c in coords)] if coords else None)
+        prefs[pref] = {"count": len(lst), "bbox": bbox}
+        located_only = sum(1 for it in lst if it.get("location_only"))
+        if located_only:
+            prefs[pref]["location_only"] = located_only   # 値がなく位置だけの点の数
+        _write(out, f"places/{indicator_id}/{pref}.json", {
+            "schema_version": meta["schema_version"], "release_id": meta["release_id"],
+            "indicator_id": indicator_id, "prefecture": pref, key: lst})
+    _write(out, f"places/{indicator_id}.json", {**meta, "prefectures": prefs})
+
+
 def _git_commit() -> str | None:
     try:
         return subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
@@ -503,14 +532,14 @@ def export_stations(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pat
             if note:
                 st.setdefault("notes", {})[str(i)] = note
             used.add(r["source_id"])
-        _write(out, f"places/{indicator_id}.json", {
+        _write_places(out, indicator_id, {
             "schema_version": SCHEMA_VERSION, "release_id": release_id,
             "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
             "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
             "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
                          "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(used),
-            "stations": sorted(stations.values(), key=lambda s: s["id"])})
+            "source_ids": sorted(used)},
+            "stations", sorted(stations.values(), key=lambda s: s["id"]))
     return used
 
 
@@ -528,16 +557,16 @@ def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
                WHERE e.entity_type = 'school' AND o.indicator_id = ? AND o.definition_version = ?""",
             (indicator_id, d["definition_version"])).fetchall()
         rows = [r for r in rows if r["source_id"] in ok_sources]
-        if not rows:
-            continue
-        periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
-        index = {p[0]: i for i, p in enumerate(periods)}
         info = {r["entity_id"]: r for r in conn.execute(
             """SELECT e.entity_id, e.name, e.parent_id, l.lon, l.lat, l.source_id AS loc_source,
                       a.attributes
                FROM entities e LEFT JOIN locations l ON l.entity_id = e.entity_id AND l.role = 'main'
                LEFT JOIN entity_attributes a ON a.entity_id = e.entity_id
                WHERE e.entity_type = 'school'""")}
+        if not rows and not _location_only(info, ok_sources):
+            continue
+        periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
+        index = {p[0]: i for i, p in enumerate(periods)}
         schools: dict[str, dict] = {}
         for r in rows:
             e = info.get(r["entity_id"])
@@ -564,18 +593,29 @@ def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
             sc["values"][i] = None if r["value"] is None else round(r["value"])
             sc["status"][i] = r["status"]
             used.add(r["source_id"])
+        for e in _location_only(info, ok_sources):
+            attrs = json.loads(e["attributes"] or "{}")
+            schools[e["entity_id"]] = {
+                "id": e["entity_id"], "name": e["name"],
+                "school_type": attrs.get("school_type", ""), "type_label": attrs.get("type_label", ""),
+                "founder": attrs.get("founder", ""), "address": attrs.get("address"),
+                "municipality_id": e["parent_id"],
+                "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)], "precision": None,
+                "values": [None] * len(periods), "status": [None] * len(periods),
+                "location_only": True, "as_of": attrs.get("as_of")}
+            used.add(e["loc_source"])
         for sc in schools.values():
             if "by_grade" in sc:
                 sc["by_grade"] = {g: [None if v is None else round(v) for v in vals]
                                   for g, vals in sorted(sc["by_grade"].items())}
-        _write(out, f"places/{indicator_id}.json", {
+        _write_places(out, indicator_id, {
             "schema_version": SCHEMA_VERSION, "release_id": release_id,
             "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
             "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
             "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
                          "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(used),
-            "schools": sorted(schools.values(), key=lambda s: s["id"])})
+            "source_ids": sorted(used)},
+            "schools", sorted(schools.values(), key=lambda s: s["id"]))
     return used
 
 
@@ -621,14 +661,14 @@ def export_land_prices(conn: sqlite3.Connection, catalog: dict[str, dict], out: 
                 used.add(e["loc_source"])
             pt["values"][index[r["period_start"]]] = None if r["value"] is None else round(r["value"])
             used.add(r["source_id"])
-        _write(out, f"places/{indicator_id}.json", {
+        _write_places(out, indicator_id, {
             "schema_version": SCHEMA_VERSION, "release_id": release_id,
             "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
             "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
             "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
                          "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(used),
-            "points": sorted(points.values(), key=lambda s: s["id"])})
+            "source_ids": sorted(used)},
+            "points", sorted(points.values(), key=lambda s: s["id"]))
     return used
 
 
@@ -646,16 +686,16 @@ def export_nurseries(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pa
                  AND o.dimension_key = 'all'""",
             (indicator_id, d["definition_version"])).fetchall()
         rows = [r for r in rows if r["source_id"] in ok_sources]
-        if not rows:
-            continue
-        periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
-        index = {p[0]: i for i, p in enumerate(periods)}
         info = {r["entity_id"]: r for r in conn.execute(
             """SELECT e.entity_id, e.name, e.parent_id, l.lon, l.lat, l.source_id AS loc_source,
                       a.attributes
                FROM entities e LEFT JOIN locations l ON l.entity_id = e.entity_id AND l.role = 'main'
                LEFT JOIN entity_attributes a ON a.entity_id = e.entity_id
                WHERE e.entity_type = 'nursery'""")}
+        if not rows and not _location_only(info, ok_sources):
+            continue
+        periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
+        index = {p[0]: i for i, p in enumerate(periods)}
         points: dict[str, dict] = {}
         for r in rows:
             e = info.get(r["entity_id"])
@@ -675,14 +715,22 @@ def export_nurseries(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pa
                     used.add(e["loc_source"])
             pt["values"][index[r["period_start"]]] = None if r["value"] is None else round(r["value"])
             used.add(r["source_id"])
-        _write(out, f"places/{indicator_id}.json", {
+        for e in _location_only(info, ok_sources):
+            attrs = json.loads(e["attributes"] or "{}")
+            points[e["entity_id"]] = {
+                "id": e["entity_id"], "name": e["name"], "municipality_id": e["parent_id"],
+                "founder": attrs.get("founder", ""), "address": attrs.get("address"),
+                "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)], "precision": None,
+                "values": [None] * len(periods), "location_only": True, "as_of": attrs.get("as_of")}
+            used.add(e["loc_source"])
+        _write_places(out, indicator_id, {
             "schema_version": SCHEMA_VERSION, "release_id": release_id,
             "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
             "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
             "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
                          "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(used),
-            "points": sorted(points.values(), key=lambda s: s["id"])})
+            "source_ids": sorted(used)},
+            "points", sorted(points.values(), key=lambda s: s["id"]))
     return used
 
 

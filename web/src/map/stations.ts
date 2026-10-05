@@ -1,9 +1,10 @@
 // 駅の点レイヤー（国土数値情報 駅別乗降客数）。円の面積を最新年度の1日あたり乗降客数に対応させる
 // （設計書 第6章「駅と学校: 点レイヤーとポップアップ。人数を円の面積に対応させ、集計単位を明記」）。
-// 「駅を表示」をオンにしたときに初めて places/station_passengers.json を読み込む。
+// 「駅を表示」をオンにしたときに初めて places/station_passengers.json を読み込み、駅の一覧は地図に映っている
+// 都道府県の分だけ places/station_passengers/<都道府県>.json から読む（createPrefLoader）。
 // 駅は事業者ごとに別の点。同じ駅の他の事業者の値は並べて表示し、合計しない。
-import type { Map as MapLibreMap } from "maplibre-gl";
-import type { PointLayer } from "./points";
+import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer } from "./points";
 import { formatNumber, STATUS_LABEL } from "../lib/format";
 import type { Source, StationsFile, Station } from "../lib/types";
 
@@ -35,8 +36,14 @@ export type StationLayer = PointLayer;
 
 export function initStations(o: Options): StationLayer {
   let data: StationsFile | null = null;
+  let stations: Station[] = [];
   let byId = new Map<string, Station>();
   const latest = () => (data ? data.periods.length - 1 : 0);
+  const loader = createPrefLoader<Station>({
+    map: o.map, fetchJSON: o.fetchJSON, id: "station_passengers", key: "stations",
+    active: () => o.toggle.checked,
+    onChange: (items) => render(items),
+  });
 
   async function load(): Promise<boolean> {
     if (data) return true;
@@ -47,20 +54,9 @@ export function initStations(o: Options): StationLayer {
       o.legend.textContent = "この公開版には駅のデータがありません。";
       return false;
     }
-    byId = new Map(data.stations.map((s) => [s.id, s]));
-    const i = latest();
-    o.map.addSource("stations", {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        // 最新年度に駅がない（廃止された）駅は描かない
-        features: data.stations.filter((s) => s.status[i] !== null).map((s) => ({
-          type: "Feature",
-          properties: { id: s.id, name: s.name, v: s.values[i] ?? -1 },
-          geometry: { type: "Point", coordinates: s.coord },
-        })),
-      } as never,
-    });
+    loader.init(data);
+    const empty = { type: "FeatureCollection", features: [] } as never;
+    o.map.addSource("stations", { type: "geojson", data: empty });
     const v = ["get", "v"];
     const size = (k: number, min: number) => ["case", ["<", v, 0], min, ["max", min, ["*", ["sqrt", v], k]]];
     o.map.addLayer({
@@ -83,32 +79,7 @@ export function initStations(o: Options): StationLayer {
         "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": "#d00", "circle-stroke-width": 3,
       },
     }, o.beforeLayer);
-    // 駅名と乗降客数は拡大したときだけ。同じ駅（グループ）には1つのラベルにまとめ、
-    // 事業者が複数あるときは事業者ごとの人数を並べる（乗り換え客が重複するので合計しない）
-    const groups = new Map<string, Station[]>();
-    for (const st of data.stations) {
-      if (st.status[i] === null) continue;
-      groups.set(st.group, [...(groups.get(st.group) ?? []), st]);
-    }
-    const people = (st: Station) => (st.values[i] != null ? `${formatNumber(st.values[i]!, 0)}人` : "値なし");
-    o.map.addSource("station-labels", {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        features: [...groups.values()].map((list) => {
-          list.sort((a, b) => (b.values[i] ?? -1) - (a.values[i] ?? -1));
-          const top = list[0];
-          const shown = list.slice(0, MAX_LABEL_OPERATORS);
-          const rest = list.length - shown.length;
-          const counts = list.length === 1 ? people(top)
-            : shown.map((st) => `${st.operator} ${people(st)}`).join("\n") + (rest > 0 ? `\nほか${rest}社` : "");
-          return {
-            type: "Feature", properties: { name: `${top.name}駅`, count: counts, v: top.values[i] ?? -1 },
-            geometry: { type: "Point", coordinates: top.coord },
-          };
-        }),
-      } as never,
-    });
+    o.map.addSource("station-labels", { type: "geojson", data: empty });
     o.map.addLayer({
       id: LABEL, type: "symbol", source: "station-labels", minzoom: 13.5,
       layout: {
@@ -122,9 +93,53 @@ export function initStations(o: Options): StationLayer {
     });
     o.map.on("mouseenter", LAYER, () => (o.map.getCanvas().style.cursor = "pointer"));
     o.map.on("mouseleave", LAYER, () => (o.map.getCanvas().style.cursor = ""));
-    o.legend.innerHTML = `円の面積は${esc(data.periods[i].label)}の1日あたり乗降客数（事業者ごと）。` +
-      `白い円は値がない駅。`;
+    o.map.on("zoomend", updateLegend);
+    if (data.stations) render(data.stations);   // 古い公開版（1ファイルに全件）
+    updateLegend();
     return true;
+  }
+
+  function updateLegend() {
+    if (!data) return;
+    o.legend.innerHTML = `円の面積は${esc(data.periods[latest()].label)}の1日あたり乗降客数（事業者ごと）。` +
+      `白い円は値がない駅。` + (loader.tooFar() ? "駅は地図を拡大すると表示します。" : "");
+  }
+
+  /** 読み込んだ駅（都道府県の分が増えるたびに全体）を地図に描き直す */
+  function render(items: Station[]) {
+    stations = items;
+    byId = new Map(items.map((s) => [s.id, s]));
+    const i = latest();
+    // 最新年度に駅がない（廃止された）駅は描かない
+    const live = items.filter((s) => s.status[i] !== null);
+    (o.map.getSource("stations") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: live.map((s) => ({
+        type: "Feature",
+        properties: { id: s.id, name: s.name, v: s.values[i] ?? -1 },
+        geometry: { type: "Point", coordinates: s.coord },
+      })),
+    } as never);
+    // 駅名と乗降客数は拡大したときだけ。同じ駅（グループ）には1つのラベルにまとめ、
+    // 事業者が複数あるときは事業者ごとの人数を並べる（乗り換え客が重複するので合計しない）
+    const groups = new Map<string, Station[]>();
+    for (const st of live) groups.set(st.group, [...(groups.get(st.group) ?? []), st]);
+    const people = (st: Station) => (st.values[i] != null ? `${formatNumber(st.values[i]!, 0)}人` : "値なし");
+    (o.map.getSource("station-labels") as GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: [...groups.values()].map((list) => {
+        list.sort((a, b) => (b.values[i] ?? -1) - (a.values[i] ?? -1));
+        const top = list[0];
+        const shown = list.slice(0, MAX_LABEL_OPERATORS);
+        const rest = list.length - shown.length;
+        const counts = list.length === 1 ? people(top)
+          : shown.map((st) => `${st.operator} ${people(st)}`).join("\n") + (rest > 0 ? `\nほか${rest}社` : "");
+        return {
+          type: "Feature", properties: { name: `${top.name}駅`, count: counts, v: top.values[i] ?? -1 },
+          geometry: { type: "Point", coordinates: top.coord },
+        };
+      }),
+    } as never);
   }
 
   async function setVisible(on: boolean) {
@@ -137,6 +152,7 @@ export function initStations(o: Options): StationLayer {
       if (o.map.getLayer(id)) o.map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     }
     if (!on) showStation(null);
+    else void loader.refresh();
   }
   o.toggle.addEventListener("change", () => void setVisible(o.toggle.checked));
 
@@ -179,7 +195,7 @@ export function initStations(o: Options): StationLayer {
           .map(([name, vals]) => `${esc(name)} ${formatNumber(vals[i]!, 0)}人`).join("、")}</p>`
       : "";
     // 同じ駅（300m以内の同名駅）の他の事業者。乗り換え客が重複するので合計しない
-    const others = data.stations.filter((x) => x.group === s.group && x.id !== s.id);
+    const others = stations.filter((x) => x.group === s.group && x.id !== s.id);
     const otherHtml = others.length
       ? `<div class="compare-with"><p class="small">同じ駅の他の事業者（${esc(p[i].label)}、合計はしていません）</p>
          <ul class="small">${others.map((x) => `<li><a href="#" data-station="${esc(x.id)}">${esc(x.operator)}</a>
@@ -220,10 +236,10 @@ export function initStations(o: Options): StationLayer {
   const initial = new URLSearchParams(location.search).get("s");
   if (initial) {
     o.toggle.checked = true;
-    void setVisible(true).then(() => {
-      const s = byId.get(initial);
+    void setVisible(true).then(async () => {
+      const s = await loader.find((x) => x.id === initial);
       if (!s) return;
-      o.map.jumpTo({ center: s.coord, zoom: Math.max(o.map.getZoom(), 14) });
+      o.map.jumpTo({ center: s.coord, zoom: Math.max(o.map.getZoom(), 14, PLACES_MIN_ZOOM) });
       showStation(initial);
     });
   }

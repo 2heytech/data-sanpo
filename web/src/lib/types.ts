@@ -161,6 +161,13 @@ export interface ReleaseInfo {
   is_fixture: boolean;
 }
 
+/** places/<指標>.json の都道府県ごとの件数と範囲（西・南・東・北）。location_only は値がなく位置だけの点の数 */
+export interface PlacePrefecture {
+  count: number;
+  bbox: [number, number, number, number] | null;
+  location_only?: number;
+}
+
 /** places/station_passengers.json（駅の点）。values・status は periods と同じ順 */
 export interface Station {
   id: string;
@@ -187,7 +194,10 @@ export interface StationsFile {
   caveats: string[];
   periods: { period: string; period_end: string; period_kind: string; label: string }[];
   source_ids: string[];
-  stations: Station[];
+  /** 都道府県ごとの件数と範囲。点の一覧は places/<指標>/<都道府県>.json（#71） */
+  prefectures?: Record<string, PlacePrefecture>;
+  /** 古い公開版（1ファイルに全件）の一覧 */
+  stations?: Station[];
 }
 
 export interface School {
@@ -203,6 +213,9 @@ export interface School {
   values: (number | null)[];
   status: (Status | null)[];
   by_grade?: Record<string, (number | null)[]>;
+  /** 東京都以外: 児童・生徒数の公開データがなく、位置だけ（国土数値情報 学校データ） */
+  location_only?: boolean;
+  as_of?: string | null;
 }
 
 export interface SchoolsFile {
@@ -216,7 +229,10 @@ export interface SchoolsFile {
   caveats: string[];
   periods: { period: string; period_end: string; period_kind: string; label: string }[];
   source_ids: string[];
-  schools: School[];
+  /** 都道府県ごとの件数と範囲。点の一覧は places/<指標>/<都道府県>.json（#71） */
+  prefectures?: Record<string, PlacePrefecture>;
+  /** 古い公開版（1ファイルに全件）の一覧 */
+  schools?: School[];
 }
 
 export interface LandPoint {
@@ -248,7 +264,10 @@ export interface LandPriceFile {
   caveats: string[];
   periods: { period: string; period_end: string; period_kind: string; label: string }[];
   source_ids: string[];
-  points: LandPoint[];
+  /** 都道府県ごとの件数と範囲。点の一覧は places/<指標>/<都道府県>.json（#71） */
+  prefectures?: Record<string, PlacePrefecture>;
+  /** 古い公開版（1ファイルに全件）の一覧 */
+  points?: LandPoint[];
 }
 
 export interface NurseryPoint {
@@ -260,6 +279,9 @@ export interface NurseryPoint {
   coord: [number, number] | null;
   precision: string | null;
   values: (number | null)[];
+  /** 東京都以外: 定員の公開データがなく、位置だけ（国土数値情報 福祉施設データ） */
+  location_only?: boolean;
+  as_of?: string | null;
 }
 
 export interface NurseryFile {
@@ -273,5 +295,8 @@ export interface NurseryFile {
   caveats: string[];
   periods: { period: string; period_end: string; period_kind: string; label: string }[];
   source_ids: string[];
-  points: NurseryPoint[];
+  /** 都道府県ごとの件数と範囲。点の一覧は places/<指標>/<都道府県>.json（#71） */
+  prefectures?: Record<string, PlacePrefecture>;
+  /** 古い公開版（1ファイルに全件）の一覧 */
+  points?: NurseryPoint[];
 }
