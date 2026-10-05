@@ -1,7 +1,7 @@
 ---
-// ご意見・誤りの報告フォームへのリンク。押したときに開いていたページの URL をフォームに入れる（Base.astro のスクリプト）。
+// ご要望フォームへのリンク（表記は「ご要望はこちら」、設計変更記録 #79）。押したときに開いていたページの URL をフォームに入れる（Base.astro のスクリプト）。
 import { FEEDBACK_FORM_URL, FEEDBACK_PREFILL_URL } from "../lib/feedback";
 interface Props { label?: string }
-const { label = "ご意見・誤りの報告" } = Astro.props;
+const { label = "ご要望はこちら" } = Astro.props;
 ---
 <a href={FEEDBACK_FORM_URL} data-feedback-prefill={FEEDBACK_PREFILL_URL || undefined} target="_blank" rel="noopener">{label}</a>

@@ -57,7 +57,7 @@ const onMap = Astro.url.pathname.startsWith("/map/");
     <script>
       // 外部サイトへのリンクは別タブで開く（地図の情報欄など、後から差し込まれるリンクも含む）
       document.addEventListener("click", (e) => {
-        // ご意見・誤りの報告フォームには、開いていたページの URL（地図の表示状態を含む）を入れて開く
+        // ご要望フォームには、開いていたページの URL（地図の表示状態を含む）を入れて開く
         const fb = (e.target as Element | null)?.closest?.("a[data-feedback-prefill]") as HTMLAnchorElement | null;
         if (fb) fb.href = fb.dataset.feedbackPrefill + encodeURIComponent(location.href);
         const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
