@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..db import insert_observation
-from ..regions import municipality_entity_id, small_area_entity_id
+from ..regions import municipality_entity_id, prefecture_entity_id, small_area_entity_id
 
 ZERO_MARKS = {"-", "－"}
 SUPPRESSED_MARKS = {"X", "x", "Ｘ"}
@@ -58,6 +58,7 @@ def parse_cell(raw: str) -> Cell:
 class Table:
     labels: list[str]
     rows: list[dict[str, str]]
+    prefecture_rows: bool = False   # True: 2桁の KEY_CODE を都道府県の値として取り込む
 
     def column(self, candidates: list[str]) -> str:
         wanted = [normalize_label(c) for c in candidates]
@@ -143,6 +144,12 @@ def _entity_for(conn: sqlite3.Connection, key: str, filled: set[str]) -> str | N
     return None
 
 
+def _has_municipalities(conn: sqlite3.Connection, pref: str) -> bool:
+    """今回の対象の都道府県か（市区町村の地域がある）。"""
+    return conn.execute("SELECT 1 FROM entities WHERE entity_id LIKE ? LIMIT 1",
+                        (municipality_entity_id(pref + "%"),)).fetchone() is not None
+
+
 def _ordered_rows(table: Table) -> list[dict[str, str]]:
     # 11桁（丁目）を先に処理し、9桁（町・字）は対応する境界が空いている場合のみ使う
     return sorted(table.rows, key=lambda r: -len(r["KEY_CODE"].strip()))
@@ -176,7 +183,9 @@ def match_rows(conn, table: Table) -> tuple[list[tuple[str, dict[str, str]]], li
     for row in _ordered_rows(table):
         key = row["KEY_CODE"].strip()
         if len(key) <= 2:
-            continue  # 都道府県の行
+            if table.prefecture_rows and len(key) == 2 and _has_municipalities(conn, key):
+                matched.append((prefecture_entity_id(key), row))
+            continue  # 都道府県の行（小地域の表では市区町村の合計から作るので使わない）
         if len(key) == 9 and key in with_chome:
             # 丁目に分かれた町・字の行はその丁目の合計。境界に丁目のない部分（末尾00）があっても、
             # そこに合計を入れると二重に数えるので使わない

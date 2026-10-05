@@ -9,8 +9,10 @@
   地域の列の前後に分類の列があることがある（表2-7 の「国籍総数か日本人」「男女」、表9-1 の「世帯の家族類型」）。
   「-」は該当なし（0）、「X」は秘匿。
 
-市区町村（地域識別コード 0・2・3）の行だけを、国勢調査の小地域の表と同じ形（estat_small_area.Table）で返す。
-都道府県の値は、ほかの時点と同じく市区町村の分子・分母の合計から作る（市全体の行・都道府県の行は使わない）。
+市区町村（地域識別コード 0・2・3）と都道府県（a、全国の行を除く）の行を、国勢調査の小地域の表と同じ形
+（estat_small_area.Table）で返す。都道府県の行は KEY_CODE を2桁にする。政令指定都市の市全体の行は使わない。
+都道府県の値は公表の都道府県の行を使う（2020年の境界に合わない市区町村があっても都道府県の値は出せるように。
+例: 浜松市は2024年に区を再編し、新しい区は2020年の境界に当てはまらない。docs/design-changes.md #73）。
 """
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ from ..xlsx import read_sheet
 from .estat_small_area import Table
 
 MUNICIPALITY_LEVELS = {"0", "2", "3"}
+PREFECTURE_LEVEL = "a"
 HEAD = "地域識別コード"
 
 
@@ -68,12 +71,19 @@ def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | No
     seen: set[str] = set()
     for r in rows[h + 1:]:
         cells = [_cell_text(c) for c in r] + [""] * (len(head) + len(items))
-        if cells[level] not in MUNICIPALITY_LEVELS or any(cells[c] != v for c, v in conds):
+        if cells[level] not in MUNICIPALITY_LEVELS | {PREFECTURE_LEVEL} or any(cells[c] != v for c, v in conds):
             continue
         m = re.match(r"\d{5}", cells[code_col])
-        if not m or m[0] in seen:
+        if not m:
             continue
-        seen.add(m[0])
-        out_rows.append({"KEY_CODE": m[0], "HTKSYORI": "", "HTKSAKI": "", "GASSAN": "",
+        key = m[0]
+        if cells[level] == PREFECTURE_LEVEL:
+            if not key.endswith("000") or key == "00000":
+                continue   # 全国の行
+            key = key[:2]
+        if key in seen:
+            continue
+        seen.add(key)
+        out_rows.append({"KEY_CODE": key, "HTKSYORI": "", "HTKSAKI": "", "GASSAN": "",
                          **{name: cells[j] for name, j in picked.items()}})
-    return Table(["KEY_CODE", "HTKSYORI", "HTKSAKI", "GASSAN", *columns], out_rows)
+    return Table(["KEY_CODE", "HTKSYORI", "HTKSAKI", "GASSAN", *columns], out_rows, prefecture_rows=True)

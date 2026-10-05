@@ -1040,7 +1040,7 @@ modification_note = "警察庁「交通事故統計情報のオープンデー�
 redistributable = true
 
 # 令和7年（2025年）国勢調査 人口等基本集計（2026-09-29 公表）の全国・都道府県・市区町村の表（e-Stat「ファイル」の Excel）。
-# 市区町村の値だけで、町丁・字等の値は小地域集計が出るまでない。都道府県の値は市区町村の合計から作る。
+# 市区町村と都道府県の値だけで、町丁・字等の値は小地域集計が出るまでない。都道府県の値は公表の都道府県の行（#73）。
 # 形式は pipeline/tdm/ingest/estat_census_municipal.py を参照。columns は「表章項目/項目名」（docs/design-changes.md #71）。
 [census2025_municipal_population]
 kind = "census_municipal"

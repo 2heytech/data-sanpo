@@ -752,8 +752,8 @@ def test_census2025_municipal(built):
         return {r["entity_id"]: r for r in rows}[f"muni-{code}"]
 
     p = src("census2025_municipal_population")
-    # 市区町村の行だけ（都道府県・政令指定都市の市全体・2000年の市区町村の行は使わない）
-    assert set(p) == {"13199", "13299", "13499", "14199"}
+    # 市区町村と都道府県の行だけ（全国・政令指定都市の市全体・2000年の市区町村の行は使わない）
+    assert set(p) == {"13199", "13299", "13499", "14199", "13", "14"}
     people, homes = int(p["13199"]["人口総数"]), int(p["13199"]["世帯総数"])
     assert muni("population_total")["value"] == people and muni("households_total")["value"] == homes
     pph = muni("persons_per_household")
@@ -762,10 +762,14 @@ def test_census2025_municipal(built):
     before = muni("population_total", period="2020-10-01")["value"]
     assert abs(change["value"] - (people - before) / before * 100) < 0.001   # 公開値は小数3桁
     assert muni("population_density")["value"] > 0
-    # 神奈川県（全国の表）も取り込み、都道府県の値は市区町村の合計
+    # 神奈川県（全国の表）も取り込み、都道府県の値は公表の都道府県の行（市区町村の合計ではない。#73）
     assert muni("population_total", "14199")["value"] == int(p["14199"]["人口総数"])
     prefs = {r["entity_id"]: r for r in load(built, "values/population_total/2025-10-01/prefectures.json")["rows"]}
-    assert prefs["pref-13"]["value"] == sum(int(p[c]["人口総数"]) for c in ("13199", "13299", "13499"))
+    assert prefs["pref-13"]["value"] == int(p["13"]["人口総数"])
+    assert prefs["pref-13"]["value"] != sum(int(p[c]["人口総数"]) for c in ("13199", "13299", "13499"))
+    shares = {r["entity_id"]: r for r in load(built, "values/aged_65_plus_share/2025-10-01/prefectures.json")["rows"]}
+    a13 = src("census2025_municipal_age")["13"]
+    assert shares["pref-13"]["numerator"] == int(a13["総数65歳以上"])   # 率は都道府県の行の分子・分母から
     # 年齢は国籍総数・男女計の行。分母は年齢3区分の合計（年齢不詳を除く）
     a = src("census2025_municipal_age")["13199"]
     old = muni("aged_65_plus_share")
