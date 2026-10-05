@@ -4,7 +4,7 @@ import FeedbackLink from "../components/FeedbackLink.astro";
 import { FEEDBACK_PREFILL_URL } from "../lib/feedback";
 import Terms from "../components/Terms.astro";
 ---
-<Base title="このサイトについて" description="データさんぽのデータの扱い方、更新方針、ご要望の送り先、利用規約とプライバシー。">
+<Base title="このサイトについて" description="データさんぽのデータの扱い方、更新方針、運営者、ご要望の送り先、利用規約とプライバシー。">
   <header class="page-head">
     <h1>このサイトについて</h1>
   </header>
@@ -12,6 +12,7 @@ import Terms from "../components/Terms.astro";
   <nav class="toc" aria-label="このページの内容">
     <a href="#handling">データの扱い方</a>
     <a href="#update">更新</a>
+    <a href="#operator">運営</a>
     <a href="#contact">ご要望</a>
     <a href="#terms">利用規約</a>
     <a href="#privacy">プライバシー</a>
@@ -28,6 +29,8 @@ import Terms from "../components/Terms.astro";
   </ul>
   <h2 id="update">更新</h2>
   <p>統計は公表時点に応じて手作業で取り込み、確認してから公開します。各ページに基準時点を表示しています。</p>
+  <h2 id="operator">運営</h2>
+  <p>TsumuGroove が個人で運営しています。</p>
   <h2 id="contact">ご要望</h2>
   <p>
     追加してほしいデータ・機能のご要望や、データの誤りのお知らせは、Google フォームからお寄せください。
