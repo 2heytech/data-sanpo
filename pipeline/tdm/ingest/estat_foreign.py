@@ -79,8 +79,8 @@ def ingest_juki(conn: sqlite3.Connection, path: Path, source_id: str, catalog: d
             continue   # 全国の合計・注記
         entity_id = _entity(conn, code[:5])
         if entity_id is None:
-            if not code[:5].endswith("000"):
-                unmatched.append(code[:5])   # 政令指定都市の市全体など。確認用に一部を返す
+            if not code[:5].endswith("000") and _entity(conn, code[:2] + "000"):
+                unmatched.append(code[:5])   # 対象の都道府県の、政令指定都市の市全体など。確認用に一部を返す
             continue
         values = {d["column"]: _number(r[labels[d["column"]]]) for d in targets.values()}
         _write(conn, entity_id, targets, values, source_id, period)
@@ -129,7 +129,7 @@ def ingest_zairyu(conn: sqlite3.Connection, path: Path, source_id: str, catalog:
             continue
         entity_id = _entity(conn, code)
         if entity_id is None:
-            if not code.endswith("000"):
+            if not code.endswith("000") and _entity(conn, code[:2] + "000"):
                 unmatched.append(code)
             continue
         _write(conn, entity_id, targets, values, source_id, period)
