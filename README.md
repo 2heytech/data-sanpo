@@ -1,6 +1,6 @@
-# 全国データさんぽ
+# データさんぽ
 
-[全国データさんぽ](https://data-sanpo.com) のソースコード。国勢調査などの公開統計を、都道府県・市区町村・町丁目の地図で見られるサイトです。
+[データさんぽ](https://data-sanpo.com) のソースコード。国勢調査などの公開統計を、都道府県・市区町村・町丁目の地図で見られるサイトです。
 
 - 設計: 基本設計書 v1（2026-10-03）からの変更点を [docs/design-changes.md](docs/design-changes.md) に記録しています（設計書の原本はこのリポジトリに置いていません）
 - 構成: Python + SQLite でデータを管理・加工 → JSON/GeoJSON を生成 → Astro で静的サイトをビルド →
@@ -99,6 +99,6 @@ npm run deploy
 
 - コード: [MIT License](LICENSE)
 - サイトで公開している加工済みのデータ（JSON・GeoJSON など）: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja)。
-  使うときは「全国データさんぽ（https://data-sanpo.com）が加工」と、元データの出典をあわせて表示してください。
+  使うときは「データさんぽ（https://data-sanpo.com）が加工」と、元データの出典をあわせて表示してください。
   元データの出典と利用規約は `pipeline/config/sources.toml` とサイトの「出典」ページにあります。
-- サイト名「全国データさんぽ」・ロゴ・サイトの文章: 上の2つの対象外で、権利を留保します。
+- サイト名「データさんぽ」・ロゴ・サイトの文章: 上の2つの対象外で、権利を留保します。

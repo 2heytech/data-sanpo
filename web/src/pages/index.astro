@@ -95,9 +95,9 @@ const basisLabel = (i: Indicator) => i.facets?.basis.replace("あたり", "当�
 const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRIPTIONS[main.family!]
   ?? (members.find((m) => m.name === groupName(main)) ?? main).description;
 ---
-<Base title="全国データさんぽ" description="全国の都道府県・市区町村・町丁目の人口・暮らし・安全などを、国勢調査などの公開データで色分けした地図サイト。">
+<Base title="データさんぽ" description="全国の都道府県・市区町村・町丁目の人口・暮らし・安全などを、国勢調査などの公開データで色分けした地図サイト。">
   <section class="hero">
-    <h1><img src="/logo.svg" alt="全国データさんぽ" width="339" height="70" /></h1>
+    <h1><img src="/logo.svg" alt="データさんぽ" width="339" height="70" /></h1>
     <p class="lead">全国の都道府県・市区町村・町丁目を、国勢調査などの公開データで色分けした地図です。</p>
     <a class="button big" href="/map/">地図をひらく</a>
   </section>

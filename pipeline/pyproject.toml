@@ -1,7 +1,7 @@
 [project]
 name = "tdm"
 version = "0.1.0"
-description = "全国データさんぽ: 公開データの取得・加工・公開ファイル生成"
+description = "データさんぽ: 公開データの取得・加工・公開ファイル生成"
 requires-python = ">=3.11"
 dependencies = ["shapely>=2.0", "pyshp>=2.3"]
 

@@ -37,7 +37,7 @@ const description = `${muni.name}（${place}）の人口・年齢構成などを
   (pop?.row?.value != null ? `人口は${formatValue(pop.row, pop.ind)}（${pop.period.label}）。` : "") +
   "近隣の市区町村との比較と出典つき。";
 ---
-<Base title={`${muni.name}のデータ`} description={description}>
+<Base title={`${muni.name}のデータ`} description={description} prefecture={pref || undefined}>
   <header class="page-head">
     <p class="eyebrow">{place}</p>
     <h1>{muni.name}のデータ</h1>
