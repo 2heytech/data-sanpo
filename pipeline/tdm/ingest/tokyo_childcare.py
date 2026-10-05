@@ -69,7 +69,8 @@ def read_table(path: Path) -> dict[int, dict[str, dict[str, float | None]]]:
 def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, years: list[int]) -> dict:
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "tokyo_childcare"}
     by_name = {r["name"]: r["entity_id"] for r in conn.execute(
-        "SELECT entity_id, name FROM entities WHERE entity_type = 'municipality'")}
+        "SELECT entity_id, name FROM entities WHERE entity_type = 'municipality' "
+        "AND entity_id LIKE 'muni-13%'")}   # 東京都だけ。府中市（広島県）など同じ名前の市区町村が他県にもある
     data = read_table(path)
     result: dict = {"unmatched": []}
     for year in years:
