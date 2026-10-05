@@ -1,6 +1,7 @@
 ---
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
+import FeedbackLink from "../../components/FeedbackLink.astro";
 import { readFileSync } from "node:fs";
 import { DATA_BASE } from "../../lib/data";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
@@ -82,7 +83,7 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
       </details>
       <p class="muted small">
         背景地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>。
-        <a href="/sources/">統計の出典</a>・<a href="/about/#terms">利用規約</a>
+        <a href="/sources/">統計の出典</a>・<a href="/about/#terms">利用規約</a>・<FeedbackLink />
       </p>
       <AdSlot name="map" />
     </aside>
