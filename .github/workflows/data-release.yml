@@ -1,5 +1,5 @@
 # 実データの取得 → 検証 → 公開版の生成 → サイトのビルド（→ 任意でデプロイ）を手動で実行する。
-# 元データ・管理DBは private リポジトリの Artifacts に保存する（設計書 第10章「保存と復旧」）。
+# 元データ・管理DBは Artifacts と Release に保存する（設計書 第10章「保存と復旧」）。リポジトリは public なので、どちらも誰でも取得できる。
 # site_only をオンにすると、データは作り直さずに前回公開したデータでサイトだけビルドする（design-changes #63）。
 name: Data release
 
@@ -263,14 +263,19 @@ jobs:
             data/releases/${{ env.RELEASE_ID }}.sqlite
           retention-days: 30
 
-      # 全国の国勢調査の元ファイルは大きく、Actions のキャッシュに残るので、バックアップは東京都の分と都道府県別でない出典だけ
+      # 全国の国勢調査の元ファイルは大きく、Actions のキャッシュに残るので、バックアップは東京都の分と都道府県別でない出典だけ。
+      # public リポジトリの Artifacts は GitHub にログインした人なら誰でもダウンロードできるので、
+      # 公開の Release と同じく public_raw = false の出典は入れない
       - name: Collect raw sources for backup
         if: always() && env.SITE_ONLY != 'true'
         run: |
           mkdir -p raw-backup
           (cd data/raw && find . -type f | grep -Ev '/(0[1-9]|1[0-24-9]|[2-4][0-9])/' | cpio -pdm ../../raw-backup 2>/dev/null) || true
+          for s in $(python3 -c 'import tomllib; c = tomllib.load(open("pipeline/config/sources.toml", "rb")); print(" ".join(k for k, v in c.items() if v.get("public_raw") is False))'); do
+            rm -rf "raw-backup/$s"
+          done
 
-      - name: Upload raw sources (非公開のバックアップ)
+      - name: Upload raw sources (バックアップ。public リポジトリでは誰でも取得できる)
         if: always() && env.SITE_ONLY != 'true'
         uses: actions/upload-artifact@v4
         with:

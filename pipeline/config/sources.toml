@@ -1048,8 +1048,8 @@ files = ["13_*.csv"]
 encoding = "cp932"
 license = "位置参照情報ダウンロードサービス 利用約款"
 license_url = "https://nlftp.mlit.go.jp/isj/agreement.html"
-attribution = "「位置参照情報」（国土交通省）を加工して作成"
-modification_note = "学校の住所の位置を求めるために使用"
+attribution = "出典：街区レベル位置参照情報 国土交通省（2025年版 24.0a）"
+modification_note = "東京都の学校・保育所の住所の位置を求めるために使用（加工して作成）"
 redistributable = true
 
 # 街区レベルのない町村（瑞穂町・日の出町・檜原村・奥多摩町や島しょの一部）を補う大字・町丁目レベル（19.0b、2025年版）。
@@ -1064,8 +1064,8 @@ files = ["13_*.csv"]
 encoding = "cp932"
 license = "位置参照情報ダウンロードサービス 利用約款"
 license_url = "https://nlftp.mlit.go.jp/isj/agreement.html"
-attribution = "「位置参照情報」（国土交通省）を加工して作成"
-modification_note = "学校の住所の位置を求めるために使用"
+attribution = "出典：大字・町丁目レベル位置参照情報 国土交通省（2025年版 19.0b）"
+modification_note = "東京都の学校・保育所の住所の位置を求めるために使用（加工して作成）"
 redistributable = true
 
 # 交通事故（警察庁 交通事故統計情報のオープンデータ、本票）。全国のファイルから東京都（警視庁）の行だけ残す
