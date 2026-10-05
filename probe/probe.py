@@ -1,36 +1,44 @@
-import sys, re, urllib.request
+import sys, re, urllib.request, collections
 from pathlib import Path
 sys.path.insert(0, "pipeline")
 from tdm import xlsx
 UA = {"User-Agent": "Mozilla/5.0 data-sanpo probe"}
-def getb(u): return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=300).read()
-TAG = re.compile(r"<[^>]+>")
-def text(h): return re.sub(r"\s+", " ", TAG.sub(" ", h))
-for y in range(2014, 2027):
-    url = f"https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year={y}0"
-    h = getb(url).decode("utf-8", "replace")
-    links = [(m.start(), m.group(1), m.group(2)) for m in re.finditer(r"statInfId=(\d+)(?:&amp;|&)fileKind=(\d)", h)]
-    cands = []
-    prev = 0
-    for i, (pos, sid, k) in enumerate(links):
-        seg = text(h[prev:pos]); prev = pos
-        if re.search(r"【外国人住民】市区町村別人口", seg[-500:]):
-            for j in (i - 1, i, i + 1):
-                if 0 <= j < len(links) and (links[j][1], links[j][2]) not in cands: cands.append((links[j][1], links[j][2]))
-    found = None
-    for sid, k in cands:
-        try: d = getb(f"https://www.e-stat.go.jp/stat-search/file-download?statInfId={sid}&fileKind={k}")
-        except Exception as e: continue
-        if d[:2] != b"PK" and d[:4] != b"\xd0\xcf\x11\xe0": continue
-        if d[:2] != b"PK": print(y, sid, k, "xls (old)"); continue
-        p = Path(f"{sid}.xlsx"); p.write_bytes(d)
-        names = xlsx.sheet_names(p); rows = xlsx.read_sheet(p, names[0])
-        head = " ".join(str(c) for r in rows[:6] for c in r if str(c) != "None")
-        if "市区町村" in head and "外国人" in head:
-            found = sid
-            print("##", y, sid, k, names, len(rows))
-            for i, r in enumerate(rows[:7]): print("   ", i, [str(c)[:10] for c in r][:16])
-            for r in rows:
-                if r and str(r[0]).startswith(("131016", "13101")): print("    HIT", [str(c)[:10] for c in r][:16]); break
-            break
-    if not found: print(y, "not found; cands", cands)
+def get(sid):
+    p = Path(f"{sid}.xlsx")
+    p.write_bytes(urllib.request.urlopen(urllib.request.Request(f"https://www.e-stat.go.jp/stat-search/file-download?statInfId={sid}&fileKind=0", headers=UA), timeout=300).read())
+    return p
+def s(r): return [str(c)[:12] for c in r][:15]
+for sid in ("000040306693", "000040479057"):
+    p = get(sid); rows = xlsx.read_sheet(p, xlsx.sheet_names(p)[0])
+    print("## juki", sid, len(rows))
+    for r in rows[6:12]: print("  ", s(r))
+    for r in rows:
+        c = str(r[0])
+        if c.startswith(("13", "14100", "14101", "01100", "01101", "47")) and (c.endswith("0001") or c[:5] in ("13101", "13361", "13362", "13421", "14100", "14101", "01100", "01101")): print("  P", s(r))
+    print("  tail", [s(r) for r in rows[-3:]])
+    bad = [s(r) for r in rows[7:] if not re.fullmatch(r"\d{6}", str(r[0]))]
+    print("  noncode", bad[:5], len(bad))
+for sid in ("000032213255", "000040068661"):
+    p = get(sid); names = xlsx.sheet_names(p); rows = xlsx.read_sheet(p, names[0])
+    print("## zairyu", sid, names, len(rows))
+    for r in rows[:6]: print("  ", s(r))
+    for r in rows:
+        c = str(r[0]); t = " ".join(map(str, r[:2]))
+        if c in ("13000", "13100", "13101", "13361", "13362", "13421", "14100", "14101", "01000") or "その他" in t or "北方" in t: print("  P", s(r))
+    print("  tail", [s(r) for r in rows[-4:]])
+    nonnum = collections.Counter(str(c) for r in rows[2:] for c in r[2:] if not re.fullmatch(r"-?\d+(\.0)?", str(c)))
+    print("  nonnum", nonnum.most_common(8))
+p = get("000040186957"); names = xlsx.sheet_names(p)
+rows = xlsx.read_sheet(p, "令和５年末")
+print("## zairyu2023", names, len(rows)); print("  ", [s(r) for r in rows[:3]])
+codes = collections.Counter(); oth = []
+for r in rows[1:]:
+    codes[str(r[0])] += 1
+    if "その他" in str(r[2]) or not re.fullmatch(r"\d{5,6}", str(r[0])): oth.append(s(r))
+print("  oth", len(oth), oth[:8])
+print("  codes sample", [c for c in codes if c.endswith("000") or c.startswith("13")][:30])
+nat = collections.Counter(str(r[3]) for r in rows[1:]); print("  nat", len(nat), nat.most_common(15))
+vals = collections.Counter(str(r[5]) for r in rows[1:] if not re.fullmatch(r"\d+(\.0)?", str(r[5]))); print("  nonnum", vals.most_common(5))
+tot = sum(float(r[5]) for r in rows[1:] if re.fullmatch(r"\d+(\.0)?", str(r[5]))); print("  total", tot)
+for n in names:
+    if n != "令和５年末": print("  sheet", n, [s(r) for r in xlsx.read_sheet(p, n)[:4]])
