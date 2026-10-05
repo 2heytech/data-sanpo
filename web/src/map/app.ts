@@ -423,6 +423,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     }
     renderLegend();
     renderList();
+    renderAreaChip();
   });
   const dist = (p: [number, number], c: { lng: number; lat: number }) => (p[0] - c.lng) ** 2 + (p[1] - c.lat) ** 2;
 
@@ -463,6 +464,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     renderLegend();
     renderDetail();
     renderList();
+    renderAreaChip();
   }
 
   // 点レイヤー（駅・学校・地価公示・認可保育所）。オンにしたときだけ読み込む
@@ -536,6 +538,17 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     return (selected && prefectureCodeOf(selected)) ||
       visibleMunicipalities().sort((a, b) => dist(a.center, map.getCenter()) - dist(b.center, map.getCenter()))[0]?.prefecture ||
       areas.prefectures[0]?.code;
+  }
+
+  // ロゴの横の都道府県名: 地域を選んでいればその都道府県、市区町村が見える縮尺まで拡大していれば地図の中心の都道府県。
+  // 全国を見ているときは出さない。変わったときだけ書き換える（地図を動かすたびに書き換えてちらつかないように）
+  const areaChip = document.getElementById("area-chip");
+  function renderAreaChip() {
+    if (!areaChip || !nationwide) return;
+    const code = (selected && prefectureCodeOf(selected)) || (map.getZoom() >= PREF_ZOOM ? focusPrefecture() : undefined);
+    const name = prefName(code);
+    if (areaChip.textContent !== name) areaChip.textContent = name;
+    if (areaChip.hidden !== !name) areaChip.hidden = !name;
   }
 
   function renderLegend() {

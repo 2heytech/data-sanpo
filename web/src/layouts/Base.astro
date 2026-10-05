@@ -11,14 +11,18 @@ interface Props {
   description: string;
   wide?: boolean;
   preload?: string;
+  /** 見ている都道府県の名前（地域ページなど）。ロゴの横に出す */
+  prefecture?: string;
 }
-const { title, description, wide = false, preload } = Astro.props;
-const fullTitle = title === "全国データさんぽ" ? title : `${title} | 全国データさんぽ`;
+const { title, description, wide = false, preload, prefecture } = Astro.props;
+const SITE_NAME = "データさんぽ";
+const fullTitle = title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const indexable = ALLOW_INDEXING;
-// ヘッダーの表示中の地域。全国の公開版では「全国」、1つの都道府県だけならその名前
+// ロゴの横の都道府県名。見ている都道府県が決まるページ（地域ページ、地図で選んだ・拡大したとき）だけ出し、
+// 決まらないページ（トップ・全国を見ているとき）は出さない。1つの都道府県だけの公開版では常にその名前
 const { prefectures } = loadAreas();
-const areaLabel = prefectures.length === 1 ? prefectures[0].name : "全国";
+const areaLabel = prefecture ?? (prefectures.length === 1 ? prefectures[0].name : "");
 const nav = [
   ["/#indicators", "指標"],
   ["/sources/", "出典"],
@@ -42,7 +46,7 @@ const onMap = Astro.url.pathname.startsWith("/map/");
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     {!indexable && <meta name="robots" content="noindex, nofollow" />}
-    <meta property="og:site_name" content="全国データさんぽ" />
+    <meta property="og:site_name" content={SITE_NAME} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
@@ -75,9 +79,9 @@ const onMap = Astro.url.pathname.startsWith("/map/");
   <body class={wide ? "wide" : ""}>
     <a class="skip" href="#main">本文へ移動</a>
     <header class="site-header">
-      <a class="brand" href="/"><img src="/logo.svg" alt="全国データさんぽ" width="164" height="34" /></a>
-      <!-- 表示中の地域。全国版では都道府県の切り替えをここに置く -->
-      <span class="area-chip" title="表示中の地域">{areaLabel}</span>
+      <a class="brand" href="/"><img src="/logo.svg" alt={SITE_NAME} width="164" height="34" /></a>
+      <!-- 見ている都道府県。地図では地図の動きに合わせて書き換える（map/app.ts） -->
+      <span class="area-chip" id="area-chip" title="見ている都道府県" hidden={!areaLabel}>{areaLabel}</span>
       <nav aria-label="サイト内">
         {nav.map(([href, label]) => (
           <a href={href} aria-current={Astro.url.pathname.startsWith(href) ? "page" : undefined}>{label}</a>
@@ -95,7 +99,7 @@ const onMap = Astro.url.pathname.startsWith("/map/");
       <footer class="site-footer">
         <div class="inner">
           <div>
-            <a class="brand-foot" href="/"><img src="/logo-dark.svg" alt="全国データさんぽ" width="155" height="32" /></a>
+            <a class="brand-foot" href="/"><img src="/logo-dark.svg" alt={SITE_NAME} width="155" height="32" /></a>
             <p class="small">全国の都道府県・市区町村・町丁目を、国勢調査などの公開データで色分けした地図サイトです。</p>
           </div>
           <div>

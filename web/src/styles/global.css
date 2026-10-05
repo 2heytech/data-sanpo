@@ -45,6 +45,7 @@ body.wide .site-header { position: static; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; }
 .brand img { display: block; height: 34px; width: auto; }
 /* 表示中の地域（今は東京都のみ。全国版では都道府県の切り替えになる） */
+.area-chip[hidden] { display: none; }
 .area-chip {
   display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px;
   background: var(--accent-soft); color: var(--accent-ink); font-size: 0.8rem; font-weight: 700; white-space: nowrap;
