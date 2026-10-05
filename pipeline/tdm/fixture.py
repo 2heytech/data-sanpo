@@ -738,18 +738,22 @@ def census2025_values(base: dict, seed: int = 42) -> dict[str, dict[str, int]]:
 
 def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
     """令和7年国勢調査 人口等基本集計の e-Stat の Excel（表1-1・2-7・6-3・9-1 の形式）。
-    地域識別コード a（都道府県）・1（政令指定都市の市全体）・9（2000年の市区町村）の行は取り込まない。"""
+    地域識別コード 1（政令指定都市の市全体）・9（2000年の市区町村）の行は取り込まない。a は全国（使わない）と都道府県。"""
     from .xlsx import write_sheet
     vals = census2025_values(base)
+    pnames = {"00": "全国", **PREF_NAMES}
     names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
-    areas = [("a", "13", "13000", "東京都"), ("a", "14", "14000", "神奈川県"), ("1", "14", "14190", "みほん市")]
+    areas = [("a", "00", "00000", "全国"), ("a", "13", "13000", "東京都"), ("a", "14", "14000", "神奈川県"), ("1", "14", "14190", "みほん市")]
     areas += [("0" if c.startswith("131") or c.startswith("141") else "2" if c[2] == "2" else "3", c[:2], c, names[c])
               for c in vals]
     total = lambda pref, key: sum(v[key] for c, v in vals.items() if c[:2] == pref)
     def value(code, key):
         if code in vals:
             return vals[code][key]
-        return total(code[:2], key) + 7   # 都道府県・市全体の行（使わないことを確かめるため合計と少しずらす）
+        if code == "00000":
+            return sum(v[key] for v in vals.values()) + 11
+        # 都道府県・市全体の行。区の再編などで市区町村の合計と合わないことがあるので少しずらす
+        return total(code[:2], key) + 7
     out = {}
 
     def save(key: str, fname: str, rows: list[list]) -> None:
@@ -768,7 +772,7 @@ def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
                      "2025年_地域コード", "地域名", " "]]
     for k, (level, pref, code, label) in enumerate(areas):
         pop = value(code, "人口")
-        rows.append([level, f"{pref}_{PREF_NAMES[pref]}", code, "2000", f"{pref}_{PREF_NAMES[pref]}", code,
+        rows.append([level, f"{pref}_{pnames[pref]}", code, "2000", f"{pref}_{pnames[pref]}", code,
                      f"{1000 + k}_{label}", pop, pop // 2, pop - pop // 2, value(code, "世帯数"), value(code, "一般世帯数")])
     rows.append(["9", "13_東京都", "13199", "2000", "13_東京都", "13199", "9999_旧サンプル町", 5, 3, 2, 2, 2])
     save("census2025_municipal_population", "b01_01.xlsx", rows)
@@ -783,7 +787,7 @@ def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
         for sex, share in (("0_総数", 1.0), ("1_男", 0.48), ("2_女", 0.52)):
             for level, pref, code, label in areas:
                 f = ratio * share
-                rows.append([nat, sex, level, f"{pref}_{PREF_NAMES[pref]}", code, "2000", f"{pref}_{PREF_NAMES[pref]}",
+                rows.append([nat, sex, level, f"{pref}_{pnames[pref]}", code, "2000", f"{pref}_{pnames[pref]}",
                              code, f"{code}_{label}", round(value(code, "人口") * f)]
                             + [round(value(code, c) * f) for c in ("15歳未満", "15～64歳", "65歳以上")])
     save("census2025_municipal_age", "b02_07.xlsx", rows)
@@ -794,7 +798,7 @@ def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
                     [None, None, "表章単位", "世帯", "世帯", "人"],
                     ["地域識別コード", "都道府県", "地域名", " "]]
     for level, pref, code, label in areas:
-        rows.append([level, f"{pref}_{PREF_NAMES[pref]}", f"{code}_{label}", value(code, "一般世帯数"),
+        rows.append([level, f"{pref}_{pnames[pref]}", f"{code}_{label}", value(code, "一般世帯数"),
                      value(code, "単独世帯"), value(code, "人口") - 10])
     save("census2025_municipal_household_size", "b06_03.xlsx", rows)
     # 表9-1: 世帯の家族類型の分類の列が地域の後ろにある
@@ -804,9 +808,9 @@ def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
                     [None] * 4 + ["表章単位", "世帯", "世帯"],
                     ["地域識別コード", "都道府県", "地域名", "階層レベル（世帯の家族類型）", "世帯の家族類型", " "]]
     for level, pref, code, label in areas:
-        rows.append([level, f"{pref}_{PREF_NAMES[pref]}", f"{code}_{label}", "1", "0_総数",
+        rows.append([level, f"{pref}_{pnames[pref]}", f"{code}_{label}", "1", "0_総数",
                      value(code, "一般世帯数"), value(code, "18歳未満世帯員のいる")])
-        rows.append([level, f"{pref}_{PREF_NAMES[pref]}", f"{code}_{label}", "1", "3_単独世帯",
+        rows.append([level, f"{pref}_{pnames[pref]}", f"{code}_{label}", "1", "3_単独世帯",
                      value(code, "単独世帯"), "-"])
     save("census2025_municipal_family_type", "b09_01.xlsx", rows)
     return out
