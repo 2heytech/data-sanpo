@@ -416,15 +416,59 @@ def test_foreign_residents(built):
     # 住民基本台帳の外国人住民（区市町村・国籍別、各年1月1日）
     total = by["foreign_residents"]
     assert total["family"] == "foreign" and total["facets"] == {"type": "総数", "basis": "人数"}
-    assert [p["period"] for p in total["periods"]] == ["2025-01-01", "2026-01-01"]
+    # 総数は2021年以降は全国の住民基本台帳、2020年以前は東京都の表（東京都だけ）
+    assert [p["period"] for p in total["periods"]] == ["2020-01-01", "2025-01-01", "2026-01-01"]
     assert by["foreign_residents_korea"]["facets"]["type"] == "韓国"
+    assert [p["period"] for p in by["foreign_residents_korea"]["periods"]] == ["2020-01-01", "2026-01-01"]
+    juki = fixture.juki_foreign_values(2026)
     munis = {r["entity_id"]: r for r in load(
         built, "values/foreign_residents/2026-01-01/municipalities.json")["rows"]}
+    assert munis["muni-13199"]["value"] == juki["13199"] and munis["muni-14199"]["value"] == juki["14199"]
+    assert munis["muni-13499"]["value"] == juki["13499"]   # 全国の表には島しょの町村もある
+    assert "muni-14190" not in munis   # 政令指定都市の市全体の行は地図の単位ではない
+    prefs = {r["entity_id"]: r for r in load(
+        built, "values/foreign_residents/2026-01-01/prefectures.json")["rows"]}
+    tokyo = sum(v for c, v in juki.items() if c[:2] == "13")
+    assert prefs["pref-13"]["value"] == tokyo + 7   # 出典の都道府県の行を使う
     china = {r["entity_id"]: r for r in load(
         built, "values/foreign_residents_china/2026-01-01/municipalities.json")["rows"]}
-    assert munis["muni-13199"]["value"] > china["muni-13199"]["value"] > 0
-    # 島しょ（支庁単位でしか公表されない町村）は値なし。0 にしない
-    assert munis.get("muni-13499") is None or munis["muni-13499"]["value"] is None
+    assert china["muni-13199"]["value"] > 0 and "muni-14199" not in china   # 国籍別は東京都だけ
+    old = {r["entity_id"]: r for r in load(
+        built, "values/foreign_residents/2020-01-01/municipalities.json")["rows"]}
+    assert old["muni-13199"]["value"] > 0 and "muni-14199" not in old
+    # 2020年の東京都の表では、島しょ（支庁単位でしか公表されない町村）は値なし。0 にしない
+    assert old.get("muni-13499") is None or old["muni-13499"]["value"] is None
+
+
+def test_zairyu_foreign_by_nationality(built):
+    """在留外国人統計の市区町村別・国籍別（全国、12月末）。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    thai = by["zairyu_foreign_thailand"]
+    assert thai["family"] == "zairyu_foreign" and thai["facets"] == {"type": "タイ", "basis": "人数"}
+    assert [p["period"] for p in thai["periods"]] == ["2022-12-31", "2023-12-31"]
+    for year in (2022, 2023):
+        vals = fixture.zairyu_values(year)
+        china = {r["entity_id"]: r for r in load(
+            built, f"values/zairyu_foreign_china/{year}-12-31/municipalities.json")["rows"]}
+        assert china["muni-13199"]["value"] == vals["13199"]["中国"]
+        assert china["muni-14199"]["value"] == vals["14199"]["中国"]
+        assert "muni-14190" not in china
+        thai_rows = {r["entity_id"]: r for r in load(
+            built, f"values/zairyu_foreign_thailand/{year}-12-31/municipalities.json")["rows"]}
+        assert thai_rows["muni-13199"]["value"] == 0 and thai_rows["muni-13199"]["status"] == "observed"
+    # 2022年末: 都道府県は表の都道府県の行（市区町村の合計より1人多い見本）
+    vals = fixture.zairyu_values(2022)
+    prefs = {r["entity_id"]: r for r in load(built, "values/zairyu_foreign_china/2022-12-31/prefectures.json")["rows"]}
+    assert prefs["pref-13"]["value"] == sum(v["中国"] for c, v in vals.items() if c[:2] == "13") + 1
+    # 2023年末: 総数10人以下の市区町村（かりの村）は「その他」にまとめられて値なし。0 にしない。
+    # 市区町村がそろわない東京都の値は出さず、そろう神奈川県は市区町村の合計
+    vals = fixture.zairyu_values(2023)
+    china = {r["entity_id"]: r for r in load(
+        built, "values/zairyu_foreign_china/2023-12-31/municipalities.json")["rows"]}
+    assert china.get("muni-13499") is None or china["muni-13499"]["value"] is None
+    prefs = {r["entity_id"]: r for r in load(built, "values/zairyu_foreign_china/2023-12-31/prefectures.json")["rows"]}
+    assert prefs["pref-13"]["value"] is None
+    assert prefs["pref-14"]["value"] == vals["14199"]["中国"]
 
 
 def test_daytime_night_ratio_uses_same_year_population(built):
