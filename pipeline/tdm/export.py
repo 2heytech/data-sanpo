@@ -416,6 +416,15 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
                 by_pref = pref_breaks.get(kind == "multi_year", {})
                 if level == "municipality" and len(by_pref) > 1:
                     legend[level]["by_prefecture"] = by_pref
+                if level == "municipality":
+                    # 県内の市区町村がすべて0の都道府県（例: 私立中学校のない県）は、地図で色を付けない
+                    by_pref_vals: dict[str, list[float]] = defaultdict(list)
+                    for r in p["rows"].get(("municipality", "municipalities"), []):
+                        if r["value"] is not None:
+                            by_pref_vals[prefecture_of(r["entity_id"])].append(r["value"])
+                    zero = sorted(k for k, v in by_pref_vals.items() if all(x == 0 for x in v))
+                    if zero:
+                        legend[level]["zero_prefectures"] = zero
             for (level, chunk), rows in p["rows"].items():
                 _write(out, f"{vdir}/{chunk}.json", {
                     "schema_version": SCHEMA_VERSION, "release_id": release_id,
@@ -441,7 +450,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
             "unit": d["unit"], "kind": d["kind"], "digits": d["digits"],
             "definition_version": d["definition_version"], "description": d["description"],
             "method": d["method"], "caveats": d.get("caveats", []),
-            "min_denominator": d.get("min_denominator"), "legend": d["legend"],
+            "min_denominator": d.get("min_denominator"), "scale": d.get("scale", 1), "legend": d["legend"],
             "fraction_units": d.get("fraction_units"), "compare_with": d.get("compare_with"),
             "family": d.get("family"), "facets": d.get("facets"),
             "prefectures": sorted(covered),

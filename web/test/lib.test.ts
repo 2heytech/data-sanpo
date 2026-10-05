@@ -93,6 +93,13 @@ describe("classify", () => {
     // どの都道府県でもないとき（区切りのない県）は全国の区切り
     expect((match[6] as unknown[]).filter((x) => typeof x === "number")).toEqual([100]);
   });
+  it("県内がすべて0の都道府県は、0を塗らない（ほかの県の0は塗る）", () => {
+    const key = ["slice", ["get", "id"], 5, 7];
+    const expr = fillColorExpression("blues", [10], false, { key, breaks: { "13": [10] }, zero: ["36"] }) as unknown[];
+    expect(JSON.stringify(expr[3])).toBe(JSON.stringify(["all", ["==", ["feature-state", "v"], 0], ["in", key, ["literal", ["36"]]]]));
+    expect(expr[4]).toBe(BLANK_COLOR);
+    expect(JSON.stringify(fillColorExpression("blues", [10], false, { key, breaks: { "13": [10] } }))).not.toContain(BLANK_COLOR);
+  });
 });
 
 describe("search", () => {

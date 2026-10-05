@@ -150,3 +150,11 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   .site-footer .inner { grid-template-columns: 1fr; gap: 16px; }
 }
 h2[id], h3[id] { scroll-margin-top: 100px; }
+
+/* 順位の横バー（左が1位）。地図の情報欄と地域ページの表で使う */
+.rank-bar { display: block; position: relative; height: 8px; border-radius: 4px;
+  background: linear-gradient(to right, var(--accent), var(--accent-soft)); }
+.rank-mark { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; border: 3px solid var(--accent); transform: translate(-50%, -50%); box-sizing: border-box; }
+td .rank-bar { width: 96px; margin: 6px 0 2px auto; height: 6px; }
+td .rank-mark { width: 11px; height: 11px; border-width: 2px; }

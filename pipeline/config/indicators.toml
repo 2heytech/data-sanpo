@@ -2396,29 +2396,8 @@ facets = { type = "中学校 数学", basis = "平均正答率" }
 source_kind = "nier_gakuryoku"
 legend = { method = "nice", classes = 12, scheme = "blues" }
 
-[jhs_students_public]
-name = "中学生の在籍先（公立）"
-category = "教育"
-unit = "%"
-kind = "ratio"
-definition_version = "1"
-digits = 1
-scale = 100
-min_denominator = 10
-levels = ["municipality", "prefecture"]
-description = "その市区町村にある中学校（中等教育学校の前期課程は含まない）の生徒のうち、公立の学校の生徒の割合。"
-method = "公立中学校の生徒数 ÷ 中学校の生徒数（国立・公立・私立の合計）× 100。文部科学省「学校基本調査」市町村別学年別生徒数。"
-caveats = ["学校の所在地で数えます。住んでいる市区町村ではありません（私立中学校の多い区は、他の地域から通う生徒の分だけ私立の割合が高くなります）。", "中学校の生徒が10人未満の町村は値を表示しません。", "各年5月1日現在です。"]
-school_type = "public"
-period_labels = { "2025-05-01" = "2025年5月1日現在" }
-fraction_units = ["人", "人"]
-family = "jhs_students"
-facets = { type = "公立", basis = "割合" }
-source_kind = "estat_school_basic"
-legend = { method = "nice", classes = 12, scheme = "blues" }
-
 [jhs_students_private]
-name = "中学生の在籍先（私立）"
+name = "私立中学校の生徒割合"
 category = "教育"
 unit = "%"
 kind = "ratio"
@@ -2433,28 +2412,6 @@ caveats = ["学校の所在地で数えます。住んでいる市区町村で�
 school_type = "private"
 period_labels = { "2025-05-01" = "2025年5月1日現在" }
 fraction_units = ["人", "人"]
-family = "jhs_students"
-facets = { type = "私立", basis = "割合" }
 source_kind = "estat_school_basic"
 legend = { method = "nice", classes = 12, scheme = "blues" }
 
-[jhs_students_national]
-name = "中学生の在籍先（国立）"
-category = "教育"
-unit = "%"
-kind = "ratio"
-definition_version = "1"
-digits = 1
-scale = 100
-min_denominator = 10
-levels = ["municipality", "prefecture"]
-description = "その市区町村にある中学校（中等教育学校の前期課程は含まない）の生徒のうち、国立の学校の生徒の割合。"
-method = "国立中学校の生徒数 ÷ 中学校の生徒数（国立・公立・私立の合計）× 100。文部科学省「学校基本調査」市町村別学年別生徒数。"
-caveats = ["学校の所在地で数えます。住んでいる市区町村ではありません。", "国立の中学校は国立大学の附属校で、ない市区町村が大半です（その場合は0%）。", "中学校の生徒が10人未満の町村は値を表示しません。", "各年5月1日現在です。"]
-school_type = "national"
-period_labels = { "2025-05-01" = "2025年5月1日現在" }
-fraction_units = ["人", "人"]
-family = "jhs_students"
-facets = { type = "国立", basis = "割合" }
-source_kind = "estat_school_basic"
-legend = { method = "nice", classes = 12, scheme = "blues" }

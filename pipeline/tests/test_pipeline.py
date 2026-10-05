@@ -569,6 +569,10 @@ def test_nice_breaks():
     from tdm.breaks import diverging_breaks, nice_breaks
     # 均等に散らばる値は切りのよい等間隔
     assert nice_breaks([float(v) for v in range(0, 121)], 12, 0) == [10.0 * i for i in range(1, 12)]
+    # 大半が0で分位点の区切りが作れないときも、0とそれより大きい値は分ける（#75、徳島県の私立中学校）
+    assert nice_breaks([5.656] + [0.0] * 23, 12, 1) == [5.6]
+    assert nice_breaks([0.05] + [0.0] * 20, 12, 1) == [0.05]
+    assert nice_breaks([0.0] * 5, 12, 1) == []
     # 偏った値は分位点の近くの切りのよい数値（0.1 や 5 の倍数など）
     skew = [1.0] * 50 + [2.0] * 30 + [3.0] * 10 + [10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 9000.0]
     b = nice_breaks(skew, 12, 0)
@@ -1333,7 +1337,22 @@ def test_jhs_students(built):
     pri = rows("jhs_students_private", "municipalities")
     assert pri["muni-13199"]["value"] == 40.0 and pri["muni-13199"]["denominator"] == 1000
     assert pri["muni-13499"]["value"] is None and pri["muni-13499"]["status"] == "not_applicable"   # 生徒0人
-    assert rows("jhs_students_national", "municipalities")["muni-13199"]["value"] == 10.0
+    # 私立の割合1つにまとめた（公立・国立は出さない。#75）
+    ids = {i["id"] for i in load(built, "indicators.json")["indicators"]}
+    assert "jhs_students_public" not in ids and "jhs_students_national" not in ids
     # 都道府県の値は「計」の行から（区市町村の分子分母の合計ではない）
-    p = rows("jhs_students_public", "prefectures")["pref-13"]
-    assert abs(p["value"] - 2400 / 3000 * 100) < 0.01 and p["denominator"] == 3000
+    p = rows("jhs_students_private", "prefectures")["pref-13"]
+    assert p["denominator"] == 3000
+
+
+def test_zero_prefectures(built):
+    # 県内の市区町村がすべて0の都道府県は凡例に記し、地図で色を付けない（#75）
+    found = 0
+    for f in (built.releases / "test" / "values").glob("*/*/legend.json"):
+        muni = json.loads(f.read_text())["levels"].get("municipality", {})
+        for pref in muni.get("zero_prefectures", []):
+            rows = json.loads((f.parent / "municipalities.json").read_text())["rows"]
+            vals = [r["value"] for r in rows if r["entity_id"][5:7] == pref and r["value"] is not None]
+            assert vals and all(v == 0 for v in vals)
+            found += 1
+    assert found
