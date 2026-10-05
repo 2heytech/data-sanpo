@@ -92,6 +92,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const aggregateLabel = $("#aggregate-label");
   const periodField = periodRange.closest<HTMLElement>(".period")!;
   const colorsToggle = $<HTMLInputElement>("#colors-toggle");
+  const scopeEl = $("#indicator-scope");
   const detailEl = $("#detail");
   const listEl = $("#list");
 
@@ -733,15 +734,51 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const familyMembers = (family: string) => indicators.filter((i) => i.family === family);
   // 組の選択肢は種別を外した名前にする（例: 「通勤・通学の交通手段（鉄道・電車）」→「通勤・通学の交通手段」）
   const optionLabel = (i: Indicator) => (i.family ? i.name.replace(/（[^（）]*）$/, "") : i.name);
+  // 見られる単位（都道府県・市区町村・町丁目）と対象の都道府県。選択肢の名前の後ろと、選択欄の下に出す
+  const LEVELS: Level[] = ["prefecture", "municipality", "small_area"];
+  const levelsOf = (list: Indicator[], at?: string): Set<Level> => new Set(list.flatMap((i) =>
+    i.periods.filter((p) => !at || p.period === at).flatMap((p) => p.levels))
+    .filter((l) => nationwide || l !== "prefecture"));
+  const prefsOf = (list: Indicator[]): string[] | null => {
+    if (list.some((i) => !i.prefectures)) return null;
+    const codes = [...new Set(list.flatMap((i) => i.prefectures!))].sort();
+    return codes.length >= areas.prefectures.length ? null : codes;
+  };
+  const coverageLabel = (codes: string[]) =>
+    (codes.length <= 2 ? `${codes.map(prefName).join("・")}のみ` : `${codes.length}都道府県`);
+  const scopeTag = (list: Indicator[]) => {
+    const lv = levelsOf(list);
+    const finest = lv.has("small_area") ? "町丁目まで" : lv.has("municipality") ? "市区町村まで" : "都道府県のみ";
+    const prefs = nationwide ? prefsOf(list) : null;
+    // 選択欄では後ろが切れやすいので、対象の都道府県を先に書く
+    return `［${prefs ? `${coverageLabel(prefs)}・` : ""}${finest}］`;
+  };
+  const membersOf = (i: Indicator) => (i.family ? indicators.filter((o) => o.family === i.family) : [i]);
   indicatorSelect.innerHTML = [...new Set(indicators.map((i) => i.category))]
     .map((c) => {
       const seen = new Set<string>();
       const opts = indicators.filter((i) => i.category === c && !seen.has(optionValue(i)) && seen.add(optionValue(i)))
-        .map((i) => `<option value="${esc(optionValue(i))}">${esc(optionLabel(i))}</option>`).join("");
+        .map((i) => `<option value="${esc(optionValue(i))}">${esc(`${optionLabel(i)} ${scopeTag(membersOf(i))}`)}</option>`).join("");
       return `<optgroup label="${esc(c)}">${opts}</optgroup>`;
     })
     .join("");
   const unique = (xs: string[]) => [...new Set(xs)];
+  // 選んだ指標（と時点）で見られる単位と、対象の都道府県
+  function renderScope() {
+    const all = levelsOf([indicator]);
+    const now = levelsOf([indicator], period);
+    const chips = LEVELS.filter((l) => nationwide || l !== "prefecture").map((l) => {
+      const state = now.has(l) ? "on" : all.has(l) ? "later" : "off";
+      const title = state === "on" ? "この単位で見られます" : state === "later" ? "ほかの時点で見られます" : "この単位の値はありません";
+      return `<li class="${state}" title="${title}">${state === "on" ? "✓" : "－"} ${LEVEL_LABEL[l]}</li>`;
+    }).join("");
+    const prefs = nationwide ? prefsOf([indicator]) : null;
+    const missing = [...all].filter((l) => !now.has(l)).map((l) => LEVEL_LABEL[l]);
+    scopeEl.innerHTML = `<ul class="scope-levels" aria-label="見られる単位">${chips}</ul>` +
+      `<p class="scope-area">対象: ${prefs ? `<strong>${esc(coverageLabel(prefs))}</strong>` +
+        `<span class="muted">（ほかの地域は値なし）</span>` : "全国"}</p>` +
+      (missing.length ? `<p class="muted">この時点は${esc(missing.join("・"))}の値がありません。</p>` : "");
+  }
   function syncIndicatorControls() {
     indicatorSelect.value = optionValue(indicator);
     facetsEl.hidden = !indicator.family;
@@ -784,6 +821,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     periodField.classList.toggle("aggregate", onAggregate);
     aggregateWrap.hidden = !agg;
     aggregateToggle.checked = onAggregate;
+    renderScope();
     if (agg) {
       const [from, to] = agg.period.split("-").map(Number);
       aggregateLabel.textContent = `直近${to - from + 1}年の合計で見る（${from}〜${to}年）`;

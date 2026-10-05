@@ -16,6 +16,8 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
         <ul id="search-results" role="listbox" hidden></ul>
       </div>
       <label class="field">指標 <select id="indicator-select"></select></label>
+      <!-- 選んだ指標で見られる単位（都道府県・市区町村・町丁目）と対象の都道府県 -->
+      <div id="indicator-scope" class="scope small" aria-live="polite"></div>
       <!-- 犯罪など、種別と基準（件数・人口当たり）を切り替える指標 -->
       <div id="facets" class="field facets" hidden>
         <label class="inline">種別 <select id="facet-type"></select></label>
@@ -142,6 +144,13 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
   /* display を指定した要素でも hidden で隠す（種別・基準、5年合計のチェック） */
   .panel [hidden] { display: none !important; }
   .facets { display: flex; flex-direction: column; gap: 6px; }
+  .scope { margin: -4px 0 12px; }
+  .scope p { margin: 4px 0 0; }
+  .scope-levels { display: flex; flex-wrap: wrap; gap: 4px; list-style: none; padding: 0; margin: 0; }
+  .scope-levels li { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 0.8rem; }
+  .scope-levels li.on { background: var(--accent-soft, #e6effa); border-color: var(--accent, #0b5cad); color: var(--accent, #0b5cad); font-weight: 600; }
+  .scope-levels li.later { color: var(--muted); }
+  .scope-levels li.off { color: var(--muted); text-decoration: line-through; opacity: 0.7; }
   .facets label.inline { font-weight: 600; }
   .period.aggregate #period-range, .period.aggregate .period-ticks, .period.aggregate #period-play { opacity: 0.4; }
   .view-options { border: 0; border-top: 1px solid var(--line); padding: 12px 0 0; margin: 0; display: grid; gap: 6px; }

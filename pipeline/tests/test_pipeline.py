@@ -841,6 +841,10 @@ def test_street_trees(built):
     assert munis["muni-13199"]["note"].startswith("最も多い樹種: ")
     kinds = {r["entity_id"]: r for r in load(built, "values/street_tree_species/2026-04-01/municipalities.json")["rows"]}
     assert kinds["muni-13199"]["value"] == len({t[0] for t in trees})
+    # 東京都のほかの道府県の地域は0本にしない（値を出さず、指標の対象も東京都だけ）
+    assert not any(e.startswith("muni-14") for e in munis)
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert by["street_trees"]["prefectures"] == ["13"]
 
 
 def test_traffic_accidents(built):

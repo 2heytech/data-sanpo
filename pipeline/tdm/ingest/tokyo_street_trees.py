@@ -57,8 +57,9 @@ def ingest(conn: sqlite3.Connection, files: list[tuple[str, Path, str]], catalog
            period: tuple[str, str, str], boundary_version: str) -> dict:
     """files: (出典ID, パス, 文字コード)。出典ごとの区市町村の範囲（区部・多摩）は地域コードで分ける。"""
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "tokyo_street_trees"}
-    areas = _Index(conn, boundary_version, "small_area")
-    munis = _Index(conn, boundary_version, "municipality")
+    # 都道の街路樹は東京都だけ。ほかの道府県の地域を0本にしない（全国の境界を取り込んだときに0本が入っていた）
+    areas = _Index(conn, boundary_version, "small_area", ["13"])
+    munis = _Index(conn, boundary_version, "municipality", ["13"])
     species: dict[str, Counter] = {}
     result: dict = {"trees": 0, "outside": 0, "no_location": 0}
     sources = []

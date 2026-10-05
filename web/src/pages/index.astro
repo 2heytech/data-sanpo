@@ -40,8 +40,25 @@ if (rest.length) GENRES.push({ title: "その他", categories: rest });
 
 // 種別・基準で切り替える指標（犯罪・交通事故など）は、基準（件数・100人当たり）の違いを1行にまとめる
 const COUNT_BASES = new Set(["件数", "人数", "割合"]);
-// 種別ごとの説明が同じ形の組（政党別の得票率）は、種別も1行にまとめて種別名を並べる
-const GROUPED_FAMILIES = new Set(["vote_share"]);
+// 種別だけが違い基準が1つの組（政党別の得票率・国籍別の外国人住民・教科別の学力テストなど）は、
+// 種別も1行にまとめて種別名を並べる。名前が「共通の名前（種別）」の形の組だけが対象（住民税と課税対象所得のような組は分ける）
+const groupName = (i: Indicator) => i.name.replace(/（[^（）]*）$/, "");
+function groupable(members: Indicator[]): boolean {
+  const name = groupName(members[0]);
+  return new Set(members.map((m) => m.facets!.type)).size >= 2 &&
+    new Set(members.map((m) => m.facets!.basis)).size === 1 &&
+    members.every((m) => m.name === name || m.name === `${name}（${m.facets!.type}）`);
+}
+// まとめた行の説明（種別ごとの説明を1つにしたもの）。ないときは「総数」など組の名前そのものの指標の説明を使う
+const GROUP_DESCRIPTIONS: Record<string, string> = {
+  vote_share: "衆議院・参議院の比例代表選挙で、有効投票のうち各政党が得た票の割合。",
+  foreign: "住民基本台帳に記録されている外国人の数（各年1月1日現在）。総数と、国籍・地域別の人数。",
+  gakuryoku: "全国学力・学習状況調査の平均正答率（小学6年生の国語・算数、中学3年生の国語・数学）。その都道府県の公立学校の児童・生徒の結果。",
+  commute: "その地域に住む15歳以上の通勤者・通学者のうち、ふだんの通勤・通学にそれぞれの交通手段を使う人の割合。",
+  jhs_progress: "市区町村の公立小学校を卒業した子どもの進学先（公立・都内の私立・都内の国立・都外の中学校等）の割合。",
+  jhs_students: "その市区町村にある中学校（中等教育学校の前期課程は含まない）の生徒のうち、公立・私立・国立それぞれの学校の生徒の割合。",
+  street_trees: "都道沿いに植えられている街路樹（高木・中木）の本数。総数と、主な樹種ごとの本数。",
+};
 interface Row { main: Indicator; variants: Indicator[]; grouped?: boolean }
 function rowsOf(category: string): Row[] {
   const list = indicators.filter((i) => i.category === category);
@@ -51,8 +68,8 @@ function rowsOf(category: string): Row[] {
       rows.push({ main: ind, variants: [] });
       continue;
     }
-    if (GROUPED_FAMILIES.has(ind.family)) {
-      const members = list.filter((o) => o.family === ind.family);
+    const members = list.filter((o) => o.family === ind.family);
+    if (groupable(members)) {
       if (members[0] === ind) rows.push({ main: ind, variants: members, grouped: true });
       continue;
     }
@@ -75,9 +92,8 @@ function yearsOf(ind: Indicator): string {
   return ind.periods.some((p) => p.aggregate) ? `${text}（5年合計も）` : text;
 }
 const basisLabel = (i: Indicator) => i.facets?.basis.replace("あたり", "当たり") ?? i.name;
-// まとめた行の名前と説明（例: 「比例代表の得票率（自由民主党）」→「比例代表の得票率」、説明の政党名は「各政党」に）
-const groupName = (i: Indicator) => i.name.replace(/（[^（）]*）$/, "");
-const groupDescription = (i: Indicator) => i.description.replace(i.facets!.type, "各政党");
+const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRIPTIONS[main.family!]
+  ?? (members.find((m) => m.name === groupName(main)) ?? main).description;
 ---
 <Base title="全国データさんぽ" description="全国の都道府県・市区町村・町丁目の人口・暮らし・安全などを、国勢調査などの公開データで色分けした地図サイト。">
   <section class="hero">
@@ -111,7 +127,7 @@ const groupDescription = (i: Indicator) => i.description.replace(i.facets!.type,
                       </td>
                       <td class="nowrap hide-sp">{main.unit}</td>
                       <td class="nowrap hide-sp">{yearsOf(main)}</td>
-                      <td>{groupDescription(main)}</td>
+                      <td>{groupDescription(main, variants)}</td>
                     </tr>
                   ) : (
                     <tr>
