@@ -35,6 +35,8 @@ export interface Indicator {
   method: string;
   caveats: string[];
   min_denominator: number | null;
+  /** 率の倍率（分子 ÷ 分母 × scale。% なら 100） */
+  scale?: number;
   /** zero_blank: 値が0の地域は色を塗らない（犯罪の件数など） */
   legend: { method: string; classes: number; scheme: string; zero_blank?: boolean };
   /** 率の内訳に添える単位（分子, 分母）。省略時は ["人", "人"]。 */
@@ -124,6 +126,8 @@ export interface LegendLevel {
   count: number;
   /** 市区町村の、都道府県ごとの区切り（全国の公開版。地図は都道府県ごとの区切りで塗る） */
   by_prefecture?: Record<string, number[]>;
+  /** 県内の市区町村がすべて0の都道府県（地図で色を付けない） */
+  zero_prefectures?: string[];
 }
 
 export interface LegendFile {

@@ -108,7 +108,21 @@ def nice_breaks(values: list[float], classes: int, digits: int) -> list[float]:
         equal = _interval_breaks(vals, classes, digits, trim)
         if equal and _max_share(vals, equal) <= MAX_SHARE:
             return equal
-    return _refined_quantile_breaks(vals, classes, digits)
+    out = _refined_quantile_breaks(vals, classes, digits)
+    if not out and vals[0] < vals[-1]:
+        out = _split_off_minimum(vals, classes, digits)
+    return out
+
+
+def _split_off_minimum(vals: list[float], classes: int, digits: int) -> list[float]:
+    """ほとんどが最小値（例: 県内の大半が0%）で分位点の区切りが作れないときは、最小値とそれより大きい値を分け、
+    大きい側をさらに区切る（区切りがないと、0% の市区町村も値のある市区町村と同じ色になるため）。"""
+    upper = [v for v in vals if v > vals[0]]
+    b = round(math.floor(upper[0] * 10 ** digits) / 10 ** digits, digits)
+    if b <= vals[0]:
+        b = upper[0]   # 表示の桁より細かい差（値は区切りちょうどで上の階級に入る）
+    more = [x for x in _refined_quantile_breaks(upper, classes - 1, digits) if x > b] if len(upper) >= 2 else []
+    return [b, *more]
 
 
 def diverging_breaks(values: list[float], classes: int, digits: int) -> list[float]:

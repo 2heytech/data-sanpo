@@ -4,7 +4,7 @@ import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
 import { loadAreas, loadIndicators, loadSources, loadValues } from "../../lib/data";
 import { formatFraction, formatValue, rankOf } from "../../lib/format";
-import type { Municipality } from "../../lib/types";
+import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
   const areas = loadAreas();
@@ -16,13 +16,16 @@ const byId = new Map(areas.municipalities.map((m) => [m.id, m]));
 const neighbors = muni.neighbors.map((id) => byId.get(id)!).filter(Boolean);
 const sources = new Map(loadSources().map((s) => [s.source_id, s]));
 
+// すべて同じ値（例: 県内がすべて0%）なら順位は出さない
+const rankIn = (rows: ValueRow[]) =>
+  new Set(rows.map((r) => r.value).filter((v) => v !== null)).size > 1 ? rankOf(rows, muni.id) : null;
 const stats = loadIndicators().map((ind) => {
   const period = ind.periods.find((p) => p.period === ind.default_period)!;
   const rows = loadValues(ind.id, period.period, "municipalities")?.rows ?? [];
   const row = rows.find((r) => r.entity_id === muni.id);
   return {
     // 順位は同じ都道府県の市区町村の中で数える
-    ind, period, row, rank: rankOf(rows.filter((r) => r.entity_id.startsWith(`muni-${muni.prefecture}`)), muni.id),
+    ind, period, row, rank: rankIn(rows.filter((r) => r.entity_id.startsWith(`muni-${muni.prefecture}`))),
     neighborRows: neighbors.map((n) => ({ n, row: rows.find((r) => r.entity_id === n.id) })),
   };
 });
@@ -53,14 +56,21 @@ const description = `${muni.name}（${place}）の人口・年齢構成などを
               {formatFraction(row, ind) && <div class="muted">{formatFraction(row, ind)}</div>}
             </td>
             <td class="num">{formatValue(row, ind)}</td>
-            <td class="num">{rank ? `${rank.rank}位／${rank.total}` : "—"}</td>
+            <td class="num">{rank ? (
+              <>
+                {`${rank.rank}位／${rank.total}`}
+                <span class="rank-bar" role="img" aria-label={`${rank.total} のうち ${rank.rank}位`}>
+                  <span class="rank-mark" style={`left:${rank.total > 1 ? ((rank.rank - 1) / (rank.total - 1)) * 100 : 50}%`}></span>
+                </span>
+              </>
+            ) : "—"}</td>
             <td>{period.label}</td>
           </tr>
         ))}
       </tbody>
     </table>
   </div>
-  <p class="muted">順位は値の大きい順です。大きいほど良い・悪いという意味ではありません。</p>
+  <p class="muted">順位は値の大きい順です（横のバーは左が1位）。大きいほど良い・悪いという意味ではありません。</p>
 
   {neighbors.length > 0 && (
     <>

@@ -347,8 +347,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     for (const [layer, level] of [["pref-fill", "prefecture"], ["muni-fill", "municipality"], ["area-fill", "small_area"]] as const) {
       const info = legend.levels[level];
       // 市区町村は都道府県ごとの区切りで塗る（id は muni-<都道府県2桁><市区町村3桁>）
-      const byGroup = level === "municipality" && info?.by_prefecture
-        ? { key: ["slice", ["get", "id"], 5, 7], breaks: info.by_prefecture } : undefined;
+      const byGroup = level === "municipality" && (info?.by_prefecture || info?.zero_prefectures)
+        ? { key: ["slice", ["get", "id"], 5, 7], breaks: info.by_prefecture ?? {}, zero: info.zero_prefectures }
+        : undefined;
       map.setPaintProperty(layer, "fill-color",
         fillColorExpression(legend.scheme, info?.breaks ?? [], legend.zero_blank, byGroup) as never);
     }
@@ -553,6 +554,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       breaks = info.by_prefecture![pref];
       levelLabel = `${prefName(pref)}の${levelLabel}`;
     }
+    // 県内がすべて0の都道府県（例: 私立中学校のない県）は色を付けない
+    const focus = level === "municipality" ? focusPrefecture() : undefined;
+    if (focus && info.zero_prefectures?.includes(focus)) {
+      legendEl.innerHTML =
+        `<strong>${esc(indicator.name)}</strong>（${esc(indicator.unit)}、${esc(prefName(focus))}の${esc(LEVEL_LABEL[level])}別・${esc(periodInfo().label)}）` +
+        `<ul><li><span class="swatch blank"></span>0（色なし）</li>` +
+        `<li><span class="swatch" style="background:${NO_DATA_COLOR}"></span>値なし（秘匿・欠測など）</li></ul>` +
+        `<p class="muted small">${esc(prefName(focus))}の市区町村はすべて0のため、色を付けていません。</p>`;
+      return;
+    }
     const zeroBlank = !!legend.zero_blank;
     const colors = colorsFor(legend.scheme, breaks, zeroBlank);
     const fmt = (v: number) => formatNumber(v, indicator.digits);
@@ -638,6 +649,37 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     return body ? `<div class="compare-with"><p class="small">あわせて見る（同じ時点）</p><ul class="small">${body}</ul></div>` : "";
   }
 
+  // 政令指定都市の区を選んだときは、市全体の値も出す（区の分子・分母または人数を合計。1区でも値がなければ出さない）
+  function cityTotal(id: string, rows: ValueRow[]): string {
+    const m = munis.get(id);
+    if (!m?.region || !m.name.startsWith(m.region) || !m.region.endsWith("市")) return "";
+    const wards = [...munis.values()].filter((w) => w.prefecture === m.prefecture && w.region === m.region);
+    if (wards.length < 2) return "";
+    const byId = new Map(rows.map((r) => [r.entity_id, r]));
+    const got = wards.map((w) => byId.get(w.id));
+    let row: ValueRow | null = null;
+    if (got.every((r) => r && r.value !== null && r.numerator != null && r.denominator != null)) {
+      const num = got.reduce((a, r) => a + r!.numerator!, 0);
+      const den = got.reduce((a, r) => a + r!.denominator!, 0);
+      if (den > 0) row = { entity_id: id, value: (num / den) * (indicator.scale ?? 1), status: "derived", numerator: num, denominator: den };
+    } else if (indicator.kind === "count" && got.every((r) => r && r.value !== null)) {
+      row = { entity_id: id, value: got.reduce((a, r) => a + r!.value!, 0), status: "derived" };
+    }
+    if (!row) return "";
+    const fraction = formatFraction(row, indicator);
+    return `<div class="city-total"><span class="muted small">${esc(m.region)}全体（${wards.length}区の合計）</span>
+      <strong>${esc(formatValue(row, indicator))}</strong>${fraction ? `<span class="muted small">${esc(fraction)}</span>` : ""}</div>`;
+  }
+
+  // 順位: 文と、1位（左）から最下位（右）までの横バー上の位置
+  function rankHtml(scope: string, rank: { rank: number; total: number }): string {
+    const pos = rank.total > 1 ? ((rank.rank - 1) / (rank.total - 1)) * 100 : 50;
+    return `<div class="rank"><p>${esc(scope)} ${rank.total} のうち <strong>${rank.rank}位</strong></p>
+      <div class="rank-bar" role="img" aria-label="${esc(scope)} ${rank.total} のうち ${rank.rank}位">
+        <span class="rank-mark" style="left:${pos.toFixed(1)}%"></span></div>
+      <div class="rank-ends small muted"><span>1位（大きい）</span><span>${rank.total}位（小さい）</span></div></div>`;
+  }
+
   let detailToken = 0;
   async function renderDetail() {
     const token = ++detailToken;
@@ -658,7 +700,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const sameGroup = (other: string) => (pref ? isPref(other)
       : (isMuni ? prefectureCodeOf(other) === prefectureCodeOf(id)
         : municipalityCodeOf(other) === municipalityCodeOf(id)) && munis.has(other) === isMuni);
-    const rank = rankOf(rows.filter((r) => sameGroup(r.entity_id)), id);
+    const group = rows.filter((r) => sameGroup(r.entity_id));
+    // すべて同じ値（例: 県内がすべて0%）なら順位は出さない
+    const rank = new Set(group.map((r) => r.value).filter((v) => v !== null)).size > 1 ? rankOf(group, id) : null;
+    const city = isMuni ? cityTotal(id, rows) : "";
     const fraction = formatFraction(row, indicator);
     const p = periodInfo();
     // 出典は元のページ（URL があれば）へのリンクにする（別のタブで開く）
@@ -681,11 +726,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       ${fraction ? `<div class="muted">${esc(fraction)}</div>` : ""}
       ${row?.value != null && STATUS_LABEL[row.status] ? `<div class="muted">${esc(STATUS_LABEL[row.status])}</div>` : ""}
       ${row?.note ? `<p class="note small">${esc(row.note)}</p>` : ""}
+      ${rank ? rankHtml(rankScope, rank) : ""}
+      ${city}
       ${within ? `<p class="note small">この指標は都道府県別の値だけです（${esc(entityName(within).name)}を含む${esc(name)}の値）。</p>` : ""}
       ${!pref && !covers(prefectureCodeOf(id)) ? `<p class="note small">この指標は${esc(indicator.prefectures!.map(prefName).join("・"))}だけの値です。</p>` : ""}
       ${compare}
       ${trend}
-      ${rank ? `<p>${esc(rankScope)} ${rank.total} のうち <strong>${rank.rank}位</strong></p>` : ""}
       <p class="small"><a href="/indicators/${esc(indicator.id)}/">この指標の意味と注意点</a>
         ${parentId ? `・<a href="/areas/${esc(parentId)}/">${esc(entityName(parentId).name)}のページ</a>` : ""}</p>
       <p class="muted small sources">${srcHtml}（<a href="/sources/">出典の一覧</a>）</p>`;

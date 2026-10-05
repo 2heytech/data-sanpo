@@ -69,14 +69,16 @@ function stepExpression(scheme: string, breaks: number[], zeroBlank: boolean): u
 }
 
 /** MapLibre の fill-color 式。値は feature-state の "v" に入れる。zeroBlank なら0は塗らない。
- *  byGroup があれば、地物の id の groupOf 部分（都道府県コード）ごとにその区切りで塗る（ないグループは breaks）。 */
+ *  byGroup があれば、地物の id の groupOf 部分（都道府県コード）ごとにその区切りで塗る（ないグループは breaks）。
+ *  byGroup.zero のグループ（県内がすべて0）は、0を塗らない。 */
 export function fillColorExpression(scheme: string, breaks: number[], zeroBlank = false,
-                                    byGroup?: { key: unknown; breaks: Record<string, number[]> }): unknown {
+                                    byGroup?: { key: unknown; breaks: Record<string, number[]>; zero?: string[] }): unknown {
   const groups = Object.entries(byGroup?.breaks ?? {});
   const colorExpr = groups.length
     ? ["match", byGroup!.key, ...groups.flatMap(([k, b]) => [k, stepExpression(scheme, b, zeroBlank)]),
        stepExpression(scheme, breaks, zeroBlank)]
     : stepExpression(scheme, breaks, zeroBlank);
-  const blank = zeroBlank ? [["==", VALUE, 0], BLANK_COLOR] : [];
+  const blank = zeroBlank ? [["==", VALUE, 0], BLANK_COLOR]
+    : byGroup?.zero?.length ? [["all", ["==", VALUE, 0], ["in", byGroup.key, ["literal", byGroup.zero]]], BLANK_COLOR] : [];
   return ["case", ["!=", ["typeof", VALUE], "number"], NO_DATA_COLOR, ...blank, colorExpr];
 }
