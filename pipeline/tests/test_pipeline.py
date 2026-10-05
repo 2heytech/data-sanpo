@@ -26,7 +26,15 @@ def load(paths, rel):
     if m:
         data = load(paths, f"{m[1]}/{m[2][:2]}.json")
         return {**data, "rows": [r for r in data["rows"] if r["entity_id"][5:10] == m[2]]}
-    return json.loads((paths.releases / "test" / rel).read_text(encoding="utf-8"))
+    data = json.loads((paths.releases / "test" / rel).read_text(encoding="utf-8"))
+    m = re.fullmatch(r"places/([^/]+)\.json", rel)
+    if m and "prefectures" in data:
+        # 点の一覧は都道府県ごとのファイルに分かれている。テストでは全都道府県分をまとめて返す
+        for pref in data["prefectures"]:
+            part = load(paths, f"places/{m[1]}/{pref}.json")
+            key = next(k for k in ("stations", "schools", "points") if k in part)
+            data.setdefault(key, []).extend(part[key])
+    return data
 
 
 def test_parse_cell_marks():
@@ -242,7 +250,7 @@ def test_legend_breaks_are_shared_across_periods(built):
     a = load(built, "values/aged_65_plus_share/2010-10-01/legend.json")
     b = load(built, "values/aged_65_plus_share/2020-10-01/legend.json")
     assert a["levels"]["small_area"]["breaks"] == b["levels"]["small_area"]["breaks"]
-    assert a["pooled_periods"] == 3
+    assert a["pooled_periods"] == 4   # 2010・2015・2020年と2025年（市区町村だけ）
     # 市区町村は都道府県ごとにも区切る（全時点をまとめて決めるので時点で変わらない）
     by_pref = a["levels"]["municipality"]["by_prefecture"]
     assert set(by_pref) == {"13", "14"}
@@ -353,7 +361,9 @@ def test_household_indicators_for_three_censuses(built):
     for ind in ["single_person_household_share", "households_with_children_share", "owner_occupied_share",
                 "private_rented_share", "high_rise_household_share"]:
         assert by[ind]["category"] == "暮らし方"
-        assert [p["period"] for p in by[ind]["periods"]] == ["2010-10-01", "2015-10-01", "2020-10-01"]
+        # 一人暮らし・子どものいる世帯は2025年（市区町村だけ）もある
+        extra = ["2025-10-01"] if ind in ("single_person_household_share", "households_with_children_share") else []
+        assert [p["period"] for p in by[ind]["periods"]] == ["2010-10-01", "2015-10-01", "2020-10-01", *extra]
     from tdm.ingest.estat_small_area import read_table
     path = next((built.raw / "census2015_small_area_household_size" / "13").glob("*.txt"))
     src = next(r for r in read_table(path).rows if r["KEY_CODE"] == "13199")
@@ -533,8 +543,16 @@ def test_stations_are_per_operator_and_keep_duplicates_apart(built):
     st = load(built, "places/station_passengers.json")
     assert st["periods"][0]["label"] == "2011年度" and st["periods"][-1]["label"] == "2024年度"
     by = {(s["name"], s["operator"]): s for s in st["stations"] if s["lines"] != ["遠方線"]}
-    assert ("県外", "架空鉄道") not in by                      # 都外の駅は含めない
-    assert {s["municipality_id"] for s in st["stations"]} <= {"muni-13199", "muni-13299"}
+    assert ("県外", "架空鉄道") not in by                      # 対象の都道府県の外の駅は含めない
+    assert {s["municipality_id"] for s in st["stations"]} <= {"muni-13199", "muni-13299", "muni-14199"}
+    # 駅の一覧は都道府県ごとのファイルに分け、places/<指標>.json には都道府県ごとの件数と範囲を書く
+    meta = json.loads((built.releases / "test" / "places/station_passengers.json").read_text(encoding="utf-8"))
+    assert "stations" not in meta and set(meta["prefectures"]) == {"13", "14"}
+    assert meta["prefectures"]["14"]["count"] == 1
+    w, s, e, n = meta["prefectures"]["14"]["bbox"]
+    assert w <= 139.62 <= e and s <= 35.47 <= n
+    kanagawa = load(built, "places/station_passengers/14.json")
+    assert kanagawa["prefecture"] == "14" and [x["name"] for x in kanagawa["stations"]] == ["標本"]
     jr = by[("見本中央", "東日本旅客鉄道")]
     assert jr["lines"] == ["見本線", "試験線"] and jr["status"][-1] == "observed"
     # 他路線駅に記載された駅は 0 にせず、含めて公表されている旨を残す
@@ -580,6 +598,53 @@ def test_schools_are_located_from_addresses(built):
     assert any(s.startswith("mlit_isj_2025@") for s in sc["source_ids"])
     assert any(s.startswith("mlit_isj_oaza_2025@") for s in sc["source_ids"])
     assert "school_enrollment" not in {i["id"] for i in load(built, "indicators.json")["indicators"]}
+
+
+def test_schools_outside_tokyo_are_locations_only(built):
+    sc = load(built, "places/school_enrollment.json")
+    others = {s["name"]: s for s in sc["schools"] if s["municipality_id"].startswith("muni-14")}
+    # 公立の小学校・中学校・義務教育学校だけ（私立・高校・休校は除く）。児童・生徒数はないので値なし（0 にしない）
+    assert set(others) == {"みほん市立標本小学校", "みほん市立標本中学校", "みほん市立標本学園"}
+    s = others["みほん市立標本学園"]
+    assert s["location_only"] and s["values"] == [None] and s["school_type"] == "compulsory"
+    assert s["coord"] == [139.63, 35.47] and s["as_of"] == "2023年度"
+    # 東京都は都教委の一覧だけを使う（国土数値情報の東京都の学校は取り込まない）
+    assert "サンプル区立見本小学校" not in {x["name"] for x in sc["schools"]}
+    assert not any(x.get("location_only") for x in sc["schools"] if x["municipality_id"].startswith("muni-13"))
+    meta = json.loads((built.releases / "test" / "places/school_enrollment.json").read_text(encoding="utf-8"))
+    assert meta["prefectures"]["14"]["location_only"] == 3 and "location_only" not in meta["prefectures"]["13"]
+    assert any(x.startswith("mlit_p29_2023@") for x in sc["source_ids"])
+
+
+def test_nurseries_outside_tokyo_follow_terms(built):
+    nc = load(built, "places/nursery_capacity.json")
+    # 神奈川県の所管の保育所は利用条件（商用利用不可）で除く。東京都は都の一覧だけ
+    assert not any(p["municipality_id"].startswith("muni-14") for p in nc["points"])
+    assert "見本保育園" not in {p["name"] for p in nc["points"]}
+    from tdm.ingest.mlit_facilities import _matches
+    assert _matches("14199", ["14"]) and not _matches("13101", ["14"])
+
+
+def test_nursery_terms_exceptions(tmp_path):
+    from tdm.ingest import mlit_facilities
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("""INSERT INTO sources (source_id, dataset_key, title, provider, license,
+                    attribution, retrieved_at, file_sha256) VALUES ('s','s','s','s','s','s','t','h')""")
+    for code in ("14131", "14199"):
+        conn.execute("INSERT INTO entities VALUES (?, 'municipality', ?, NULL, NULL, NULL, NULL, NULL)",
+                     (f"muni-{code}", code))
+    feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [139.7, 35.5]},
+              "properties": {"P14_001": "神奈川県", "P14_002": name, "P14_003": code, "P14_004": "1-1",
+                             "P14_007": "050401", "P14_008": f"{name}保育園"}}
+             for code, name in (("14131", "川崎市川崎区"), ("14199", "みほん市中区"))]
+    path = tmp_path / "P14-23_14.geojson"
+    path.write_text(json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False),
+                    encoding="utf-8")
+    r = mlit_facilities.ingest_nurseries(conn, [path], "s", "none", ["14"], "2023年度", ["14"], ["1413"])
+    assert r["nurseries"] == 1 and r["excluded_by_terms"] == 1
+    assert [x["name"] for x in conn.execute("SELECT name FROM entities WHERE entity_type = 'nursery'")] == [
+        "川崎市川崎区保育園"]
 
 
 def test_isj_locate_address_forms():
@@ -667,29 +732,52 @@ def test_residence_period(built):
         assert row["denominator"] == int(src[total]) - int(src["居住期間「不詳」"])
 
 
-def test_census2025_preliminary(built):
-    import csv as _csv
+def test_census2025_municipal(built):
+    import tomllib
+    from tdm.ingest.estat_census_municipal import read_table
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
     pop = by["population_total"]
     p2025 = next(p for p in pop["periods"] if p["period"] == "2025-10-01")
-    assert p2025["levels"] == ["municipality", "prefecture"]  # 速報は区市町村（と都道府県）だけ
+    assert p2025["levels"] == ["municipality", "prefecture"]  # 2025年は市区町村（と都道府県）だけ
     assert pop["default_period"] == "2020-10-01"        # 最初は町丁・字等まである最新の時点を表示
-    with (built.raw / "tokyo_census2025_preliminary" / "kt25sv0300.csv").open(encoding="utf-8-sig") as f:
-        src = {r["地域コード"]: r for r in _csv.DictReader(f) if r["地域階層"] == "4"}
+    from tdm.config import load_sources
+    cfg = load_sources()
+    def src(key):
+        c = cfg[key]
+        t = read_table(built.raw / key / c["files"][0], c["columns"], c.get("filters"))
+        return {r["KEY_CODE"]: r for r in t.rows}
 
-    def muni(indicator, period="2025-10-01"):
+    def muni(indicator, code="13199", period="2025-10-01"):
         rows = load(built, f"values/{indicator}/{period}/municipalities.json")["rows"]
-        return {r["entity_id"]: r for r in rows}["muni-13199"]
+        return {r["entity_id"]: r for r in rows}[f"muni-{code}"]
 
-    people = int(src["13199"]["人口／総数／令和7（2025）年（人）"])
-    homes = int(src["13199"]["世帯／総数／令和7（2025）年（世帯）"])
+    p = src("census2025_municipal_population")
+    # 市区町村の行だけ（都道府県・政令指定都市の市全体・2000年の市区町村の行は使わない）
+    assert set(p) == {"13199", "13299", "13499", "14199"}
+    people, homes = int(p["13199"]["人口総数"]), int(p["13199"]["世帯総数"])
     assert muni("population_total")["value"] == people and muni("households_total")["value"] == homes
     pph = muni("persons_per_household")
     assert pph["numerator"] == people and pph["denominator"] == homes   # 公表の1世帯当たり人員ではなく分子・分母から
     change = muni("population_change_rate")
-    before = muni("population_total", "2020-10-01")["value"]
+    before = muni("population_total", period="2020-10-01")["value"]
     assert abs(change["value"] - (people - before) / before * 100) < 0.001   # 公開値は小数3桁
     assert muni("population_density")["value"] > 0
+    # 神奈川県（全国の表）も取り込み、都道府県の値は市区町村の合計
+    assert muni("population_total", "14199")["value"] == int(p["14199"]["人口総数"])
+    prefs = {r["entity_id"]: r for r in load(built, "values/population_total/2025-10-01/prefectures.json")["rows"]}
+    assert prefs["pref-13"]["value"] == sum(int(p[c]["人口総数"]) for c in ("13199", "13299", "13499"))
+    # 年齢は国籍総数・男女計の行。分母は年齢3区分の合計（年齢不詳を除く）
+    a = src("census2025_municipal_age")["13199"]
+    old = muni("aged_65_plus_share")
+    assert old["numerator"] == int(a["総数65歳以上"])
+    assert old["denominator"] == sum(int(a[k]) for k in ("総数15歳未満", "総数15~64歳", "総数65歳以上"))
+    h = src("census2025_municipal_household_size")["13199"]
+    single = muni("single_person_household_share")
+    assert single["numerator"] == int(h["世帯人員1人"]) and single["denominator"] == int(h["一般世帯数"])
+    f = src("census2025_municipal_family_type")["13199"]
+    kids = muni("households_with_children_share")
+    assert kids["numerator"] == int(f["18歳未満世帯員のいる一般世帯総数"])  # 家族類型の総数の行
+    assert kids["denominator"] == int(f["一般世帯総数"])
 
 
 def test_resident_tax(built):
@@ -849,7 +937,8 @@ def test_land_prices(built):
     assert labels[0] == "1983-01-01" and labels[-1] == "2026-01-01" and len(labels) == 44
     by = {p["name"]: p for p in lp["points"]}
     # 番号は市区町村名・用途・連番（住宅地は用途の数字なし）
-    assert set(by) == {"サンプル-1", "サンプル-2", "サンプル5-1", "ためし-1", "ためし9-1"}
+    assert set(by) == {"サンプル-1", "サンプル-2", "サンプル5-1", "ためし-1", "ためし9-1", "みほん中-1"}  # 神奈川県は別ファイル
+    assert by["みほん中-1"]["municipality_id"] == "muni-14199"
     assert by["サンプル5-1"]["use_label"] == "商業地" and by["ためし9-1"]["use_label"] == "工業地"
     assert by["サンプル-1"]["municipality_id"] == "muni-13199" and by["サンプル-1"]["coord"] == [139.705, 35.665]
     # 標準地でなかった年（元データの 0）は値なし。0円にしない

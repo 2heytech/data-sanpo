@@ -834,7 +834,6 @@ redistributable = true
 # 駅の利用者数（国土交通省 国土数値情報 S12）。2011〜2024年度の値が1つのファイルに入っている。
 # 形式は pipeline/tdm/ingest/mlit_stations.py を参照（docs/design-changes.md #33）。
 [mlit_s12_2024]
-prefectures = ["13"]  # 元データは全国。駅の点のファイルを都道府県ごとに分けるまで東京都だけ
 kind = "mlit_stations"
 title = "国土数値情報 駅別乗降客数データ（2024年度版）"
 provider = "国土交通省"
@@ -844,17 +843,18 @@ files = ["UTF-8/S12-*_NumberOfPassengers.geojson"]
 license = "クリエイティブ・コモンズ 表示 4.0 国際（国土数値情報 オープンデータ）"
 license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
 attribution = "出典：国土交通省 国土数値情報（駅別乗降客数データ）"
-modification_note = "東京都内の駅を抜き出し、事業者ごとに駅をまとめて作成"
+modification_note = "駅を事業者ごとにまとめ、駅の位置から市区町村を求めて作成"
 redistributable = true
 
-# 地価公示（国土交通省 国土数値情報 L01、東京都）。2026年の公示の標準地に、1983年からの価格の推移が入っている。
+# 地価公示（国土交通省 国土数値情報 L01、都道府県別）。2026年の公示の標準地に、1983年からの価格の推移が入っている。
 [mlit_l01_2026]
 kind = "mlit_landprice"
-title = "国土数値情報 地価公示データ（2026年、東京都）"
+per_prefecture = true
+title = "国土数値情報 地価公示データ（2026年）"
 provider = "国土交通省"
 url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L01-2026.html"
-download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/L01/L01-26/L01-26_13_GML.zip"
-files = ["L01-*_13.geojson"]
+download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/L01/L01-26/L01-26_{pref}_GML.zip"
+files = ["L01-26_??.geojson"]
 license = "クリエイティブ・コモンズ 表示 4.0 国際（国土数値情報 オープンデータ）"
 license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
 attribution = "出典：国土交通省 国土数値情報（地価公示データ）"
@@ -1039,22 +1039,85 @@ attribution = "出典：警察庁「交通事故統計情報のオープンデ�
 modification_note = "警察庁「交通事故統計情報のオープンデータ」を加工して作成（事故の地点を町丁目・区市町村に集計）"
 redistributable = true
 
-# 令和7年国勢調査の人口速報（東京都、区市町村別）。町丁・字等の速報はない。確定値・小地域集計が出たら置き換える
-[tokyo_census2025_preliminary]
-kind = "census_preliminary"
-title = "令和7年国勢調査 人口及び世帯数（速報） 表3 区市町村別人口及び世帯数"
-provider = "東京都総務局統計部"
-url = "https://www.toukei.metro.tokyo.lg.jp/kokutyo/2025/kt25s-data.htm"
-download_url = "https://www.toukei.metro.tokyo.lg.jp/kokutyo/2025/kt25sv0300.csv"
-files = ["kt25sv0300.csv"]
-encoding = "utf-8-sig"
+# 令和7年（2025年）国勢調査 人口等基本集計（2026-09-29 公表）の全国・都道府県・市区町村の表（e-Stat「ファイル」の Excel）。
+# 市区町村の値だけで、町丁・字等の値は小地域集計が出るまでない。都道府県の値は市区町村の合計から作る。
+# 形式は pipeline/tdm/ingest/estat_census_municipal.py を参照。columns は「表章項目/項目名」（docs/design-changes.md #71）。
+[census2025_municipal_population]
+kind = "census_municipal"
 period = "2025-10-01"
+label = "2025年"
 table = "population"
-columns = { "人口総数" = "人口／総数／令和7（2025）年（人）", "世帯総数" = "世帯／総数／令和7（2025）年（世帯）" }
-license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
-license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
-attribution = "出典：東京都総務局統計部「令和7年国勢調査 人口及び世帯数（速報）」"
-modification_note = "区市町村別の人口・世帯数を抜き出し、人口密度・増減率・1世帯あたり人数を算出して作成"
+title = "令和7年国勢調査 人口等基本集計 表1-1 男女別人口、世帯の種類別世帯数及び世帯人員 等－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230926&tclass2=000001232187&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506423&fileKind=0"
+download_filename = "b01_01.xlsx"
+files = ["b01_01.xlsx"]
+cache = true
+columns = { "人口総数" = "人口/0_総数", "世帯総数" = "世帯数/0_総数" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
+modification_note = "市区町村別の人口・世帯数を抜き出し、人口密度・増減率・1世帯あたり人数を算出して作成"
+redistributable = true
+
+[census2025_municipal_age]
+kind = "census_municipal"
+period = "2025-10-01"
+label = "2025年"
+table = "age"
+title = "令和7年国勢調査 人口等基本集計 表2-7 男女、年齢（5歳階級及び3区分）、国籍総数か日本人別人口 等－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230926&tclass2=000001232187&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506431&fileKind=0"
+download_filename = "b02_07.xlsx"
+files = ["b02_07.xlsx"]
+cache = true
+columns = { "総数15歳未満" = "人口/R1_（再掲）15歳未満", "総数15~64歳" = "人口/R2_（再掲）15～64歳", "総数65歳以上" = "人口/R3_（再掲）65歳以上" }
+filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
+modification_note = "市区町村別の年齢3区分の人口（国籍総数・男女計）を抜き出し、割合を算出して作成"
+redistributable = true
+
+[census2025_municipal_household_size]
+kind = "census_municipal"
+period = "2025-10-01"
+label = "2025年"
+table = "household_size"
+title = "令和7年国勢調査 人口等基本集計 表6-3 世帯人員の人数別一般世帯数 等－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230926&tclass2=000001232187&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506445&fileKind=0"
+download_filename = "b06_03.xlsx"
+files = ["b06_03.xlsx"]
+cache = true
+columns = { "世帯人員1人" = "一般世帯数/01_世帯人員が1人", "一般世帯数" = "一般世帯数/00_総数" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
+modification_note = "市区町村別の世帯人員1人の一般世帯数と一般世帯数を抜き出し、割合を算出して作成"
+redistributable = true
+
+[census2025_municipal_family_type]
+kind = "census_municipal"
+period = "2025-10-01"
+label = "2025年"
+table = "family_type"
+title = "令和7年国勢調査 人口等基本集計 表9-1 世帯の家族類型、世帯員の年齢による世帯の種類別一般世帯数 等－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230926&tclass2=000001232187&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506456&fileKind=0"
+download_filename = "b09_01.xlsx"
+files = ["b09_01.xlsx"]
+cache = true
+columns = { "18歳未満世帯員のいる一般世帯総数" = "一般世帯数/4_うち18歳未満世帯員のいる", "一般世帯総数" = "一般世帯数/0_総数" }
+filters = { "世帯の家族類型" = "0_総数" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
+modification_note = "市区町村別の18歳未満世帯員のいる一般世帯数と一般世帯数（家族類型の総数）を抜き出し、割合を算出して作成"
 redistributable = true
 
 [soumu_tax_2023]
@@ -1327,6 +1390,51 @@ license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オ
 license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都福祉局「社会福祉施設等一覧」"
 modification_note = "認可保育所の施設名・所在地・認可定員を抜き出し、所在地から位置を求めて作成"
+redistributable = true
+
+# 東京都以外の公立小学校・中学校・義務教育学校の位置（国土数値情報 学校データ P29、2023年度）。児童・生徒数はないので
+# 位置だけを載せる。東京都は東京都公立学校一覧（児童・生徒数あり）を使うので除く。形式は pipeline/tdm/ingest/mlit_facilities.py。
+[mlit_p29_2023]
+kind = "mlit_schools"
+per_prefecture = true
+exclude_prefectures = ["13"]
+as_of = "2023年度"
+title = "国土数値情報 学校データ（2023年度）"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P29-2023.html"
+download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/P29/P29-23/P29-23_{pref}_GML.zip"
+files = ["P29-23_??.geojson"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（国土数値情報 オープンデータ）"
+license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
+attribution = "出典：国土交通省 国土数値情報（学校データ）"
+modification_note = "東京都以外の公立の小学校・中学校・義務教育学校の名称・所在地・位置を抜き出して作成"
+redistributable = true
+
+# 東京都以外の認可保育所の位置（国土数値情報 福祉施設データ P14、2023年度、小分類 050401 保育所）。定員はないので位置だけ。
+# 自治体ごとの利用条件（R5_Terms_of_Use_WelfareInstitution.xlsx、2026-10-05 確認）で保育施設を商用利用不可・公開不可と
+# している自治体の所管分は取り込まない（広告のあるサイトのため）。exclude_codes は市区町村コードの先頭、include_codes はその例外:
+#   北海道（道の所管。HP掲載情報以外は商用不可）・札幌市（民間の保育施設は商用不可）→ 自ら所管する函館市・旭川市は含める
+#   神奈川県（県の所管。保育関係は商用不可）・横浜市（保育関係は公開不可）→ 川崎市・相模原市・横須賀市は含める
+#   和歌山県（商用不可）→ 和歌山市は含める。福岡県（児童福祉施設は条件付きで商用不可）→ 北九州市・福岡市・久留米市は含める
+#   堺市（市立以外は商用不可）・明石市（保育施設は商用不可）・松江市（一部のみ商用可）・那覇市（児童福祉施設は商用不可）
+# 元ファイルにはこれらの施設も入っているので、公開の Release（raw-sources）には上げない（public_raw = false）。
+[mlit_p14_2023]
+kind = "mlit_nurseries"
+per_prefecture = true
+exclude_prefectures = ["13"]
+as_of = "2023年度"
+exclude_codes = ["01", "14", "30", "40", "2714", "28203", "32201", "47201"]
+include_codes = ["01202", "01204", "1413", "1415", "14201", "30201", "4010", "4013", "40203"]
+public_raw = false
+title = "国土数値情報 福祉施設データ（2023年度） 保育所"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P14-2023.html"
+download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/P14/P14-23/P14-23_{pref}_GML.zip"
+files = ["P14-23_??.geojson"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（国土数値情報 オープンデータ。自治体ごとの利用条件あり）"
+license_url = "https://nlftp.mlit.go.jp/ksj/gml/codelist/R5_Terms_of_Use_WelfareInstitution.xlsx"
+attribution = "出典：国土交通省 国土数値情報（福祉施設データ）"
+modification_note = "東京都以外の保育所の名称・所在地・位置を抜き出し、利用条件で商用利用を認めていない自治体の施設を除いて作成"
 redistributable = true
 
 # ふるさと納税の受入額・受入件数（総務省「ふるさと納税に関する現況調査結果」令和8年度調査、平成20〜令和7年度）。

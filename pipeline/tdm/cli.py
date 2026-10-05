@@ -27,10 +27,10 @@ from .db import (connect, create_secondary_indexes, drop_secondary_indexes, init
 from .derive import derive_change, derive_density, derive_multi_year_sum, derive_rate
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
-from .ingest import (estat_boundary, estat_school_basic, estat_small_area, keishicho_crime, mlit_inbound, mlit_landprice,
-                     mlit_stations, nier_gakuryoku, npa_traffic, soumu_furusato, soumu_tax,
-                     tokyo_census_preliminary, tokyo_childcare, tokyo_daytime, tokyo_election, tokyo_foreign, tokyo_jhs_progress,
-                     tokyo_nurseries, tokyo_schools, tokyo_street_trees)
+from .ingest import (estat_boundary, estat_census_municipal, estat_school_basic, estat_small_area, keishicho_crime,
+                     mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku, npa_traffic,
+                     soumu_furusato, soumu_tax, tokyo_childcare, tokyo_daytime, tokyo_election, tokyo_foreign,
+                     tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
 from .regions import selected_prefectures
 from .sources import find_files, register_source
 from .validate import validate
@@ -86,8 +86,8 @@ def ingest_all(paths: Paths, overrides: dict | None = None, prefs: list[str] | N
                 result[indicator_id] = derive_change(conn, indicator_id, d, catalog[d["base"]],
                                                      censuses, comparable)
         progress("増減率を計算した")
-        # 国勢調査の速報（区市町村だけ）。最新の境界の面積で人口密度、前回の調査からの増減率を出す
-        result.update(_ingest_preliminary(conn, paths, sources, catalog, overrides, censuses[-1]))
+        # 市区町村の値だけの国勢調査（2025年）。最新の境界の面積で人口密度、前回の調査からの増減率を出す
+        result.update(_ingest_municipal_census(conn, paths, sources, catalog, overrides, censuses[-1]))
         # 国勢調査以外の出典（犯罪・交通事故・昼間人口・駅など）。地域IDは最新の境界の町丁・字等を使う
         result.update(_ingest_other_sources(conn, paths, sources, catalog, overrides,
                                             latest_version, prefs))
@@ -107,18 +107,18 @@ def ingest_all(paths: Paths, overrides: dict | None = None, prefs: list[str] | N
     return result
 
 
-def _ingest_preliminary(conn, paths: Paths, sources: dict, catalog: dict,
+def _ingest_municipal_census(conn, paths: Paths, sources: dict, catalog: dict,
                         overrides: dict | None, last_census: dict) -> dict:
     result: dict = {}
     for key, cfg in sources.items():
-        if cfg.get("kind") != "census_preliminary":
+        if cfg.get("kind") != "census_municipal":
             continue
         files = find_files(paths.raw / key, cfg["files"])
         if not files:
             result[key] = "元ファイルがないため除外"
             continue
         src = register_source(conn, key, cfg, files, overrides)
-        table = tokyo_census_preliminary.read_table(files[0], cfg["columns"], cfg.get("encoding", "utf-8-sig"))
+        table = estat_census_municipal.read_table(files[0], cfg["columns"], cfg.get("filters"))
         period = (cfg["period"], cfg["period"], "point")
         for indicator_id, d in catalog.items():
             if d.get("table") != cfg["table"]:
@@ -126,7 +126,7 @@ def _ingest_preliminary(conn, paths: Paths, sources: dict, catalog: dict,
             fn = (estat_small_area.ingest_ratio if d["kind"] == "ratio"
                   else estat_small_area.ingest_counts)
             result[f"{key} {indicator_id}"] = fn(conn, table, src, indicator_id, d, period)
-        pseudo = {"period": cfg["period"], "label": cfg.get("label", cfg["period"][:4] + "年（速報）"),
+        pseudo = {"period": cfg["period"], "label": cfg.get("label", cfg["period"][:4] + "年"),
                   "boundary_version": last_census["boundary_version"]}
         for indicator_id, d in catalog.items():
             if d["kind"] == "density" and catalog[d["numerator"]].get("table") == cfg["table"]:
@@ -134,7 +134,7 @@ def _ingest_preliminary(conn, paths: Paths, sources: dict, catalog: dict,
                     conn, indicator_id, d, catalog[d["numerator"]], last_census["boundary_version"],
                     cfg["period"])}
             elif d["kind"] == "change" and catalog[d["base"]].get("table") == cfg["table"]:
-                # 前回（最新の国勢調査）→ 速報。速報に町丁・字等はないので境界の比較は要らない
+                # 前回（最新の小地域まである国勢調査）→ 今回。今回は市区町村だけなので境界の比較は要らない
                 result[f"{key} {indicator_id}"] = derive_change(
                     conn, indicator_id, d, catalog[d["base"]], [last_census, pseudo], {})
     return result
@@ -154,9 +154,13 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "isj_gazetteer", "tokyo_foreign", "npa_traffic", "mlit_landprice",
                         "soumu_tax", "tokyo_childcare", "tokyo_street_trees", "tokyo_election",
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
-                        "nier_gakuryoku", "estat_school_basic"):
+                        "nier_gakuryoku", "estat_school_basic", "mlit_schools", "mlit_nurseries"):
             continue
-        files = find_files(paths.raw / key, cfg["files"])
+        if cfg.get("per_prefecture"):
+            # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
+            files = [f for fs in _prefecture_files(paths, key, cfg, prefs).values() for f in fs]
+        else:
+            files = find_files(paths.raw / key, cfg["files"])
         if not files:
             result[key] = "元ファイルがないため除外"
             continue
@@ -210,7 +214,16 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "mlit_landprice":
             for indicator_id, d in catalog.items():
                 if d.get("source_kind") == kind:
-                    result[f"{key} {indicator_id}"] = mlit_landprice.ingest(conn, files[0], src, indicator_id, d)
+                    for f in files:   # 都道府県ごとのファイル
+                        _add_counts(result, f"{key} {indicator_id}",
+                                    mlit_landprice.ingest(conn, f, src, indicator_id, d))
+        elif kind == "mlit_schools":
+            result[key] = mlit_facilities.ingest_schools(conn, files, src, boundary_version,
+                                                         source_prefectures(cfg, prefs), cfg["as_of"])
+        elif kind == "mlit_nurseries":
+            result[key] = mlit_facilities.ingest_nurseries(
+                conn, files, src, boundary_version, source_prefectures(cfg, prefs), cfg["as_of"],
+                cfg.get("exclude_codes", []), cfg.get("include_codes", []))
         elif kind == "mlit_stations":
             for indicator_id, d in catalog.items():
                 if d.get("source_kind") == kind:

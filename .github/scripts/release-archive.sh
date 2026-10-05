@@ -7,7 +7,8 @@
 #   release-archive.sh save <タグ> <名前> <基準フォルダ> <パス...>   基準フォルダからのパスを保存する
 #   release-archive.sh latest <タグ> <名前の先頭>                    保存されている名前（並べて最後）を出す。なければ空
 #   release-archive.sh restore <タグ> <名前> <展開先>                 保存したものを展開先に戻す
-# 環境変数: GH_TOKEN、RUNNER_TEMP（作業場所）、GITHUB_SHA（Release を作るときのコミット）
+# 環境変数: GH_TOKEN、RUNNER_TEMP（作業場所）、GITHUB_SHA（Release を作るときのコミット）、
+#           ARCHIVE_EXCLUDE（save で除くパス。空白区切り。基準フォルダからの相対）
 set -euo pipefail
 work="${RUNNER_TEMP:-/tmp}/release-archive"
 
@@ -19,7 +20,9 @@ case "${1:-}" in
     [ "$#" -gt 0 ] || { echo "保存するパスを指定してください" >&2; exit 2; }
     out="$work/save-$name"
     mkdir -p "$out"
-    tar --zstd -c -C "$base" "$@" | split -b 1900m -d -a 2 - "$out/$name.tar.zst.part-"
+    excludes=()
+    for e in ${ARCHIVE_EXCLUDE:-}; do excludes+=("--exclude=./$e" "--exclude=$e"); done
+    tar --zstd -c -C "$base" "${excludes[@]}" "$@" | split -b 1900m -d -a 2 - "$out/$name.tar.zst.part-"
     ls -l "$out" >&2
     notes="$name（コミット ${GITHUB_SHA:-不明}）。Data release が使う。手で消さないこと。"
     if gh release view "$tag" >/dev/null 2>&1; then

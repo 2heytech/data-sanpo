@@ -89,9 +89,11 @@ def download(url: str) -> bytes:
 
 
 def source_prefectures(cfg: dict, prefs: list[str]) -> list[str]:
-    """都道府県ごとの出典で、取得・取込の対象にする都道府県（prefectures で限った出典はその範囲だけ）。"""
+    """都道府県ごとの出典で、取得・取込の対象にする都道府県（prefectures で限った出典はその範囲だけ、
+    exclude_prefectures に書いた都道府県は除く。例: 東京都は別の出典で詳しい値があるので全国の出典から除く）。"""
     allowed = cfg.get("prefectures")
-    return [p for p in prefs if allowed is None or p in allowed]
+    excluded = cfg.get("exclude_prefectures", [])
+    return [p for p in prefs if (allowed is None or p in allowed) and p not in excluded]
 
 
 def _already_fetched(dest: Path, url: str) -> list[Path] | None:
