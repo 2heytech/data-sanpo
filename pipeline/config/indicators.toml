@@ -539,10 +539,12 @@ definition_version = "1"
 digits = 0
 levels = ["municipality"]
 description = "住民基本台帳に記録されている外国人の数（各年1月1日現在）。"
-method = "東京都の統計「外国人人口」表3（区市町村、国籍・地域別外国人人口）の「総数」の列。"
-caveats = ["市区町村単位の値です。島しょの町村は支庁単位でしか公表されていないため値がありません。", "国勢調査の外国人人口とは調べ方が違うため一致しません。"]
-source_kind = "tokyo_foreign"
-column = "総数"
+method = "2021年以降は総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【外国人住民】市区町村別人口の「人口 計」。2017〜2020年は東京都の統計「外国人人口」表3（区市町村、国籍・地域別外国人人口）の「総数」の列（東京都だけ）。"
+caveats = ["2020年以前は東京都の区市町村だけの値です（全国の表は古い形式のファイルのため使っていません）。2020年以前は島しょの町村が支庁単位でしか公表されていないため値がありません。", "国勢調査の外国人人口や、在留外国人統計（12月末現在）の数とは調べ方・時点が違うため一致しません。"]
+source_kind = "soumu_juki_foreign"
+column = "人口/計"
+tokyo_foreign_column = "総数"
+tokyo_foreign_before = "2021-01-01"
 family = "foreign"
 facets = { type = "総数", basis = "人数" }
 legend = { method = "nice", classes = 12, scheme = "bupu" }
@@ -698,6 +700,176 @@ source_kind = "tokyo_foreign"
 column = "ミャンマー"
 family = "foreign"
 facets = { type = "ミャンマー", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_china]
+name = "在留外国人の数（中国）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域が中国の人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「中国」の列、2023年末は在留資格別の表の国籍・地域「中国」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。", "台湾は含みません。"]
+source_kind = "moj_zairyu_foreign"
+column = "中国"
+family = "zairyu_foreign"
+facets = { type = "中国", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_vietnam]
+name = "在留外国人の数（ベトナム）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域がベトナムの人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「ベトナム」の列、2023年末は在留資格別の表の国籍・地域「ベトナム」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。"]
+source_kind = "moj_zairyu_foreign"
+column = "ベトナム"
+family = "zairyu_foreign"
+facets = { type = "ベトナム", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_korea]
+name = "在留外国人の数（韓国）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域が韓国の人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「韓国」の列、2023年末は在留資格別の表の国籍・地域「韓国」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。", "朝鮮は含みません。"]
+source_kind = "moj_zairyu_foreign"
+column = "韓国"
+family = "zairyu_foreign"
+facets = { type = "韓国", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_philippines]
+name = "在留外国人の数（フィリピン）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域がフィリピンの人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「フィリピン」の列、2023年末は在留資格別の表の国籍・地域「フィリピン」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。"]
+source_kind = "moj_zairyu_foreign"
+column = "フィリピン"
+family = "zairyu_foreign"
+facets = { type = "フィリピン", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_brazil]
+name = "在留外国人の数（ブラジル）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域がブラジルの人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「ブラジル」の列、2023年末は在留資格別の表の国籍・地域「ブラジル」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。"]
+source_kind = "moj_zairyu_foreign"
+column = "ブラジル"
+family = "zairyu_foreign"
+facets = { type = "ブラジル", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_nepal]
+name = "在留外国人の数（ネパール）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域がネパールの人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「ネパール」の列、2023年末は在留資格別の表の国籍・地域「ネパール」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。"]
+source_kind = "moj_zairyu_foreign"
+column = "ネパール"
+family = "zairyu_foreign"
+facets = { type = "ネパール", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_indonesia]
+name = "在留外国人の数（インドネシア）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域がインドネシアの人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「インドネシア」の列、2023年末は在留資格別の表の国籍・地域「インドネシア」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。"]
+source_kind = "moj_zairyu_foreign"
+column = "インドネシア"
+family = "zairyu_foreign"
+facets = { type = "インドネシア", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_usa]
+name = "在留外国人の数（米国）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域が米国の人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「米国」の列、2023年末は在留資格別の表の国籍・地域「米国」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。"]
+source_kind = "moj_zairyu_foreign"
+column = "米国"
+family = "zairyu_foreign"
+facets = { type = "米国", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_taiwan]
+name = "在留外国人の数（台湾）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域が台湾の人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「台湾」の列、2023年末は在留資格別の表の国籍・地域「台湾」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。"]
+source_kind = "moj_zairyu_foreign"
+column = "台湾"
+family = "zairyu_foreign"
+facets = { type = "台湾", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[zairyu_foreign_thailand]
+name = "在留外国人の数（タイ）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "中長期在留者と特別永住者のうち、国籍・地域がタイの人の数（各年12月末現在）。"
+method = "出入国在留管理庁「在留外国人統計」の市区町村別・国籍・地域別の表。2021・2022年末は第3表の「タイ」の列、2023年末は在留資格別の表の国籍・地域「タイ」の人数を在留資格について合計。都道府県の値は、2021・2022年末は表の都道府県の行、2023年末は市区町村の合計（市区町村がそろう都道府県だけ）。"
+caveats = ["2021〜2023年の各年12月末の値です。2024年末以降は市区町村別・国籍別の表が読める形で公表されていません。", "2023年末は、在留外国人が10人以下の市区町村は公表されていないため値がありません（その都道府県の値も出していません）。", "住民基本台帳の外国人住民（各年1月1日現在）とは調べ方・時点が違うため一致しません。"]
+source_kind = "moj_zairyu_foreign"
+column = "タイ"
+family = "zairyu_foreign"
+facets = { type = "タイ", basis = "人数" }
 legend = { method = "nice", classes = 12, scheme = "bupu" }
 
 [university_graduate_share]

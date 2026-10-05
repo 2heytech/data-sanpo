@@ -27,10 +27,10 @@ from .db import (connect, create_secondary_indexes, drop_secondary_indexes, init
 from .derive import derive_change, derive_density, derive_multi_year_sum, derive_rate
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
-from .ingest import (estat_boundary, estat_census_municipal, estat_school_basic, estat_small_area, keishicho_crime,
-                     mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku, npa_traffic,
-                     soumu_furusato, soumu_tax, tokyo_childcare, tokyo_daytime, tokyo_election, tokyo_foreign,
-                     tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
+from .ingest import (estat_boundary, estat_census_municipal, estat_foreign, estat_school_basic, estat_small_area,
+                     keishicho_crime, mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
+                     npa_traffic, soumu_furusato, soumu_tax, tokyo_childcare, tokyo_daytime, tokyo_election,
+                     tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
 from .regions import selected_prefectures
 from .sources import find_files, register_source
 from .validate import validate
@@ -154,7 +154,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "isj_gazetteer", "tokyo_foreign", "npa_traffic", "mlit_landprice",
                         "soumu_tax", "tokyo_childcare", "tokyo_street_trees", "tokyo_election",
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
-                        "nier_gakuryoku", "estat_school_basic", "mlit_schools", "mlit_nurseries"):
+                        "nier_gakuryoku", "estat_school_basic", "mlit_schools", "mlit_nurseries",
+                        "soumu_juki_foreign", "moj_zairyu_foreign"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -185,6 +186,12 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             period = (cfg["period"], cfg["period"], "point")
             result[key] = tokyo_foreign.ingest(conn, files[0], src, catalog, period,
                                                cfg.get("encoding", "utf-8-sig"))
+        elif kind == "soumu_juki_foreign":
+            result[key] = estat_foreign.ingest_juki(conn, files[0], src, catalog,
+                                                    (cfg["period"], cfg["period"], "point"))
+        elif kind == "moj_zairyu_foreign":
+            result[key] = estat_foreign.ingest_zairyu(conn, files[0], src, catalog,
+                                                      (cfg["period"], cfg["period"], "point"), cfg.get("sheet"))
         elif kind == "tokyo_street_trees":
             tree_files.append((src, files[0], cfg.get("encoding", "cp932"), cfg["period"]))
         elif kind == "tokyo_nurseries":

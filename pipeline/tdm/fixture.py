@@ -131,6 +131,10 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_mobility(directory, base, random.Random(f"{seed}-mobility")))
     for year in FOREIGN_YEARS:
         out[f"foreign_{year}"] = _write_foreign(directory, year, base, random.Random(f"{seed}-foreign-{year}"))
+    for year in JUKI_FOREIGN_YEARS:
+        out[f"juki_foreign_{year}"] = _write_juki_foreign(directory, year, random.Random(f"{seed}-juki-{year}"))
+    for year in ZAIRYU_YEARS:
+        out[f"zairyu_{year}"] = _write_zairyu(directory, year, random.Random(f"{seed}-zairyu-{year}"))
     for year in TRAFFIC_YEARS:
         out[f"traffic_{year}"] = _write_traffic(directory, year, random.Random(f"{seed}-traffic-{year}"))
     for year in CRIME_YEARS:
@@ -901,7 +905,8 @@ def _write_foreign_census(directory: Path, base: dict, rnd: random.Random) -> Pa
 
 
 # 外国人人口（東京都の統計 表3 区市町村、国籍・地域別）。かりの村は島しょの例で支庁単位（地域階層3）だけ載せる。
-FOREIGN_YEARS = (2025, 2026)
+# 2020年は全国の住民基本台帳がない年の例（総数も東京都の表から取る）。2026年は国籍別だけを東京都の表から取る
+FOREIGN_YEARS = (2020, 2026)
 FOREIGN_COLUMNS = ["総数", "男", "女", "アジア", "中国", "台湾", "インド", "韓国", "朝鮮", "ネパール", "フィリピン",
                    "ベトナム", "ミャンマー", "北米", "米国", "無国籍・その他"]
 
@@ -930,6 +935,117 @@ def _write_foreign(directory: Path, year: int, base: dict, rnd: random.Random) -
         wr.writerows(rows)
         wr.writerow(["地域階層（0:総数　1:区部・市部・町村部　2:郡部・島部　3:支庁　4:区市町村）"]
                     + [""] * (len(FOREIGN_COLUMNS) + 2))
+    return path
+
+
+# 住民基本台帳の外国人住民（総務省、全国の市区町村別）。団体コードは検査数字付きの6桁。都道府県の行は
+# 市区町村の合計と少しずらし（出典の都道府県の値を使うことを確かめる）、政令指定都市の市全体の行も入れる
+JUKI_FOREIGN_YEARS = (2025, 2026)
+
+
+def _check_digit(code5: str) -> str:
+    r = sum(int(c) * w for c, w in zip(code5, (6, 5, 4, 3, 2))) % 11
+    return code5 + str((11 - r) % 10)
+
+
+def juki_foreign_values(year: int) -> dict[str, int]:
+    """見本の市区町村ごとの外国人住民の人口（年ごとに決まった値）。"""
+    rnd = random.Random(f"juki-values-{year}")
+    return {c: rnd.randint(200, 3000) if c != "13499" else 12
+            for c, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
+
+
+def _write_juki_foreign(directory: Path, year: int, rnd: random.Random) -> Path:
+    from .xlsx import write_sheet
+    d = directory / f"soumu_juki_foreign_{year}"
+    d.mkdir(parents=True, exist_ok=True)
+    vals = juki_foreign_values(year)
+    names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
+    era = f"令和{year - 2018}年"
+    rows = [[f"{era}1月1日住民基本台帳人口・世帯数、{era}（1月1日から同年12月31日まで）人口動態（市区町村別）【外国人住民】"],
+            [None] * 3 + [era] * 4, [None] * 3 + [f"{year}年"] * 4, [None] * 3 + ["人口", "人口", "人口", "世帯数"],
+            [None] * 3 + ["男", "女", "計", "世帯数"], ["団体コード", "都道府県名", "市区町村名", "人", "人", "人", "世帯"]]
+
+    def row(code5, pref, name, total):
+        male = total // 2
+        return [_check_digit(code5), pref, name, male, total - male, total, round(total * 0.6)]
+
+    rows.append(["-", "合計", "-"] + [None] * 4)
+    for pref in ("13", "14"):
+        members = {c: v for c, v in vals.items() if c[:2] == pref}
+        rows.append(row(f"{pref}000", PREF_NAMES[pref], "-", sum(members.values()) + 7))
+        if pref == "14":
+            rows.append(row("14190", PREF_NAMES[pref], "みほん市", sum(members.values())))
+        rows += [row(c, PREF_NAMES[pref], names[c], v) for c, v in members.items()]
+    rows.append(["注：見本の注記"])
+    path = d / f"juki_foreign_{year}.xlsx"
+    write_sheet(path, rows, "人口、世帯数、人口動態（市区町村別）【外国人住民】")
+    return path
+
+
+# 在留外国人統計（市区町村別・国籍別、12月末）。2022年末は横長の第3表、2023年末は在留資格別の縦長の表。
+# 2023年末は、かりの村を総数10人以下の市区町村として全国の「その他」（99999）にまとめる
+ZAIRYU_YEARS = (2022, 2023)
+ZAIRYU_NATIONS = ["中国", "ベトナム", "韓国", "フィリピン", "ブラジル", "ネパール", "インドネシア", "米国", "台湾", "タイ"]
+
+
+def zairyu_values(year: int) -> dict[str, dict[str, int]]:
+    """見本の市区町村ごと・国籍ごとの在留外国人数（タイはサンプル区だけ0人）。"""
+    rnd = random.Random(f"zairyu-values-{year}")
+    out = {}
+    for c, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES:
+        v = {n: (rnd.randint(0, 3) if c == "13499" else rnd.randint(5, 400)) for n in ZAIRYU_NATIONS}
+        if c == "13199":
+            v["タイ"] = 0
+        out[c] = v
+    return out
+
+
+def _write_zairyu(directory: Path, year: int, rnd: random.Random) -> Path:
+    from .xlsx import write_sheets
+    d = directory / f"moj_zairyu_foreign_{year}"
+    d.mkdir(parents=True, exist_ok=True)
+    vals = zairyu_values(year)
+    names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
+    path = d / f"zairyu_{year}.xlsx"
+    if year <= 2022:
+        rows = [["第３表　市区町村別　国籍・地域別　在留外国人"],
+                ["市区町村コード", "都道府県市区町村", "総数"] + ZAIRYU_NATIONS + ["その他"]]
+
+        def row(code, name, v):
+            other = 3
+            return [code, name, sum(v.values()) + other] + [v[n] for n in ZAIRYU_NATIONS] + [other]
+
+        add = lambda codes: {n: sum(vals[c][n] for c in codes) for n in ZAIRYU_NATIONS}
+        rows.append([None, "総数"] + [None] * (len(ZAIRYU_NATIONS) + 2))
+        for pref in ("13", "14"):
+            codes = [c for c in vals if c[:2] == pref]
+            # 都道府県の行は市区町村の合計より少し多い（出典の都道府県の値を使うことを確かめる）
+            rows.append(row(f"{pref}000", PREF_NAMES[pref], {n: v + 1 for n, v in add(codes).items()}))
+            if pref == "13":
+                rows.append(row("13100", "特別区", add(["13199"])))
+            else:
+                rows.append(row("14190", "みほん市", add(codes)))
+            rows += [row(c, names[c], vals[c]) for c in codes]
+        rows.append(["     ", "未定・不詳"] + [1] * (len(ZAIRYU_NATIONS) + 2))
+        rows.append(["（注)　北方領土(歯舞群島、色丹島、国後島及び択捉島)を除く。"])
+        write_sheets(path, {f"{year - 2000}-12-03": rows})
+    else:
+        statuses = ["永住者", "留学", "技能実習２号ロ"]
+        rows = [["市区町村コード", "都道府県", "市区町村", "国籍・地域", "在留資格", "在留外国人数"]]
+        for c, v in vals.items():
+            pref, name = PREF_NAMES[c[:2]], names[c]
+            if c == "13499":
+                pref = name = "その他"
+                c = "99999"
+            for n, total in v.items():
+                # 在留資格ごとに分ける（0人の組み合わせの行はない）
+                parts = [total // 2, total - total // 2 - total // 4, total // 4]
+                rows += [[c, pref, name, n, st, k] for st, k in zip(statuses, parts) if k]
+            rows.append([c, pref, name, "シンガポール", "留学", 1])
+        write_sheets(path, {"注意事項": [["（注１）総数が１０人以下の市区町村は「その他」にまとめています。"]],
+                            "PVT": [["国籍・地域", "(すべて)"]],
+                            f"令和{str(year - 2018).translate(str.maketrans('0123456789', '０１２３４５６７８９'))}年末": rows})
     return path
 
 
