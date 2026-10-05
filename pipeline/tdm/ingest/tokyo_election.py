@@ -103,7 +103,8 @@ def read_party_votes(path: Path, names: set[str], layout: str,
 def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, cfg: dict) -> dict:
     """出典1つ（1つの選挙の1ファイル）を取り込む。cfg は sources.toml の設定（period・layout・encoding）。"""
     by_name = {r["name"]: r["entity_id"] for r in conn.execute(
-        "SELECT entity_id, name FROM entities WHERE entity_type = 'municipality'")}
+        "SELECT entity_id, name FROM entities WHERE entity_type = 'municipality' "
+        "AND entity_id LIKE 'muni-13%'")}   # 東京都だけ。府中市（広島県）など同じ名前の市区町村が他県にもある
     names = set(by_name)
     layout, encoding = cfg["layout"], cfg.get("encoding", "utf-8-sig")
     period = (cfg["period"], cfg["period"], "point")

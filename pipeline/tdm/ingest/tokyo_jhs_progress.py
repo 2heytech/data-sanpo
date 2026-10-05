@@ -59,7 +59,8 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
            period: tuple[str, str, str]) -> dict:
     table = read_table(path)
     by_name = {normalize(r["name"]): r["entity_id"] for r in conn.execute(
-        "SELECT entity_id, name FROM entities WHERE entity_type = 'municipality'")}
+        "SELECT entity_id, name FROM entities WHERE entity_type = 'municipality' "
+        "AND entity_id LIKE 'muni-13%'")}   # 東京都だけ。府中市（広島県）など同じ名前の市区町村が他県にもある
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "tokyo_jhs_progress"}
     result = {"municipalities": 0, "unmatched": sorted(set(table) - set(by_name))}
     for name, vals in table.items():

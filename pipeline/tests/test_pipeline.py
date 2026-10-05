@@ -1183,6 +1183,26 @@ def test_elections(built):
     assert "vote_share_mirai" not in by
 
 
+def test_tokyo_only_sources_skip_same_named_municipalities_in_other_prefectures(tmp_path):
+    # 東京都の出典は区市町村名で突き合わせる。府中市は広島県にもあるので、東京都の府中市だけに入れる
+    from tdm.ingest import tokyo_election
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")   # 出典の行は省く
+    catalog = load_indicators()
+    upsert_indicators(conn, catalog)
+    for eid in ("muni-13206", "muni-34208"):   # 都道府県の順に取り込むので広島県が後
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'municipality', '府中市')",
+                     (eid,))
+    path = tmp_path / "touhyou.csv"
+    path.write_text("x,\u3000府中市,100,100,200,50,60,110\n", encoding="utf-8-sig")
+    result = tokyo_election.ingest(conn, path, "s", catalog,
+                                   {"period": "2024-10-27", "layout": "turnout"})
+    assert result["unmatched"] == []
+    got = conn.execute("SELECT entity_id, value FROM observations WHERE indicator_id = 'voter_turnout'").fetchall()
+    assert [(r["entity_id"], round(r["value"], 1)) for r in got] == [("muni-13206", 55.0)]
+
+
 def test_street_trees_tama_format(tmp_path):
     from tdm.ingest.tokyo_street_trees import read_trees
     p = tmp_path / "tokyo_tama_gairoju.csv"

@@ -74,7 +74,8 @@ def _split(address: str, code: str | None, names: dict[str, str], ids: dict[str,
 def ingest(conn: sqlite3.Connection, path: Path, source_id: str, gazetteers: dict[str, tuple[Path, str]],
            indicator_id: str, definition: dict, period: tuple[str, str, str], boundary_version: str) -> dict:
     names = {normalize(r["name"]): r["entity_id"] for r in conn.execute(
-        "SELECT entity_id, name FROM entities WHERE entity_type = 'municipality'")}
+        "SELECT entity_id, name FROM entities WHERE entity_type = 'municipality' "
+        "AND entity_id LIKE 'muni-13%'")}   # 東京都だけ。府中市（広島県）など同じ名前の市区町村が他県にもある
     name_of = {eid: n for n, eid in names.items()}
     gaz = (Gazetteer.read(gazetteers["block"][0] if "block" in gazetteers else None,
                           gazetteers["oaza"][0] if "oaza" in gazetteers else None)
