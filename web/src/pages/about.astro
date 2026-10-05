@@ -1,8 +1,10 @@
 ---
 import Base from "../layouts/Base.astro";
+import FeedbackLink from "../components/FeedbackLink.astro";
+import { FEEDBACK_PREFILL_URL } from "../lib/feedback";
 import Terms from "../components/Terms.astro";
 ---
-<Base title="このサイトについて" description="データさんぽのデータの扱い方、更新方針、問い合わせ先、利用規約とプライバシー。">
+<Base title="このサイトについて" description="データさんぽのデータの扱い方、更新方針、ご意見・誤りの報告、利用規約とプライバシー。">
   <header class="page-head">
     <h1>このサイトについて</h1>
   </header>
@@ -10,7 +12,7 @@ import Terms from "../components/Terms.astro";
   <nav class="toc" aria-label="このページの内容">
     <a href="#handling">データの扱い方</a>
     <a href="#update">更新</a>
-    <a href="#contact">お問い合わせ</a>
+    <a href="#contact">ご意見・誤りの報告</a>
     <a href="#terms">利用規約</a>
     <a href="#privacy">プライバシー</a>
   </nav>
@@ -26,8 +28,16 @@ import Terms from "../components/Terms.astro";
   </ul>
   <h2 id="update">更新</h2>
   <p>統計は公表時点に応じて手作業で取り込み、確認してから公開します。各ページに基準時点を表示しています。</p>
-  <h2 id="contact">お問い合わせ</h2>
-  <p>誤りのご指摘やご要望は、運営者までお知らせください（窓口は本公開時に掲載します）。</p>
+  <h2 id="contact">ご意見・誤りの報告</h2>
+  <p>
+    データの誤りや、追加してほしいデータ・機能のご要望は、<FeedbackLink label="ご意見・誤りの報告フォーム" />（Google フォーム）からお寄せください。
+    いただいた内容はサイトの改善に使います。
+  </p>
+  <ul>
+    <li>個別の返信はしていません。</li>
+    <li>お名前・メールアドレス・住所などの個人情報は書かないでください。</li>
+    {FEEDBACK_PREFILL_URL && <li>各ページのリンクから開くと、そのページのアドレスがフォームに入ります。</li>}
+  </ul>
   </section>
   <section class="sheet">
   <h2 id="terms">利用規約・プライバシー</h2>
