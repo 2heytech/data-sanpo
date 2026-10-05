@@ -716,6 +716,155 @@ attribution = "出典：東京都総務局統計部「外国人人口」"
 modification_note = "区市町村別・国籍別の外国人人口を地域IDに対応付けて作成"
 redistributable = true
 
+# 全国の外国人住民（住民基本台帳、各年1月1日現在）。形式は pipeline/tdm/ingest/estat_foreign.py を参照。
+
+[soumu_juki_foreign_2021]
+kind = "soumu_juki_foreign"
+period = "2021-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和3年1月1日現在）【外国人住民】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20210"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040306693&fileKind=0"
+download_filename = "juki_foreign_2021.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の外国人住民の人口を抜き出して作成"
+redistributable = true
+
+[soumu_juki_foreign_2022]
+kind = "soumu_juki_foreign"
+period = "2022-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和4年1月1日現在）【外国人住民】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20220"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032224644&fileKind=0"
+download_filename = "juki_foreign_2022.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の外国人住民の人口を抜き出して作成"
+redistributable = true
+
+[soumu_juki_foreign_2023]
+kind = "soumu_juki_foreign"
+period = "2023-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和5年1月1日現在）【外国人住民】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20230"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040306673&fileKind=0"
+download_filename = "juki_foreign_2023.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の外国人住民の人口を抜き出して作成"
+redistributable = true
+
+[soumu_juki_foreign_2024]
+kind = "soumu_juki_foreign"
+period = "2024-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和6年1月1日現在）【外国人住民】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20240"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040306681&fileKind=0"
+download_filename = "juki_foreign_2024.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の外国人住民の人口を抜き出して作成"
+redistributable = true
+
+[soumu_juki_foreign_2025]
+kind = "soumu_juki_foreign"
+period = "2025-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和7年1月1日現在）【外国人住民】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20250"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040306688&fileKind=0"
+download_filename = "juki_foreign_2025.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の外国人住民の人口を抜き出して作成"
+redistributable = true
+
+[soumu_juki_foreign_2026]
+kind = "soumu_juki_foreign"
+period = "2026-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和8年1月1日現在）【外国人住民】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20260"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040479057&fileKind=0"
+download_filename = "juki_foreign_2026.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の外国人住民の人口を抜き出して作成"
+redistributable = true
+
+# 全国の在留外国人（在留外国人統計、各年12月末現在）の市区町村別・国籍別。形式は pipeline/tdm/ingest/estat_foreign.py を参照。
+
+[moj_zairyu_foreign_2021]
+kind = "moj_zairyu_foreign"
+period = "2021-12-31"
+title = "在留外国人統計（令和3年12月末）第3表 市区町村別 国籍・地域別 在留外国人"
+provider = "出入国在留管理庁"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00250012&tstat=000001018034&tclass1=000001060399&layout=dataset&cycle=1&year=20210&month=24101212"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032213255&fileKind=0"
+download_filename = "zairyu_2021.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 出入国在留管理庁「在留外国人統計」"
+modification_note = "都道府県・市区町村別の国籍・地域別の在留外国人数を抜き出して（2023年末は在留資格について合計して）作成"
+redistributable = true
+
+[moj_zairyu_foreign_2022]
+kind = "moj_zairyu_foreign"
+period = "2022-12-31"
+title = "在留外国人統計（令和4年12月末）第3表 市区町村別 国籍・地域別 在留外国人"
+provider = "出入国在留管理庁"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00250012&tstat=000001018034&tclass1=000001060399&layout=dataset&cycle=1&year=20220&month=24101212"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040068661&fileKind=0"
+download_filename = "zairyu_2022.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 出入国在留管理庁「在留外国人統計」"
+modification_note = "都道府県・市区町村別の国籍・地域別の在留外国人数を抜き出して（2023年末は在留資格について合計して）作成"
+redistributable = true
+
+[moj_zairyu_foreign_2023]
+kind = "moj_zairyu_foreign"
+period = "2023-12-31"
+sheet = "令和５年末"
+title = "在留外国人統計（令和5年12月末）市区町村別 国籍・地域別 在留資格別 在留外国人数"
+provider = "出入国在留管理庁"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00250012&tstat=000001018034&tclass1=000001060399&layout=dataset&cycle=1&year=20230&month=24101212"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040186957&fileKind=0"
+download_filename = "zairyu_2023.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 出入国在留管理庁「在留外国人統計」"
+modification_note = "都道府県・市区町村別の国籍・地域別の在留外国人数を抜き出して（2023年末は在留資格について合計して）作成"
+redistributable = true
+
 # 犯罪の認知件数（警視庁、年計）。年ごとのCSV。形式は pipeline/tdm/ingest/keishicho_crime.py を参照。
 # 2026-10-03 に GitHub Actions から取得して列名・名称の形式を確認した（docs/design-changes.md #28）。
 
