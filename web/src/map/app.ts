@@ -150,6 +150,20 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     attributionControl: { compact: false },
   });
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+  // 現在地: ボタンを押したときだけ位置情報の許可を求め、現在地のマークと誤差の円を出す。
+  // 歩くとマークが動き、地図を動かすと追従をやめる（マークは更新し続ける）。位置はブラウザ内だけで使う。
+  const geolocate = new maplibregl.GeolocateControl({
+    positionOptions: { enableHighAccuracy: true, timeout: 10000 },
+    fitBoundsOptions: { maxZoom: 15 },
+    trackUserLocation: true,
+    showAccuracyCircle: true,
+  });
+  map.addControl(geolocate, "bottom-right");
+  geolocate.on("error", (e) => {
+    alert(e.code === 1 /* PERMISSION_DENIED */
+      ? "位置情報の利用が許可されていません。ブラウザの設定でこのサイトの位置情報を許可してください。"
+      : "現在地を取得できませんでした。");
+  });
   map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
   await new Promise<void>((resolve) => map.once("load", () => resolve()));
 
@@ -955,14 +969,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const bounds = v.startsWith("pref:") ? prefectures.get(v.slice(5))?.bbox : PRESETS[v];
     if (bounds) map.fitBounds(bounds as LngLatBoundsLike, { padding: 20 });
   });
+  // 条件の欄の「現在地へ移動」も地図の現在地ボタンと同じ動き（マークを出して移動する）
   $<HTMLButtonElement>("#locate").addEventListener("click", () => {
-    // 利用者が押したときだけ位置情報の許可を求める。位置は送信・保存しない。
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 14 }),
-      () => alert("現在地を取得できませんでした。"),
-      { enableHighAccuracy: false, timeout: 10000 },
-    );
+    if (!navigator.geolocation) return alert("このブラウザでは現在地を使えません。");
+    geolocate.trigger();
   });
 
   // --- 検索 ---------------------------------------------------------------------
