@@ -45,10 +45,9 @@ jobs:
       RAW_SOURCES_TAG: raw-sources
       PYTHONUNBUFFERED: "1"  # 取得・取込の途中経過がすぐログに出るようにする
     steps:
+      # 履歴は取らない（全ブランチ・タグの履歴と site-preview ブランチの取得に1分半かかっていた）。
+      # site_only で使う前回公開時のコミットは、その手順で1つだけ取る
       - uses: actions/checkout@v4
-        with:
-          # site_only で、前回公開したデータを作ったコミットからの pipeline/ の変更を調べるため
-          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -219,6 +218,9 @@ jobs:
           manifest="data/releases/$id/manifest.json"
           commit=$(jq -r '.git_commit // empty' "$manifest")
           echo "前回公開したデータ: $id（作成 $(jq -r .created_at "$manifest")、コミット ${commit:-不明}）"
+          if [ -n "$commit" ] && ! git cat-file -e "$commit^{commit}" 2>/dev/null; then
+            git fetch --quiet --depth=1 origin "$commit" || true
+          fi
           if [ -z "$commit" ] || ! git cat-file -e "$commit^{commit}" 2>/dev/null; then
             echo "::error::データを作ったコミットが分からないため、今のコードと合うか確かめられません。site_only をオフにして公開してください"
             exit 1
@@ -250,6 +252,27 @@ jobs:
           npm ci
           npm run prepare-data
           npm run build
+
+      # 公開を先に済ませる（画面写真とプレビューは公開の確認用で、待たせると公開が数分遅れる）
+      - name: Deploy to Cloudflare
+        if: ${{ inputs.deploy }}
+        working-directory: web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN が未設定です（Settings → Secrets and variables → Actions）"
+            exit 1
+          fi
+          npx wrangler deploy
+
+      # 全国のデータで公開したら、次の site_only のために公開用ファイルを GitHub Release に保存する
+      - name: Save published data
+        if: inputs.deploy && env.SITE_ONLY != 'true' && env.TDM_PREFS == 'all'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/release-archive.sh save "$PUBLISHED_DATA_TAG" "data-$RELEASE_ID" data/releases "$RELEASE_ID"
 
       # 全国の公開版は管理DBが数GB・公開用ファイルも数百MBあり、private リポジトリの Artifacts の容量（無料500MB）を
       # 超えるので上げない（東京都だけのときだけ上げる）。全国のデータは元ファイルのキャッシュから作り直せる
@@ -319,23 +342,3 @@ jobs:
           git add -A
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "プレビュー: 公開版 $RELEASE_ID"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" site-preview
-
-      - name: Deploy to Cloudflare
-        if: ${{ inputs.deploy }}
-        working-directory: web
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::CLOUDFLARE_API_TOKEN が未設定です（Settings → Secrets and variables → Actions）"
-            exit 1
-          fi
-          npx wrangler deploy
-
-      # 全国のデータで公開したら、次の site_only のために公開用ファイルを GitHub Release に保存する
-      - name: Save published data
-        if: inputs.deploy && env.SITE_ONLY != 'true' && env.TDM_PREFS == 'all'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: .github/scripts/release-archive.sh save "$PUBLISHED_DATA_TAG" "data-$RELEASE_ID" data/releases "$RELEASE_ID"

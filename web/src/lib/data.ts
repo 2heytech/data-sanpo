@@ -9,8 +9,15 @@ import type {
 export const RELEASE = release as ReleaseInfo;
 export const DATA_BASE = `/data/${RELEASE.release_id}`;
 
+// 読んだファイルはビルドの間とっておく（市区町村のページ約1,900件がそれぞれ全指標の値を読むため、
+// 毎回読み直すとページの生成に数分かかる）。返した値はページ側で書き換えないこと
+const cache = new Map<string, unknown>();
+
 function read<T>(rel: string): T {
-  return JSON.parse(readFileSync(join(process.cwd(), "public", DATA_BASE, rel), "utf8")) as T;
+  if (!cache.has(rel)) {
+    cache.set(rel, JSON.parse(readFileSync(join(process.cwd(), "public", DATA_BASE, rel), "utf8")));
+  }
+  return cache.get(rel) as T;
 }
 
 /** 地図の点レイヤーのデータ（駅・学校・地価公示）。公開版にないときは null */
