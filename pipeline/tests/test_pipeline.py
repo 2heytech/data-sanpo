@@ -1356,3 +1356,21 @@ def test_zero_prefectures(built):
             assert vals and all(v == 0 for v in vals)
             found += 1
     assert found
+
+
+def test_small_area_rows_have_national_rank(built):
+    # 全国の順位は書き出し時に数える（値の大きい順、同値は同順位、値のない地域は数えない）
+    base = "values/population_total/2020-10-01"
+    rows = load(built, f"{base}/13.json")["rows"] + load(built, f"{base}/14.json")["rows"]
+    total = load(built, f"{base}/legend.json")["levels"]["small_area"]["count"]
+    valued = [r for r in rows if r["value"] is not None]
+    assert len(valued) == total and {r["entity_id"][5:7] for r in valued} == {"13", "14"}
+    for r in rows:
+        if r["value"] is None:
+            assert "national_rank" not in r
+        else:
+            assert r["national_rank"] == sum(o["value"] > r["value"] for o in valued) + 1
+    assert min(r["national_rank"] for r in valued) == 1
+    # 東京都だけの指標には入れない（都道府県内の順位と同じため）
+    crime = load(built, "values/crime_total/2025-01-01/13.json")["rows"]
+    assert crime and all("national_rank" not in r for r in crime)

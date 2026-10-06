@@ -53,3 +53,8 @@ export function rankOf(rows: ValueRow[], entityId: string): { rank: number; tota
   const rank = values.filter((v) => v > (target.value as number)).length + 1;
   return { rank, total: values.length };
 }
+
+/** 順位を出す範囲として意味があるときだけ数える（すべて同じ値なら出さない。例: 県内がすべて0%） */
+export function rankIfVaried(rows: ValueRow[], entityId: string): { rank: number; total: number } | null {
+  return new Set(rows.map((r) => r.value).filter((v) => v !== null)).size > 1 ? rankOf(rows, entityId) : null;
+}

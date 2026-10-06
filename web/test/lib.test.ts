@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BLANK_COLOR, classIndex, colorsFor, fillColorExpression, NO_DATA_COLOR } from "../src/lib/classify";
-import { formatFraction, formatValue, rankOf } from "../src/lib/format";
+import { formatFraction, formatValue, rankIfVaried, rankOf } from "../src/lib/format";
 import { AreaSearch, normalize } from "../src/lib/search";
 import type { Indicator, SearchIndex } from "../src/lib/types";
 import { municipalityCodeOf, parseState, serializeState } from "../src/lib/urlstate";
@@ -35,6 +35,10 @@ describe("rankOf", () => {
     expect(rankOf(rows, "b")).toEqual({ rank: 1, total: 3 });
     expect(rankOf(rows, "a")).toEqual({ rank: 3, total: 3 });
     expect(rankOf(rows, "d")).toBeNull();
+  });
+  it("すべて同じ値なら順位を出さない", () => {
+    expect(rankIfVaried(rows, "a")).toEqual({ rank: 3, total: 3 });
+    expect(rankIfVaried(rows.slice(1), "b")).toBeNull();
   });
 });
 

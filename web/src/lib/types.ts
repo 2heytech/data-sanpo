@@ -108,6 +108,8 @@ export interface ValueRow {
   numerator?: number;
   denominator?: number;
   note?: string;
+  /** 町丁・字等の全国での順位（書き出し時に数える。母数は legend の small_area.count） */
+  national_rank?: number;
 }
 
 export interface ValuesFile {

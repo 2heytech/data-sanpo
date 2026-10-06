@@ -5,7 +5,7 @@ import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, LngLatBoundsLike, PointLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { colorsFor, fillColorExpression, NO_DATA_COLOR } from "../lib/classify";
-import { formatFraction, formatNumber, formatValue, rankOf, STATUS_LABEL } from "../lib/format";
+import { formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
 import type {
@@ -684,13 +684,56 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <strong>${esc(formatValue(row, indicator))}</strong>${fraction ? `<span class="muted small">${esc(fraction)}</span>` : ""}</div>`;
   }
 
-  // 順位: 文と、1位（左）から最下位（右）までの横バー上の位置
-  function rankHtml(scope: string, rank: { rank: number; total: number }): string {
-    const pos = rank.total > 1 ? ((rank.rank - 1) / (rank.total - 1)) * 100 : 50;
-    return `<div class="rank"><p>${esc(scope)} ${rank.total} のうち <strong>${rank.rank}位</strong></p>
-      <div class="rank-bar" role="img" aria-label="${esc(scope)} ${rank.total} のうち ${rank.rank}位">
-        <span class="rank-mark" style="left:${pos.toFixed(1)}%"></span></div>
-      <div class="rank-ends small muted"><span>1位（大きい）</span><span>${rank.total}位（小さい）</span></div></div>`;
+  // 順位: 範囲ごとの文と、1位（左）から最下位（右）までの横バー上の位置
+  type Rank = { scope: string; rank: number; total: number };
+  function rankHtml(ranks: Rank[]): string {
+    if (!ranks.length) return "";
+    const items = ranks.map(({ scope, rank, total }) => {
+      const pos = total > 1 ? ((rank - 1) / (total - 1)) * 100 : 50;
+      const text = `${scope} ${total.toLocaleString("ja-JP")} のうち`;
+      return `<li><p>${esc(text)} <strong>${rank.toLocaleString("ja-JP")}位</strong></p>
+        <div class="rank-bar" role="img" aria-label="${esc(text)} ${rank}位">
+          <span class="rank-mark" style="left:${pos.toFixed(1)}%"></span></div></li>`;
+    }).join("");
+    return `<div class="rank"><ul>${items}</ul>
+      <div class="rank-ends small muted"><span>1位（大きい）</span><span>最下位（小さい）</span></div></div>`;
+  }
+
+  // 順位は都道府県は全国の中、市区町村は都道府県内と全国、町丁・字等は区市町村内・都道府県内・全国で数える。
+  // 値が1つの都道府県だけにある指標（東京都だけの指標など）は、全国の順位は都道府県内と同じなので出さない
+  async function ranksFor(id: string, rows: ValueRow[], row: ValueRow | undefined): Promise<Rank[]> {
+    const pick = (scope: string, group: ValueRow[]) => {
+      const r = rankIfVaried(group, id);
+      return r ? [{ scope, ...r }] : [];
+    };
+    const prefCode = prefectureCodeOf(id);
+    const spansPrefectures = (group: ValueRow[]) =>
+      new Set(group.filter((r) => r.value !== null).map((r) => prefectureCodeOf(r.entity_id))).size > 1;
+    if (isPref(id)) return pick("全国の都道府県", rows.filter((r) => isPref(r.entity_id)));
+    if (munis.has(id)) {
+      const all = rows.filter((r) => munis.has(r.entity_id));
+      return [
+        ...pick(`${prefName(prefCode)}の市区町村`, all.filter((r) => prefectureCodeOf(r.entity_id) === prefCode)),
+        ...(spansPrefectures(all) ? pick("全国の市区町村", all) : []),
+      ];
+    }
+    const areasInPref = rows.filter((r) => !munis.has(r.entity_id) && !isPref(r.entity_id));
+    const muniCode = municipalityCodeOf(id);
+    const ranks = [
+      ...pick(`${entityName(`muni-${muniCode}`).name}内の地域`,
+        areasInPref.filter((r) => municipalityCodeOf(r.entity_id) === muniCode)),
+      ...pick(`${prefName(prefCode)}の町丁・字等`, areasInPref),
+    ];
+    if (row?.national_rank != null) {
+      try {
+        const total = (await fetchJSON<LegendFile>(`values/${indicator.id}/${period}/legend.json`))
+          .levels.small_area?.count;
+        if (total) ranks.push({ scope: "全国の町丁・字等", rank: row.national_rank, total });
+      } catch {
+        // 凡例が読めなければ全国の順位は出さない
+      }
+    }
+    return ranks;
   }
 
   let detailToken = 0;
@@ -709,13 +752,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const { name, context } = entityName(id);
     const isMuni = munis.has(id);
     const pref = isPref(id);
-    // 順位は都道府県は全国の中、市区町村は同じ都道府県の中、町丁・字等は同じ市区町村の中で数える
-    const sameGroup = (other: string) => (pref ? isPref(other)
-      : (isMuni ? prefectureCodeOf(other) === prefectureCodeOf(id)
-        : municipalityCodeOf(other) === municipalityCodeOf(id)) && munis.has(other) === isMuni);
-    const group = rows.filter((r) => sameGroup(r.entity_id));
-    // すべて同じ値（例: 県内がすべて0%）なら順位は出さない
-    const rank = new Set(group.map((r) => r.value).filter((v) => v !== null)).size > 1 ? rankOf(group, id) : null;
+    const ranks = await ranksFor(id, rows, row);
+    if (token !== detailToken) return;
     const city = isMuni ? cityTotal(id, rows) : "";
     const fraction = formatFraction(row, indicator);
     const p = periodInfo();
@@ -729,8 +767,6 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const srcHtml = [...srcs].map(([text, url]) => (url
       ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text))).join("／");
     const parentId = pref ? null : isMuni ? id : `muni-${municipalityCodeOf(id)}`;
-    const rankScope = pref ? "全国の都道府県" : isMuni ? `${prefName(prefectureCodeOf(id))}の市区町村`
-      : `${entityName(parentId!).name}内の地域`;
     detailEl.innerHTML = `
       <p class="muted">${esc(context)}</p>
       <h2>${esc(name)}</h2>
@@ -739,7 +775,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       ${fraction ? `<div class="muted">${esc(fraction)}</div>` : ""}
       ${row?.value != null && STATUS_LABEL[row.status] ? `<div class="muted">${esc(STATUS_LABEL[row.status])}</div>` : ""}
       ${row?.note ? `<p class="note small">${esc(row.note)}</p>` : ""}
-      ${rank ? rankHtml(rankScope, rank) : ""}
+      ${rankHtml(ranks)}
       ${city}
       ${within ? `<p class="note small">この指標は都道府県別の値だけです（${esc(entityName(within).name)}を含む${esc(name)}の値）。</p>` : ""}
       ${!pref && !covers(prefectureCodeOf(id)) ? `<p class="note small">この指標は${esc(indicator.prefectures!.map(prefName).join("・"))}だけの値です。</p>` : ""}

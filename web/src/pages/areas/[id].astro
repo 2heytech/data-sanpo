@@ -3,7 +3,7 @@
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
 import { loadAreas, loadIndicators, loadSources, loadValues } from "../../lib/data";
-import { formatFraction, formatValue, rankOf } from "../../lib/format";
+import { formatFraction, formatValue, rankIfVaried } from "../../lib/format";
 import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -16,16 +16,18 @@ const byId = new Map(areas.municipalities.map((m) => [m.id, m]));
 const neighbors = muni.neighbors.map((id) => byId.get(id)!).filter(Boolean);
 const sources = new Map(loadSources().map((s) => [s.source_id, s]));
 
-// すべて同じ値（例: 県内がすべて0%）なら順位は出さない
-const rankIn = (rows: ValueRow[]) =>
-  new Set(rows.map((r) => r.value).filter((v) => v !== null)).size > 1 ? rankOf(rows, muni.id) : null;
+// 値が1つの都道府県だけにある指標（東京都だけの指標など）は、全国の順位は都道府県内と同じなので出さない
+const spansPrefectures = (rows: ValueRow[]) =>
+  new Set(rows.filter((r) => r.value !== null).map((r) => r.entity_id.slice(5, 7))).size > 1;
 const stats = loadIndicators().map((ind) => {
   const period = ind.periods.find((p) => p.period === ind.default_period)!;
   const rows = loadValues(ind.id, period.period, "municipalities")?.rows ?? [];
   const row = rows.find((r) => r.entity_id === muni.id);
   return {
-    // 順位は同じ都道府県の市区町村の中で数える
-    ind, period, row, rank: rankIn(rows.filter((r) => r.entity_id.startsWith(`muni-${muni.prefecture}`))),
+    // 順位は同じ都道府県の市区町村の中と、全国の市区町村の中で数える（すべて同じ値なら出さない）
+    ind, period, row,
+    ranks: [rankIfVaried(rows.filter((r) => r.entity_id.startsWith(`muni-${muni.prefecture}`)), muni.id),
+      spansPrefectures(rows) ? rankIfVaried(rows, muni.id) : null],
     neighborRows: neighbors.map((n) => ({ n, row: rows.find((r) => r.entity_id === n.id) })),
   };
 });
@@ -48,22 +50,24 @@ const description = `${muni.name}（${place}）の人口・年齢構成などを
   <h2>主な指標</h2>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>指標</th><th class="num">値</th><th class="num">{pref}内の順位</th><th>時点</th></tr></thead>
+      <thead><tr><th>指標</th><th class="num">値</th><th class="num">{pref}内の順位</th><th class="num">全国の順位</th><th>時点</th></tr></thead>
       <tbody>
-        {stats.map(({ ind, period, row, rank }) => (
+        {stats.map(({ ind, period, row, ranks }) => (
           <tr>
             <td><a href={`/indicators/${ind.id}/`}>{ind.name}</a>
               {formatFraction(row, ind) && <div class="muted">{formatFraction(row, ind)}</div>}
             </td>
             <td class="num">{formatValue(row, ind)}</td>
-            <td class="num">{rank ? (
-              <>
-                {`${rank.rank}位／${rank.total}`}
-                <span class="rank-bar" role="img" aria-label={`${rank.total} のうち ${rank.rank}位`}>
-                  <span class="rank-mark" style={`left:${rank.total > 1 ? ((rank.rank - 1) / (rank.total - 1)) * 100 : 50}%`}></span>
-                </span>
-              </>
-            ) : "—"}</td>
+            {ranks.map((rank) => (
+              <td class="num">{rank ? (
+                <>
+                  {`${rank.rank.toLocaleString("ja-JP")}位／${rank.total.toLocaleString("ja-JP")}`}
+                  <span class="rank-bar" role="img" aria-label={`${rank.total} のうち ${rank.rank}位`}>
+                    <span class="rank-mark" style={`left:${rank.total > 1 ? ((rank.rank - 1) / (rank.total - 1)) * 100 : 50}%`}></span>
+                  </span>
+                </>
+              ) : "—"}</td>
+            ))}
             <td>{period.label}</td>
           </tr>
         ))}

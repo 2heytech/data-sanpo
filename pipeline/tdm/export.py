@@ -425,7 +425,12 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
                     zero = sorted(k for k, v in by_pref_vals.items() if all(x == 0 for x in v))
                     if zero:
                         legend[level]["zero_prefectures"] = zero
+            national = _national_small_area_ranks(p["rows"])
             for (level, chunk), rows in p["rows"].items():
+                if level == "small_area" and national:
+                    for r in rows:
+                        if r["entity_id"] in national:
+                            r["national_rank"] = national[r["entity_id"]]
                 _write(out, f"{vdir}/{chunk}.json", {
                     "schema_version": SCHEMA_VERSION, "release_id": release_id,
                     "indicator_id": indicator_id, "period": pid, "level": level,
@@ -752,6 +757,25 @@ def _default_period(period_meta: list[dict], levels: list[str]) -> str:
         if fine:
             return fine[-1]["period"]
     return annual[-1]["period"]
+
+
+def _national_small_area_ranks(rows: dict) -> dict[str, int]:
+    """町丁・字等の全国での順位（値の大きい順、同値は同順位、値のない地域は数えない）。
+
+    町丁・字等の値は都道府県ごとのファイルに分かれていて、画面で全国の順位を数えるには全都道府県の
+    ファイルを読む必要がある。そこで書き出し時に数えて各行に入れる。母数は legend.json の
+    levels.small_area.count。値が1つの都道府県だけにある指標（東京都だけの指標など）や、
+    全国ですべて同じ値のときは入れない（都道府県内の順位と同じか、意味がないため）。
+    """
+    values = [(r["entity_id"], r["value"]) for (lv, _), rs in rows.items() if lv == "small_area"
+              for r in rs if r["value"] is not None]
+    if len({prefecture_of(e) for e, _ in values}) < 2 or len({v for _, v in values}) < 2:
+        return {}
+    ordered = sorted((v for _, v in values), reverse=True)
+    first: dict[float, int] = {}
+    for i, v in enumerate(ordered):
+        first.setdefault(v, i + 1)
+    return {e: first[v] for e, v in values}
 
 
 def _add_prefecture_rows(rows: dict, d: dict, munis_by_pref: dict[str, list]) -> None:
