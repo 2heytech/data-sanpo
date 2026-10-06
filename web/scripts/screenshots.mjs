@@ -41,14 +41,32 @@ const shots = [
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch();
 let errors = 0;
-for (const [name, path, viewport] of shots) {
+
+async function shoot([name, path, viewport]) {
   const page = await browser.newPage({ viewport, locale: "ja-JP" });
   page.on("pageerror", (e) => { errors++; console.error(`[${name}] ${e.message}`); });
-  await page.goto(base + path, { waitUntil: "networkidle", timeout: 60_000 }).catch((e) => console.error(`[${name}] ${e.message}`));
+  const open = () => page.goto(base + path, { waitUntil: "networkidle", timeout: 60_000 }).catch((e) => console.error(`[${name}] ${e.message}`));
+  await open();
+  // 同時に開くと読み込みが遅れることがあるので、地図は凡例が出る（指標の値を読み終える）まで待つ。出なければ1回だけ開き直す
+  if (path.startsWith("/map/")) {
+    const ready = () => page.waitForSelector("#legend li", { timeout: 20_000 }).then(() => true, () => false);
+    if (!(await ready())) {
+      console.error(`[${name}] 凡例が出ないので開き直します`);
+      await open();
+      if (!(await ready())) console.error(`[${name}] 凡例が出ません`);
+    }
+  }
   await page.waitForTimeout(4000); // 地図タイルと塗り分けの描画を待つ
   await page.screenshot({ path: `${out}/${name}.png`, fullPage: !path.startsWith("/map/") });
   console.log(`${out}/${name}.png`);
   await page.close();
 }
+
+// 1枚ずつだと待ち時間（読み込みと描画待ち）が積み重なって4分かかるので、いくつか同時に開く
+const concurrency = Number(process.env.SCREENSHOT_CONCURRENCY ?? 4);
+const queue = [...shots];
+await Promise.all(Array.from({ length: concurrency }, async () => {
+  for (let s; (s = queue.shift()); ) await shoot(s);
+}));
 await browser.close();
 if (errors) console.error(`ページ上のエラー: ${errors} 件`);

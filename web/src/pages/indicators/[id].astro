@@ -23,7 +23,7 @@ const levelLabel = { prefecture: "都道府県", municipality: "市区町村", s
 const levelOrder = ["prefecture", "municipality", "small_area"] as const;
 // 全国の公開版では、都道府県別の値（市区町村の分子・分母の合計など）も表にする
 const prefRows = areas.prefectures.length > 1 && period.levels.includes("prefecture")
-  ? (loadValues(ind.id, period.period, "prefectures")?.rows ?? [])
+  ? [...(loadValues(ind.id, period.period, "prefectures")?.rows ?? [])]
       .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   : [];
 ---
