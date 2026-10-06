@@ -137,6 +137,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .site-footer li { margin: 2px 0; }
 .site-footer .brand-foot img { height: 32px; width: auto; }
 .site-footer .fine { grid-column: 1 / -1; border-top: 1px solid rgba(255, 255, 255, .15); padding-top: 12px; font-size: 0.8rem; color: #aebdd0; }
+.site-footer .operator { display: block; margin-top: 4px; }
 
 @media (max-width: 720px) {
   :root { --header-h: auto; }
