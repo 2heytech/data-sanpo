@@ -31,7 +31,8 @@ def query(account: str, token: str, sql: str) -> list[dict]:
 
 
 def main() -> None:
-    days = int(sys.argv[1]) if len(sys.argv) > 1 else 30
+    # Actions の number 入力は「30.0」の形で渡ってくるので float を経由する
+    days = int(float(sys.argv[1])) if len(sys.argv) > 1 else 30
     account = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
     token = os.environ.get("CLOUDFLARE_ANALYTICS_TOKEN") or os.environ.get("CLOUDFLARE_API_TOKEN", "")
     if not account or not token:
