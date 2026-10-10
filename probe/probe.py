@@ -1,30 +1,50 @@
-import sys, re, io, ssl, urllib.request, html
+import sys, re, urllib.request
 from pathlib import Path
 sys.path.insert(0, "pipeline")
 from tdm import xlsx
 UA = {"User-Agent": "Mozilla/5.0 data-sanpo probe"}
-def get(u, ctx=None): return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=300, context=ctx).read()
-def text(h): return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", re.sub(r"(?s)<(script|style).*?</\1>", " ", h))))
-ctx = ssl.create_default_context(); ctx.options |= 0x4  # OP_LEGACY_SERVER_CONNECT
-try:
-    t = text(get("https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html", ctx).decode("utf-8", "replace"))
-    i = t.find("利用規約"); print("TERMS-LEN", len(t))
-    for kw in ["商用", "営利", "出典の記載", "政府標準利用規約", "互換", "申請"]:
-        for m in list(re.finditer(kw, t))[:2]: print("TERMS", kw, "|", t[max(0, m.start()-200):m.start()+250])
-except Exception as e: print("ERR terms", e)
-def s(r): return [str(c)[:14] for c in r][:18]
-for sid in ("000040174881", "000031976396", "000040052725", "000031693271"):
+def get(u): return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=300).read()
+def s(r, n=22): return [str(c)[:16] for c in r][:n]
+def dl(sid):
+    d = get(f"https://www.e-stat.go.jp/stat-search/file-download?statInfId={sid}&fileKind=0")
+    ext = "xlsx" if d[:2] == b"PK" else "xls"
+    p = Path(f"{sid}.{ext}"); p.write_bytes(d); print("##", sid, ext, len(d)); return p
+def isname(c, keys): return c is not None and any(k in str(c) for k in keys)
+# 住宅・土地統計
+for sid in ("000040209921", "000040209842", "000031865704", "000031865669"):
     try:
-        d = get(f"https://www.e-stat.go.jp/stat-search/file-download?statInfId={sid}&fileKind=0")
-        print("##", sid, d[:4])
-        if d[:2] != b"PK": print("  not xlsx"); continue
-        p = Path(f"{sid}.xlsx"); p.write_bytes(d)
-        names = xlsx.sheet_names(p); print("  sheets", names)
-        for n in names[:3]:
+        p = dl(sid)
+        if p.suffix != ".xlsx": continue
+        for n in xlsx.sheet_names(p)[:3]:
             rows = xlsx.read_sheet(p, n); print("  --", n, len(rows))
-            for r in rows[:14]: print("   ", s(r))
-            hits = [r for r in rows if any(str(c).strip() in ("13101", "131016", "千代田区") for c in r[:4] if c is not None)]
-            for r in hits[:2]: print("   HIT", s(r))
-            pref = [r for r in rows if any(str(c).strip() in ("東京都", "13000") for c in r[:4] if c is not None)]
-            for r in pref[:2]: print("   PREF", s(r))
+            for r in rows[:16]: print("   ", s(r))
+            for i, r in enumerate(rows):
+                if any(isname(c, ("13101", "千代田区", "13000", "東京都", "01303", "当別町")) for c in r[:8]):
+                    print("   HIT", i, s(r, 30))
+            print("   LAST", s(rows[-1], 30))
     except Exception as e: print("ERR", sid, e)
+# 出生率: 東京都の行
+try:
+    p = dl("000040174881"); rows = xlsx.read_sheet(p, xlsx.sheet_names(p)[0])
+    for i, r in enumerate(rows):
+        c0 = str(r[0] or "")
+        if c0.startswith("13") or c0.startswith("01") and i < 80: print("   TFR", i, s(r, 12))
+    import collections
+    print("   PREFIXLEN", collections.Counter(len(re.match(r"\d*", str(r[0] or "").strip()).group()) for r in rows))
+except Exception as e: print("ERR tfr", e)
+# 生命表: 千代田区の表と女
+try:
+    p = dl("000040052725")
+    for n in xlsx.sheet_names(p)[1:3]:
+        rows = xlsx.read_sheet(p, n)
+        for i, r in enumerate(rows):
+            if any(isname(c, ("表13101", "表13000", "表00000")) for c in r[:6]):
+                for rr in rows[i:i+8]: print("   LT", n, s(rr))
+                for j in range(i+1, min(i+400, len(rows))):
+                    if any(str(c).strip() == "女" for c in rows[j][:10] if c is not None):
+                        for rr in rows[j:j+3]: print("   LTF", j, s(rr))
+                        break
+    rows = xlsx.read_sheet(p, "目次")
+    print("   TOC", len(rows)); [print("   ", s(r)) for r in rows[:6]]
+    print("   TOC-13", [s(r) for r in rows if "13101" in str(r) or "1310" in str(r)[:40]][:3])
+except Exception as e: print("ERR lt", e)
