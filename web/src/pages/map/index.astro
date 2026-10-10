@@ -214,7 +214,10 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
   .trend { margin: 8px 0; font-size: 0.85rem; width: 100%; }
   .panel table th, .panel table td { padding: 5px 6px; }
   .panel thead th { font-size: 0.78rem; }
-  .trend td, .trend th { white-space: nowrap; }
+  .trend td { white-space: nowrap; }
+  /* 指標名や差が長いと（「人口（1920年からの推移）」など）表が欄からはみ出すので、見出しと増減率は折り返す */
+  .trend th, .trend td.change { white-space: normal; }
+  .trend td.change span { white-space: nowrap; }
   .trend caption { text-align: left; font-weight: 600; }
   .trend tr[aria-current="true"] td { font-weight: 700; background: var(--panel); }
   .small { font-size: 0.8rem; }

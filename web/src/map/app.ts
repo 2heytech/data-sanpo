@@ -639,13 +639,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         const sign = shown === 0 ? "±" : diff > 0 ? "+" : "−";
         const amount = `${sign}${formatNumber(Math.abs(diff), indicator.digits)}`;
         // 割合（%）は差（ポイント）、人数などは差と増減率
-        const text = indicator.unit === "%" ? `${amount}ポイント`
-          : prev ? `${amount}（${sign}${formatNumber(Math.abs(diff / prev) * 100, 1)}%）` : amount;
-        change = esc(text);
+        // 欄が狭いときは増減率を次の行に回す（1920年からの人口など、桁の大きい差で表がはみ出さないように）
+        change = indicator.unit === "%" ? esc(`${amount}ポイント`)
+          : prev ? `<span>${esc(amount)}</span><wbr><span>（${sign}${formatNumber(Math.abs(diff / prev) * 100, 1)}%）</span>`
+          : esc(amount);
       }
       prev = v;
       return `<tr${p.period === period ? ' aria-current="true"' : ""}><td>${esc(shortLabel(p.label))}</td>
-        <td class="num">${esc(formatValue(row, indicator))}</td>${withChange ? `<td class="num">${change}</td>` : ""}</tr>`;
+        <td class="num">${esc(formatValue(row, indicator))}</td>${withChange ? `<td class="num change">${change}</td>` : ""}</tr>`;
     }).join("");
     const note = rows.find(({ row }) => row?.status === "not_applicable")?.row?.note;
     return `<table class="trend"><caption>推移</caption>
@@ -934,9 +935,15 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     periodRange.disabled = ps.length < 2;
     playButton.disabled = ps.length < 2;
     periodTicks.innerHTML = ps.length < 2 ? "" : ps
-      // 時点が多いとき（犯罪の年ごとなど）は「’19」のように短くして1行に収める
-      .map((p, i) => `<span data-i="${i}"${p.period === period ? ' aria-current="true"' : ""} title="${esc(p.label)}">${
-        esc(ps.length > 4 ? shortLabel(p.label).replace(/^\d{2}(\d{2})年$/, "’$1") : shortLabel(p.label))}</span>`)
+      // 時点が多いとき（犯罪の年ごとなど）は「’19」のように短くして1行に収める。
+      // さらに多いとき（1920年からの人口など）は間引いて、端と一定間隔の時点だけ文字を出す
+      .map((p, i) => {
+        const step = ps.length > 12 ? Math.ceil(ps.length / 6) : 1;
+        const shown = i === ps.length - 1 || (i % step === 0 && ps.length - 1 - i >= step / 2);
+        const text = ps.length > 4 ? shortLabel(p.label).replace(/^\d{2}(\d{2})年$/, "’$1") : shortLabel(p.label);
+        return `<span data-i="${i}"${p.period === period ? ' aria-current="true"' : ""} title="${esc(p.label)}">${
+          shown ? esc(step > 1 ? shortLabel(p.label).replace(/年$/, "") : text) : ""}</span>`;
+      })
       .join("");
     periodLabel.value = periodInfo().label;
     periodNote.hidden = ps.length > 1;
