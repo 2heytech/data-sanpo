@@ -1,0 +1,27 @@
+# サイトの訪問状況を毎朝集計し、前の7日と比べた目立つ変化を実行結果に書き出す（設計変更記録 #91）。
+# public リポジトリでは実行結果を誰でも見られるので、日ごとの合計と変化の要点だけを出す。
+name: Access report
+
+on:
+  schedule:
+    - cron: "12 22 * * *" # 毎日 7:12（日本時間）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Report
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash -o pipefail {0}
+        run: python web/scripts/access-report.py | tee -a "$GITHUB_STEP_SUMMARY"
