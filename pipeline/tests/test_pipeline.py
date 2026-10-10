@@ -225,6 +225,24 @@ def test_fetch_rejects_html_and_extracts_zip(tmp_path):
         fetch_source("k", cfg, tmp_path / "c", downloader=lambda u: bad.getvalue())
 
 
+def test_fetch_falls_back_to_previous_download(tmp_path):
+    """配布元が 403 などで拒んだときは、前回の取得分があればそれを使い、なければ失敗にする。"""
+    import urllib.error
+    from tdm.fetch import fetch_source
+
+    def refuse(u):
+        raise urllib.error.HTTPError(u, 403, "Forbidden", None, None)
+    cfg = {"url": "https://example.invalid/page", "download_url": "https://example.invalid/a.csv"}
+    first = fetch_source("k", cfg, tmp_path / "a", downloader=lambda u: b"x,y\n1,2\n")
+    assert fetch_source("k", cfg, tmp_path / "a", downloader=refuse) == first
+    with pytest.raises(OSError):
+        fetch_source("k", cfg, tmp_path / "new", downloader=refuse)
+    multi = {"url": "https://example.invalid/page",
+             "download_files": {"a.csv": "https://example.invalid/a.csv", "b.csv": "https://example.invalid/b.csv"}}
+    first = fetch_source("m", multi, tmp_path / "m", downloader=lambda u: b"x,y\n1,2\n")
+    assert fetch_source("m", multi, tmp_path / "m", downloader=refuse) == first
+
+
 def test_past_census_is_overlaid_on_latest_boundaries(built):
     catalog = load(built, "indicators.json")
     pop = next(i for i in catalog["indicators"] if i["id"] == "population_total")
@@ -1374,3 +1392,88 @@ def test_small_area_rows_have_national_rank(built):
     # 東京都だけの指標には入れない（都道府県内の順位と同じため）
     crime = load(built, "values/crime_total/2025-01-01/13.json")["rows"]
     assert crime and all("national_rank" not in r for r in crime)
+
+
+def test_housing_income_and_vacancy(built):
+    def rows(ind, period, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/{period}/{level}.json")["rows"]}
+    for year in (2023, 2018):
+        vals = fixture.housing_income_values(year)
+        classes = fixture.HOUSING_INCOME_CLASSES[year]
+        for code in ("13199", "13299", "14199"):
+            v = [x or 0 for x in vals[code]]
+            low = sum(x for x, c in zip(v, classes) if c.startswith("01_") or "～" in c and int(c[3:].split("～")[1][:-4]) <= 300)
+            high = sum(x for x, c in zip(v, classes) if c.endswith(("1000～1500万円未満", "1500万円以上")))
+            r = rows("household_income_under300_share", f"{year}-10-01", "municipalities")[f"muni-{code}"]
+            assert r["denominator"] == sum(v) and r["numerator"] == low   # 分母は収入階級の合計（不詳を含む総数ではない）
+            r = rows("household_income_1000plus_share", f"{year}-10-01", "municipalities")[f"muni-{code}"]
+            assert r["numerator"] == high
+        # 表に載らない小さい町村は0ではなく値なし
+        r = rows("household_income_under300_share", f"{year}-10-01", "municipalities")["muni-13499"]
+        assert r["value"] is None and "公表されていません" in r["note"]
+        # 都道府県の値は表の都道府県の行（市区町村の合計ではない）
+        p = rows("household_income_under300_share", f"{year}-10-01", "prefectures")["pref-13"]
+        assert p["denominator"] == sum(vals["13000"])
+        total, vacant = fixture.housing_stock_values(year)["13199"]
+        r = rows("vacant_house_rate", f"{year}-10-01", "municipalities")["muni-13199"]
+        assert r["numerator"] == vacant and r["denominator"] == total
+        assert rows("vacant_house_rate", f"{year}-10-01", "municipalities")["muni-13499"]["value"] is None
+
+
+def test_fertility_and_life_expectancy(built):
+    def rows(ind, period, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/{period}/{level}.json")["rows"]}
+    tfr = rows("total_fertility_rate", "2018-01-01", "municipalities")
+    assert tfr["muni-13199"]["value"] == 0.98 and tfr["muni-14199"]["value"] == 1.31
+    assert tfr["muni-13499"]["value"] is None   # 「-」は0にしない
+    assert rows("total_fertility_rate", "2018-01-01", "prefectures")["pref-13"]["value"] == 1.11
+    ind = next(i for i in load(built, "indicators.json")["indicators"] if i["id"] == "total_fertility_rate")
+    assert any(p["label"] == "2018〜2022年" for p in ind["periods"])
+    male = rows("life_expectancy_male", "2020-01-01", "municipalities")
+    female = rows("life_expectancy_female", "2020-01-01", "municipalities")
+    assert male["muni-13199"]["value"] == 82.4 and female["muni-13199"]["value"] == 88.3
+    assert rows("life_expectancy_female", "2020-01-01", "prefectures")["pref-14"]["value"] == 87.9
+
+
+def test_population_history_by_prefecture(built):
+    vals = fixture.census_history_values()
+    rows = {r["entity_id"]: r for r in load(built, "values/population_history/1920-10-01/prefectures.json")["rows"]}
+    assert rows["pref-13"]["value"] == vals["13"][1920]
+    r = {r["entity_id"]: r for r in load(built, "values/population_history/1945-10-01/prefectures.json")["rows"]}
+    assert r["pref-14"]["value"] is None and r["pref-13"]["value"] == vals["13"][1945]   # 「-」は0にしない
+    ind = next(i for i in load(built, "indicators.json")["indicators"] if i["id"] == "population_history")
+    assert len(ind["periods"]) == 21
+
+
+def test_economic_census_matches_town_names(built):
+    def rows(ind, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/2021-06-01/{level}.json")["rows"]}
+    est = rows("establishments", "municipalities")
+    assert est["muni-13199"]["value"] == 120 + 15 + 7 + 3   # 市区町村は「その他」や対応できない行も含めた合計
+    emp = rows("employees", "municipalities")
+    assert emp["muni-13199"]["value"] == 3400 + 0 + 40 + 12   # 「-」は0
+    areas = {r["entity_id"]: r for r in load(built, "values/establishments/2021-06-01/13199.json")["rows"]}
+    assert areas["area-13199001001"]["value"] == 120   # 「見本町１丁目」→ 見本町1丁目（全角数字の表記ゆれ）
+    assert areas["area-13199001002"]["value"] == 15
+    other = areas["area-13199001003"]
+    assert other["value"] is None and "対応付けられない" in other["note"]   # 0にしない
+    # 丁目に分かれていない町には、丁目の行を合計する
+    t = {r["entity_id"]: r for r in load(built, "values/establishments/2021-06-01/13299.json")["rows"]}
+    assert t["area-13299090000"]["value"] == 3
+    from tdm.ingest.estat_economic_census import town_key
+    assert town_key("北三条東１５丁目") == town_key("北3条東15丁目")
+    assert town_key("浅香山町１丁") == town_key("浅香山町一丁") and town_key("海澤") == town_key("海沢")
+
+
+def test_land_survey_points(built):
+    data = load(built, "places/land_survey_price.json")
+    pts = {p["id"]: p for p in data["points"]}
+    assert set(pts) == {"landsv-13199-000-001", "landsv-13299-005-001"}
+    p = pts["landsv-13199-000-001"]
+    assert p["name"] == "サンプル(都)-1" and pts["landsv-13299-005-001"]["name"] == "ためし(都)5-1"
+    periods = [x["period"] for x in data["periods"]]
+    assert periods[0] == "1983-07-01" and periods[-1] == "2025-07-01"
+    assert pts["landsv-13299-005-001"]["values"][periods.index("2009-07-01")] is None   # 基準地でなかった年は0円にしない
+    # 地価公示の点には混ざらない
+    assert not any(x["id"].startswith("landsv-") for x in load(built, "places/land_price.json")["points"])
+    assert data["source_ids"] != load(built, "places/land_price.json")["source_ids"]

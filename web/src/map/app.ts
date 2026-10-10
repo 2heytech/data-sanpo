@@ -37,6 +37,18 @@ const MUNI_OPACITY = 0.72;
 const AREA_OPACITY = 0.68;
 const GSI_ATTRIBUTION =
   '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>';
+// 背景に切り替えられる地理院タイル（淡色地図はいつも下に敷き、写真が撮られていない場所や縮小時はそれが見える）。
+// 年代別の空中写真は拡大しないと出ない（minzoom）。色別標高図は z15 まで
+const GSI_TILE = (path: string) => `https://cyberjapandata.gsi.go.jp/xyz/${path}/{z}/{x}/{y}`;
+export const BASEMAPS = [
+  { id: "photo", label: "航空写真（最新）", tiles: GSI_TILE("seamlessphoto") + ".jpg", minzoom: 2, maxzoom: 18 },
+  { id: "photo1974", label: "航空写真（1974〜1978年）", tiles: GSI_TILE("gazo1") + ".jpg", minzoom: 10, maxzoom: 17 },
+  { id: "photo1961", label: "航空写真（1961〜1969年）", tiles: GSI_TILE("ort_old10") + ".png", minzoom: 10, maxzoom: 17 },
+  { id: "photo1945", label: "航空写真（1945〜1950年）", tiles: GSI_TILE("ort_USA10") + ".png", minzoom: 10, maxzoom: 17 },
+  // 色別標高図は海域部に海上保安庁の資料を使っており、その旨の記載が必要
+  { id: "relief", label: "標高（色別標高図）", tiles: GSI_TILE("relief") + ".png", minzoom: 5, maxzoom: 15,
+    note: "（海域部は海上保安庁海洋情報部の資料を使用して作成）" },
+] as const;
 
 const PRESETS: Record<string, LngLatBoundsLike> = {
   japan: [128.0, 30.0, 146.0, 45.6],
@@ -134,14 +146,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
           type: "raster", tileSize: 256, maxzoom: 18, attribution: GSI_ATTRIBUTION,
           tiles: ["https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"],
         },
-        photo: {
-          type: "raster", tileSize: 256, maxzoom: 18, attribution: GSI_ATTRIBUTION,
-          tiles: ["https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"],
-        },
+        ...Object.fromEntries(BASEMAPS.map((b) => [b.id, {
+          type: "raster" as const, tileSize: 256, minzoom: b.minzoom, maxzoom: b.maxzoom,
+          attribution: GSI_ATTRIBUTION + ("note" in b ? b.note : ""), tiles: [b.tiles],
+        }])),
       },
       layers: [
         { id: "pale", type: "raster", source: "pale" },
-        { id: "photo", type: "raster", source: "photo", layout: { visibility: "none" } },
+        ...BASEMAPS.map((b) => ({ id: b.id, type: "raster" as const, source: b.id, layout: { visibility: "none" as const } })),
       ],
     },
     // 全国のデータがあるときは日本全体、東京都だけのとき（プレビュー用の公開版など）は区部・多摩
@@ -467,7 +479,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     renderAreaChip();
   }
 
-  // 点レイヤー（駅・学校・地価公示・認可保育所）。オンにしたときだけ読み込む
+  // 点レイヤー（駅・学校・地価公示・都道府県地価調査・認可保育所）。オンにしたときだけ読み込む
   const pickEl = $("#pick-detail");
   const pointOptions = (toggle: string, legendSel: string, panel: string) => ({
     map, fetchJSON, sources, beforeLayer: "area-label", labelFont: LABEL_FONT,
@@ -478,7 +490,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const pointLayers: PointLayer[] = [
     initStations(pointOptions("#stations-toggle", "#stations-legend", "#station-detail")),
     initSchools(pointOptions("#schools-toggle", "#schools-legend", "#school-detail")),
-    initLandPrices(pointOptions("#land-toggle", "#land-legend", "#land-detail")),
+    initLandPrices({ kind: "land_price", ...pointOptions("#land-toggle", "#land-legend", "#land-detail") }),
+    initLandPrices({ kind: "land_survey_price",
+      ...pointOptions("#landsurvey-toggle", "#landsurvey-legend", "#landsurvey-detail") }),
     initNurseries(pointOptions("#nursery-toggle", "#nursery-legend", "#nursery-detail")),
   ];
   // 地点の情報を出している間は、地域の情報を隠す（直前にクリックしたものだけを出す）
@@ -625,13 +639,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         const sign = shown === 0 ? "±" : diff > 0 ? "+" : "−";
         const amount = `${sign}${formatNumber(Math.abs(diff), indicator.digits)}`;
         // 割合（%）は差（ポイント）、人数などは差と増減率
-        const text = indicator.unit === "%" ? `${amount}ポイント`
-          : prev ? `${amount}（${sign}${formatNumber(Math.abs(diff / prev) * 100, 1)}%）` : amount;
-        change = esc(text);
+        // 欄が狭いときは増減率を次の行に回す（1920年からの人口など、桁の大きい差で表がはみ出さないように）
+        change = indicator.unit === "%" ? esc(`${amount}ポイント`)
+          : prev ? `<span>${esc(amount)}</span><wbr><span>（${sign}${formatNumber(Math.abs(diff / prev) * 100, 1)}%）</span>`
+          : esc(amount);
       }
       prev = v;
       return `<tr${p.period === period ? ' aria-current="true"' : ""}><td>${esc(shortLabel(p.label))}</td>
-        <td class="num">${esc(formatValue(row, indicator))}</td>${withChange ? `<td class="num">${change}</td>` : ""}</tr>`;
+        <td class="num">${esc(formatValue(row, indicator))}</td>${withChange ? `<td class="num change">${change}</td>` : ""}</tr>`;
     }).join("");
     const note = rows.find(({ row }) => row?.status === "not_applicable")?.row?.note;
     return `<table class="trend"><caption>推移</caption>
@@ -920,9 +935,15 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     periodRange.disabled = ps.length < 2;
     playButton.disabled = ps.length < 2;
     periodTicks.innerHTML = ps.length < 2 ? "" : ps
-      // 時点が多いとき（犯罪の年ごとなど）は「’19」のように短くして1行に収める
-      .map((p, i) => `<span data-i="${i}"${p.period === period ? ' aria-current="true"' : ""} title="${esc(p.label)}">${
-        esc(ps.length > 4 ? shortLabel(p.label).replace(/^\d{2}(\d{2})年$/, "’$1") : shortLabel(p.label))}</span>`)
+      // 時点が多いとき（犯罪の年ごとなど）は「’19」のように短くして1行に収める。
+      // さらに多いとき（1920年からの人口など）は間引いて、端と一定間隔の時点だけ文字を出す
+      .map((p, i) => {
+        const step = ps.length > 12 ? Math.ceil(ps.length / 6) : 1;
+        const shown = i === ps.length - 1 || (i % step === 0 && ps.length - 1 - i >= step / 2);
+        const text = ps.length > 4 ? shortLabel(p.label).replace(/^\d{2}(\d{2})年$/, "’$1") : shortLabel(p.label);
+        return `<span data-i="${i}"${p.period === period ? ' aria-current="true"' : ""} title="${esc(p.label)}">${
+          shown ? esc(step > 1 ? shortLabel(p.label).replace(/年$/, "") : text) : ""}</span>`;
+      })
       .join("");
     periodLabel.value = periodInfo().label;
     periodNote.hidden = ps.length > 1;
@@ -1023,12 +1044,22 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   // --- 背景・範囲・現在地 -------------------------------------------------------------
-  const baseToggle = $<HTMLInputElement>("#basemap-toggle");
-  baseToggle.addEventListener("change", () => {
-    const photo = baseToggle.checked;
-    map.setLayoutProperty("photo", "visibility", photo ? "visible" : "none");
-    map.setLayoutProperty("pale", "visibility", photo ? "none" : "visible");
-  });
+  const baseSelect = $<HTMLSelectElement>("#basemap-select");
+  const baseNote = $<HTMLElement>("#basemap-note");
+  baseSelect.innerHTML = '<option value="pale">地図（淡色）</option>' +
+    BASEMAPS.map((b) => `<option value="${b.id}">${esc(b.label)}</option>`).join("");
+  function syncBasemap() {
+    const chosen = BASEMAPS.find((b) => b.id === baseSelect.value);
+    for (const b of BASEMAPS) map.setLayoutProperty(b.id, "visibility", b === chosen ? "visible" : "none");
+    // 年代別の写真は拡大したときだけ出る。撮られていない地域もあり、そこは淡色地図のまま
+    const zoomIn = chosen && map.getZoom() < chosen.minzoom;
+    baseNote.hidden = !chosen || chosen.id === "photo";
+    baseNote.textContent = !chosen ? "" : zoomIn ? "拡大すると表示されます。"
+      : chosen.id === "relief" ? "標高が高いほど茶色、低いほど青く表示します。"
+      : "撮影されていない地域は地図のまま表示します。";
+  }
+  baseSelect.addEventListener("change", syncBasemap);
+  map.on("zoomend", () => { if (!baseNote.hidden) syncBasemap(); });
   // 色分けを消して、背景地図と地名・数値だけで見る（地域のクリックはそのまま使える）
   colorsToggle.addEventListener("change", () => {
     const on = colorsToggle.checked;
@@ -1039,7 +1070,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     // 色分けを消したときは背景地図の彩度を落とし、駅・学校などの点や文字と混ざらないようにする
     map.setPaintProperty("pale", "raster-saturation", on ? 0 : -1);
     map.setPaintProperty("pale", "raster-contrast", on ? 0 : -0.15);
-    map.setPaintProperty("photo", "raster-saturation", on ? 0 : -0.8);
+    for (const b of BASEMAPS) map.setPaintProperty(b.id, "raster-saturation", on ? 0 : -0.8);
   });
   const labelsToggle = $<HTMLInputElement>("#labels-toggle");
   labelsToggle.addEventListener("change", () => {

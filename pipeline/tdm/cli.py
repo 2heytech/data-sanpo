@@ -27,7 +27,9 @@ from .db import (connect, create_secondary_indexes, drop_secondary_indexes, init
 from .derive import derive_change, derive_density, derive_multi_year_sum, derive_rate
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
-from .ingest import (estat_boundary, estat_census_municipal, estat_foreign, estat_school_basic, estat_small_area,
+from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
+                     estat_economic_census, estat_school_basic,
+                     estat_small_area, mhlw_vital,
                      keishicho_crime, mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
                      npa_traffic, soumu_furusato, soumu_tax, tokyo_childcare, tokyo_daytime, tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
@@ -155,7 +157,9 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "soumu_tax", "tokyo_childcare", "tokyo_street_trees", "tokyo_election",
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
                         "nier_gakuryoku", "estat_school_basic", "mlit_schools", "mlit_nurseries",
-                        "soumu_juki_foreign", "moj_zairyu_foreign"):
+                        "soumu_juki_foreign", "moj_zairyu_foreign", "estat_housing_income",
+                        "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
+                        "estat_economic_census", "mlit_landsurvey"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -192,6 +196,28 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "moj_zairyu_foreign":
             result[key] = estat_foreign.ingest_zairyu(conn, files[0], src, catalog,
                                                       (cfg["period"], cfg["period"], "point"), cfg.get("sheet"))
+        elif kind == "estat_housing_income":
+            result[key] = estat_housing.ingest_income(conn, files[0], src, catalog,
+                                                      (cfg["period"], cfg["period"], "point"))
+        elif kind == "estat_housing_stock":
+            result[key] = estat_housing.ingest_stock(conn, files[0], src, catalog,
+                                                     (cfg["period"], cfg["period"], "point"))
+        elif kind == "estat_economic_census":
+            result[key] = estat_economic_census.ingest(conn, files, src, catalog,
+                                                       (cfg["period"], cfg["period"], "point"),
+                                                       boundary_version, cfg.get("encoding", "cp932"))
+        elif kind == "estat_census_history":
+            result[key] = estat_census_history.ingest(conn, files[0], src, catalog)
+        elif kind == "mhlw_tfr":
+            # ベイズ推定の合計特殊出生率は5年分の出生をまとめた1つの値。multi_year（年計の合計）とは違い、
+            # スライドバーの時点として並べたいので年の時点として扱い、表示名は period_labels で付ける
+            result[key] = mhlw_vital.ingest_tfr(conn, files[0], src, catalog,
+                                                (f"{cfg['first_year']}-01-01", f"{cfg['last_year']}-12-31",
+                                                 "calendar_year"))
+        elif kind == "mhlw_life_table":
+            y = cfg["year"]
+            result[key] = mhlw_vital.ingest_life_table(conn, files[0], src, catalog,
+                                                       (f"{y}-01-01", f"{y}-12-31", "calendar_year"))
         elif kind == "tokyo_street_trees":
             tree_files.append((src, files[0], cfg.get("encoding", "cp932"), cfg["period"]))
         elif kind == "tokyo_nurseries":
@@ -218,7 +244,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = soumu_tax.ingest(conn, files[0], src, catalog,
                                            (f"{y}-04-01", f"{y + 1}-03-31", "fiscal_year"),
                                            source_prefectures(cfg, prefs))
-        elif kind == "mlit_landprice":
+        elif kind in ("mlit_landprice", "mlit_landsurvey"):   # 地価公示（L01）・都道府県地価調査（L02）
             for indicator_id, d in catalog.items():
                 if d.get("source_kind") == kind:
                     for f in files:   # 都道府県ごとのファイル
