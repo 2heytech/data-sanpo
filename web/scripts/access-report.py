@@ -20,11 +20,13 @@ JST = timezone(timedelta(hours=9))
 API = "https://api.cloudflare.com/client/v4"
 
 # 「変化」とみなす目安
+# Web Analytics の数は抜き取り調査からの推計で、訪問が少ないうちは10単位で揺れるので、
+# 増減はページビューで見て、少ない日の揺れを拾わないよう下限を置く。
 RATIO_UP = 2.0  # 前7日平均の2倍以上
 RATIO_DOWN = 0.5  # 前7日平均の半分以下
-MIN_VISITS = 20  # 前日か前7日平均のどちらかがこれ以上のときだけ増減を見る（少ない日の揺れを拾わない）
-NEW_COUNTRY_MIN = 5  # 前7日に無かった国が前日にこの訪問数以上
-NEW_REFERER_MIN = 3  # 前7日に無かった参照元が前日にこの訪問数以上
+MIN_VIEWS = 100  # 前日か前7日平均のどちらかがこれ以上のときだけ増減を見る
+NEW_COUNTRY_MIN = 30  # 前7日に無かった国が前日にこのページビュー以上
+NEW_REFERER_MIN = 10  # 前7日に無かった参照元が前日にこの訪問数以上
 REQ_RATIO_UP = 3.0  # リクエスト数（ボットを含む）が前7日平均の3倍以上
 REQ_MIN = 5000
 
@@ -109,7 +111,7 @@ def main() -> None:
         v = r["sum"]["visits"]
         visits[d] += v
         views[d] += r["count"]
-        country[d][r["dimensions"]["countryName"] or "不明"] += v
+        country[d][r["dimensions"]["countryName"] or "不明"] += r["count"]
         ref = (r["dimensions"]["refererHost"] or "").lower()
         if ref and not ref.endswith(HOST):
             referer[d][ref] += v
@@ -131,9 +133,9 @@ def main() -> None:
         note = f"リクエスト数は取得できませんでした（{str(e)[:120]}）。"
 
     alerts: list[dict] = []
-    base_visits = sum(visits[d] for d in prev) / len(prev)
-    if (k := changed(visits[target], base_visits, MIN_VISITS, RATIO_UP, RATIO_DOWN)):
-        alerts.append({"kind": f"visits_{k}", "day": target, "value": visits[target], "prev_avg": round(base_visits, 1)})
+    base_views = sum(views[d] for d in prev) / len(prev)
+    if (k := changed(views[target], base_views, MIN_VIEWS, RATIO_UP, RATIO_DOWN)):
+        alerts.append({"kind": f"pageviews_{k}", "day": target, "value": views[target], "prev_avg": round(base_views, 1)})
     seen_c = {c for d in prev for c in country[d]}
     for c, v in sorted(country[target].items(), key=lambda kv: -kv[1]):
         if c not in seen_c and v >= NEW_COUNTRY_MIN:
@@ -162,8 +164,9 @@ def main() -> None:
             print(f"| {d} | {requests[d]:,.0f} |")
     if note:
         print(f"\n{note}")
-    print(f"\n前日（{target}）の目立つ変化: {len(alerts)} 件")
-    print("\nALERTS_JSON: " + json.dumps({"day": target, "visits": visits[target], "prev_avg": round(base_visits, 1),
+    print(f"\n前日（{target}）の目立つ変化: {len(alerts)} 件（数は抜き取りからの推計）")
+    print("\nALERTS_JSON: " + json.dumps({"day": target, "visits": visits[target], "pageviews": views[target],
+                                         "prev_avg_pageviews": round(base_views, 1),
                                          "alerts": alerts}, ensure_ascii=False))
 
 
