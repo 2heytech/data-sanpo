@@ -1457,6 +1457,12 @@ def test_economic_census_matches_town_names(built):
     assert areas["area-13199001002"]["value"] == 15
     other = areas["area-13199001003"]
     assert other["value"] is None and "対応付けられない" in other["note"]   # 0にしない
+    # 丁目に分かれていない町には、丁目の行を合計する
+    t = {r["entity_id"]: r for r in load(built, "values/establishments/2021-06-01/13299.json")["rows"]}
+    assert t["area-13299090000"]["value"] == 3
+    from tdm.ingest.estat_economic_census import town_key
+    assert town_key("北三条東１５丁目") == town_key("北3条東15丁目")
+    assert town_key("浅香山町１丁") == town_key("浅香山町一丁") and town_key("海澤") == town_key("海沢")
 
 
 def test_land_survey_points(built):
