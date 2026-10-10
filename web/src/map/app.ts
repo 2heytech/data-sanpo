@@ -40,15 +40,32 @@ const GSI_ATTRIBUTION =
 // 背景に切り替えられる地理院タイル（淡色地図はいつも下に敷き、写真が撮られていない場所や縮小時はそれが見える）。
 // 年代別の空中写真は拡大しないと出ない（minzoom）。色別標高図は z15 まで
 const GSI_TILE = (path: string) => `https://cyberjapandata.gsi.go.jp/xyz/${path}/{z}/{x}/{y}`;
+// 航空写真は撮影年代をスライドバーで選ぶ（古い順）。2007年度以降は年度ごとに撮影した地域の写真
+// （年度別空中写真）で、どの年度も国土の一部だけ。1979〜1990年の国土画像情報も主に都市部だけ。
+// 1991〜2006年は地理院タイルの写真がない
+const NENDO_FIRST = 2007;
+const NENDO_LAST = 2025;
+export const PHOTO_ERAS = [
+  { id: "photo1928", label: "1928年頃", path: "ort_1928", ext: "png", minzoom: 13, maxzoom: 18 },
+  { id: "photo1936", label: "1936〜1942年頃", path: "ort_riku10", ext: "png", minzoom: 13, maxzoom: 18 },
+  { id: "photo1945", label: "1945〜1950年", path: "ort_USA10", ext: "png", minzoom: 10, maxzoom: 17 },
+  { id: "photo1961", label: "1961〜1969年", path: "ort_old10", ext: "png", minzoom: 10, maxzoom: 17 },
+  { id: "photo1974", label: "1974〜1978年", path: "gazo1", ext: "jpg", minzoom: 10, maxzoom: 17 },
+  { id: "photo1979", label: "1979〜1983年", path: "gazo2", ext: "jpg", minzoom: 10, maxzoom: 17 },
+  { id: "photo1984", label: "1984〜1986年", path: "gazo3", ext: "jpg", minzoom: 10, maxzoom: 17 },
+  { id: "photo1987", label: "1987〜1990年", path: "gazo4", ext: "jpg", minzoom: 10, maxzoom: 17 },
+  ...Array.from({ length: NENDO_LAST - NENDO_FIRST + 1 }, (_, i) => NENDO_FIRST + i).map((y) => (
+    { id: `photo${y}n`, label: `${y}年度`, path: `nendophoto${y}`, ext: "png", minzoom: 14, maxzoom: 18 })),
+  { id: "photo", label: "最新", path: "seamlessphoto", ext: "jpg", minzoom: 2, maxzoom: 18 },
+].map((e) => ({ ...e, tiles: GSI_TILE(e.path) + "." + e.ext }));
 export const BASEMAPS = [
-  { id: "photo", label: "航空写真（最新）", tiles: GSI_TILE("seamlessphoto") + ".jpg", minzoom: 2, maxzoom: 18 },
-  { id: "photo1974", label: "航空写真（1974〜1978年）", tiles: GSI_TILE("gazo1") + ".jpg", minzoom: 10, maxzoom: 17 },
-  { id: "photo1961", label: "航空写真（1961〜1969年）", tiles: GSI_TILE("ort_old10") + ".png", minzoom: 10, maxzoom: 17 },
-  { id: "photo1945", label: "航空写真（1945〜1950年）", tiles: GSI_TILE("ort_USA10") + ".png", minzoom: 10, maxzoom: 17 },
+  ...PHOTO_ERAS,
   // 色別標高図は海域部に海上保安庁の資料を使っており、その旨の記載が必要
   { id: "relief", label: "標高（色別標高図）", tiles: GSI_TILE("relief") + ".png", minzoom: 5, maxzoom: 15,
     note: "（海域部は海上保安庁海洋情報部の資料を使用して作成）" },
-] as const;
+];
+// 撮影されているかを確かめるときのズーム（どの年代のタイルもこのズームを持つ）
+const PHOTO_PROBE_ZOOM = 14;
 
 const PRESETS: Record<string, LngLatBoundsLike> = {
   japan: [128.0, 30.0, 146.0, 45.6],
@@ -1046,20 +1063,81 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   // --- 背景・範囲・現在地 -------------------------------------------------------------
   const baseSelect = $<HTMLSelectElement>("#basemap-select");
   const baseNote = $<HTMLElement>("#basemap-note");
-  baseSelect.innerHTML = '<option value="pale">地図（淡色）</option>' +
-    BASEMAPS.map((b) => `<option value="${b.id}">${esc(b.label)}</option>`).join("");
+  const photoWrap = $<HTMLElement>("#photo-era");
+  const photoRange = $<HTMLInputElement>("#photo-era-range");
+  const photoLabel = $<HTMLOutputElement>("#photo-era-label");
+  const photoEnds = $<HTMLElement>("#photo-era-ends");
+  baseSelect.innerHTML = '<option value="pale">地図（淡色）</option><option value="photo">航空写真</option>' +
+    '<option value="relief">標高（色別標高図）</option>';
+  // 地図の中心で撮影されている年代だけをスライドバーに並べる（中心のタイルがあるかで判断し、結果は覚えておく）
+  const photoTileCache = new Map<string, Promise<boolean>>();
+  let photoEras: typeof PHOTO_ERAS = PHOTO_ERAS.filter((e) => e.id === "photo");
+  let photoEraId = "photo";
+  let photoChecked = false;   // 縮小したまま航空写真を選んだときは、拡大するまで確かめない
+  function hasPhotoTile(era: (typeof PHOTO_ERAS)[number], x: number, y: number): Promise<boolean> {
+    const key = `${era.path}/${x}/${y}`;
+    let p = photoTileCache.get(key);
+    if (!p) {
+      const url = era.tiles.replace("{z}", String(PHOTO_PROBE_ZOOM)).replace("{x}", String(x)).replace("{y}", String(y));
+      p = fetch(url).then((r) => r.ok).catch(() => false);
+      photoTileCache.set(key, p);
+    }
+    return p;
+  }
+  let photoCheck = 0;
+  async function refreshPhotoEras() {
+    if (baseSelect.value !== "photo" || map.getZoom() < 10) return;   // 縮小しているときは前の結果のまま
+    const { lng, lat } = map.getCenter();
+    const n = 2 ** PHOTO_PROBE_ZOOM;
+    const x = Math.floor((lng + 180) / 360 * n);
+    const r = (lat * Math.PI) / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n);
+    const check = ++photoCheck;
+    const found = await Promise.all(PHOTO_ERAS.map((e) => e.id === "photo" ? true : hasPhotoTile(e, x, y)));
+    if (check !== photoCheck || baseSelect.value !== "photo") return;   // 確かめている間に地図が動いた
+    photoEras = PHOTO_ERAS.filter((_, i) => found[i]);
+    photoChecked = true;
+    // 選んでいた年代がこの場所にないときは、いちばん近い年代にする
+    if (!photoEras.some((e) => e.id === photoEraId)) {
+      const want = PHOTO_ERAS.findIndex((e) => e.id === photoEraId);
+      photoEraId = photoEras.reduce((best, e) => Math.abs(PHOTO_ERAS.indexOf(e) - want)
+        < Math.abs(PHOTO_ERAS.indexOf(best) - want) ? e : best).id;
+    }
+    syncBasemap();
+  }
+  function chosenBasemap() {
+    return baseSelect.value === "photo" ? PHOTO_ERAS.find((e) => e.id === photoEraId)
+      : BASEMAPS.find((b) => b.id === baseSelect.value);
+  }
   function syncBasemap() {
-    const chosen = BASEMAPS.find((b) => b.id === baseSelect.value);
+    const chosen = chosenBasemap();
     for (const b of BASEMAPS) map.setLayoutProperty(b.id, "visibility", b === chosen ? "visible" : "none");
+    const photo = baseSelect.value === "photo";
+    photoWrap.hidden = !photo;
+    if (photo) {
+      photoRange.max = String(photoEras.length - 1);
+      photoRange.value = String(Math.max(0, photoEras.findIndex((e) => e.id === photoEraId)));
+      photoRange.disabled = photoEras.length < 2;
+      photoLabel.value = chosen ? chosen.label : "";
+      photoEnds.innerHTML = photoEras.length < 2 ? ""
+        : `<span>${esc(photoEras[0].label)}</span><span>${esc(photoEras[photoEras.length - 1].label)}</span>`;
+    }
     // 年代別の写真は拡大したときだけ出る。撮られていない地域もあり、そこは淡色地図のまま
     const zoomIn = chosen && map.getZoom() < chosen.minzoom;
-    baseNote.hidden = !chosen || chosen.id === "photo";
+    baseNote.hidden = !chosen || (chosen.id === "photo" && photoEras.length > 1);
     baseNote.textContent = !chosen ? "" : zoomIn ? "拡大すると表示されます。"
       : chosen.id === "relief" ? "標高が高いほど茶色、低いほど青く表示します。"
-      : "撮影されていない地域は地図のまま表示します。";
+      : chosen.id === "photo" ? (photoChecked ? "この場所の昔の写真は見つかりませんでした。"
+        : map.getZoom() < 10 ? "拡大すると、昔の写真を年代を選んで見られます。" : "この場所の写真の年代を確かめています。")
+      : "地図の中心で撮影されている年代を並べています。撮影されていない地域は地図のまま表示します。";
   }
-  baseSelect.addEventListener("change", syncBasemap);
-  map.on("zoomend", () => { if (!baseNote.hidden) syncBasemap(); });
+  baseSelect.addEventListener("change", () => { syncBasemap(); refreshPhotoEras(); });
+  photoRange.addEventListener("input", () => {
+    photoEraId = photoEras[Number(photoRange.value)]?.id ?? "photo";
+    syncBasemap();
+  });
+  map.on("zoomend", () => { if (baseSelect.value !== "pale") syncBasemap(); });
+  map.on("moveend", () => refreshPhotoEras());
   // 色分けを消して、背景地図と地名・数値だけで見る（地域のクリックはそのまま使える）
   colorsToggle.addEventListener("change", () => {
     const on = colorsToggle.checked;
