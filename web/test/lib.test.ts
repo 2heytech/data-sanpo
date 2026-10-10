@@ -159,11 +159,26 @@ describe("labels", () => {
   it("広い地域ほど、長い名前ほど小さく収まる大きさになる", async () => {
     const { labelFit } = await import("../src/lib/labels");
     const box: [number, number, number, number] = [139.7, 35.6, 139.8, 35.7];
-    const wide = labelFit({ name: "千代田区", bbox: box }, "");
-    expect(labelFit({ name: "千代田区", bbox: [139.7, 35.6, 139.9, 35.8] }, "")).toBeGreaterThan(wide);
-    expect(labelFit({ name: "千代田区千代田", bbox: box }, "")).toBeLessThan(wide);
+    const wide = labelFit({ name: "千代田区", bbox: box }, null);
+    expect(labelFit({ name: "千代田区", bbox: [139.7, 35.6, 139.9, 35.8] }, null)).toBeGreaterThan(wide);
+    expect(labelFit({ name: "千代田区千代田", bbox: box }, null)).toBeLessThan(wide);
     expect(labelFit({ name: "千代田区", bbox: box }, "12,345 人")).toBeLessThan(wide);   // 2行分の高さ
-    expect(labelFit({ name: "x" }, "")).toBe(0);
+    // 値を出すときは、値のない地域も2行分で計算する
+    const flat: [number, number, number, number] = [139, 35.6, 141, 35.7];
+    expect(labelFit({ name: "千代田区", bbox: flat }, "")).toBeLessThan(labelFit({ name: "千代田区", bbox: flat }, null));
+    expect(labelFit({ name: "x" }, null)).toBe(0);
+  });
+
+  it("balancedFits / mainPartBbox", async () => {
+    const { balancedFits, mainPartBbox } = await import("../src/lib/labels");
+    // 中央値に半分寄せる（幾何平均）
+    expect(balancedFits([1, 4, 16])).toEqual([2, 4, 8]);
+    expect(balancedFits([0, 4])).toEqual([0, 4]);
+    // 離れた小さい島は範囲に入れない
+    const sq = (x: number, y: number, d: number) => [[[x, y], [x + d, y], [x + d, y + d], [x, y + d], [x, y]]];
+    expect(mainPartBbox({ type: "MultiPolygon", coordinates: [sq(142, 26, 0.1), sq(139, 35.5, 1)] })).toEqual([139, 35.5, 140, 36.5]);
+    expect(mainPartBbox({ type: "Polygon", coordinates: sq(1, 2, 3) })).toEqual([1, 2, 4, 5]);
+    expect(mainPartBbox(null)).toBeUndefined();
   });
   it("文字の大きさは最小〜最大の間で、1ズームごとに区切る", async () => {
     const { growingTextSize } = await import("../src/lib/labels");
