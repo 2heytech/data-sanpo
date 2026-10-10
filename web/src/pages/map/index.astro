@@ -30,7 +30,7 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
           <output id="period-label" for="period-range"></output>
         </div>
         <div class="period-control">
-          <button type="button" id="period-play" aria-pressed="false" aria-label="時点を順に再生">▶</button>
+          <button type="button" id="period-play" class="play-button" aria-pressed="false" aria-label="時点を順に再生">▶</button>
           <input id="period-range" type="range" min="0" max="0" step="1" value="0" />
         </div>
         <div id="period-ticks" class="period-ticks" aria-hidden="true"></div>
@@ -67,7 +67,10 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
             <label for="photo-era-range">撮影年代</label>
             <output id="photo-era-label" for="photo-era-range"></output>
           </div>
-          <input id="photo-era-range" type="range" min="0" max="0" step="1" value="0" />
+          <div class="period-control">
+            <button type="button" id="photo-era-play" class="play-button" aria-pressed="false" aria-label="撮影年代を順に再生">▶</button>
+            <input id="photo-era-range" type="range" min="0" max="0" step="1" value="0" />
+          </div>
           <div id="photo-era-ends" class="photo-era-ends muted small" aria-hidden="true"></div>
         </div>
         <p id="basemap-note" class="muted small" hidden></p>
@@ -176,17 +179,16 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
   #period-label { font-weight: 700; font-variant-numeric: tabular-nums; }
   .period-control { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
   .period-control input { flex: 1; accent-color: var(--accent); }
-  #period-play {
+  .play-button {
     flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line);
     background: var(--surface); cursor: pointer; font-size: 0.8rem;
   }
-  #period-play[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
-  #period-play:disabled { opacity: 0.4; cursor: default; }
+  .play-button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .play-button:disabled { opacity: 0.4; cursor: default; }
   .period-ticks { display: flex; justify-content: space-between; margin-left: 40px; font-size: 0.8rem; color: var(--muted); }
   .period-ticks span { cursor: pointer; }
   .photo-era { display: grid; gap: 2px; }
-  .photo-era input { width: 100%; }
-  .photo-era-ends { display: flex; justify-content: space-between; }
+  .photo-era-ends { display: flex; justify-content: space-between; margin-left: 40px; }
   .period-ticks span[aria-current="true"] { color: var(--fg); font-weight: 700; }
   .search { position: relative; }
   #search-results {

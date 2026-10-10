@@ -1,4 +1,4 @@
-// 地図の地名の文字の大きさ（docs/design-changes.md #88）
+// 地図の地名の文字の大きさ（docs/design-changes.md #89）
 
 export type LabelItem = { name: string; bbox?: [number, number, number, number] };
 

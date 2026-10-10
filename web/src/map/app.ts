@@ -34,6 +34,7 @@ const LOCAL_FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Meiryo", s
 const AREA_LABEL_ZOOM = AREA_ZOOM; // 町丁目名はこれ以上で表示（狭い範囲に多数あるため）
 const MUNI_LABEL_ZOOM = PREF_ZOOM; // 市区町村名はこれ以上で表示
 const PLAY_INTERVAL_MS = 1600;
+const PHOTO_PLAY_INTERVAL_MS = 2500; // 航空写真は読み込みに時間がかかるので、指標の再生より長めに見せる
 const MUNI_OPACITY = 0.72;
 const AREA_OPACITY = 0.68;
 const GSI_ATTRIBUTION =
@@ -1078,6 +1079,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const photoRange = $<HTMLInputElement>("#photo-era-range");
   const photoLabel = $<HTMLOutputElement>("#photo-era-label");
   const photoEnds = $<HTMLElement>("#photo-era-ends");
+  const photoPlay = $<HTMLButtonElement>("#photo-era-play");
   baseSelect.innerHTML = '<option value="pale">地図（淡色）</option><option value="photo">航空写真</option>' +
     '<option value="relief">標高（色別標高図）</option>';
   // 地図の中心で撮影されている年代だけをスライドバーに並べる（中心のタイルがあるかで判断し、結果は覚えておく）
@@ -1129,6 +1131,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       photoRange.max = String(photoEras.length - 1);
       photoRange.value = String(Math.max(0, photoEras.findIndex((e) => e.id === photoEraId)));
       photoRange.disabled = photoEras.length < 2;
+      photoPlay.disabled = photoEras.length < 2;
       photoLabel.value = chosen ? chosen.label : "";
       photoEnds.innerHTML = photoEras.length < 2 ? ""
         : `<span>${esc(photoEras[0].label)}</span><span>${esc(photoEras[photoEras.length - 1].label)}</span>`;
@@ -1142,10 +1145,32 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         : map.getZoom() < 10 ? "拡大すると、昔の写真を年代を選んで見られます。" : "この場所の写真の年代を確かめています。")
       : "地図の中心で撮影されている年代を並べています。撮影されていない地域は地図のまま表示します。";
   }
-  baseSelect.addEventListener("change", () => { syncBasemap(); refreshPhotoEras(); });
+  baseSelect.addEventListener("change", () => { stopPhotoPlay(); syncBasemap(); refreshPhotoEras(); });
   photoRange.addEventListener("input", () => {
+    stopPhotoPlay();
     photoEraId = photoEras[Number(photoRange.value)]?.id ?? "photo";
     syncBasemap();
+  });
+  // 再生: この場所で撮影されている年代を古い順に送り、最新まで来たら止める（途中で地図を動かしてもよい）
+  let photoTimer: number | undefined;
+  function stopPhotoPlay() {
+    clearInterval(photoTimer);
+    photoTimer = undefined;
+    photoPlay.setAttribute("aria-pressed", "false");
+    photoPlay.textContent = "▶";
+  }
+  photoPlay.addEventListener("click", () => {
+    if (photoTimer !== undefined) return stopPhotoPlay();
+    photoPlay.setAttribute("aria-pressed", "true");
+    photoPlay.textContent = "■";
+    photoEraId = photoEras[0].id;
+    syncBasemap();
+    photoTimer = window.setInterval(() => {
+      const next = photoEras[photoEras.findIndex((e) => e.id === photoEraId) + 1];
+      if (!next) return stopPhotoPlay();
+      photoEraId = next.id;
+      syncBasemap();
+    }, PHOTO_PLAY_INTERVAL_MS);
   });
   map.on("zoomend", () => { if (baseSelect.value !== "pale") syncBasemap(); });
   map.on("moveend", () => refreshPhotoEras());
