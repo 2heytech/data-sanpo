@@ -1,6 +1,16 @@
 import sys, io, zipfile, urllib.request, csv, re, unicodedata, json, collections
-sys.path.insert(0, "pipeline")
-from tdm.ingest.keishicho_crime import normalize_name
+KD = {c: i for i, c in enumerate("〇一二三四五六七八九")}
+def _kn(text):
+    if "十" in text:
+        tens, _, ones = text.partition("十")
+        return str((KD.get(tens, 1) if tens else 1) * 10 + (KD.get(ones, 0) if ones else 0))
+    return "".join(str(KD[c]) for c in text)
+def normalize_name(name):
+    s = unicodedata.normalize("NFKC", name or "")
+    s = "".join(s.split())
+    s = re.sub(r"(?<=[一-鿿])[ヶケヵが](?=[一-鿿])", "が", s)
+    s = re.sub(r"([〇一二三四五六七八九十]+)(?=丁目)", lambda m: _kn(m.group(1)), s)
+    return s
 UA = {"User-Agent": "Mozilla/5.0 data-sanpo probe"}
 def get(u): return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=300).read()
 def rows(stats, pref):
