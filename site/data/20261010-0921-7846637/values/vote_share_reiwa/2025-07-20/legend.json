@@ -1,0 +1,1 @@
+{"indicator_id":"vote_share_reiwa","period":"2025-07-20","method":"nice","scheme":"purples","zero_blank":false,"pooled_periods":2,"levels":{"municipality":{"breaks":[4.5,5.0,5.5,6.0,6.5,7.0,7.5,8.0,8.5,9.0],"min":3.47,"max":9.714,"count":62},"prefecture":{"breaks":[5.5,5.6,5.8,6.0,6.1,6.2,6.4,6.5,6.7,6.8,7.0],"min":5.329,"max":5.329,"count":1}}}

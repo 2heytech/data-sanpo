@@ -1,0 +1,1 @@
+{"schema_version":"1.0","release_id":"20261010-0921-7846637","indicator_id":"voter_turnout","period":"2024-07-07","level":"prefecture","unit":"%","boundary_version":"census2020","rows":[{"entity_id":"pref-13","value":60.616,"status":"derived","numerator":6879502.0,"denominator":11349278.0,"note":"市区町村の分子・分母を合計して計算"}]}

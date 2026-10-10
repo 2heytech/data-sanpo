@@ -1,0 +1,1 @@
+{"schema_version":"1.0","release_id":"20261010-0921-7846637","indicator_id":"traffic_accidents_bicycle_per_100_daytime","period":"2020-01-01","level":"prefecture","unit":"件/100人","boundary_version":"census2020","rows":[{"entity_id":"pref-13","value":0.06379,"status":"derived","numerator":10408.0,"denominator":16315279.0,"note":"市区町村の分子・分母を合計して計算"}]}

@@ -1,0 +1,1 @@
+{"indicator_id":"traffic_accidents_pedestrian_per_100_daytime","period":"2021-2025","method":"nice","scheme":"oranges","zero_blank":true,"pooled_periods":1,"levels":{"municipality":{"breaks":[0.05,0.075,0.1,0.125,0.15,0.175,0.2,0.225,0.25,0.275],"min":0.0,"max":0.29842,"count":62},"prefecture":{"breaks":[],"min":0.15212,"max":0.15212,"count":1}}}

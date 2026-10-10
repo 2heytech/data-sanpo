@@ -1,0 +1,1 @@
+{"indicator_id":"vote_share_reiwa","period":"2024-10-27","method":"nice","scheme":"purples","zero_blank":false,"pooled_periods":2,"levels":{"municipality":{"breaks":[4.5,5.0,5.5,6.0,6.5,7.0,7.5,8.0,8.5,9.0],"min":5.148,"max":12.457,"count":62},"prefecture":{"breaks":[5.5,5.6,5.8,6.0,6.1,6.2,6.4,6.5,6.7,6.8,7.0],"min":7.125,"max":7.125,"count":1}}}

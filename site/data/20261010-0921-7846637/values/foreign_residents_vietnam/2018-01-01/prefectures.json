@@ -1,0 +1,1 @@
+{"schema_version":"1.0","release_id":"20261010-0921-7846637","indicator_id":"foreign_residents_vietnam","period":"2018-01-01","level":"prefecture","unit":"人","boundary_version":"census2020","rows":[{"entity_id":"pref-13","value":null,"status":"missing","note":"値のない市区町村があるため、都道府県の値は出していません"}]}

@@ -1,0 +1,1 @@
+{"indicator_id":"vote_share_cdp","period":"2024-10-27","method":"nice","scheme":"purples","zero_blank":false,"pooled_periods":2,"levels":{"municipality":{"breaks":[6.0,8.0,10.0,12.0,14.0,16.0,18.0,20.0,22.0,24.0,26.0],"min":10.851,"max":27.301,"count":62},"prefecture":{"breaks":[12.5,13.0,14.0,14.5,15.0,16.0,17.0,17.5,18.0,19.0,20.0],"min":20.471,"max":20.471,"count":1}}}

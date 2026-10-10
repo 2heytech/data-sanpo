@@ -1,0 +1,1 @@
+{"indicator_id":"vote_share_komeito","period":"2025-07-20","method":"nice","scheme":"purples","zero_blank":false,"pooled_periods":2,"levels":{"municipality":{"breaks":[5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0],"min":2.286,"max":15.383,"count":62},"prefecture":{"breaks":[7.8,7.9,8.0,8.1,8.2,8.4,8.5,8.6,8.7,8.8,8.9],"min":7.684,"max":7.684,"count":1}}}

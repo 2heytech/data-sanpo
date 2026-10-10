@@ -1,0 +1,1 @@
+{"indicator_id":"jhs_progress_private","period":"2025-03-31","method":"nice","scheme":"blues","zero_blank":false,"pooled_periods":1,"levels":{"municipality":{"breaks":[5.0,10.0,15.0,20.0,25.0,30.0,35.0,40.0,45.0],"min":0.0,"max":48.459,"count":59},"prefecture":{"breaks":[],"min":null,"max":null,"count":0}}}

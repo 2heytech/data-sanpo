@@ -1,0 +1,1 @@
+{"indicator_id":"vote_share_ishin","period":"2024-10-27","method":"nice","scheme":"purples","zero_blank":false,"pooled_periods":2,"levels":{"municipality":{"breaks":[4.5,5.0,5.5,6.0,6.5,7.0,7.5,8.0,8.5,9.0,9.5],"min":5.186,"max":11.856,"count":62},"prefecture":{"breaks":[5.8,6.0,6.3,6.5,6.7,6.9,7.0,7.3,7.5,7.7,8.0],"min":8.146,"max":8.146,"count":1}}}

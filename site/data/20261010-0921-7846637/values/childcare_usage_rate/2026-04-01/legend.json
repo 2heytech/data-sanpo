@@ -1,0 +1,1 @@
+{"indicator_id":"childcare_usage_rate","period":"2026-04-01","method":"nice","scheme":"blues","zero_blank":false,"pooled_periods":6,"levels":{"municipality":{"breaks":[47.5,50.0,52.5,55.0,57.5,60.0,62.5,65.0,67.5,70.0,72.5],"min":9.091,"max":140.0,"count":62},"prefecture":{"breaks":[53.0,54.0,55.0,56.0,57.0,58.0,59.0,60.0,61.0,62.0,63.0],"min":63.185,"max":63.185,"count":1}}}

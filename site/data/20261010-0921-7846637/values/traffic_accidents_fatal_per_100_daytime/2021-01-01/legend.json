@@ -1,0 +1,1 @@
+{"indicator_id":"traffic_accidents_fatal_per_100_daytime","period":"2021-01-01","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":7,"levels":{"municipality":{"breaks":[0.001,0.002,0.005,0.006,0.01,0.02,0.03,0.04,0.043,0.05],"min":0.0,"max":0.00445,"count":62},"prefecture":{"breaks":[0.00081],"min":0.0008,"max":0.0008,"count":1}}}

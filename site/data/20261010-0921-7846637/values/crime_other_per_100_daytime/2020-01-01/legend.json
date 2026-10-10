@@ -1,0 +1,1 @@
+{"indicator_id":"crime_other_per_100_daytime","period":"2020-01-01","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":7,"levels":{"municipality":{"breaks":[0.08,0.1,0.11,0.12,0.13,0.14,0.15,0.17,0.2,0.22,0.3],"min":0.0,"max":0.1875,"count":62},"prefecture":{"breaks":[0.12,0.13,0.14,0.15],"min":0.1236,"max":0.1236,"count":1}}}

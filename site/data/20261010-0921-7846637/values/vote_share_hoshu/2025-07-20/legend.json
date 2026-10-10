@@ -1,0 +1,1 @@
+{"indicator_id":"vote_share_hoshu","period":"2025-07-20","method":"nice","scheme":"purples","zero_blank":false,"pooled_periods":2,"levels":{"municipality":{"breaks":[2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5,6.0,6.5],"min":2.847,"max":7.466,"count":62},"prefecture":{"breaks":[3.5,3.7,4.0,4.2,4.5,4.7,5.0,5.2,5.5,5.6,6.0],"min":6.141,"max":6.141,"count":1}}}

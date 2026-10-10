@@ -1,0 +1,1 @@
+{"indicator_id":"vote_share_sdp","period":"2025-07-20","method":"nice","scheme":"purples","zero_blank":false,"pooled_periods":2,"levels":{"municipality":{"breaks":[1.2,1.4,1.6,1.8,2.0,2.2,2.4,2.6,2.8,3.0],"min":0.0,"max":3.627,"count":62},"prefecture":{"breaks":[],"min":2.384,"max":2.384,"count":1}}}

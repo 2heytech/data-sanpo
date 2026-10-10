@@ -1,0 +1,1 @@
+{"indicator_id":"crime_total_per_100_daytime","period":"2021-2025","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":1,"levels":{"municipality":{"breaks":[1.0,1.25,1.5,1.75,2.0,2.25,2.5,2.75,3.0,3.25,3.5],"min":0.0,"max":7.3171,"count":62},"prefecture":{"breaks":[],"min":2.6596,"max":2.6596,"count":1}}}
