@@ -6,6 +6,10 @@ on:
   schedule:
     - cron: "12 22 * * *" # 毎日 7:12（日本時間）
   workflow_dispatch:
+  pull_request: # 集計の手順を変えた PR で動作を確かめる
+    paths:
+      - .github/workflows/access-report.yml
+      - web/scripts/access-report.py
 
 permissions:
   contents: read
