@@ -15,6 +15,7 @@ import hashlib
 import io
 import json
 import re
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -103,6 +104,19 @@ def _already_fetched(dest: Path, url: str) -> list[Path] | None:
     info = json.loads(meta.read_text(encoding="utf-8"))
     files = [dest / f for f in info.get("files", [])]
     if info.get("url") == url and files and all(f.exists() for f in files):
+        return files
+    return None
+
+
+def _already_fetched_files(dest: Path, urls: dict[str, str]) -> list[Path] | None:
+    """download_files の出典で、前回すべてのファイルを同じ URL から取得していればそのファイル。"""
+    meta = dest / "_fetch.json"
+    if not meta.exists():
+        return None
+    info = json.loads(meta.read_text(encoding="utf-8"))
+    got = {d.get("file"): d.get("url") for d in info.get("downloads", [])}
+    files = [dest / name for name in urls]
+    if all(got.get(name) == url for name, url in urls.items()) and all(f.exists() for f in files):
         return files
     return None
 
@@ -311,7 +325,15 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
         return cached  # 変わらないファイル（過去の年の統計など）は取得済みのものを使う
     if not url:
         raise FetchError(f"[{key}] download_url が未設定です。手動で取得してください: {cfg['url']}")
-    data = downloader(url)
+    try:
+        data = downloader(url)
+    except (FetchError, OSError) as e:
+        # 配布元が一時的に（または GitHub Actions からの接続を）拒んだとき、前回の取得分（キャッシュ）があれば使う
+        prior = _already_fetched(dest, url)
+        if prior is None:
+            raise
+        print(f"[{key}] 取得できないため前回の取得分を使います（{e}）", file=sys.stderr)
+        return prior
     if _looks_like_html(data):
         raise FetchError(f"[{key}] ファイルではなくHTMLが返されました。URLを確認してください: {url}")
     dest.mkdir(parents=True, exist_ok=True)
@@ -338,7 +360,14 @@ def _fetch_files(key: str, urls: dict[str, str], dest: Path, downloader) -> list
     dest.mkdir(parents=True, exist_ok=True)
     files, meta = [], []
     for name, url in urls.items():
-        data = downloader(url)
+        try:
+            data = downloader(url)
+        except (FetchError, OSError) as e:
+            prior = _already_fetched_files(dest, urls)
+            if prior is None:
+                raise
+            print(f"[{key}] 取得できないため前回の取得分を使います（{e}）", file=sys.stderr)
+            return prior
         if _looks_like_html(data):
             raise FetchError(f"[{key}] {name}: ファイルではなくHTMLが返されました。URLを確認してください: {url}")
         target = dest / name

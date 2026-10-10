@@ -225,6 +225,24 @@ def test_fetch_rejects_html_and_extracts_zip(tmp_path):
         fetch_source("k", cfg, tmp_path / "c", downloader=lambda u: bad.getvalue())
 
 
+def test_fetch_falls_back_to_previous_download(tmp_path):
+    """配布元が 403 などで拒んだときは、前回の取得分があればそれを使い、なければ失敗にする。"""
+    import urllib.error
+    from tdm.fetch import fetch_source
+
+    def refuse(u):
+        raise urllib.error.HTTPError(u, 403, "Forbidden", None, None)
+    cfg = {"url": "https://example.invalid/page", "download_url": "https://example.invalid/a.csv"}
+    first = fetch_source("k", cfg, tmp_path / "a", downloader=lambda u: b"x,y\n1,2\n")
+    assert fetch_source("k", cfg, tmp_path / "a", downloader=refuse) == first
+    with pytest.raises(OSError):
+        fetch_source("k", cfg, tmp_path / "new", downloader=refuse)
+    multi = {"url": "https://example.invalid/page",
+             "download_files": {"a.csv": "https://example.invalid/a.csv", "b.csv": "https://example.invalid/b.csv"}}
+    first = fetch_source("m", multi, tmp_path / "m", downloader=lambda u: b"x,y\n1,2\n")
+    assert fetch_source("m", multi, tmp_path / "m", downloader=refuse) == first
+
+
 def test_past_census_is_overlaid_on_latest_boundaries(built):
     catalog = load(built, "indicators.json")
     pop = next(i for i in catalog["indicators"] if i["id"] == "population_total")
