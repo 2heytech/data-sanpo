@@ -58,7 +58,9 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
         <p id="land-legend" class="muted small" hidden></p>
         <label class="inline check"><input type="checkbox" id="nursery-toggle" /> 認可保育所を表示（定員）</label>
         <p id="nursery-legend" class="muted small" hidden></p>
-        <label class="inline check"><input type="checkbox" id="basemap-toggle" /> 航空写真</label>
+        <label for="basemap-select">背景</label>
+        <select id="basemap-select"></select>
+        <p id="basemap-note" class="muted small" hidden></p>
         <button type="button" id="locate">現在地へ移動</button>
       </fieldset>
     </aside>
