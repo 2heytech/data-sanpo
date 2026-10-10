@@ -18,6 +18,7 @@ import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
 import type { PointLayer } from "./points";
+import { growingTextSize, labelFit, type LabelItem } from "../lib/labels";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
 // 切り替えは、次の段階の地名がある程度読める縮尺まで待つ（市区町村名は MUNI_LABEL_ZOOM、町丁目名は AREA_LABEL_ZOOM から）
@@ -83,14 +84,21 @@ interface FeatureCollection {
 
 const shortLabel = (label: string) => label.replace(/(\d+年).*/, "$1");
 
-const pointFeatures = (items: { id: string; name: string; center: [number, number] }[],
-                       values?: Map<string, string>): FeatureCollection => ({
+const pointFeatures = (items: (LabelItem & { id: string; center: [number, number] })[], values?: Map<string, string>): FeatureCollection => ({
   type: "FeatureCollection",
-  features: items.map((a) => ({
-    type: "Feature", properties: { id: a.id, name: a.name, value: values?.get(a.id) ?? "" },
-    geometry: { type: "Point", coordinates: a.center },
-  })),
+  features: items.map((a) => {
+    const value = values?.get(a.id) ?? "";
+    return {
+      type: "Feature",
+      properties: { id: a.id, name: a.name, value, fit: labelFit(a, ""), fitv: labelFit(a, value) },
+      geometry: { type: "Point", coordinates: a.center },
+    };
+  }),
 });
+
+const PREF_TEXT: [number, number, number][] = [[4, 11, 13], [6, 12, 16], [8, 12, 20]];
+const MUNI_TEXT: [number, number, number][] = [[8, 10, 13], [9, 11, 16], [12, 15, 24], [15, 17, 26], [18, 17, 26]];
+const AREA_TEXT: [number, number, number][] = [[13, 10, 13], [16, 13, 20], [18, 13, 26]];
 
 export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: string): Promise<void> {
   // MapLibre は public/vendor から読み込む（Worker を同じ場所から読み込ませるため）
@@ -254,26 +262,29 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     ["case", ["==", ["get", "value"], ""], "", ["concat", "\n", ["get", "value"]]], { "font-scale": 0.9 }];
   const valuesToggle = $<HTMLInputElement>("#values-toggle");
   const labelText = () => (valuesToggle.checked ? nameWithValue : nameOnly);
+  const fitProp = () => (valuesToggle.checked ? "fitv" : "fit");
+  const LABEL_TEXT_SIZES = { "pref-label": PREF_TEXT, "muni-label": MUNI_TEXT, "area-label": AREA_TEXT } as const;
+  const labelSize = (layer: keyof typeof LABEL_TEXT_SIZES) => growingTextSize(LABEL_TEXT_SIZES[layer], fitProp()) as never;
   const labelPaint = { "text-color": "#1f2328", "text-halo-color": "rgba(255,255,255,0.92)", "text-halo-width": 1.6 };
   map.addLayer({
     id: "area-label", type: "symbol", source: "area-labels", minzoom: AREA_LABEL_ZOOM,
     layout: {
       "text-field": labelText() as never, "text-font": LABEL_FONT,
-      "text-size": ["interpolate", ["linear"], ["zoom"], AREA_LABEL_ZOOM, 10, 16, 13],
+      "text-size": labelSize("area-label"),
       "text-max-width": 6, "text-padding": 1,
     },
     paint: labelPaint,
   });
   map.addLayer({
     id: "pref-label", type: "symbol", source: "pref-labels", maxzoom: PREF_ZOOM,
-    layout: { "text-field": labelText() as never, "text-font": LABEL_FONT, "text-size": 12, "text-padding": 2 },
+    layout: { "text-field": labelText() as never, "text-font": LABEL_FONT, "text-size": labelSize("pref-label"), "text-padding": 2 },
     paint: { ...labelPaint, "text-halo-width": 2 },
   });
   map.addLayer({
     id: "muni-label", type: "symbol", source: "muni-labels", minzoom: MUNI_LABEL_ZOOM,
     layout: {
       "text-field": labelText() as never, "text-font": LABEL_FONT,
-      "text-size": ["interpolate", ["linear"], ["zoom"], 9, 11, 12, 15, 15, 17],
+      "text-size": labelSize("muni-label"),
       "text-padding": 2,
     },
     paint: { ...labelPaint, "text-halo-width": 2,
@@ -1182,7 +1193,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     syncPrefLabels();
   });
   valuesToggle.addEventListener("change", () => {
-    for (const layer of ["pref-label", "muni-label", "area-label"]) map.setLayoutProperty(layer, "text-field", labelText() as never);
+    for (const layer of ["pref-label", "muni-label", "area-label"] as const) {
+      map.setLayoutProperty(layer, "text-field", labelText() as never);
+      map.setLayoutProperty(layer, "text-size", labelSize(layer));
+    }
   });
   // 範囲: 全国・都道府県（東京都は島しょも）。都道府県の範囲は離島を含むので、県庁所在地側に寄らないこともある
   const regionJump = $<HTMLSelectElement>("#region-jump");

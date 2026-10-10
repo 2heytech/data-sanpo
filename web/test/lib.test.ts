@@ -154,3 +154,22 @@ describe("地価公示の凡例", () => {
     expect(bins.length).toBe(LAND_COLORS.length);
   });
 });
+
+describe("labels", () => {
+  it("広い地域ほど、長い名前ほど小さく収まる大きさになる", async () => {
+    const { labelFit } = await import("../src/lib/labels");
+    const box: [number, number, number, number] = [139.7, 35.6, 139.8, 35.7];
+    const wide = labelFit({ name: "千代田区", bbox: box }, "");
+    expect(labelFit({ name: "千代田区", bbox: [139.7, 35.6, 139.9, 35.8] }, "")).toBeGreaterThan(wide);
+    expect(labelFit({ name: "千代田区千代田", bbox: box }, "")).toBeLessThan(wide);
+    expect(labelFit({ name: "千代田区", bbox: box }, "12,345 人")).toBeLessThan(wide);   // 2行分の高さ
+    expect(labelFit({ name: "x" }, "")).toBe(0);
+  });
+  it("文字の大きさは最小〜最大の間で、1ズームごとに区切る", async () => {
+    const { growingTextSize } = await import("../src/lib/labels");
+    const expr = growingTextSize([[8, 10, 13], [10, 12, 21]], "fit") as unknown[];
+    expect(expr.slice(0, 3)).toEqual(["interpolate", ["linear"], ["zoom"]]);
+    expect(expr.filter((x) => typeof x === "number")).toEqual([8, 9, 10]);
+    expect(JSON.stringify(expr[6])).toBe(JSON.stringify(["max", 11, ["min", 17, ["*", ["get", "fit"], 512]]]));
+  });
+});
