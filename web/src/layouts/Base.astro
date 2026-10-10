@@ -29,6 +29,16 @@ const nav = [
   ["/about/", "このサイトについて"],
 ];
 const onMap = Astro.url.pathname.startsWith("/map/");
+// 検索結果のサイト名に「データさんぽ」を使ってもらうため、トップページにだけ WebSite の構造化データを置く（設計変更記録 #85）
+const websiteLd = Astro.url.pathname === "/" && Astro.site
+  ? JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: SITE_NAME,
+      alternateName: ["データ散歩", Astro.site.host],
+      url: new URL("/", Astro.site).href,
+    })
+  : "";
 ---
 <!doctype html>
 <html lang="ja">
@@ -47,6 +57,7 @@ const onMap = Astro.url.pathname.startsWith("/map/");
     <link rel="canonical" href={canonical} />
     {!indexable && <meta name="robots" content="noindex, nofollow" />}
     <meta property="og:site_name" content={SITE_NAME} />
+    {websiteLd && <script type="application/ld+json" set:html={websiteLd} />}
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
