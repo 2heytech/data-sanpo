@@ -2415,3 +2415,182 @@ fraction_units = ["人", "人"]
 source_kind = "estat_school_basic"
 legend = { method = "nice", classes = 12, scheme = "blues" }
 
+
+[household_income_under300_share]
+name = "年収300万円未満の世帯の割合"
+category = "所得・税"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+levels = ["municipality"]
+description = "住宅に住む世帯（主世帯）のうち、世帯全員の1年間の収入の合計が300万円未満の世帯の割合。"
+method = "年間収入300万円未満の主世帯数 ÷ 年間収入階級別の主世帯数の合計 × 100。総務省「住宅・土地統計調査」（2023年 第43-4表、2018年 第44-4表）。"
+caveats = ["市・区と人口1万5千人以上の町村だけの値です（それより小さい町村は公表されていません）。", "標本調査の推計値で、市区町村の値は10世帯単位に丸められています。小さい市町村では誤差が大きくなります。", "収入が分からない世帯は分母に含みません。", "表で「-」（該当なし）の収入階級は0世帯として数えています。", "収入は税込みで、年金・仕送りなども含みます。都道府県の値は表の値から計算しています。"]
+source_kind = "estat_housing_income"
+income_max = 300
+fraction_units = ["世帯", "世帯"]
+family = "household_income"
+facets = { type = "300万円未満", basis = "世帯の割合" }
+period_labels = { "2018-10-01" = "2018年10月1日現在", "2023-10-01" = "2023年10月1日現在" }
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[household_income_1000plus_share]
+name = "年収1000万円以上の世帯の割合"
+category = "所得・税"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+levels = ["municipality"]
+description = "住宅に住む世帯（主世帯）のうち、世帯全員の1年間の収入の合計が1000万円以上の世帯の割合。"
+method = "年間収入1000万円以上の主世帯数 ÷ 年間収入階級別の主世帯数の合計 × 100。総務省「住宅・土地統計調査」（2023年 第43-4表、2018年 第44-4表）。"
+caveats = ["市・区と人口1万5千人以上の町村だけの値です（それより小さい町村は公表されていません）。", "標本調査の推計値で、市区町村の値は10世帯単位に丸められています。小さい市町村では誤差が大きくなります。", "収入が分からない世帯は分母に含みません。", "表で「-」（該当なし）の収入階級は0世帯として数えています。", "収入は税込みで、年金・仕送りなども含みます。都道府県の値は表の値から計算しています。"]
+source_kind = "estat_housing_income"
+income_min = 1000
+fraction_units = ["世帯", "世帯"]
+family = "household_income"
+facets = { type = "1000万円以上", basis = "世帯の割合" }
+period_labels = { "2018-10-01" = "2018年10月1日現在", "2023-10-01" = "2023年10月1日現在" }
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[vacant_house_rate]
+name = "空き家率"
+category = "暮らし方"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+levels = ["municipality"]
+description = "住宅の総数のうち、空き家（賃貸用・売却用・別荘などの二次的住宅・それ以外の長く使われていない住宅）の割合。"
+method = "空き家数 ÷ 住宅総数 × 100。総務省「住宅・土地統計調査」第1-2表 居住世帯の有無別住宅数。"
+caveats = ["市・区と人口1万5千人以上の町村だけの値です（それより小さい町村は公表されていません）。", "標本調査の推計値で、市区町村の値は10戸単位に丸められています。", "空き家には、入居者を募集中の賃貸住宅や別荘も含みます。", "都道府県の値は表の値から計算しています。"]
+source_kind = "estat_housing_stock"
+housing_numerator = "22_空き家"
+housing_denominator = "0_総数"
+fraction_units = ["戸", "戸"]
+period_labels = { "2018-10-01" = "2018年10月1日現在", "2023-10-01" = "2023年10月1日現在" }
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[total_fertility_rate]
+name = "合計特殊出生率"
+category = "子育て"
+unit = "人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 1
+unbounded = true
+levels = ["municipality"]
+description = "1人の女性が一生のうちに産む子どもの数の目安。15〜49歳の女性の年齢ごとの出生率を合計した値。"
+method = "厚生労働省「人口動態保健所・市区町村別統計」第2表の合計特殊出生率（ベイズ推定値）。5年間の出生をまとめて推定した値。"
+caveats = ["市区町村の値は、出生数の少ない市町村でも安定するように、周辺の地域（二次医療圏）の出生の状況も使って推定した値（ベイズ推定値）です。", "5年間をまとめた値です（毎年の値ではありません）。", "都道府県の値は表の値です。", "福島県の一部の町村（東日本大震災の影響）などは、表に値がないため表示していません。"]
+source_kind = "mhlw_tfr"
+period_labels = { "2013-01-01" = "2013〜2017年", "2018-01-01" = "2018〜2022年" }
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
+[life_expectancy_male]
+name = "平均寿命（男性）"
+category = "暮らし方"
+unit = "年"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1
+unbounded = true
+levels = ["municipality"]
+description = "0歳の男性が、その年の死亡の状況が続くとしたときに、平均してあと何年生きられるか（0歳の平均余命）。"
+method = "厚生労働省「市区町村別生命表」（2020年・2015年）の男の0歳の平均余命。"
+caveats = ["国勢調査の年の前後の死亡数から計算した値で、その地域に住む人の実際の寿命の平均ではありません。", "人口の少ない町村は、まわりの地域の死亡の状況も使って推定しています。", "都道府県の値は表の値です。"]
+source_kind = "mhlw_life_table"
+sex = "男"
+family = "life_expectancy"
+facets = { type = "男性", basis = "平均寿命" }
+period_labels = { "2015-01-01" = "2015年", "2020-01-01" = "2020年" }
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
+[life_expectancy_female]
+name = "平均寿命（女性）"
+category = "暮らし方"
+unit = "年"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1
+unbounded = true
+levels = ["municipality"]
+description = "0歳の女性が、その年の死亡の状況が続くとしたときに、平均してあと何年生きられるか（0歳の平均余命）。"
+method = "厚生労働省「市区町村別生命表」（2020年・2015年）の女の0歳の平均余命。"
+caveats = ["国勢調査の年の前後の死亡数から計算した値で、その地域に住む人の実際の寿命の平均ではありません。", "人口の少ない町村は、まわりの地域の死亡の状況も使って推定しています。", "都道府県の値は表の値です。"]
+source_kind = "mhlw_life_table"
+sex = "女"
+family = "life_expectancy"
+facets = { type = "女性", basis = "平均寿命" }
+period_labels = { "2015-01-01" = "2015年", "2020-01-01" = "2020年" }
+legend = { method = "nice", classes = 12, scheme = "reds" }
+
+[population_history]
+name = "人口（1920年からの推移）"
+category = "人口・世帯"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["prefecture"]
+description = "1920年（大正9年）の第1回国勢調査から5年ごとの、都道府県の人口（各回10月1日現在）。"
+method = "総務省統計局「国勢調査」時系列データ 第1表 男女別人口及び人口性比 － 全国，都道府県（大正9年～令和2年）の人口総数。"
+caveats = ["都道府県の値だけです。市区町村の人口は、市町村の合併で境界が大きく変わっているため、いまの市区町村の範囲で昔までさかのぼれる公的な表がありません（市区町村は「人口」の指標で2010年から見られます）。", "1945年は国勢調査の代わりに11月1日に行われた人口調査の値で、沖縄県は調査されていません。", "1950〜1970年の沖縄県は、本土復帰の前に沖縄で行われた調査の値です。"]
+period_labels = { "1945-10-01" = "1945年（11月1日の人口調査）" }
+source_kind = "estat_census_history"
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
+[establishments]
+name = "事業所の数"
+category = "働き方"
+unit = "事業所"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+description = "その地域にある民営の事業所（会社の本社・支店・工場・店舗・個人商店など）の数。国や自治体の機関は含みません。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」町丁・大字別集計の民営事業所数（全産業、公務を除く）。2021年6月1日現在。"
+caveats = ["町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "国・地方公共団体の事業所は含みません。", "事業所の所在地で数えます（そこで働く人が住んでいる場所ではありません）。"]
+source_kind = "estat_economic_census"
+column = "T001167001"
+family = "economic_census"
+facets = { type = "事業所", basis = "数" }
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[employees]
+name = "従業者の数"
+category = "働き方"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+description = "その地域にある民営の事業所で働いている人の数（その地域に住んでいる人ではなく、そこで働いている人）。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」町丁・大字別集計の民営事業所の従業者数（全産業、公務を除く）。2021年6月1日現在。"
+caveats = ["町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "国・地方公共団体の事業所で働く人は含みません。", "事業所の所在地で数えます（従業者が住んでいる場所ではありません）。"]
+source_kind = "estat_economic_census"
+column = "T001167019"
+family = "economic_census"
+facets = { type = "従業者", basis = "数" }
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[land_survey_price]
+name = "都道府県地価調査の価格"
+category = "地価"
+unit = "円/㎡"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["land_point"]
+description = "都道府県が毎年7月1日時点で判定する、基準地（選ばれた土地）1㎡あたりの価格。地点ごとの値です。地価公示（1月1日時点）を半年後に補う調査です。"
+method = "国土交通省 国土数値情報「都道府県地価調査データ」（2025年）の基準地ごとの価格と、同じ基準地の1983年からの価格の推移。"
+caveats = ["地域全体の平均ではなく、選ばれた1地点の価格です。", "住宅地・商業地など用途によって水準が大きく違います。", "その年に基準地でなかった年は値がありません（0円ではありません）。", "2025年の調査に含まれる基準地だけを表示しています。過去に廃止された基準地は含みません。", "地価公示の標準地と同じ地点のこともあります（調べる時点が違うため価格も違います）。"]
+source_kind = "mlit_landsurvey"
+legend = { method = "quantile", classes = 12, scheme = "reds" }

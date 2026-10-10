@@ -15,6 +15,16 @@ NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
       "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 Cell = str | float | None
+# 「Strict Open XML」形式で保存されたファイルは名前空間が違う（e-Stat の一部の表。2026-10-10 確認）
+STRICT_NS = {b"http://purl.oclc.org/ooxml/spreadsheetml/main": NS["m"].encode(),
+             b"http://purl.oclc.org/ooxml/officeDocument/relationships": NS["r"].encode()}
+
+
+def _xml(z: zipfile.ZipFile, name: str):
+    data = z.read(name)
+    for strict, transitional in STRICT_NS.items():
+        data = data.replace(strict, transitional)
+    return ET.fromstring(data)
 
 
 def _text(el) -> str:
@@ -38,14 +48,14 @@ def _col_index(ref: str) -> int:
 
 def sheet_names(path: Path) -> list[str]:
     with zipfile.ZipFile(path) as z:
-        wb = ET.fromstring(z.read("xl/workbook.xml"))
+        wb = _xml(z, "xl/workbook.xml")
     return [s.get("name") for s in wb.iter(f"{{{NS['m']}}}sheet")]
 
 
 def read_sheet(path: Path, sheet: int | str = 0) -> list[list[Cell]]:
     """シートの各行をセルの値のリストで返す（空のセルは None、数値は float、文字列は str）。"""
     with zipfile.ZipFile(path) as z:
-        wb = ET.fromstring(z.read("xl/workbook.xml"))
+        wb = _xml(z, "xl/workbook.xml")
         sheets = list(wb.iter(f"{{{NS['m']}}}sheet"))
         el = sheets[sheet] if isinstance(sheet, int) else next(s for s in sheets if s.get("name") == sheet)
         rid = el.get(f"{{{NS['r']}}}id")
@@ -55,8 +65,8 @@ def read_sheet(path: Path, sheet: int | str = 0) -> list[list[Cell]]:
         target = target if target.startswith("xl/") else f"xl/{target}"
         shared = []
         if "xl/sharedStrings.xml" in z.namelist():
-            shared = [_text(si) for si in ET.fromstring(z.read("xl/sharedStrings.xml"))]
-        root = ET.fromstring(z.read(target))
+            shared = [_text(si) for si in _xml(z, "xl/sharedStrings.xml")]
+        root = _xml(z, target)
     rows: list[list[Cell]] = []
     for row in root.iter(f"{{{NS['m']}}}row"):
         values: list[Cell] = []

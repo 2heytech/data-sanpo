@@ -1858,3 +1858,188 @@ redistributable = true
 "national.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393499"
 "public.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393500"
 "private.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393501"
+
+# 住宅・土地統計調査（総務省統計局、各回10月1日現在）の市区町村別。市・区と人口1万5千人以上の町村だけ。
+# 形式は pipeline/tdm/ingest/estat_housing.py を参照（2026-10-10 に GitHub Actions から取得して確認）。
+[housing_income_2023]
+kind = "estat_housing_income"
+period = "2023-10-01"
+title = "令和5年住宅・土地統計調査 第43-4表 世帯の年間収入階級(10区分)、住宅の所有の関係(5区分)別主世帯数－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200522&tstat=000001207800&tclass1=000001207808&tclass2=000001207809"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040209921&fileKind=0"
+download_filename = "housing_income_2023.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住宅・土地統計調査」"
+modification_note = "年間収入階級別の主世帯数から、収入階級ごとの世帯の割合を算出して作成"
+redistributable = true
+
+[housing_income_2018]
+kind = "estat_housing_income"
+period = "2018-10-01"
+title = "平成30年住宅・土地統計調査 第44-4表 世帯の年間収入階級(9区分)，世帯の種類(2区分)，住宅の所有の関係(5区分)別普通世帯数－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200522&tstat=000001127155&tclass1=000001129435&tclass2=000001129436"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031865704&fileKind=0"
+download_filename = "housing_income_2018.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住宅・土地統計調査」"
+modification_note = "年間収入階級別の主世帯数から、収入階級ごとの世帯の割合を算出して作成"
+redistributable = true
+
+[housing_stock_2023]
+kind = "estat_housing_stock"
+period = "2023-10-01"
+title = "令和5年住宅・土地統計調査 第1-2表 居住世帯の有無(8区分)別住宅数及び住宅以外で人が居住する建物数－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200522&tstat=000001207800&tclass1=000001207808&tclass2=000001207809"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040209842&fileKind=0"
+download_filename = "housing_stock_2023.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住宅・土地統計調査」"
+modification_note = "住宅数と空き家数から空き家率を算出して作成"
+redistributable = true
+
+[housing_stock_2018]
+kind = "estat_housing_stock"
+period = "2018-10-01"
+title = "平成30年住宅・土地統計調査 第1-2表 居住世帯の有無(8区分)別住宅数及び住宅以外で人が居住する建物数－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200522&tstat=000001127155&tclass1=000001129435&tclass2=000001129436"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031865669&fileKind=0"
+download_filename = "housing_stock_2018.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住宅・土地統計調査」"
+modification_note = "住宅数と空き家数から空き家率を算出して作成"
+redistributable = true
+
+# 合計特殊出生率（ベイズ推定値）。厚生労働省「人口動態保健所・市区町村別統計」第2表（5年ごと、e-Stat）。
+# 形式は pipeline/tdm/ingest/mhlw_vital.py を参照。
+[mhlw_tfr_2018_2022]
+kind = "mhlw_tfr"
+first_year = 2018
+last_year = 2022
+title = "平成30年～令和4年 人口動態保健所・市区町村別統計 第2表 合計特殊出生率（ベイズ推定値）"
+provider = "厚生労働省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00450013"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040174881&fileKind=0"
+download_filename = "tfr_2018_2022.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 厚生労働省「人口動態保健所・市区町村別統計」"
+modification_note = "都道府県・市区町村別の合計特殊出生率（ベイズ推定値）を抜き出して作成"
+redistributable = true
+
+[mhlw_tfr_2013_2017]
+kind = "mhlw_tfr"
+first_year = 2013
+last_year = 2017
+title = "平成25年～平成29年 人口動態保健所・市区町村別統計 第2表 合計特殊出生率（ベイズ推定値）"
+provider = "厚生労働省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00450013"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031976396&fileKind=0"
+download_filename = "tfr_2013_2017.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 厚生労働省「人口動態保健所・市区町村別統計」"
+modification_note = "都道府県・市区町村別の合計特殊出生率（ベイズ推定値）を抜き出して作成"
+redistributable = true
+
+# 平均寿命（0歳の平均余命）。厚生労働省「市区町村別生命表」（5年ごと、e-Stat）。形式は pipeline/tdm/ingest/mhlw_vital.py を参照。
+[mhlw_life_table_2020]
+kind = "mhlw_life_table"
+year = 2020
+title = "令和2年市区町村別生命表"
+provider = "厚生労働省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00450012"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040052725&fileKind=0"
+download_filename = "life_table_2020.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 厚生労働省「市区町村別生命表」"
+modification_note = "都道府県・市区町村別の0歳の平均余命（平均寿命）を男女別に抜き出して作成"
+redistributable = true
+
+[mhlw_life_table_2015]
+kind = "mhlw_life_table"
+year = 2015
+title = "平成27年市区町村別生命表"
+provider = "厚生労働省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00450012"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031693271&fileKind=0"
+download_filename = "life_table_2015.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 厚生労働省「市区町村別生命表」"
+modification_note = "都道府県・市区町村別の0歳の平均余命（平均寿命）を男女別に抜き出して作成"
+redistributable = true
+
+# 都道府県の人口（1920年〜2020年）。国勢調査 時系列データ 第1表。形式は pipeline/tdm/ingest/estat_census_history.py を参照。
+[census_history_prefecture]
+kind = "estat_census_history"
+title = "国勢調査 時系列データ 第1表 男女別人口及び人口性比 － 全国，都道府県（大正9年～令和2年）"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200521&tstat=000001011777&tclass1=000001011778"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000001085925&fileKind=0"
+download_filename = "census_history_prefecture.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省統計局「国勢調査」時系列データ"
+modification_note = "都道府県別の人口（総数）を抜き出して作成"
+redistributable = true
+
+# 事業所数・従業者数（令和3年経済センサス‐活動調査、2021年6月1日現在）の町丁・大字別。e-Stat 統計GIS の T001167。
+# 形式は pipeline/tdm/ingest/estat_economic_census.py を参照（2026-10-10 に GitHub Actions から取得して確認）。
+[economic_census2021_small_area]
+kind = "estat_economic_census"
+per_prefecture = true
+period = "2021-06-01"
+title = "令和3年経済センサス‐活動調査 小地域（町丁・大字）別集計 産業（大分類）別民営事業所数及び男女別従業者数"
+provider = "総務省統計局・経済産業省"
+url = "https://www.e-stat.go.jp/gis/statmap-search?page=1&type=1&toukeiCode=00200553&toukeiYear=2021&aggregateUnit=A&statsId=T001167"
+download_url = "https://www.e-stat.go.jp/gis/statmap-search/data?statsId=T001167&code={pref}&downloadType=2"
+files = ["*.txt"]
+encoding = "cp932"
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省・経済産業省「令和3年経済センサス‐活動調査」"
+modification_note = "町丁・大字別の民営事業所数・従業者数（全産業）を、名前で地図の小地域に対応付けて作成"
+redistributable = true
+
+# 都道府県地価調査（基準地、各年7月1日時点）。形式は pipeline/tdm/ingest/mlit_landprice.py を参照。
+# 国土数値情報の利用規約: 2018年以降のデータは CC BY 4.0（2026-10-10 に配布ページで確認）。
+[mlit_l02_2025]
+kind = "mlit_landsurvey"
+per_prefecture = true
+title = "国土数値情報 都道府県地価調査データ（2025年）"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L02-2025.html"
+download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/L02/L02-25/L02-25_{pref}_GML.zip"
+files = ["L02-25_??.geojson"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（国土数値情報 オープンデータ）"
+license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
+attribution = "出典：国土交通省 国土数値情報（都道府県地価調査データ）"
+modification_note = "基準地ごとの価格の推移を抜き出して作成"
+redistributable = true

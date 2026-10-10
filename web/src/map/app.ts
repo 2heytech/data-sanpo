@@ -479,7 +479,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     renderAreaChip();
   }
 
-  // 点レイヤー（駅・学校・地価公示・認可保育所）。オンにしたときだけ読み込む
+  // 点レイヤー（駅・学校・地価公示・都道府県地価調査・認可保育所）。オンにしたときだけ読み込む
   const pickEl = $("#pick-detail");
   const pointOptions = (toggle: string, legendSel: string, panel: string) => ({
     map, fetchJSON, sources, beforeLayer: "area-label", labelFont: LABEL_FONT,
@@ -490,7 +490,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const pointLayers: PointLayer[] = [
     initStations(pointOptions("#stations-toggle", "#stations-legend", "#station-detail")),
     initSchools(pointOptions("#schools-toggle", "#schools-legend", "#school-detail")),
-    initLandPrices(pointOptions("#land-toggle", "#land-legend", "#land-detail")),
+    initLandPrices({ kind: "land_price", ...pointOptions("#land-toggle", "#land-legend", "#land-detail") }),
+    initLandPrices({ kind: "land_survey_price",
+      ...pointOptions("#landsurvey-toggle", "#landsurvey-legend", "#landsurvey-detail") }),
     initNurseries(pointOptions("#nursery-toggle", "#nursery-legend", "#nursery-detail")),
   ];
   // 地点の情報を出している間は、地域の情報を隠す（直前にクリックしたものだけを出す）

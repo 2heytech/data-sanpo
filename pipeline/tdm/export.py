@@ -658,6 +658,7 @@ def export_land_prices(conn: sqlite3.Connection, catalog: dict[str, dict], out: 
                LEFT JOIN entity_attributes a ON a.entity_id = e.entity_id
                WHERE e.entity_type = 'land_point'""")}
         points: dict[str, dict] = {}
+        sources: set[str] = set()   # この指標の出典（地価公示・地価調査で混ぜない）
         for r in rows:
             e = info.get(r["entity_id"])
             if e is None or e["loc_source"] not in ok_sources:
@@ -672,16 +673,17 @@ def export_land_prices(conn: sqlite3.Connection, catalog: dict[str, dict], out: 
                                                  "area_m2", "current_use", "station", "station_distance_m",
                                                  "zoning", "change_rate")},
                     "values": [None] * len(periods)}
-                used.add(e["loc_source"])
+                sources.add(e["loc_source"])
             pt["values"][index[r["period_start"]]] = None if r["value"] is None else round(r["value"])
-            used.add(r["source_id"])
+            sources.add(r["source_id"])
+        used |= sources
         _write_places(out, indicator_id, {
             "schema_version": SCHEMA_VERSION, "release_id": release_id,
             "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
             "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
             "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
                          "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(used)},
+            "source_ids": sorted(sources)},
             "points", sorted(points.values(), key=lambda s: s["id"]))
     return used
 

@@ -155,7 +155,212 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out["inbound"] = _write_inbound(directory)
     out.update(_write_gakuryoku(directory))
     out.update(_write_school_basic(directory))
+    out.update(_write_housing(directory))
+    out.update(_write_vital(directory))
+    out["census_history"] = _write_census_history(directory)
+    out.update(_write_economic_census(directory))
+    out["land_survey"] = _write_land_survey(directory, random.Random(f"{seed}-land-survey"))
     return out
+
+
+# 経済センサス（町丁・大字別の民営事業所数・従業者数）。名前で地図の小地域に対応付ける。
+# 「見本町1丁目」は全角数字の表記ゆれ、「見本町旧名」は地図にない名前、「その他」は町丁・大字が分からない事業所
+ECONOMIC_CENSUS_ROWS = [   # (KEY_CODE の市区町村, 市区町村名, 町丁・大字名, 事業所数, 従業者数)
+    ("13199", "サンプル区", "見本町１丁目", "120", "3400"),
+    ("13199", "サンプル区", "見本町一丁目二", "15", "-"),
+    ("13199", "サンプル区", "見本町旧名", "7", "40"),
+    ("13199", "サンプル区", "その他", "3", "12"),
+    ("13299", "ためし市", "試験町1丁目", "30", "210"),
+    ("14199", "みほん市中区", "標本町1丁目", "44", "500"),
+]
+
+
+def _write_economic_census(directory: Path) -> dict[str, Path]:
+    out = {}
+    head = "KEY_CODE,CITY_NAME,AZA_CODE,AZA_NAME,T001167001,T001167002,T001167019,T001167020"
+    labels = ",,,,AR_全産業（S_公務を除く）,AB_農林漁業,AR_全産業（S_公務を除く）,AB_農林漁業"
+    for pref in ("13", "14"):
+        lines = [head, labels]
+        for i, (city5, city, town, n, emp) in enumerate(r for r in ECONOMIC_CENSUS_ROWS if r[0][:2] == pref):
+            aza = f"{i + 1:04d}00000{i + 1:03d}"
+            lines.append(f"{city5}{aza},{city},{aza},{town},{n},-,{emp},-")
+        path = directory / "economic_census2021_small_area" / pref / f"tblT001167C{pref}.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(("\r\n".join(lines) + "\r\n").encode("cp932"))
+        out[f"economic_census_{pref}"] = path
+    return out
+
+
+# 都道府県地価調査（L02）。1983年からの価格の推移の欄（L02_055〜）は、基準地でなかった年が 0
+LAND_SURVEY_POINTS = [   # (市区町村, 市区町村名, 用途, 連番, 経度, 緯度, 基準地になった年)
+    ("13199", "サンプル", "000", "001", 139.712, 35.668, 1983),
+    ("13299", "ためし", "005", "001", 139.648, 35.663, 2010),
+]
+
+
+def _write_land_survey(directory: Path, rnd: random.Random) -> Path:
+    d = directory / "mlit_l02_2025"
+    features: dict[str, list] = {}
+    for city5, city_name, use, seq, lon, lat, since in LAND_SURVEY_POINTS:
+        level = {"000": 380_000, "005": 1_500_000}[use]
+        prices = [0 if y < since else int(level * (1 + (y - 2000) * 0.01) * rnd.uniform(0.95, 1.05))
+                  for y in range(1983, 2026)]
+        props = {"L02_001": use, "L02_002": seq, "L02_005": 2025, "L02_006": prices[-1],
+                 "L02_007": round((prices[-1] / prices[-2] - 1) * 100, 1), "L02_020": city5, "L02_021": city_name,
+                 "L02_022": f"東京都{city_name}見本町２丁目{seq}番", "L02_024": 150, "L02_025": "住宅",
+                 "L02_044": "見本", "L02_045": 800, "L02_046": "1住居"}
+        props.update({f"L02_{55 + i:03d}": v for i, v in enumerate(prices)})
+        features.setdefault(city5[:2], []).append(_point(props, lon, lat))
+    for pref, feats in features.items():
+        _write_geojson(d / pref / f"L02-25_{pref}.geojson", feats)
+    return d
+
+
+# 国勢調査 時系列 第1表（都道府県の人口、1920〜2020年）。沖縄県の1945年のように調査のない年は「-」。
+# 見本では神奈川県の1945年を「-」にする
+def census_history_values() -> dict[str, dict[int, float | None]]:
+    out = {}
+    for pref, base in (("13", 3_699_428), ("14", 1_323_390)):
+        out[pref] = {y: float(round(base * (1 + (y - 1920) * 0.03))) for y in range(1920, 2021, 5)}
+    out["14"][1945] = None
+    return out
+
+
+def _write_census_history(directory: Path) -> Path:
+    from .xlsx import write_sheets
+    vals = census_history_values()
+    years = list(range(1920, 2021, 5))
+    head = ["地域"] + [x for y in years for x in (f"{y}年", "和暦", "")]
+    rows: list[list] = [["国勢調査 時系列データ"], ["第１表"], [], ["1) 昭和20年において…"], ["（人）"], head,
+                        [None] + ["総数", "男", "女"] * len(years),
+                        ["00000_全国"] + [1000.0] * 3 * len(years),
+                        ["00000_全国（人口集中地区）"] + ["-"] * 3 * len(years)]
+    for pref, name in (("13", "東京都"), ("14", "神奈川県")):
+        cells = []
+        for y in years:
+            v = vals[pref][y]
+            cells += ["-", "-", "-"] if v is None else [v, round(v / 2), v - round(v / 2)]
+        rows.append([f"{pref}000_{name}"] + cells)
+    d = directory / "census_history_prefecture"
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / "census_history_prefecture.xlsx"
+    write_sheets(path, {"人口": rows, "人口性比": [["見本"]]})
+    return path
+
+
+# 住宅・土地統計調査（市区町村別）。かりの村は人口1万5千人未満の町村として表に載せない。
+# 収入階級は令和5年が10区分（100〜150・150〜200万円に分かれる）、平成30年が9区分
+HOUSING_INCOME_CLASSES = {
+    2023: ["01_100万円未満", "02_100～150万円未満", "03_150～200万円未満", "05_200～300万円未満",
+           "06_300～400万円未満", "07_400～500万円未満", "08_500～700万円未満", "09_700～1000万円未満",
+           "10_1000～1500万円未満", "11_1500万円以上"],
+    2018: ["01_100万円未満", "02_100～200万円未満", "04_200～300万円未満", "05_300～400万円未満",
+           "06_400～500万円未満", "07_500～700万円未満", "08_700～1000万円未満", "09_1000～1500万円未満",
+           "10_1500万円以上"],
+}
+HOUSING_AREAS = [("13000", "東京都"), ("13199", "サンプル区"), ("13299", "ためし市"),
+                 ("14000", "神奈川県"), ("14190", "みほん市"), ("14199", "みほん市\u3000中区")]
+
+
+def housing_income_values(year: int) -> dict[str, list[float]]:
+    """地域コード → 収入階級ごとの主世帯数（10世帯単位）。ためし市の2023年の1500万円以上は「-」（該当なし）。"""
+    rnd = random.Random(f"housing-income-{year}")
+    out = {c: [float(rnd.randint(10, 300) * 10) for _ in HOUSING_INCOME_CLASSES[year]]
+           for c, _ in HOUSING_AREAS if not c.endswith("000")}
+    if year == 2023:
+        out["13299"][-1] = None   # 「-」
+    for pref in ("13", "14"):
+        members = [v for c, v in out.items() if c[:2] == pref and c != "14190"]
+        out[f"{pref}000"] = [sum(v[i] or 0 for v in members) + 1000 for i in range(len(HOUSING_INCOME_CLASSES[year]))]
+    return out
+
+
+def housing_stock_values(year: int) -> dict[str, tuple[float, float]]:
+    """地域コード → (住宅総数, 空き家数)。"""
+    rnd = random.Random(f"housing-stock-{year}")
+    out = {c: (float(rnd.randint(3000, 9000) * 10), float(rnd.randint(200, 1500) * 10))
+           for c, _ in HOUSING_AREAS if not c.endswith("000")}
+    for pref in ("13", "14"):
+        members = [v for c, v in out.items() if c[:2] == pref and c != "14190"]
+        out[f"{pref}000"] = (sum(v[0] for v in members) + 5000, sum(v[1] for v in members) + 700)
+    return out
+
+
+def _write_housing(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheet
+    out = {}
+    for year in (2023, 2018):
+        classes = HOUSING_INCOME_CLASSES[year]
+        vals = housing_income_values(year)
+        rows: list[list] = [[f"住宅・土地統計調査（{year}年）"], ["世帯の年間収入階級…別主世帯数"], [], []]
+        for code, name in [("00000", "全国")] + HOUSING_AREAS:
+            v = vals.get(code, [1000.0] * len(classes))
+            level = "a" if code.endswith("000") else "0"
+            for tenure in ("0_総数", "1_持ち家"):
+                for label, x in [("00_総数", sum(c or 0 for c in v) + 30)] + list(zip(classes, v)):
+                    cell = "-" if x is None else (x if tenure == "0_総数" else round(x / 2))
+                    if year == 2023:
+                        rows.append([level, f"{code}_{name}", tenure, label, cell, 2.1, 4.0, 30.0])
+                    else:   # 平成30年: 行番号などの列と「世帯の種類」の列がある
+                        for kind in ("1_主世帯", "2_同居世帯・住宅以外の建物に居住する世帯"):
+                            rows.append([float(len(rows)), "D", None, None, level, f"{code}_{name}", 1.0, kind,
+                                         1.0, tenure, 1.0, label, cell if kind == "1_主世帯" else 10.0,
+                                         2.1, 4.0, 30.0])
+        d = directory / f"housing_income_{year}"
+        d.mkdir(parents=True, exist_ok=True)
+        path = d / f"housing_income_{year}.xlsx"
+        write_sheet(path, rows, "e043_4" if year == 2023 else "e044_4")
+        out[f"housing_income_{year}"] = path
+
+        stock = housing_stock_values(year)
+        labels = ["0_総数", "1_居住世帯あり", "2_居住世帯なし", "22_空き家", "23_建築中"]
+        pad = [] if year == 2023 else [None, "D", None, None]
+        rows = [[f"住宅・土地統計調査（{year}年）"], ["第１－２表"], [], [],
+                pad[:4] + [None, "項目名"] + labels if year == 2023 else [None] * 6 + labels]
+        for code, name in [("00000", "全国")] + HOUSING_AREAS:
+            total, vacant = stock.get(code, (100000.0, 9000.0))
+            level = "a" if code.endswith("000") else "0"
+            rows.append(pad + [level, f"{code}_{name}", total, total - vacant - 100, vacant + 100, vacant, "-"])
+        d = directory / f"housing_stock_{year}"
+        d.mkdir(parents=True, exist_ok=True)
+        path = d / f"housing_stock_{year}.xlsx"
+        write_sheet(path, rows, "e001_2")
+        out[f"housing_stock_{year}"] = path
+    return out
+
+
+# 合計特殊出生率（ベイズ推定値）と市区町村別生命表。かりの村は出生率の表で「-」（値なし）
+TFR_VALUES = {"13": 1.11, "13199": 0.98, "13299": 1.25, "13499": None, "14": 1.20, "14199": 1.31}
+LIFE_VALUES = {"13000": (81.8, 87.9), "13199": (82.4, 88.3), "13299": (81.6, 87.7), "13499": (80.9, 87.2),
+               "14000": (82.0, 87.9), "14199": (82.3, 88.0)}
+
+
+def _write_vital(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheet, write_sheets
+    names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES} | {"13": "東京都", "14": "神奈川県"}
+    rows: list[list] = [["第２表"], [None, "合計特殊出生率（ベイズ推定値）"], ["全国\u3000\u3000", 1.33, 2.0]]
+    for code in ("13", "1327", "13199", "13299", "13499", "14", "14100", "14199"):
+        name = names.get(code, "見本保健所" if len(code) == 4 else "みほん市")
+        v = TFR_VALUES.get(code, 1.5)
+        rows.append([f"{code}{name}\u3000\u3000 ", "-" if v is None else v, 3.0, 20.0])
+    d = directory / "mhlw_tfr_2018_2022"
+    d.mkdir(parents=True, exist_ok=True)
+    tfr = d / "tfr_2018_2022.xlsx"
+    write_sheet(tfr, rows, "第２表")
+
+    sheet: list[list] = []
+    for code, (male, female) in [("00000", (81.5, 87.6))] + list(LIFE_VALUES.items()):
+        sheet += [[f"表{code}", names.get(code, names.get(code[:2], "全国"))],
+                  ["年齢(x)", "死亡率", "生存数", "死亡数", "定常人口", None, "平均余命"],
+                  [None, "nqx", "lx", "ndx", "nLx", "Tx", "ex"]]
+        for sex, ex in (("男", male), ("女", female)):
+            sheet += [[sex], [0.0, 0.002, 100000.0, 200.0, 99800.0, ex * 100000, ex],
+                      [" 1～ 4", 0.0006, 99800.0, 60.0, 399000.0, (ex - 1) * 99800, ex - 0.8]]
+    d = directory / "mhlw_life_table_2020"
+    d.mkdir(parents=True, exist_ok=True)
+    life = d / "life_table_2020.xlsx"
+    write_sheets(life, {"目次": [["【目次】"]], "生命表1": sheet})
+    return {"mhlw_tfr_2018_2022": tfr, "mhlw_life_table_2020": life}
 
 
 # 公立小学校卒業者の進路（都教委 進路状況調査 小学校 第1表の形式）。1区分3列（計・男・女）
