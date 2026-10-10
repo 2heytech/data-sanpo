@@ -18,7 +18,7 @@ import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
 import type { PointLayer } from "./points";
-import { growingTextSize, labelFit, type LabelItem } from "../lib/labels";
+import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
 // 切り替えは、次の段階の地名がある程度読める縮尺まで待つ（市区町村名は MUNI_LABEL_ZOOM、町丁目名は AREA_LABEL_ZOOM から）
@@ -84,21 +84,26 @@ interface FeatureCollection {
 
 const shortLabel = (label: string) => label.replace(/(\d+年).*/, "$1");
 
-const pointFeatures = (items: (LabelItem & { id: string; center: [number, number] })[], values?: Map<string, string>): FeatureCollection => ({
-  type: "FeatureCollection",
-  features: items.map((a) => {
-    const value = values?.get(a.id) ?? "";
-    return {
+// 地名の文字の大きさに使う範囲（形のいちばん大きい部分）。境界を読み込んだときに入れる
+const labelBoxes = new Map<string, [number, number, number, number]>();
+const pointFeatures = (items: (LabelItem & { id: string; center: [number, number] })[], values?: Map<string, string>): FeatureCollection => {
+  const boxed = items.map((a) => ({ ...a, bbox: labelBoxes.get(a.id) ?? a.bbox }));
+  const fit = balancedFits(boxed.map((a) => labelFit(a, null)));
+  const fitv = balancedFits(boxed.map((a) => labelFit(a, values?.get(a.id) ?? "")));
+  return {
+    type: "FeatureCollection",
+    features: items.map((a, i) => ({
       type: "Feature",
-      properties: { id: a.id, name: a.name, value, fit: labelFit(a, ""), fitv: labelFit(a, value) },
+      properties: { id: a.id, name: a.name, value: values?.get(a.id) ?? "", fit: fit[i], fitv: fitv[i] },
       geometry: { type: "Point", coordinates: a.center },
-    };
-  }),
-});
+    })),
+  };
+};
 
-const PREF_TEXT: [number, number, number][] = [[4, 11, 13], [6, 12, 16], [8, 12, 20]];
-const MUNI_TEXT: [number, number, number][] = [[8, 10, 13], [9, 11, 16], [12, 15, 24], [15, 17, 26], [18, 17, 26]];
-const AREA_TEXT: [number, number, number][] = [[13, 10, 13], [16, 13, 20], [18, 13, 26]];
+// 最大は最小の1.3倍ほどまで（並んだ地名の大きさの差が目立たないように、#90）
+const PREF_TEXT: [number, number, number][] = [[4, 11, 13], [6, 12, 15], [8, 13, 17]];
+const MUNI_TEXT: [number, number, number][] = [[8, 10, 13], [9, 11, 14], [12, 15, 19], [15, 17, 22], [18, 17, 22]];
+const AREA_TEXT: [number, number, number][] = [[13, 10, 13], [16, 13, 17], [18, 14, 18]];
 
 export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: string): Promise<void> {
   // MapLibre は public/vendor から読み込む（Worker を同じ場所から読み込ませるため）
@@ -216,6 +221,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const prefBoundaries = nationwide
     ? await fetchJSON<FeatureCollection>(`boundaries/${areas.boundary_version}/prefectures.geojson`).catch(() => null)
     : null;
+  for (const f of [...muniBoundaries.features, ...(prefBoundaries?.features ?? [])]) {
+    const b = mainPartBbox(f.geometry as never);
+    if (b) labelBoxes.set(f.properties.id, b);
+  }
   map.addSource("prefs", {
     type: "geojson", promoteId: "id",
     data: (prefBoundaries ?? { type: "FeatureCollection", features: [] }) as never,
