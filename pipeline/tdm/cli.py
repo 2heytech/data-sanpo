@@ -31,7 +31,8 @@ from .ingest import (estat_boundary, estat_census_history, estat_census_municipa
                      estat_economic_census, estat_school_basic,
                      estat_small_area, mhlw_vital,
                      keishicho_crime, mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
-                     npa_traffic, soumu_furusato, soumu_tax, tokyo_childcare, tokyo_daytime, tokyo_election,
+                     npa_crime_stats, npa_traffic, police_crime_opendata, soumu_furusato, soumu_tax, tokyo_childcare,
+                     tokyo_daytime, tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
 from .regions import selected_prefectures
 from .sources import find_files, register_source
@@ -159,7 +160,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "nier_gakuryoku", "estat_school_basic", "mlit_schools", "mlit_nurseries",
                         "soumu_juki_foreign", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
-                        "estat_economic_census", "mlit_landsurvey"):
+                        "estat_economic_census", "mlit_landsurvey", "npa_crime_stats",
+                        "police_crime_opendata"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -206,6 +208,14 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = estat_economic_census.ingest(conn, files, src, catalog,
                                                        (cfg["period"], cfg["period"], "point"),
                                                        boundary_version, cfg.get("encoding", "cp932"))
+        elif kind == "npa_crime_stats":
+            result[key] = npa_crime_stats.ingest(conn, files[0], src, catalog, int(cfg["year"]),
+                                                 cfg.get("encoding", "cp932"))
+        elif kind == "police_crime_opendata":
+            # 都道府県警察ごとの出典（prefectures に1つだけ書く）。5年分の年計から町丁目の合計を作る
+            result[key] = police_crime_opendata.ingest(conn, files, src, catalog, cfg["prefectures"][0],
+                                                       [int(y) for y in cfg["years"]], boundary_version,
+                                                       cfg.get("no_incident", []))
         elif kind == "estat_census_history":
             result[key] = estat_census_history.ingest(conn, files[0], src, catalog)
         elif kind == "mhlw_tfr":

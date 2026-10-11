@@ -1025,7 +1025,11 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   aggregateToggle.addEventListener("change", () => {
     stopPlay();
     const agg = aggregatePeriod();
-    period = aggregateToggle.checked && agg ? agg.period : indicator.default_period;
+    // 合計を最初に出す指標（町丁目の値が合計にだけある指標）では、外したときに最新の年へ
+    const annual = annualPeriods();
+    const latestAnnual = annual[annual.length - 1]?.period;
+    period = aggregateToggle.checked && agg ? agg.period
+      : indicator.default_period === agg?.period && latestAnnual ? latestAnnual : indicator.default_period;
     fillPeriods();
     updateUrl();
     void refreshColors();

@@ -1613,6 +1613,484 @@ family = "crime"
 facets = { type = "その他", basis = "昼間人口100人あたり" }
 legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
 
+# 全国の犯罪（#92）: 警察庁「犯罪統計」の都道府県別（刑法犯・窃盗犯・重要犯罪）と、各都道府県警察の
+# 犯罪オープンデータ（窃盗7手口、市区町村は年ごと・町丁目は5年合計）。annual_levels: 年ごとの時点で書き出す単位
+
+[crime_npa_total]
+name = "全国の犯罪の認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["prefecture"]
+description = "刑法犯（交通事故などの過失運転致死傷等を除く）の認知件数。"
+method = "警察庁「犯罪統計」の年計（1〜12月の確定値）の都道府県別の表（第3表 刑法犯 認知件数）。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた犯罪のすべてではありません。", "都道府県の値だけです（市区町村ごとの値は警察庁の統計では公表されていません）。", "犯罪が起きた場所（認知した場所）の都道府県で数えています。住んでいる人の数が少なくても、人が多く集まる都道府県は件数が多くなります。"]
+source_kind = "npa_crime_stats"
+npa_table = "total"
+compare_with = ["crime_npa_total_per_100_residents"]
+family = "crime_national"
+facets = { type = "刑法犯総数", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[crime_npa_total_per_100_residents]
+name = "全国の犯罪の認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+levels = ["prefecture"]
+description = "刑法犯総数の認知件数を、その都道府県に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "刑法犯総数の認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。犯罪の多くは住民以外の通勤・通学者や来訪者が関わります。", "分母はどの年も2020年の人口です。"]
+numerator_indicator = "crime_npa_total"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["crime_npa_total"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "刑法犯総数", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[crime_npa_theft]
+name = "窃盗犯の認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["prefecture"]
+description = "窃盗犯（空き巣・万引き・自転車盗など、他人の物を盗む犯罪）の認知件数。刑法犯の約7割を占めます。"
+method = "警察庁「犯罪統計」の年計（1〜12月の確定値）の都道府県別の表（第4表 窃盗犯 認知件数）。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた犯罪のすべてではありません。", "都道府県の値だけです（市区町村ごとの値は警察庁の統計では公表されていません）。", "犯罪が起きた場所（認知した場所）の都道府県で数えています。住んでいる人の数が少なくても、人が多く集まる都道府県は件数が多くなります。"]
+source_kind = "npa_crime_stats"
+npa_table = "theft"
+compare_with = ["crime_npa_theft_per_100_residents"]
+family = "crime_national"
+facets = { type = "窃盗犯", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[crime_npa_theft_per_100_residents]
+name = "窃盗犯の認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+levels = ["prefecture"]
+description = "窃盗犯の認知件数を、その都道府県に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "窃盗犯の認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。犯罪の多くは住民以外の通勤・通学者や来訪者が関わります。", "分母はどの年も2020年の人口です。"]
+numerator_indicator = "crime_npa_theft"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["crime_npa_theft"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "窃盗犯", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[crime_npa_serious]
+name = "重要犯罪の認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["prefecture"]
+description = "殺人・強盗・放火・不同意性交等・略取誘拐・人身売買・不同意わいせつの認知件数。"
+method = "警察庁「犯罪統計」の年計（1〜12月の確定値）の都道府県別の表（第6表 重要犯罪 認知件数）。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた犯罪のすべてではありません。", "都道府県の値だけです（市区町村ごとの値は警察庁の統計では公表されていません）。", "犯罪が起きた場所（認知した場所）の都道府県で数えています。住んでいる人の数が少なくても、人が多く集まる都道府県は件数が多くなります。"]
+source_kind = "npa_crime_stats"
+npa_table = "serious"
+compare_with = ["crime_npa_serious_per_100_residents"]
+family = "crime_national"
+facets = { type = "重要犯罪", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[crime_npa_serious_per_100_residents]
+name = "重要犯罪の認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+levels = ["prefecture"]
+description = "重要犯罪の認知件数を、その都道府県に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "重要犯罪の認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。犯罪の多くは住民以外の通勤・通学者や来訪者が関わります。", "分母はどの年も2020年の人口です。"]
+numerator_indicator = "crime_npa_serious"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["crime_npa_serious"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "重要犯罪", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_total]
+name = "窃盗7手口の認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "ひったくり・車上ねらい・部品ねらい・自動販売機ねらい・自動車盗・オートバイ盗・自転車盗の7つの手口の窃盗の件数の合計。街頭や身近な場所で起きやすい窃盗です。"
+method = "各都道府県警察の犯罪オープンデータ「犯罪発生情報」（1件1行の年計）を、発生場所の市区町村・町丁目ごとに数えた件数（7手口のファイルの合計）。都道府県の値は市区町村の合計。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた件数のすべてではありません。", "各都道府県警察が公開している「犯罪発生情報」（窃盗7手口だけ）を数えたもので、刑法犯全体ではありません。公開データには、捜査に支障がある事件などを載せていない場合があります。", "市区町村は年ごと、町丁目は直近5年の合計だけです（全国の町丁目を年ごとに出すとファイル数が多すぎるため）。", "町丁目は名前で地図の町丁目に対応付けています。名前が合わない分・町丁目が空欄の分は市区町村の値にだけ入ります。公開データが町・大字までで地図の丁目に割り振れない地域や、名前の合わない件数が多い市区町村は値なしです。", "発生の記録がない町丁目は0件として表示しています（色は塗りません）。", "公開データがない年・手口の都道府県は値なしです。"]
+source_kind = "police_crime_opendata"
+technique = "total"
+compare_with = ["street_crime_total_per_100_residents"]
+family = "crime_national"
+facets = { type = "7手口の合計", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_total_per_100_residents]
+name = "窃盗7手口の認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 100
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "7手口の合計の認知件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "7手口の合計の認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。駅前や繁華街など人が集まる場所は、住民が少ないため値が大きくなります。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "street_crime_total"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["street_crime_total"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "7手口の合計", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_bicycle]
+name = "自転車盗の認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "自転車を盗まれた件数。"
+method = "各都道府県警察の犯罪オープンデータ「犯罪発生情報」（1件1行の年計）を、発生場所の市区町村・町丁目ごとに数えた件数（自転車盗のファイル）。都道府県の値は市区町村の合計。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた件数のすべてではありません。", "各都道府県警察が公開している「犯罪発生情報」（窃盗7手口だけ）を数えたもので、刑法犯全体ではありません。公開データには、捜査に支障がある事件などを載せていない場合があります。", "市区町村は年ごと、町丁目は直近5年の合計だけです（全国の町丁目を年ごとに出すとファイル数が多すぎるため）。", "町丁目は名前で地図の町丁目に対応付けています。名前が合わない分・町丁目が空欄の分は市区町村の値にだけ入ります。公開データが町・大字までで地図の丁目に割り振れない地域や、名前の合わない件数が多い市区町村は値なしです。", "発生の記録がない町丁目は0件として表示しています（色は塗りません）。", "公開データがない年・手口の都道府県は値なしです。"]
+source_kind = "police_crime_opendata"
+technique = "zitensyatou"
+compare_with = ["street_crime_bicycle_per_100_residents"]
+family = "crime_national"
+facets = { type = "自転車盗", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_bicycle_per_100_residents]
+name = "自転車盗の認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 100
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "自転車盗の認知件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "自転車盗の認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。駅前や繁華街など人が集まる場所は、住民が少ないため値が大きくなります。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "street_crime_bicycle"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["street_crime_bicycle"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "自転車盗", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_motorcycle]
+name = "オートバイ盗の認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "オートバイ（原付を含む）を盗まれた件数。"
+method = "各都道府県警察の犯罪オープンデータ「犯罪発生情報」（1件1行の年計）を、発生場所の市区町村・町丁目ごとに数えた件数（オートバイ盗のファイル）。都道府県の値は市区町村の合計。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた件数のすべてではありません。", "各都道府県警察が公開している「犯罪発生情報」（窃盗7手口だけ）を数えたもので、刑法犯全体ではありません。公開データには、捜査に支障がある事件などを載せていない場合があります。", "市区町村は年ごと、町丁目は直近5年の合計だけです（全国の町丁目を年ごとに出すとファイル数が多すぎるため）。", "町丁目は名前で地図の町丁目に対応付けています。名前が合わない分・町丁目が空欄の分は市区町村の値にだけ入ります。公開データが町・大字までで地図の丁目に割り振れない地域や、名前の合わない件数が多い市区町村は値なしです。", "発生の記録がない町丁目は0件として表示しています（色は塗りません）。", "公開データがない年・手口の都道府県は値なしです。"]
+source_kind = "police_crime_opendata"
+technique = "ootobaitou"
+compare_with = ["street_crime_motorcycle_per_100_residents"]
+family = "crime_national"
+facets = { type = "オートバイ盗", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_motorcycle_per_100_residents]
+name = "オートバイ盗の認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 100
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "オートバイ盗の認知件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "オートバイ盗の認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。駅前や繁華街など人が集まる場所は、住民が少ないため値が大きくなります。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "street_crime_motorcycle"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["street_crime_motorcycle"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "オートバイ盗", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_car]
+name = "自動車盗の認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "自動車を盗まれた件数。"
+method = "各都道府県警察の犯罪オープンデータ「犯罪発生情報」（1件1行の年計）を、発生場所の市区町村・町丁目ごとに数えた件数（自動車盗のファイル）。都道府県の値は市区町村の合計。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた件数のすべてではありません。", "各都道府県警察が公開している「犯罪発生情報」（窃盗7手口だけ）を数えたもので、刑法犯全体ではありません。公開データには、捜査に支障がある事件などを載せていない場合があります。", "市区町村は年ごと、町丁目は直近5年の合計だけです（全国の町丁目を年ごとに出すとファイル数が多すぎるため）。", "町丁目は名前で地図の町丁目に対応付けています。名前が合わない分・町丁目が空欄の分は市区町村の値にだけ入ります。公開データが町・大字までで地図の丁目に割り振れない地域や、名前の合わない件数が多い市区町村は値なしです。", "発生の記録がない町丁目は0件として表示しています（色は塗りません）。", "公開データがない年・手口の都道府県は値なしです。"]
+source_kind = "police_crime_opendata"
+technique = "zidousyatou"
+compare_with = ["street_crime_car_per_100_residents"]
+family = "crime_national"
+facets = { type = "自動車盗", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_car_per_100_residents]
+name = "自動車盗の認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 100
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "自動車盗の認知件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "自動車盗の認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。駅前や繁華街など人が集まる場所は、住民が少ないため値が大きくなります。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "street_crime_car"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["street_crime_car"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "自動車盗", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_car_break_in]
+name = "車上ねらいの認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "駐車中の自動車の中から物を盗まれた件数。"
+method = "各都道府県警察の犯罪オープンデータ「犯罪発生情報」（1件1行の年計）を、発生場所の市区町村・町丁目ごとに数えた件数（車上ねらいのファイル）。都道府県の値は市区町村の合計。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた件数のすべてではありません。", "各都道府県警察が公開している「犯罪発生情報」（窃盗7手口だけ）を数えたもので、刑法犯全体ではありません。公開データには、捜査に支障がある事件などを載せていない場合があります。", "市区町村は年ごと、町丁目は直近5年の合計だけです（全国の町丁目を年ごとに出すとファイル数が多すぎるため）。", "町丁目は名前で地図の町丁目に対応付けています。名前が合わない分・町丁目が空欄の分は市区町村の値にだけ入ります。公開データが町・大字までで地図の丁目に割り振れない地域や、名前の合わない件数が多い市区町村は値なしです。", "発生の記録がない町丁目は0件として表示しています（色は塗りません）。", "公開データがない年・手口の都道府県は値なしです。"]
+source_kind = "police_crime_opendata"
+technique = "syazyounerai"
+compare_with = ["street_crime_car_break_in_per_100_residents"]
+family = "crime_national"
+facets = { type = "車上ねらい", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_car_break_in_per_100_residents]
+name = "車上ねらいの認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 100
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "車上ねらいの認知件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "車上ねらいの認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。駅前や繁華街など人が集まる場所は、住民が少ないため値が大きくなります。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "street_crime_car_break_in"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["street_crime_car_break_in"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "車上ねらい", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_parts]
+name = "部品ねらいの認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "ナンバープレート・タイヤ・カーナビなど、自動車の部品を盗まれた件数。"
+method = "各都道府県警察の犯罪オープンデータ「犯罪発生情報」（1件1行の年計）を、発生場所の市区町村・町丁目ごとに数えた件数（部品ねらいのファイル）。都道府県の値は市区町村の合計。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた件数のすべてではありません。", "各都道府県警察が公開している「犯罪発生情報」（窃盗7手口だけ）を数えたもので、刑法犯全体ではありません。公開データには、捜査に支障がある事件などを載せていない場合があります。", "市区町村は年ごと、町丁目は直近5年の合計だけです（全国の町丁目を年ごとに出すとファイル数が多すぎるため）。", "町丁目は名前で地図の町丁目に対応付けています。名前が合わない分・町丁目が空欄の分は市区町村の値にだけ入ります。公開データが町・大字までで地図の丁目に割り振れない地域や、名前の合わない件数が多い市区町村は値なしです。", "発生の記録がない町丁目は0件として表示しています（色は塗りません）。", "公開データがない年・手口の都道府県は値なしです。"]
+source_kind = "police_crime_opendata"
+technique = "buhinnerai"
+compare_with = ["street_crime_parts_per_100_residents"]
+family = "crime_national"
+facets = { type = "部品ねらい", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_parts_per_100_residents]
+name = "部品ねらいの認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 100
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "部品ねらいの認知件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "部品ねらいの認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。駅前や繁華街など人が集まる場所は、住民が少ないため値が大きくなります。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "street_crime_parts"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["street_crime_parts"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "部品ねらい", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_vending]
+name = "自動販売機ねらいの認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "自動販売機を壊すなどして中の現金や商品を盗まれた件数。"
+method = "各都道府県警察の犯罪オープンデータ「犯罪発生情報」（1件1行の年計）を、発生場所の市区町村・町丁目ごとに数えた件数（自動販売機ねらいのファイル）。都道府県の値は市区町村の合計。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた件数のすべてではありません。", "各都道府県警察が公開している「犯罪発生情報」（窃盗7手口だけ）を数えたもので、刑法犯全体ではありません。公開データには、捜査に支障がある事件などを載せていない場合があります。", "市区町村は年ごと、町丁目は直近5年の合計だけです（全国の町丁目を年ごとに出すとファイル数が多すぎるため）。", "町丁目は名前で地図の町丁目に対応付けています。名前が合わない分・町丁目が空欄の分は市区町村の値にだけ入ります。公開データが町・大字までで地図の丁目に割り振れない地域や、名前の合わない件数が多い市区町村は値なしです。", "発生の記録がない町丁目は0件として表示しています（色は塗りません）。", "公開データがない年・手口の都道府県は値なしです。"]
+source_kind = "police_crime_opendata"
+technique = "zidouhanbaikinerai"
+compare_with = ["street_crime_vending_per_100_residents"]
+family = "crime_national"
+facets = { type = "自動販売機ねらい", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_vending_per_100_residents]
+name = "自動販売機ねらいの認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 100
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "自動販売機ねらいの認知件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "自動販売機ねらいの認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。駅前や繁華街など人が集まる場所は、住民が少ないため値が大きくなります。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "street_crime_vending"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["street_crime_vending"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "自動販売機ねらい", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_snatch]
+name = "ひったくりの認知件数"
+category = "犯罪"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "歩行者や自転車に乗っている人のバッグなどをひったくって盗む犯罪の件数。"
+method = "各都道府県警察の犯罪オープンデータ「犯罪発生情報」（1件1行の年計）を、発生場所の市区町村・町丁目ごとに数えた件数（ひったくりのファイル）。都道府県の値は市区町村の合計。"
+caveats = ["認知件数（警察が把握した件数）で、実際に起きた件数のすべてではありません。", "各都道府県警察が公開している「犯罪発生情報」（窃盗7手口だけ）を数えたもので、刑法犯全体ではありません。公開データには、捜査に支障がある事件などを載せていない場合があります。", "市区町村は年ごと、町丁目は直近5年の合計だけです（全国の町丁目を年ごとに出すとファイル数が多すぎるため）。", "町丁目は名前で地図の町丁目に対応付けています。名前が合わない分・町丁目が空欄の分は市区町村の値にだけ入ります。公開データが町・大字までで地図の丁目に割り振れない地域や、名前の合わない件数が多い市区町村は値なしです。", "発生の記録がない町丁目は0件として表示しています（色は塗りません）。", "公開データがない年・手口の都道府県は値なしです。"]
+source_kind = "police_crime_opendata"
+technique = "hittakuri"
+compare_with = ["street_crime_snatch_per_100_residents"]
+family = "crime_national"
+facets = { type = "ひったくり", basis = "件数" }
+multi_year_total = 5
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
+[street_crime_snatch_per_100_residents]
+name = "ひったくりの認知件数（住民100人当たり）"
+category = "犯罪"
+unit = "件/100人"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 100
+levels = ["municipality", "small_area"]
+annual_levels = ["prefecture", "municipality"]
+description = "ひったくりの認知件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
+method = "ひったくりの認知件数 ÷ 2020年国勢調査の人口 × 100。5年合計は5年分の件数を同じ人口で割った値。"
+caveats = ["住民の被害の起きやすさ（被害確率）ではありません。駅前や繁華街など人が集まる場所は、住民が少ないため値が大きくなります。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "street_crime_snatch"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+compare_with = ["street_crime_snatch"]
+fraction_units = ["件", "人"]
+family = "crime_national"
+facets = { type = "ひったくり", basis = "住民100人あたり" }
+legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
+
 [land_price]
 name = "地価公示の価格"
 category = "地価"
