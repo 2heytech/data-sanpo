@@ -17,6 +17,7 @@ import json
 import re
 import sys
 import time
+import http.cookiejar
 import urllib.error
 import urllib.request
 import zipfile
@@ -87,6 +88,27 @@ def download(url: str) -> bytes:
                 raise
             time.sleep(5 * (attempt + 1))
     raise AssertionError("unreachable")
+
+
+def cookie_downloader():
+    """クッキーを覚えて取得する（愛知県警察のサイトは最初の応答でクッキーを渡し、クッキーなしで来た要求を
+    同じ URL に転送し続ける）。最初の 403 もクッキーを受け取ったあとなら通るので、1回だけやり直す。"""
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def get(url: str) -> bytes:
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+        for attempt in range(RETRIES):
+            try:
+                with opener.open(req, timeout=TIMEOUT) as res:
+                    return res.read()
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+                retry = (not isinstance(e, urllib.error.HTTPError) or e.code >= 500
+                         or e.code in (302, 403) and attempt == 0)
+                if not retry or attempt == RETRIES - 1:
+                    raise
+                time.sleep(5 * (attempt + 1))
+        raise AssertionError("unreachable")
+    return get
 
 
 def source_prefectures(cfg: dict, prefs: list[str]) -> list[str]:
@@ -306,7 +328,8 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
         if cfg.get("download_files"):
             # 都道府県の機関ごとにファイルの一覧を書く出典（犯罪オープンデータなど）。取れないファイルがあっても止めない
             for pref in targets:
-                files += _fetch_files_lenient(f"{key}/{pref}", cfg["download_files"], dest / pref, downloader)
+                get = cookie_downloader() if downloader is download else downloader
+                files += _fetch_files_lenient(f"{key}/{pref}", cfg["download_files"], dest / pref, get)
             return files
         for pref in targets:
             if cfg.get("estat_lookup") and pref not in ids:

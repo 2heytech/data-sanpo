@@ -1521,7 +1521,7 @@ def test_police_crime_opendata_counts(built):
     areas = rows("street_crime_total", "2021-2025", "13")
     assert areas["area-13199001001"]["value"] == 2 * 7 * 5  # 「見本町１丁目」（全角数字の表記ゆれ）
     assert areas["area-13199001002"]["value"] == 7 * 5      # 「見本町一丁目二」
-    assert areas["area-13199001003"]["value"] == 0          # 記録のない町丁目は0件
+    assert areas["area-13199001003"]["value"] is None       # 町丁目が空の行が5%を超えるので、記録のない町丁目も値なし
     assert areas["area-13299090000"]["value"] == 7 * 5      # 丁目の行を、地図では丁目に分かれていない町にまとめる
     bike = rows("street_crime_bicycle", "2021-2025", "13")
     assert bike["area-13199001001"]["value"] == 2 * 5
@@ -1556,3 +1556,17 @@ def test_police_crime_opendata_uncertain_towns(tmp_path):
     assert got["area-27999000000"][0] is None and "割り振れない" in got["area-27999000000"][1]
     assert got["area-27999000002"][0] == 150                # 「大字栄町」→ 栄町
     assert got["area-27999000003"][0] == 0                  # 名前の合わない行は5%以下
+
+
+def test_police_crime_opendata_tab_and_old_town_names(tmp_path):
+    # タブ区切りのファイルを読み、地図で省かれた旧町名（「水口町本町２丁目」→地図「本町二丁目」）は末尾で対応付ける
+    from tdm.ingest import police_crime_opendata as od
+    head = "罪名\t手口\t市区町村コード（発生地）\t市区町村（発生地）\t町丁目（発生地）\n"
+    data = (head + "窃盗\t自転車盗\t252093\t甲賀市\t水口町本町２丁目\n").encode("cp932")
+    assert od.read_incidents(data) == [("25209", "甲賀市", "水口町本町２丁目", 1)]
+    assert od.detect_technique(data) == "zitensyatou"
+    areas = {od.town_key("本町二丁目"): ["a1"], od.town_key("新町"): ["a2"], od.town_key("松涛一丁目"): ["a3"]}
+    assert od._area_ids(areas, od.town_key("水口町本町２丁目")) == ["a1"]
+    assert od._area_ids(areas, od.town_key("西新町")) == []          # 前に残る部分が旧町村名に見えないものは対応付けない
+    assert od._area_ids(areas, od.town_key("松濤1丁目")) == ["a3"]   # 字体の違い
+    assert od.town_key("中町4丁目丁目") == od.town_key("中町四丁目")
