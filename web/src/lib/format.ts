@@ -42,16 +42,33 @@ export function formatFraction(row: ValueRow | undefined, ind: Indicator): strin
   }
   if (ind.kind === "ratio") {
     const [nu, du] = ind.fraction_units ?? ["人", "人"];
+    // 「〜の割合」は全体のうちの数として書く（例: 1,000 人のうち 250 人）
+    if (nu === du && ind.unit === "%" && !!ind.name?.includes("割合")) {
+      return `${formatNumber(row.denominator, 0)} ${du}のうち ${formatNumber(row.numerator, 0)} ${nu}`;
+    }
     return `${formatNumber(row.numerator, 0)} ${nu} ÷ ${formatNumber(row.denominator, 0)} ${du}`;
   }
   if (ind.kind === "change") {
     const sign = row.numerator > 0 ? "+" : row.numerator < 0 ? "−" : "±";
-    return `増減 ${sign}${formatNumber(Math.abs(row.numerator), 0)} 人 ÷ 前回 ${formatNumber(row.denominator, 0)} 人`;
+    return `前回 ${formatNumber(row.denominator, 0)} 人から ${sign}${formatNumber(Math.abs(row.numerator), 0)} 人`;
   }
   if (ind.kind === "density") {
-    return `${formatNumber(row.numerator, 0)} 人 ÷ ${formatNumber(row.denominator, 2)} km²`;
+    return `人口 ${formatNumber(row.numerator, 0)} 人 ÷ 面積 ${formatNumber(row.denominator, 2)} km²`;
   }
   return null;
+}
+
+// 値の求め方を短く書いたもの（地域の情報で、計算の内訳の後ろに添える）。書き換えた注記は note を出さない
+const BASIS_NOTES: Record<string, string> = {
+  "市区町村の分子・分母を合計して計算": "市区町村の数を合計して計算",
+  "市区町村の値の合計": "市区町村の値の合計",
+};
+export function formatBasis(row: Pick<ValueRow, "value" | "status" | "note"> | undefined, hasFraction: boolean): { text: string | null; note: string | null } {
+  if (!row || row.value === null) return { text: null, note: row?.note ?? null };
+  const fromNote = row.note ? BASIS_NOTES[row.note] : undefined;
+  const text = fromNote ?? (row.status === "estimated" ? "推計値"
+    : row.status === "derived" && !hasFraction ? "公表された数から計算" : null);
+  return { text, note: fromNote ? null : row.note ?? null };
 }
 
 /** 値の大きい順の順位（同値は同順位）。値がない地域は順位に含めない。 */

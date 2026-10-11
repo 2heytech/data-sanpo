@@ -5,7 +5,7 @@ import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, LngLatBoundsLike, PointLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { colorsFor, fillColorExpression, NO_DATA_COLOR } from "../lib/classify";
-import { compactNumber, formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
+import { compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
 import type {
@@ -18,6 +18,8 @@ import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
 import type { PointLayer } from "./points";
+import { genresFor } from "../lib/genres";
+import { normalize } from "../lib/search";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
@@ -750,6 +752,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <strong>${esc(formatValue(row, indicator))}</strong>${fraction ? `<span class="muted small">${esc(fraction)}</span>` : ""}</div>`;
   }
 
+  // 値の内訳（例: 1,337,033 人のうち 168,599 人）と求め方を1〜2行で書く（#93）
+  function calcHtml(row: ValueRow | undefined, fraction: string | null): string {
+    const basis = formatBasis(row, !!fraction);
+    return (fraction ? `<div class="muted">${esc(fraction)}</div>` : "") +
+      (basis.text ? `<div class="muted small">${esc(basis.text)}</div>` : "") +
+      (basis.note ? `<p class="note small">${esc(basis.note)}</p>` : "");
+  }
+
   // 順位: 範囲ごとの文と、1位（左）から最下位（右）までの横バー上の位置
   type Rank = { scope: string; rank: number; total: number };
   function rankHtml(ranks: Rank[]): string {
@@ -838,9 +848,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <h2>${esc(name)}</h2>
       <div>${esc(indicator.name)}（${esc(p.label)}）</div>
       <div class="value">${esc(formatValue(row, indicator))}</div>
-      ${fraction ? `<div class="muted">${esc(fraction)}</div>` : ""}
-      ${row?.value != null && STATUS_LABEL[row.status] ? `<div class="muted">${esc(STATUS_LABEL[row.status])}</div>` : ""}
-      ${row?.note ? `<p class="note small">${esc(row.note)}</p>` : ""}
+      ${calcHtml(row, fraction)}
       ${rankHtml(ranks)}
       ${city}
       ${within ? `<p class="note small">この指標は都道府県別の値だけです（${esc(entityName(within).name)}を含む${esc(name)}の値）。</p>` : ""}
@@ -937,6 +945,107 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       return `<optgroup label="${esc(c)}">${opts}</optgroup>`;
     })
     .join("");
+  // 指標の選択画面（#93）: 分類（ジャンル→カテゴリ、アイコン付き）ごとに指標を並べ、名前で絞り込める。
+  // 選ぶと上の select の値を変える。各カテゴリには、そのカテゴリの点レイヤー（駅など）の表示切替も並べる
+  const pickerEl = $<HTMLDialogElement>("#indicator-picker");
+  const pickerList = pickerEl.querySelector<HTMLElement>(".picker-list")!;
+  const pickerNav = pickerEl.querySelector<HTMLElement>(".picker-nav")!;
+  const pickerSearch = $<HTMLInputElement>("#picker-search");
+  const openButton = $<HTMLButtonElement>("#indicator-open");
+  const iconTemplate = root.querySelector<HTMLTemplateElement>("#category-icons");
+  const catIcon = (c: string, bubble = true) => {
+    const el = iconTemplate?.content.querySelector(`[data-category="${CSS.escape(c)}"]`);
+    if (!el) return "";
+    return bubble ? el.innerHTML : el.querySelector("svg")?.outerHTML ?? "";
+  };
+  const POINT_LAYERS = [
+    { toggle: "#stations-toggle", category: "交通" },
+    { toggle: "#schools-toggle", category: "教育" },
+    { toggle: "#land-toggle", category: "地価" },
+    { toggle: "#landsurvey-toggle", category: "地価" },
+    { toggle: "#nursery-toggle", category: "子育て" },
+  ].filter((p) => root.querySelector(p.toggle));
+  const pointLabel = (sel: string) => root.querySelector(sel)?.closest("label")?.textContent?.trim().replace(/を表示/, "") ?? "";
+  const pickerItem = (i: Indicator) => {
+    const members = membersOf(i);
+    const lv = levelsOf(members);
+    const prefs = nationwide ? prefsOf(members) : null;
+    const levels = LEVELS.filter((l) => lv.has(l)).map((l) => `<span title="${LEVEL_LABEL[l]}別">${LEVEL_ICON[l]}</span>`).join("");
+    const finest = lv.has("small_area") ? "町丁目まで" : lv.has("municipality") ? "市区町村まで" : "都道府県のみ";
+    return `<button type="button" class="picker-item" data-value="${esc(optionValue(i))}" data-key="${esc(normalize(optionLabel(i) + members.map((m) => m.name).join(" ")))}">
+      <span class="pi-name">${esc(optionLabel(i))}</span>
+      <span class="pi-meta">${levels}<span>${finest}</span>${prefs ? `<span class="limited">${esc(coverageLabel(prefs))}</span>` : ""}</span></button>`;
+  };
+  const pickerCats = [...new Set([...indicators.map((i) => i.category), ...POINT_LAYERS.map((p) => p.category)])];
+  const pickerGenres = genresFor(pickerCats);
+  pickerNav.innerHTML = pickerGenres.map((g, k) =>
+    `<button type="button" data-genre="${k}">${catIcon(g.categories[0], false)}${esc(g.title)}</button>`).join("");
+  pickerList.innerHTML = pickerGenres.map((g, k) => `<section class="picker-genre" id="picker-genre-${k}"><h3>${esc(g.title)}</h3>` +
+    g.categories.map((c) => {
+      const seen = new Set<string>();
+      const items = indicators.filter((i) => i.category === c && !seen.has(optionValue(i)) && seen.add(optionValue(i))).map(pickerItem).join("");
+      const points = POINT_LAYERS.filter((p) => p.category === c).map((p) =>
+        `<label><input type="checkbox" data-toggle="${p.toggle}" /> ${esc(pointLabel(p.toggle))}</label>`).join("");
+      return `<div class="picker-cat"><h4>${catIcon(c)}${esc(c)}</h4>` +
+        (items ? `<div class="picker-grid">${items}</div>` : "") +
+        (points ? `<div class="picker-points"><span class="muted">地図に点で重ねる:</span>${points}</div>` : "") + `</div>`;
+    }).join("") + `</section>`).join("") + `<p class="picker-empty" hidden>見つかりませんでした。</p>`;
+  function syncPicker() {
+    const v = optionValue(indicator);
+    for (const b of pickerList.querySelectorAll<HTMLElement>(".picker-item")) b.setAttribute("aria-current", String(b.dataset.value === v));
+    for (const c of pickerList.querySelectorAll<HTMLInputElement>("input[data-toggle]")) c.checked = $<HTMLInputElement>(c.dataset.toggle!).checked;
+    openButton.querySelector(".io-icon")!.innerHTML = catIcon(indicator.category, false);
+    openButton.querySelector(".io-name")!.textContent = optionLabel(indicator);
+    openButton.title = `指標を変える（今は「${optionLabel(indicator)}」）`;
+  }
+  function filterPicker() {
+    const q = normalize(pickerSearch.value.trim());
+    let any = false;
+    for (const b of pickerList.querySelectorAll<HTMLElement>(".picker-item")) {
+      const hit = !q || b.dataset.key!.includes(q);
+      b.hidden = !hit;
+      any ||= hit;
+    }
+    // 探しているときは、点の切替と、当てはまる指標のないカテゴリ・ジャンルを隠す
+    for (const p of pickerList.querySelectorAll<HTMLElement>(".picker-points")) p.hidden = !!q;
+    for (const c of pickerList.querySelectorAll<HTMLElement>(".picker-cat")) c.hidden = !!q && !c.querySelector(".picker-item:not([hidden])");
+    for (const g of pickerList.querySelectorAll<HTMLElement>(".picker-genre")) g.hidden = !!q && !g.querySelector(".picker-cat:not([hidden])");
+    pickerList.querySelector<HTMLElement>(".picker-empty")!.hidden = any;
+  }
+  openButton.addEventListener("click", () => {
+    syncPicker();
+    pickerSearch.value = "";
+    filterPicker();
+    pickerEl.showModal();
+    // 今の指標が見えるところまで送る
+    pickerList.querySelector<HTMLElement>('.picker-item[aria-current="true"]')?.scrollIntoView({ block: "center" });
+    if (matchMedia("(min-width: 721px)").matches) pickerSearch.focus();
+  });
+  pickerEl.querySelector(".picker-close")!.addEventListener("click", () => pickerEl.close());
+  // 選択画面の外（暗いところ）を押すと閉じる
+  pickerEl.addEventListener("click", (e) => { if (e.target === pickerEl) pickerEl.close(); });
+  pickerSearch.addEventListener("input", filterPicker);
+  pickerNav.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>("button[data-genre]");
+    if (b) pickerList.querySelector(`#picker-genre-${b.dataset.genre}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  });
+  pickerList.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>(".picker-item");
+    if (!b) return;
+    pickerEl.close();
+    if (b.dataset.value !== indicatorSelect.value) {
+      indicatorSelect.value = b.dataset.value!;
+      indicatorSelect.dispatchEvent(new Event("change"));
+    }
+  });
+  pickerList.addEventListener("change", (e) => {
+    const c = e.target as HTMLInputElement;
+    if (!c.dataset.toggle) return;
+    const real = $<HTMLInputElement>(c.dataset.toggle);
+    real.checked = c.checked;
+    real.dispatchEvent(new Event("change"));
+  });
+
   const unique = (xs: string[]) => [...new Set(xs)];
   // 選んだ指標（と時点）で見られる単位と、対象の都道府県
   function renderScope() {
@@ -955,6 +1064,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
   function syncIndicatorControls() {
     indicatorSelect.value = optionValue(indicator);
+    syncPicker();
     facetsEl.hidden = !indicator.family;
     if (!indicator.family || !indicator.facets) return;
     const members = familyMembers(indicator.family);
