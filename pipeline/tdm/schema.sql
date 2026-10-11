@@ -22,7 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_sources_dataset ON sources(dataset_key);
 CREATE TABLE IF NOT EXISTS entities (
   entity_id   TEXT PRIMARY KEY,             -- 例: muni-13101, area-13101001001
   entity_type TEXT NOT NULL CHECK (entity_type IN
-                ('prefecture', 'municipality', 'small_area', 'station', 'school', 'store', 'land_point', 'nursery')),
+                ('prefecture', 'municipality', 'small_area', 'station', 'school', 'store', 'land_point', 'nursery', 'weather_station')),
   name        TEXT NOT NULL,
   name_kana   TEXT,
   parent_id   TEXT REFERENCES entities(entity_id),

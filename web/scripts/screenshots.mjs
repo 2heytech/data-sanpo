@@ -35,6 +35,9 @@ const shots = [
   // 東京都以外の点（駅・地価は値あり、学校・保育所は位置だけ）と2025年国勢調査（市区町村）
   ["34-map-osaka-points", "/map/?i=population_total&a=muni-27127&show=stations,schools,land,nurseries", { width: 1280, height: 900 }],
   ["35-map-2025-aged", "/map/?i=aged_65_plus_share&p=2025-10-01", { width: 1280, height: 900 }],
+  // 天気（気象庁の平年値、観測所の点）。全国の降水量と、東京の観測所を選んだところ
+  ["36-map-weather-japan", "/map/?i=population_total&show=weather&wx=precipitation_normal", { width: 1280, height: 900 }],
+  ["37-map-weather-tokyo", "/map/?i=population_total&show=weather&wx=sunshine_normal&ws=wx-44132", { width: 1280, height: 900 }],
   ["90-about", "/about/", { width: 1280, height: 900 }],
 ];
 
