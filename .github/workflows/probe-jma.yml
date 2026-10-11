@@ -9,12 +9,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          set -x
           B=https://www.data.jma.go.jp/stats/data/mdrr/normal/2020/data
-          for f in normal_amedas_monthly amedas_station_index normal_surface; do
-            curl -sSfL -A "Mozilla/5.0" -o $f.zip $B/$f.zip; ls -l $f.zip; mkdir -p $f; (cd $f && unzip -q -o ../$f.zip); done
-          find . -maxdepth 3 -type f -not -name '*.zip' | head -100
+          for f in normal_amedas_monthly amedas_station_index; do
+            curl -sSfL -A "Mozilla/5.0" -o $f.zip $B/$f.zip; mkdir -p $f; (cd $f && unzip -q -o ../$f.zip); done
+          sha256sum *.zip; unzip -l amedas_station_index.zip
           find normal_amedas_monthly -type f | wc -l
-          for f in $(find amedas_station_index -type f | head -3); do echo "== $f"; iconv -f cp932 -t utf-8 "$f" | head -8; done
-          for f in $(find normal_amedas_monthly -type f | head -40); do echo "== $f"; iconv -f cp932 -t utf-8 "$f" | head -6 | cut -c1-600; done
-          for f in $(find normal_surface -maxdepth 2 | head -60); do echo "$f"; done
+          find normal_amedas_monthly -type f | head -3
+          S=$(find amedas_station_index -type f -name '*.csv' | head -1); echo "== $S"; wc -l "$S"
+          iconv -f cp932 -t utf-8 "$S" | head -5; iconv -f cp932 -t utf-8 "$S" | grep -E "^ ?(44132|14163|91197|11001|48156|54232)" 
+          iconv -f cp932 -t utf-8 "$S" | tail -3
+          echo "== tokyo"; cat $(find normal_amedas_monthly -name 'nml_amd_m_44132.csv') | grep -E ",(3500|4000|6200|6300|5100)," 
+          echo "== sapporo"; cat $(find normal_amedas_monthly -name 'nml_amd_m_14163.csv') | grep -E ",(3500|4000|6200|6300)," 
+          echo "== naha"; cat $(find normal_amedas_monthly -name 'nml_amd_m_91197.csv') | grep -E ",(3500|4000|6200|6300)," 
+          for e in 3500 4000 6200 6300; do echo "$e valid: $(cat $(find normal_amedas_monthly -type f) | grep -E "^21,[0-9]{5},$e," | awk -F, '$NF!="" {print substr($0,length($0),1)}' | sort | uniq -c | tr '\n' ' ')"; done
+          echo "years distribution 4000:"; cat $(find normal_amedas_monthly -type f) | grep -E "^21,[0-9]{5},4000," | cut -d, -f4 | sort | uniq -c | sort -rn | head -12
+          echo "years distribution 3500:"; cat $(find normal_amedas_monthly -type f) | grep -E "^21,[0-9]{5},3500," | cut -d, -f4 | sort | uniq -c | sort -rn | head -12
+          echo "years distribution 6200:"; cat $(find normal_amedas_monthly -type f) | grep -E "^21,[0-9]{5},6200," | cut -d, -f4 | sort | uniq -c | sort -rn | head -12
+          echo "elements:"; cat $(find normal_amedas_monthly -type f) | cut -d, -f3 | sort | uniq -c | tr '\n' ' '
+          echo; echo "6200 annual RMK8 value 0 count:"; cat $(find normal_amedas_monthly -type f) | grep -E "^21,[0-9]{5},6200," | awk '{print substr($0,length($0)-7)}' | sort | uniq -c | sort -rn | head -5
