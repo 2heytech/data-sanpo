@@ -1327,6 +1327,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     syncBasemap();
   });
   // 再生: この場所で撮影されている年代を古い順に送り、最新まで来たら止める（途中で地図を動かしてもよい）
+  // 途中で止めたときは、次の再生をその年代から続ける。最新の写真のときだけ最初の年代から
   let photoTimer: number | undefined;
   function stopPhotoPlay() {
     clearInterval(photoTimer);
@@ -1338,8 +1339,11 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (photoTimer !== undefined) return stopPhotoPlay();
     photoPlay.setAttribute("aria-pressed", "true");
     photoPlay.textContent = "■";
-    photoEraId = photoEras[0].id;
-    syncBasemap();
+    const at = photoEras.findIndex((e) => e.id === photoEraId);
+    if (at < 0 || at === photoEras.length - 1) {
+      photoEraId = photoEras[0].id;
+      syncBasemap();
+    }
     photoTimer = window.setInterval(() => {
       const next = photoEras[photoEras.findIndex((e) => e.id === photoEraId) + 1];
       if (!next) return stopPhotoPlay();
