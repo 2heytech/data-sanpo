@@ -346,7 +346,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
         periods: dict[tuple, dict] = {}
         covered: set[str] = set()  # 値のある都道府県（東京都だけの指標を画面で示すため）
         # annual_levels: 年ごとの時点で書き出す単位（全国の町丁目まで年ごとに出すとファイル数が多すぎる指標は、
-        # 町丁目を複数年の合計だけにする。#93）
+        # 町丁目を複数年の合計だけにする。#96）
         annual_levels = set(d.get("annual_levels", LEVEL_ORDER))
         for o in obs:
             level = exported_entities.get(o["entity_id"])
@@ -473,6 +473,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
     used_sources |= export_schools(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_land_prices(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_nurseries(conn, catalog, out, release_id, ok_sources)
+    used_sources |= export_weather(conn, catalog, out, release_id, ok_sources)
 
     used_sources |= {r["source_id"] for r in muni_rows} | {r["source_id"] for r in area_rows}
     src = conn.execute(
@@ -694,6 +695,71 @@ def export_land_prices(conn: sqlite3.Connection, catalog: dict[str, dict], out: 
     return used
 
 
+WEATHER_FILE = "weather_normals"   # places/weather_normals.json（天気の指標をまとめた1ファイル）
+
+
+def export_weather(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
+                   release_id: str, ok_sources: set[str]) -> set[str]:
+    """気象庁の平年値の観測所（places/weather_normals.json）。全国で約1,300地点と少ないので、都道府県に分けず
+    1ファイルにし、日照時間・降水量・最深積雪・降雪量をまとめて持つ（観測所を選ぶと4つとも見せる。docs/design-changes.md #94）。"""
+    ids = [i for i, d in catalog.items() if "weather_station" in d.get("levels", [])]
+    rows = [r for r in conn.execute(
+        f"""SELECT o.entity_id, o.indicator_id, o.definition_version, o.value, o.source_id FROM observations o
+            JOIN entities e ON e.entity_id = o.entity_id
+            WHERE e.entity_type = 'weather_station' AND o.dimension_key = 'all'
+              AND o.indicator_id IN ({",".join("?" * len(ids))})""", ids).fetchall()
+            if r["source_id"] in ok_sources and r["value"] is not None
+            and r["definition_version"] == catalog[r["indicator_id"]]["definition_version"]]
+    if not rows:
+        return set()
+    info = {r["entity_id"]: r for r in conn.execute(
+        """SELECT e.entity_id, e.name, e.name_kana, e.parent_id, l.lon, l.lat, l.source_id AS loc_source,
+                  a.attributes
+           FROM entities e JOIN locations l ON l.entity_id = e.entity_id AND l.role = 'main'
+           LEFT JOIN entity_attributes a ON a.entity_id = e.entity_id
+           WHERE e.entity_type = 'weather_station'""")}
+    points: dict[str, dict] = {}
+    used: set[str] = set()
+    values: dict[str, list[float]] = defaultdict(list)
+    for r in rows:
+        e = info.get(r["entity_id"])
+        if e is None or e["loc_source"] not in ok_sources:
+            continue
+        attrs = json.loads(e["attributes"] or "{}")
+        pt = points.setdefault(r["entity_id"], {
+            "id": r["entity_id"], "name": e["name"], "kana": e["name_kana"],
+            "municipality_id": e["parent_id"],
+            "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)],
+            "altitude_m": attrs.get("altitude_m"), "values": {}, "monthly": {}, "years": {}})
+        d = catalog[r["indicator_id"]]
+        el = attrs.get("elements", {}).get(r["indicator_id"], {})
+        pt["values"][r["indicator_id"]] = round(r["value"], d["digits"]) if d["digits"] else round(r["value"])
+        # 月の値は表で見せるだけなので整数にする（全国で1ファイルにするため小さくする）
+        pt["monthly"][r["indicator_id"]] = [None if m is None else round(m) for m in el.get("monthly") or []]
+        pt["years"][r["indicator_id"]] = [el.get("start"), el.get("end"), el.get("years")]
+        values[r["indicator_id"]].append(r["value"])
+        used |= {r["source_id"], e["loc_source"]}
+    elements = []
+    for i in ids:
+        if not values[i]:
+            continue
+        d = catalog[i]
+        elements.append({
+            "id": i, "name": d["name"], "unit": d["unit"], "digits": d["digits"],
+            "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
+            "scheme": d["legend"]["scheme"], "count": len(values[i]),
+            "breaks": nice_breaks(values[i], d["legend"]["classes"], d["digits"]),
+            "min": min(values[i]), "max": max(values[i])})
+    _write(out, f"places/{WEATHER_FILE}.json", {
+        "schema_version": SCHEMA_VERSION, "release_id": release_id,
+        "name": "天気（平年値）", "unit": "", "description": "気象庁の観測所ごとの、1991〜2020年の平年値"
+        "（日照時間・降水量・最深積雪・降雪量）。",
+        "periods": [{"period": "1991-2020", "label": "1991〜2020年の平年値"}],
+        "elements": elements, "source_ids": sorted(used),
+        "stations": sorted(points.values(), key=lambda p: p["id"])})
+    return used
+
+
 def export_nurseries(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
                      release_id: str, ok_sources: set[str]) -> set[str]:
     """認可保育所の点（places/<指標>.json）。位置のない施設も一覧には含め、coord を null にする。"""
@@ -764,7 +830,7 @@ def _default_period(period_meta: list[dict], levels: list[str]) -> str:
         fine = [p for p in annual if "small_area" in p["levels"]]
         if fine:
             return fine[-1]["period"]
-        # 町丁・字等の値が複数年の合計にだけある指標（全国の犯罪オープンデータ、#93）は合計を最初に出す
+        # 町丁・字等の値が複数年の合計にだけある指標（全国の犯罪オープンデータ、#96）は合計を最初に出す
         fine = [p for p in period_meta if p["aggregate"] and "small_area" in p["levels"]]
         if fine:
             return fine[-1]["period"]

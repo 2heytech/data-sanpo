@@ -4342,3 +4342,20 @@ license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
 attribution = "出典：国土交通省 国土数値情報（都道府県地価調査データ）"
 modification_note = "基準地ごとの価格の推移を抜き出して作成"
 redistributable = true
+
+# 気象庁の平年値（統計期間1991〜2020年）。アメダスの月・年別平年値と地点情報の2つの zip をそのまま置き、取込で中を読む。
+# 形式は pipeline/tdm/ingest/jma_normals.py を参照（2026-10-11 に GitHub Actions から取得して確認）。
+# 気象庁ホームページのコンテンツは「公共データ利用規約（第1.0版）」に準拠（商用利用・加工・再配布可、出典と加工の記載が必要。
+# CC BY 4.0 と両立する）。2026-10-11 に https://www.jma.go.jp/jma/kishou/info/coment.html で確認。
+[jma_normals_2020]
+kind = "jma_normals"
+title = "気象庁 平年値（統計期間1991〜2020年） アメダス 月・年別平年値と地点情報"
+provider = "気象庁"
+url = "https://www.data.jma.go.jp/stats/data/mdrr/normal/index.html"
+download_files = { "normal_amedas_monthly.zip" = "https://www.data.jma.go.jp/stats/data/mdrr/normal/2020/data/normal_amedas_monthly.zip", "amedas_station_index.zip" = "https://www.data.jma.go.jp/stats/data/mdrr/normal/2020/data/amedas_station_index.zip" }
+files = ["normal_amedas_monthly.zip", "amedas_station_index.zip"]
+license = "公共データ利用規約（第1.0版）"
+license_url = "https://www.jma.go.jp/jma/kishou/info/coment.html"
+attribution = "出典：気象庁ホームページ（https://www.data.jma.go.jp/stats/data/mdrr/normal/index.html） 平年値（統計期間1991〜2020年）"
+modification_note = "観測所ごとの年・月の平年値（日照時間・降水量・最深積雪・降雪量）を抜き出して作成"
+redistributable = true

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BLANK_COLOR, classIndex, colorsFor, fillColorExpression, NO_DATA_COLOR } from "../src/lib/classify";
-import { formatFraction, formatValue, rankIfVaried, rankOf } from "../src/lib/format";
+import { compactNumber, formatBasis, formatFraction, formatValue, rankIfVaried, rankOf } from "../src/lib/format";
 import { AreaSearch, normalize } from "../src/lib/search";
 import type { Indicator, SearchIndex } from "../src/lib/types";
 import { municipalityCodeOf, parseState, serializeState } from "../src/lib/urlstate";
@@ -19,8 +19,18 @@ describe("formatValue", () => {
     expect(formatValue(undefined, people)).toBe("データなし");
   });
   it("率の内訳を示す", () => {
-    expect(formatFraction({ entity_id: "a", value: 25, status: "derived", numerator: 250, denominator: 1000 }, pct))
-      .toBe("250 人 ÷ 1,000 人");
+    const row = { entity_id: "a", value: 25, status: "derived", numerator: 250, denominator: 1000 } as const;
+    expect(formatFraction(row, pct)).toBe("250 人 ÷ 1,000 人");
+    // 「〜の割合」は全体のうちの数として書く
+    expect(formatFraction(row, { ...pct, name: "65歳以上の割合" })).toBe("1,000 人のうち 250 人");
+    expect(formatFraction(row, { ...pct, name: "1世帯あたり人数", unit: "人", fraction_units: ["人", "世帯"] })).toBe("250 人 ÷ 1,000 世帯");
+  });
+  it("値の求め方を短く書く", () => {
+    expect(formatBasis({ value: 1, status: "derived", note: "市区町村の分子・分母を合計して計算" }, true))
+      .toEqual({ text: "市区町村の数を合計して計算", note: null });
+    expect(formatBasis({ value: 1, status: "derived" }, true)).toEqual({ text: null, note: null });
+    expect(formatBasis({ value: 1, status: "derived" }, false).text).toBe("公表された数から計算");
+    expect(formatBasis({ value: 1, status: "estimated", note: "ほかの注記" }, false)).toEqual({ text: "推計値", note: "ほかの注記" });
   });
 });
 
@@ -152,6 +162,28 @@ describe("地価公示の凡例", () => {
     expect(bins[1]).toBe("10万〜20万円");
     expect(bins[bins.length - 1]).toBe("1,000万円以上");
     expect(bins.length).toBe(LAND_COLORS.length);
+  });
+});
+
+describe("compactNumber（凡例の目盛り）", () => {
+  it("1万以上は万・億で短く書き、1万未満はそのまま", () => {
+    expect(compactNumber(2000, 0)).toBe("2,000");
+    expect(compactNumber(0.35, 2)).toBe("0.35");
+    expect(compactNumber(12000, 0)).toBe("1.2万");
+    expect(compactNumber(10000, 0)).toBe("1万");
+    expect(compactNumber(3500000, 0)).toBe("350万");
+    expect(compactNumber(150000000, 0)).toBe("1.5億");
+  });
+});
+
+describe("天気の凡例", () => {
+  it("区切りから区分の文言を作り、区分の数と色の数が合う", async () => {
+    const { weatherBins, weatherColors } = await import("../src/map/weather");
+    const e = { breaks: [1000, 1500, 2000], unit: "mm", digits: 0, scheme: "blues" };
+    expect(weatherBins(e)).toEqual(["1,000mm未満", "1,000〜1,500mm", "1,500〜2,000mm", "2,000mm以上"]);
+    const colors = weatherColors(e);
+    expect(colors.length).toBe(4);
+    expect(colors[0]).not.toBe("#f7fbff");   // ほぼ白の色は地図の上で見えにくいので使わない
   });
 });
 

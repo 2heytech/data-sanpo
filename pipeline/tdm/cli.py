@@ -28,7 +28,7 @@ from .derive import derive_change, derive_density, derive_multi_year_sum, derive
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
 from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
-                     estat_economic_census, estat_school_basic,
+                     estat_economic_census, estat_school_basic, jma_normals,
                      estat_small_area, mhlw_vital,
                      keishicho_crime, mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
                      npa_crime_stats, npa_traffic, police_crime_opendata, soumu_furusato, soumu_tax, tokyo_childcare,
@@ -160,7 +160,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "nier_gakuryoku", "estat_school_basic", "mlit_schools", "mlit_nurseries",
                         "soumu_juki_foreign", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
-                        "estat_economic_census", "mlit_landsurvey", "npa_crime_stats",
+                        "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata"):
             continue
         if cfg.get("per_prefecture"):
@@ -260,6 +260,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                     for f in files:   # 都道府県ごとのファイル
                         _add_counts(result, f"{key} {indicator_id}",
                                     mlit_landprice.ingest(conn, f, src, indicator_id, d))
+        elif kind == "jma_normals":   # 気象庁の平年値（観測所の点）
+            result[key] = jma_normals.ingest(conn, files, src, catalog, boundary_version, prefs)
         elif kind == "mlit_schools":
             result[key] = mlit_facilities.ingest_schools(conn, files, src, boundary_version,
                                                          source_prefectures(cfg, prefs), cfg["as_of"])

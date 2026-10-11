@@ -11,7 +11,7 @@
 元ファイルは sources.toml の download_files で「<年>_<手口>.csv」の名前にそろえて保存する（手口はファイル名の
 ローマ字: hittakuri, syazyounerai, buhinnerai, zidouhanbaikinerai, zidousyatou, ootobaitou, zitensyatou）。
 
-数え方（docs/design-changes.md #93）:
+数え方（docs/design-changes.md #96）:
 - 市区町村: 年ごとに件数を数える（市区町村コード、なければ名前で対応付け）。その年・その手口のファイルがあれば、
   行のない市区町村は0件。7手口の合計は、その年の7つのファイルがそろった都道府県だけ。
 - 町丁目: 全国の町丁目まで年ごとに出すとファイル数が多すぎるので、直近5年の合計だけを作る（5年分のファイルが

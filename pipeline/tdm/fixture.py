@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import json
 import random
+import zipfile
 from pathlib import Path
 
 import shapefile
@@ -227,6 +228,7 @@ def _write_police_crime_opendata(directory: Path) -> dict[str, Path]:
                 for code, muni, town in POLICE_OD_ROWS[pref]:
                     wr.writerow(["窃盗", tech, "見本警察署", "見本交番", code, PREF_NAMES[pref], muni, town, f"{year}0105"])
             out[f"{key}_{name}"] = path
+    out.update(_write_weather(directory))
     return out
 
 
@@ -1780,3 +1782,51 @@ def _write_csv(path: Path, codes: list[str], labels: list[str], rows: list[list]
         wr.writerow(codes)
         wr.writerow([""] * len(HEAD_CODES) + labels)
         wr.writerows(rows)
+
+
+# 気象庁の平年値（アメダスの月・年別平年値と地点情報、どちらも zip の中の cp932 の CSV）。
+# 「ためし」は日照・積雪の統計値なし（品質0、値の欄も0）で、統計期間が短い。「標本」は雪の降らない地点（正常値の0cm）。
+# 「遠く」は地図の範囲外の地点で、取り込まない
+WEATHER_STATIONS = [   # (観測所番号, 名前, カナ, 緯度, 経度, 高度)
+    ("44901", "見本", "ﾐﾎﾝ", (35, 40.8), (139, 43.2), 25),
+    ("44902", "ためし", "ﾀﾒｼ", (35, 41.4), (139, 39.6), 60),
+    ("46901", "標本", "ﾋｮｳﾎﾝ", (35, 28.2), (139, 37.2), 10),
+    ("14999", "遠く", "ﾄｵｸ", (43, 3.0), (142, 0.0), 100),
+]
+WEATHER_NORMALS = {   # 観測所番号 → 要素番号 → (資料年数, 開始年, 1〜12月と年の値。None は統計値なし)
+    "44901": {"3500": (30, 1991, [1900, 1700, 1750, 1790, 1800, 1240, 1510, 1740, 1270, 1290, 1500, 1740, 19230]),
+              "4000": (30, 1991, [600, 560, 1160, 1340, 1400, 1680, 1560, 1550, 2250, 2350, 960, 580, 15990]),
+              "6200": (30, 1991, [3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6]),
+              "6300": (30, 1991, [4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8])},
+    "44902": {"3500": None, "6200": None, "6300": None,
+              "4000": (18, 2003, [500, 520, 1100, 1300, 1450, 1700, 1650, 1600, 2300, 2400, 900, 520, 15940])},
+    "46901": {"3500": (30, 1991, [1950, 1750, 1800, 1800, 1820, 1300, 1600, 1800, 1300, 1300, 1550, 1800, 19770]),
+              "4000": (30, 1991, [700, 650, 1300, 1400, 1450, 1800, 1600, 1500, 2200, 2300, 1000, 650, 16550]),
+              "6200": (30, 1991, [0] * 13), "6300": (30, 1991, [0] * 13)},
+    "14999": {"4000": (30, 1991, [1000] * 12 + [12000])},
+}
+
+
+def _write_weather(directory: Path) -> dict[str, Path]:
+    d = directory / "jma_normals_2020"
+    d.mkdir(parents=True, exist_ok=True)
+    head = "観測所番号,観測所名,カナ,ローマ字,緯度(度),緯度(分),経度(度),経度(分),高度,風速計の高さ,降水量,風,気温,日照時間,積雪の深さ"
+    lines = [head] + [f"{n},{name}{'　' * (10 - len(name))},{kana:<15},{'X':<30},{lat[0]},{lat[1]:04.1f},"
+                      f"{lon[0]},{lon[1]:04.1f},{alt:04d},010.0,1,1,1,1,1"
+                      for n, name, kana, lat, lon, alt in WEATHER_STATIONS]
+    index = d / "amedas_station_index.zip"
+    with zipfile.ZipFile(index, "w") as z:
+        z.writestr("amedas_station_index.csv", ("\r\n".join(lines) + "\r\n").encode("cp932"))
+    monthly = d / "normal_amedas_monthly.zip"
+    with zipfile.ZipFile(monthly, "w") as z:
+        for n, elements in WEATHER_NORMALS.items():
+            rows = []
+            for el in ("0500", "3500", "4000", "6200", "6300"):
+                v = elements.get(el)
+                if v is None:
+                    rows.append(f"21,{n},{el}, 0,   0,   0," + ",".join(["     0,0"] * 13))
+                else:
+                    years, start, vals = v
+                    rows.append(f"21,{n},{el},{years:2d},{start},2020," + ",".join(f"{x:6d},8" for x in vals))
+            z.writestr(f"monthly/area{n[:2]}/nml_amd_m_{n}.csv", ("\r\n".join(rows) + "\r\n").encode("cp932"))
+    return {"weather_index": index, "weather_monthly": monthly}

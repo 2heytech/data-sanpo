@@ -5,7 +5,7 @@ import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, LngLatBoundsLike, PointLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { colorsFor, fillColorExpression, NO_DATA_COLOR } from "../lib/classify";
-import { formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
+import { compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
 import type {
@@ -17,7 +17,10 @@ import { initStations } from "./stations";
 import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
+import { initWeather } from "./weather";
 import type { PointLayer } from "./points";
+import { genresFor } from "../lib/genres";
+import { normalize } from "../lib/search";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
@@ -130,6 +133,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const facetsEl = $("#facets");
   const facetType = $<HTMLSelectElement>("#facet-type");
   const facetBasis = $<HTMLSelectElement>("#facet-basis");
+  const facetBasisWrap = $<HTMLElement>("#facet-basis-wrap");
   const aggregateWrap = $("#aggregate-wrap");
   const aggregateToggle = $<HTMLInputElement>("#aggregate-toggle");
   const aggregateLabel = $("#aggregate-label");
@@ -312,6 +316,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     return z >= AREA_ZOOM && !municipalityOnly() ? "small_area" : "municipality";
   };
   const LEVEL_LABEL: Record<Level, string> = { prefecture: "都道府県", municipality: "市区町村", small_area: "町丁・字等" };
+  const SHORT_LEVEL: Record<Level, string> = { prefecture: "都道府県", municipality: "市区町村", small_area: "町丁目" };
+  // 単位のアイコン: 1マス（都道府県）・2×2（市区町村）・3×3（町丁目）
+  const gridIcon = (k: number) => {
+    const d = 12 / k;
+    const lines = Array.from({ length: k - 1 }, (_, i) => `M${1 + d * (i + 1)} 1V13M1 ${1 + d * (i + 1)}H13`).join("");
+    return `<svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="1.5"/>${lines ? `<path d="${lines}"/>` : ""}</svg>`;
+  };
+  const LEVEL_ICON: Record<Level, string> = { prefecture: gridIcon(1), municipality: gridIcon(2), small_area: gridIcon(3) };
 
   // --- 値の読み込みと色分け ---------------------------------------------------------
   const valuesPath = (chunk: string) => `values/${indicator.id}/${period}/${chunk}.json`;
@@ -517,7 +529,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     renderAreaChip();
   }
 
-  // 点レイヤー（駅・学校・地価公示・都道府県地価調査・認可保育所）。オンにしたときだけ読み込む
+  // 点レイヤー（駅・学校・地価公示・都道府県地価調査・認可保育所・天気の観測所）。オンにしたときだけ読み込む
   const pickEl = $("#pick-detail");
   const pointOptions = (toggle: string, legendSel: string, panel: string) => ({
     map, fetchJSON, sources, beforeLayer: "area-label", labelFont: LABEL_FONT,
@@ -532,6 +544,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     initLandPrices({ kind: "land_survey_price",
       ...pointOptions("#landsurvey-toggle", "#landsurvey-legend", "#landsurvey-detail") }),
     initNurseries(pointOptions("#nursery-toggle", "#nursery-legend", "#nursery-detail")),
+    initWeather({ select: $<HTMLSelectElement>("#weather-select"),
+      ...pointOptions("#weather-toggle", "#weather-legend", "#weather-detail") }),
   ];
   // 地点の情報を出している間は、地域の情報を隠す（直前にクリックしたものだけを出す）
   function syncPanels() {
@@ -603,13 +617,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (areaChip.hidden !== !name) areaChip.hidden = !name;
   }
 
+  // 凡例: 指標名は選択欄、時点は時点のバーにあるので、ここは単位と何別かだけ書き、色は1本の帯で示す（#93）
   function renderLegend() {
     if (!legend) return;
     const level = levelNow();
     const info = legend.levels[level];
     let levelLabel = LEVEL_LABEL[level];
+    const head = (label: string) =>
+      `<p class="legend-head">${esc(indicator.unit)}<span class="muted">（${esc(label)}別）</span></p>`;
     if (!info) {
-      legendEl.innerHTML = `<strong>${esc(indicator.name)}</strong><p class="muted">この時点の${levelLabel}別の値はありません。</p>`;
+      legendEl.innerHTML = `<p class="muted small">この時点の${levelLabel}別の値はありません。</p>`;
       return;
     }
     // 市区町村の区切りは都道府県ごと。凡例は地図の中心（選んだ地域）の都道府県の区切りを出す
@@ -619,33 +636,35 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       breaks = info.by_prefecture![pref];
       levelLabel = `${prefName(pref)}の${levelLabel}`;
     }
+    const noData = `<span><i class="swatch" style="background:${NO_DATA_COLOR}"></i>値なし</span>`;
+    const blank = `<span><i class="swatch blank"></i>0（色なし）</span>`;
     // 県内がすべて0の都道府県（例: 私立中学校のない県）は色を付けない
     const focus = level === "municipality" ? focusPrefecture() : undefined;
     if (focus && info.zero_prefectures?.includes(focus)) {
-      legendEl.innerHTML =
-        `<strong>${esc(indicator.name)}</strong>（${esc(indicator.unit)}、${esc(prefName(focus))}の${esc(LEVEL_LABEL[level])}別・${esc(periodInfo().label)}）` +
-        `<ul><li><span class="swatch blank"></span>0（色なし）</li>` +
-        `<li><span class="swatch" style="background:${NO_DATA_COLOR}"></span>値なし（秘匿・欠測など）</li></ul>` +
+      legendEl.innerHTML = head(`${prefName(focus)}の${LEVEL_LABEL[level]}`) +
+        `<p class="legend-extra">${blank}${noData}</p>` +
         `<p class="muted small">${esc(prefName(focus))}の市区町村はすべて0のため、色を付けていません。</p>`;
       return;
     }
     const zeroBlank = !!legend.zero_blank;
     const colors = colorsFor(legend.scheme, breaks, zeroBlank);
     const fmt = (v: number) => formatNumber(v, indicator.digits);
-    const items = colors.map((c, i) => {
+    const labels = colors.map((_, i) => {
       const lo = i === 0 ? null : breaks[i - 1];
       const hi = i === breaks.length ? null : breaks[i];
-      const label = lo === null && hi === null ? (zeroBlank ? "0 より大きい" : "すべて")
+      return lo === null && hi === null ? (zeroBlank ? "0 より大きい" : "すべて")
         : lo === null ? (zeroBlank ? `0 より大きく ${fmt(hi!)} 未満` : `${fmt(hi!)} 未満`)
         : hi === null ? `${fmt(lo)} 以上` : `${fmt(lo)} 〜 ${fmt(hi)} 未満`;
-      return `<li><span class="swatch" style="background:${c}"></span>${label}</li>`;
     });
-    if (zeroBlank) items.unshift(`<li><span class="swatch blank"></span>0（色なし）</li>`);
-    items.push(`<li><span class="swatch" style="background:${NO_DATA_COLOR}"></span>値なし（秘匿・欠測など）</li>`);
-    legendEl.innerHTML =
-      `<strong>${esc(indicator.name)}</strong>（${esc(indicator.unit)}、${esc(levelLabel)}別・${esc(periodInfo().label)}）` +
-      `<ul>${items.join("")}</ul>` +
-      (pref ? `<p class="muted small">市区町村の色の区切りは都道府県ごとに決めています。</p>` : "");
+    const cells = colors.map((c, i) => `<span style="background:${c}" title="${esc(labels[i])}"></span>`).join("");
+    // 区切りの値は帯の境目に、上下2段に互い違いに出す（色にカーソルを合わせると範囲も出る）
+    const n = colors.length;
+    const ticks = breaks.slice(0, n - 1).map((b, k) =>
+      `<span class="${n > 6 && k % 2 ? "low" : ""}" style="left:${(((k + 1) / n) * 100).toFixed(2)}%">${esc(compactNumber(b, indicator.digits))}</span>`).join("");
+    legendEl.innerHTML = head(levelLabel) +
+      `<div class="legend-bar" role="img" aria-label="${esc(labels.join("、"))}">${cells}</div>` +
+      `<div class="legend-ticks${n > 6 ? " two" : ""}" aria-hidden="true">${ticks}</div>` +
+      `<p class="legend-extra">${zeroBlank ? blank : ""}${noData}</p>`;
   }
 
   async function rowsFor(id: string, at = period): Promise<ValueRow[]> {
@@ -737,6 +756,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <strong>${esc(formatValue(row, indicator))}</strong>${fraction ? `<span class="muted small">${esc(fraction)}</span>` : ""}</div>`;
   }
 
+  // 値の内訳（例: 1,337,033 人のうち 168,599 人）と求め方を1〜2行で書く（#95）
+  function calcHtml(row: ValueRow | undefined, fraction: string | null): string {
+    const basis = formatBasis(row, !!fraction);
+    return (fraction ? `<div class="muted">${esc(fraction)}</div>` : "") +
+      (basis.text ? `<div class="muted small">${esc(basis.text)}</div>` : "") +
+      (basis.note ? `<p class="note small">${esc(basis.note)}</p>` : "");
+  }
+
   // 順位: 範囲ごとの文と、1位（左）から最下位（右）までの横バー上の位置
   type Rank = { scope: string; rank: number; total: number };
   function rankHtml(ranks: Rank[]): string {
@@ -825,9 +852,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <h2>${esc(name)}</h2>
       <div>${esc(indicator.name)}（${esc(p.label)}）</div>
       <div class="value">${esc(formatValue(row, indicator))}</div>
-      ${fraction ? `<div class="muted">${esc(fraction)}</div>` : ""}
-      ${row?.value != null && STATUS_LABEL[row.status] ? `<div class="muted">${esc(STATUS_LABEL[row.status])}</div>` : ""}
-      ${row?.note ? `<p class="note small">${esc(row.note)}</p>` : ""}
+      ${calcHtml(row, fraction)}
       ${rankHtml(ranks)}
       ${city}
       ${within ? `<p class="note small">この指標は都道府県別の値だけです（${esc(entityName(within).name)}を含む${esc(name)}の値）。</p>` : ""}
@@ -924,25 +949,127 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       return `<optgroup label="${esc(c)}">${opts}</optgroup>`;
     })
     .join("");
+  // 指標の選択画面（#95）: 分類（ジャンル→カテゴリ、アイコン付き）ごとに指標を並べ、名前で絞り込める。
+  // 選ぶと上の select の値を変える。各カテゴリには、そのカテゴリの点レイヤー（駅など）の表示切替も並べる
+  const pickerEl = $<HTMLDialogElement>("#indicator-picker");
+  const pickerList = pickerEl.querySelector<HTMLElement>(".picker-list")!;
+  const pickerNav = pickerEl.querySelector<HTMLElement>(".picker-nav")!;
+  const pickerSearch = $<HTMLInputElement>("#picker-search");
+  const openButton = $<HTMLButtonElement>("#indicator-open");
+  const iconTemplate = root.querySelector<HTMLTemplateElement>("#category-icons");
+  const catIcon = (c: string, bubble = true) => {
+    const el = iconTemplate?.content.querySelector(`[data-category="${CSS.escape(c)}"]`);
+    if (!el) return "";
+    return bubble ? el.innerHTML : el.querySelector("svg")?.outerHTML ?? "";
+  };
+  const POINT_LAYERS = [
+    { toggle: "#stations-toggle", category: "交通" },
+    { toggle: "#schools-toggle", category: "教育" },
+    { toggle: "#land-toggle", category: "地価" },
+    { toggle: "#landsurvey-toggle", category: "地価" },
+    { toggle: "#nursery-toggle", category: "子育て" },
+    { toggle: "#weather-toggle", category: "天気" },
+  ].filter((p) => root.querySelector(p.toggle));
+  const pointLabel = (sel: string) => root.querySelector(sel)?.closest("label")?.textContent?.trim().replace(/を表示/, "") ?? "";
+  const pickerItem = (i: Indicator) => {
+    const members = membersOf(i);
+    const lv = levelsOf(members);
+    const prefs = nationwide ? prefsOf(members) : null;
+    const levels = LEVELS.filter((l) => lv.has(l)).map((l) => `<span title="${LEVEL_LABEL[l]}別">${LEVEL_ICON[l]}</span>`).join("");
+    const finest = lv.has("small_area") ? "町丁目まで" : lv.has("municipality") ? "市区町村まで" : "都道府県のみ";
+    return `<button type="button" class="picker-item" data-value="${esc(optionValue(i))}" data-key="${esc(normalize(optionLabel(i) + members.map((m) => m.name).join(" ")))}">
+      <span class="pi-name">${esc(optionLabel(i))}</span>
+      <span class="pi-meta">${levels}<span>${finest}</span>${prefs ? `<span class="limited">${esc(coverageLabel(prefs))}</span>` : ""}</span></button>`;
+  };
+  const pickerCats = [...new Set([...indicators.map((i) => i.category), ...POINT_LAYERS.map((p) => p.category)])];
+  const pickerGenres = genresFor(pickerCats);
+  pickerNav.innerHTML = pickerGenres.map((g, k) =>
+    `<button type="button" data-genre="${k}">${catIcon(g.categories[0], false)}${esc(g.title)}</button>`).join("");
+  pickerList.innerHTML = pickerGenres.map((g, k) => `<section class="picker-genre" id="picker-genre-${k}"><h3>${esc(g.title)}</h3>` +
+    g.categories.map((c) => {
+      const seen = new Set<string>();
+      const items = indicators.filter((i) => i.category === c && !seen.has(optionValue(i)) && seen.add(optionValue(i))).map(pickerItem).join("");
+      const points = POINT_LAYERS.filter((p) => p.category === c).map((p) =>
+        `<label><input type="checkbox" data-toggle="${p.toggle}" /> ${esc(pointLabel(p.toggle))}</label>`).join("");
+      return `<div class="picker-cat"><h4>${catIcon(c)}${esc(c)}</h4>` +
+        (items ? `<div class="picker-grid">${items}</div>` : "") +
+        (points ? `<div class="picker-points"><span class="muted">地図に点で重ねる:</span>${points}</div>` : "") + `</div>`;
+    }).join("") + `</section>`).join("") + `<p class="picker-empty" hidden>見つかりませんでした。</p>`;
+  function syncPicker() {
+    const v = optionValue(indicator);
+    for (const b of pickerList.querySelectorAll<HTMLElement>(".picker-item")) b.setAttribute("aria-current", String(b.dataset.value === v));
+    for (const c of pickerList.querySelectorAll<HTMLInputElement>("input[data-toggle]")) c.checked = $<HTMLInputElement>(c.dataset.toggle!).checked;
+    openButton.querySelector(".io-icon")!.innerHTML = catIcon(indicator.category, false);
+    openButton.querySelector(".io-name")!.textContent = optionLabel(indicator);
+    openButton.title = `指標を変える（今は「${optionLabel(indicator)}」）`;
+  }
+  function filterPicker() {
+    const q = normalize(pickerSearch.value.trim());
+    let any = false;
+    for (const b of pickerList.querySelectorAll<HTMLElement>(".picker-item")) {
+      const hit = !q || b.dataset.key!.includes(q);
+      b.hidden = !hit;
+      any ||= hit;
+    }
+    // 探しているときは、点の切替と、当てはまる指標のないカテゴリ・ジャンルを隠す
+    for (const p of pickerList.querySelectorAll<HTMLElement>(".picker-points")) p.hidden = !!q;
+    for (const c of pickerList.querySelectorAll<HTMLElement>(".picker-cat")) c.hidden = !!q && !c.querySelector(".picker-item:not([hidden])");
+    for (const g of pickerList.querySelectorAll<HTMLElement>(".picker-genre")) g.hidden = !!q && !g.querySelector(".picker-cat:not([hidden])");
+    pickerList.querySelector<HTMLElement>(".picker-empty")!.hidden = any;
+  }
+  openButton.addEventListener("click", () => {
+    syncPicker();
+    pickerSearch.value = "";
+    filterPicker();
+    pickerEl.showModal();
+    // 今の指標が見えるところまで送る
+    pickerList.querySelector<HTMLElement>('.picker-item[aria-current="true"]')?.scrollIntoView({ block: "center" });
+    if (matchMedia("(min-width: 721px)").matches) pickerSearch.focus();
+  });
+  pickerEl.querySelector(".picker-close")!.addEventListener("click", () => pickerEl.close());
+  // 選択画面の外（暗いところ）を押すと閉じる
+  pickerEl.addEventListener("click", (e) => { if (e.target === pickerEl) pickerEl.close(); });
+  pickerSearch.addEventListener("input", filterPicker);
+  pickerNav.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>("button[data-genre]");
+    if (b) pickerList.querySelector(`#picker-genre-${b.dataset.genre}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  });
+  pickerList.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>(".picker-item");
+    if (!b) return;
+    pickerEl.close();
+    if (b.dataset.value !== indicatorSelect.value) {
+      indicatorSelect.value = b.dataset.value!;
+      indicatorSelect.dispatchEvent(new Event("change"));
+    }
+  });
+  pickerList.addEventListener("change", (e) => {
+    const c = e.target as HTMLInputElement;
+    if (!c.dataset.toggle) return;
+    const real = $<HTMLInputElement>(c.dataset.toggle);
+    real.checked = c.checked;
+    real.dispatchEvent(new Event("change"));
+  });
+
   const unique = (xs: string[]) => [...new Set(xs)];
   // 選んだ指標（と時点）で見られる単位と、対象の都道府県
   function renderScope() {
     const all = levelsOf([indicator]);
     const now = levelsOf([indicator], period);
-    const chips = LEVELS.filter((l) => nationwide || l !== "prefecture").map((l) => {
-      const state = now.has(l) ? "on" : all.has(l) ? "later" : "off";
-      const title = state === "on" ? "この単位で見られます" : state === "later" ? "ほかの時点で見られます" : "この単位の値はありません";
-      return `<li class="${state}" title="${title}">${state === "on" ? "✓" : "－"} ${LEVEL_LABEL[l]}</li>`;
+    // 1行に収める: 見られる単位をアイコン（区切りが細かいほどマス目が多い）で示し、ない単位は出さない（#93）
+    const chips = LEVELS.filter((l) => all.has(l)).map((l) => {
+      const later = !now.has(l);
+      const title = `${LEVEL_LABEL[l]}別で${later ? "は、ほかの時点で見られます（この時点は値なし）" : "見られます"}`;
+      return `<li class="${later ? "later" : "on"}" title="${title}">${LEVEL_ICON[l]}${SHORT_LEVEL[l]}</li>`;
     }).join("");
     const prefs = nationwide ? prefsOf([indicator]) : null;
-    const missing = [...all].filter((l) => !now.has(l)).map((l) => LEVEL_LABEL[l]);
+    const area = prefs ? coverageLabel(prefs) : "全国";
     scopeEl.innerHTML = `<ul class="scope-levels" aria-label="見られる単位">${chips}</ul>` +
-      `<p class="scope-area">対象: ${prefs ? `<strong>${esc(coverageLabel(prefs))}</strong>` +
-        `<span class="muted">（ほかの地域は値なし）</span>` : "全国"}</p>` +
-      (missing.length ? `<p class="muted">この時点は${esc(missing.join("・"))}の値がありません。</p>` : "");
+      `<span class="scope-area${prefs ? " limited" : ""}" title="${prefs ? `対象: ${esc(area)}（ほかの地域は値なし）` : "対象: 全国"}">${esc(area)}</span>`;
   }
   function syncIndicatorControls() {
     indicatorSelect.value = optionValue(indicator);
+    syncPicker();
     facetsEl.hidden = !indicator.family;
     if (!indicator.family || !indicator.facets) return;
     const members = familyMembers(indicator.family);
@@ -951,6 +1078,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       .map((t) => `<option${t === type ? " selected" : ""}>${esc(t)}</option>`).join("");
     facetBasis.innerHTML = unique(members.filter((m) => m.facets!.type === type).map((m) => m.facets!.basis))
       .map((b) => `<option${b === basis ? " selected" : ""}>${esc(b)}</option>`).join("");
+    // 基準が1つしかない組（世帯年収など）は、選べないので欄ごと隠す
+    facetBasisWrap.hidden = unique(members.map((m) => m.facets!.basis)).length < 2;
   }
   function setIndicator(next: Indicator, how: UsageHow | null) {
     stopPlay();
@@ -1086,20 +1215,43 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   // --- 背景・範囲・現在地 -------------------------------------------------------------
-  const baseSelect = $<HTMLSelectElement>("#basemap-select");
-  const baseNote = $<HTMLElement>("#basemap-note");
-  const photoWrap = $<HTMLElement>("#photo-era");
+  // 航空写真は地図の上のボタンで出す独立した機能。年代のスライドバーも地図の上に置き、見ている年代が地図と一緒に分かる。
+  // 標高（色別標高図）は左の欄のチェックで出す。どちらか一方だけを背景に重ねる
+  const photoToggle = $<HTMLButtonElement>("#photo-toggle");
+  const photoPanel = $<HTMLElement>("#photo-panel");
+  const photoClose = $<HTMLButtonElement>("#photo-close");
   const photoRange = $<HTMLInputElement>("#photo-era-range");
   const photoLabel = $<HTMLOutputElement>("#photo-era-label");
   const photoEnds = $<HTMLElement>("#photo-era-ends");
   const photoPlay = $<HTMLButtonElement>("#photo-era-play");
-  baseSelect.innerHTML = '<option value="pale">地図（淡色）</option><option value="photo">航空写真</option>' +
-    '<option value="relief">標高（色別標高図）</option>';
+  const photoNote = $<HTMLElement>("#photo-note");
+  const reliefToggle = $<HTMLInputElement>("#relief-toggle");
+  const reliefNote = $<HTMLElement>("#relief-note");
+  let baseMode: "pale" | "photo" | "relief" = "pale";
+  // 写真・標高を出すときは色分けを消して背景を見やすくし、閉じたら元に戻す
+  let colorsBeforeBase: boolean | null = null;
+  function setBaseMode(next: typeof baseMode) {
+    if (next === baseMode) return;
+    stopPhotoPlay();
+    if (baseMode === "pale" && next !== "pale") {
+      colorsBeforeBase = colorsToggle.checked;
+      if (colorsToggle.checked) { colorsToggle.checked = false; colorsToggle.dispatchEvent(new Event("change")); }
+    } else if (next === "pale" && colorsBeforeBase !== null) {
+      if (colorsToggle.checked !== colorsBeforeBase) {
+        colorsToggle.checked = colorsBeforeBase;
+        colorsToggle.dispatchEvent(new Event("change"));
+      }
+      colorsBeforeBase = null;
+    }
+    baseMode = next;
+    syncBasemap();
+    refreshPhotoEras();
+  }
   // 地図の中心で撮影されている年代だけをスライドバーに並べる（中心のタイルがあるかで判断し、結果は覚えておく）
   const photoTileCache = new Map<string, Promise<boolean>>();
   let photoEras: typeof PHOTO_ERAS = PHOTO_ERAS.filter((e) => e.id === "photo");
   let photoEraId = "photo";
-  let photoChecked = false;   // 縮小したまま航空写真を選んだときは、拡大するまで確かめない
+  let photoChecked = false;   // 縮小したまま航空写真を出したときは、拡大するまで確かめない
   function hasPhotoTile(era: (typeof PHOTO_ERAS)[number], x: number, y: number): Promise<boolean> {
     const key = `${era.path}/${x}/${y}`;
     let p = photoTileCache.get(key);
@@ -1112,7 +1264,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
   let photoCheck = 0;
   async function refreshPhotoEras() {
-    if (baseSelect.value !== "photo" || map.getZoom() < 10) return;   // 縮小しているときは前の結果のまま
+    if (baseMode !== "photo" || map.getZoom() < 10) return;   // 縮小しているときは前の結果のまま
     const { lng, lat } = map.getCenter();
     const n = 2 ** PHOTO_PROBE_ZOOM;
     const x = Math.floor((lng + 180) / 360 * n);
@@ -1120,7 +1272,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n);
     const check = ++photoCheck;
     const found = await Promise.all(PHOTO_ERAS.map((e) => e.id === "photo" ? true : hasPhotoTile(e, x, y)));
-    if (check !== photoCheck || baseSelect.value !== "photo") return;   // 確かめている間に地図が動いた
+    if (check !== photoCheck || baseMode !== "photo") return;   // 確かめている間に地図が動いた
     photoEras = PHOTO_ERAS.filter((_, i) => found[i]);
     photoChecked = true;
     // 選んでいた年代がこの場所にないときは、いちばん近い年代にする
@@ -1132,33 +1284,37 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     syncBasemap();
   }
   function chosenBasemap() {
-    return baseSelect.value === "photo" ? PHOTO_ERAS.find((e) => e.id === photoEraId)
-      : BASEMAPS.find((b) => b.id === baseSelect.value);
+    return baseMode === "photo" ? PHOTO_ERAS.find((e) => e.id === photoEraId)
+      : baseMode === "relief" ? BASEMAPS.find((b) => b.id === "relief") : undefined;
   }
   function syncBasemap() {
     const chosen = chosenBasemap();
     for (const b of BASEMAPS) map.setLayoutProperty(b.id, "visibility", b === chosen ? "visible" : "none");
-    const photo = baseSelect.value === "photo";
-    photoWrap.hidden = !photo;
-    if (photo) {
-      photoRange.max = String(photoEras.length - 1);
-      photoRange.value = String(Math.max(0, photoEras.findIndex((e) => e.id === photoEraId)));
-      photoRange.disabled = photoEras.length < 2;
-      photoPlay.disabled = photoEras.length < 2;
-      photoLabel.value = chosen ? chosen.label : "";
-      photoEnds.innerHTML = photoEras.length < 2 ? ""
-        : `<span>${esc(photoEras[0].label)}</span><span>${esc(photoEras[photoEras.length - 1].label)}</span>`;
-    }
-    // 年代別の写真は拡大したときだけ出る。撮られていない地域もあり、そこは淡色地図のまま
+    const photo = baseMode === "photo";
+    photoPanel.hidden = !photo;
+    photoToggle.setAttribute("aria-pressed", String(photo));
+    reliefToggle.checked = baseMode === "relief";
     const zoomIn = chosen && map.getZoom() < chosen.minzoom;
-    baseNote.hidden = !chosen || (chosen.id === "photo" && photoEras.length > 1);
-    baseNote.textContent = !chosen ? "" : zoomIn ? "拡大すると表示されます。"
-      : chosen.id === "relief" ? "標高が高いほど茶色、低いほど青く表示します。"
-      : chosen.id === "photo" ? (photoChecked ? "この場所の昔の写真は見つかりませんでした。"
-        : map.getZoom() < 10 ? "拡大すると、昔の写真を年代を選んで見られます。" : "この場所の写真の年代を確かめています。")
-      : "地図の中心で撮影されている年代を並べています。撮影されていない地域は地図のまま表示します。";
+    reliefNote.hidden = baseMode !== "relief";
+    reliefNote.textContent = zoomIn ? "拡大すると表示されます。" : "標高が高いほど茶色、低いほど青く表示します。";
+    if (!photo || !chosen) return;
+    photoRange.max = String(photoEras.length - 1);
+    photoRange.value = String(Math.max(0, photoEras.findIndex((e) => e.id === photoEraId)));
+    photoRange.disabled = photoEras.length < 2;
+    photoPlay.disabled = photoEras.length < 2;
+    photoLabel.value = chosen.id === "photo" ? "最新の写真" : `${chosen.label}の写真`;
+    photoEnds.hidden = photoEras.length < 2;
+    photoEnds.innerHTML = photoEras.length < 2 ? ""
+      : `<span>${esc(photoEras[0].label)}</span><span>${esc(photoEras[photoEras.length - 1].label)}</span>`;
+    // 年代別の写真は拡大したときだけ出る。撮られていない地域もあり、そこは淡色地図のまま
+    photoNote.textContent = zoomIn ? "拡大すると表示されます。"
+      : photoEras.length > 1 ? "この場所で撮影された年代だけを並べています。"
+      : photoChecked ? "この場所の昔の写真は見つかりませんでした。"
+      : map.getZoom() < 10 ? "拡大すると、昔の写真を年代を選んで見られます。" : "この場所の写真の年代を確かめています。";
   }
-  baseSelect.addEventListener("change", () => { stopPhotoPlay(); syncBasemap(); refreshPhotoEras(); });
+  photoToggle.addEventListener("click", () => setBaseMode(baseMode === "photo" ? "pale" : "photo"));
+  photoClose.addEventListener("click", () => setBaseMode("pale"));
+  reliefToggle.addEventListener("change", () => setBaseMode(reliefToggle.checked ? "relief" : "pale"));
   photoRange.addEventListener("input", () => {
     stopPhotoPlay();
     photoEraId = photoEras[Number(photoRange.value)]?.id ?? "photo";
@@ -1185,7 +1341,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       syncBasemap();
     }, PHOTO_PLAY_INTERVAL_MS);
   });
-  map.on("zoomend", () => { if (baseSelect.value !== "pale") syncBasemap(); });
+  map.on("zoomend", () => { if (baseMode !== "pale") syncBasemap(); });
   map.on("moveend", () => refreshPhotoEras());
   // 色分けを消して、背景地図と地名・数値だけで見る（地域のクリックはそのまま使える）
   colorsToggle.addEventListener("change", () => {
