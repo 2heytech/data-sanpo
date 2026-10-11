@@ -346,7 +346,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
         periods: dict[tuple, dict] = {}
         covered: set[str] = set()  # 値のある都道府県（東京都だけの指標を画面で示すため）
         # annual_levels: 年ごとの時点で書き出す単位（全国の町丁目まで年ごとに出すとファイル数が多すぎる指標は、
-        # 町丁目を複数年の合計だけにする。#92）
+        # 町丁目を複数年の合計だけにする。#93）
         annual_levels = set(d.get("annual_levels", LEVEL_ORDER))
         for o in obs:
             level = exported_entities.get(o["entity_id"])
@@ -764,7 +764,7 @@ def _default_period(period_meta: list[dict], levels: list[str]) -> str:
         fine = [p for p in annual if "small_area" in p["levels"]]
         if fine:
             return fine[-1]["period"]
-        # 町丁・字等の値が複数年の合計にだけある指標（全国の犯罪オープンデータ、#92）は合計を最初に出す
+        # 町丁・字等の値が複数年の合計にだけある指標（全国の犯罪オープンデータ、#93）は合計を最初に出す
         fine = [p for p in period_meta if p["aggregate"] and "small_area" in p["levels"]]
         if fine:
             return fine[-1]["period"]
