@@ -42,6 +42,7 @@ COORD_DIGITS = 5          # 約1m
 
 # 値のファイル名: 都道府県・区市町村は全国で1つずつ、町丁・字等は都道府県ごと（<都道府県2桁>.json）
 LEVELS = {"prefecture": "prefectures", "municipality": "municipalities"}
+LEVEL_ORDER = ("prefecture", "municipality", "small_area")
 
 
 def _round_coords(obj, digits=COORD_DIGITS):
@@ -344,9 +345,14 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
             (indicator_id, d["definition_version"])).fetchall()
         periods: dict[tuple, dict] = {}
         covered: set[str] = set()  # 値のある都道府県（東京都だけの指標を画面で示すため）
+        # annual_levels: 年ごとの時点で書き出す単位（全国の町丁目まで年ごとに出すとファイル数が多すぎる指標は、
+        # 町丁目を複数年の合計だけにする。#98）
+        annual_levels = set(d.get("annual_levels", LEVEL_ORDER))
         for o in obs:
             level = exported_entities.get(o["entity_id"])
             if level is None or o["source_id"] not in ok_sources:
+                continue
+            if o["period_kind"] != "multi_year" and level not in annual_levels:
                 continue
             if o["denominator_source_id"] and o["denominator_source_id"] not in ok_sources:
                 continue
@@ -822,6 +828,10 @@ def _default_period(period_meta: list[dict], levels: list[str]) -> str:
     annual = [p for p in period_meta if not p["aggregate"]]
     if "small_area" in levels:
         fine = [p for p in annual if "small_area" in p["levels"]]
+        if fine:
+            return fine[-1]["period"]
+        # 町丁・字等の値が複数年の合計にだけある指標（全国の犯罪オープンデータ、#98）は合計を最初に出す
+        fine = [p for p in period_meta if p["aggregate"] and "small_area" in p["levels"]]
         if fine:
             return fine[-1]["period"]
     return annual[-1]["period"]

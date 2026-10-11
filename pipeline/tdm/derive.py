@@ -143,10 +143,13 @@ def derive_multi_year_sum(conn: sqlite3.Connection, indicator_id: str, definitio
 
 
 def _add_prefecture_denominators(den: dict, types: dict[str, str]) -> None:
-    """区市町村の分母を都道府県ごとに合計して den に加える（都道府県の分母が元からあればそのまま）。"""
+    """区市町村の分母を都道府県ごとに合計して den に加える（都道府県の分母が元からあればそのまま）。
+    分母の指標にどの時点の行もない区市町村（ほかの出典が作った、今はない市区町村や政令指定都市の市全体など）は
+    数えない。そうしないと東京都・愛知県・福岡県のように、そうした地域がある都道府県の分母が作られない。"""
+    with_rows = {e for e, _ in den}
     munis: dict[str, list[str]] = defaultdict(list)
     for entity_id, t in types.items():
-        if t == "municipality":
+        if t == "municipality" and entity_id in with_rows:
             munis[entity_id.split("-", 1)[1][:2]].append(entity_id)
     periods = {p for _, p in den}
     for pref, members in munis.items():

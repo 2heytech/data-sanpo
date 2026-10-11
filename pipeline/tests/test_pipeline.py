@@ -1479,6 +1479,106 @@ def test_land_survey_points(built):
     assert data["source_ids"] != load(built, "places/land_price.json")["source_ids"]
 
 
+def test_npa_crime_stats_prefecture_values(built):
+    # 警察庁「犯罪統計」の都道府県別。北海道は「計」の行、東京都は2列目が空の行
+    for ind, k in (("crime_npa_total", 0), ("crime_npa_theft", 1), ("crime_npa_serious", 2)):
+        rows = {r["entity_id"]: r for r in load(built, f"values/{ind}/2025-01-01/prefectures.json")["rows"]}
+        assert rows["pref-13"]["value"] == fixture.npa_crime_values(2025, "13")[k]
+        assert rows["pref-14"]["value"] == fixture.npa_crime_values(2025, "14")[k]
+    meta = next(i for i in load(built, "indicators.json")["indicators"] if i["id"] == "crime_npa_total")
+    assert [p["period"] for p in meta["periods"]][-1] == "2021-2025"
+    assert meta["periods"][-1]["levels"] == ["prefecture"]
+    five = {r["entity_id"]: r for r in load(built, "values/crime_npa_total/2021-2025/prefectures.json")["rows"]}
+    assert five["pref-13"]["value"] == sum(fixture.npa_crime_values(y, "13")[0] for y in range(2021, 2026))
+    rate = {r["entity_id"]: r for r in load(built, "values/crime_npa_total_per_100_residents/2025-01-01/prefectures.json")["rows"]}
+    assert rate["pref-13"]["numerator"] == fixture.npa_crime_values(2025, "13")[0] and rate["pref-13"]["denominator"] > 0
+
+
+def test_npa_crime_stats_checks_national_total(tmp_path):
+    from tdm.ingest.npa_crime_stats import read_tables
+    fixture._write_npa_crime_stats(tmp_path)
+    path = tmp_path / "npa_crime_stats_2025" / "npa_crime_stats_2025.csv"
+    assert read_tables(path)[3]["01"] == fixture.npa_crime_values(2025, "01")[0]   # 方面ごとの行は使わない
+    path.write_bytes(path.read_bytes().replace("全国,,".encode("cp932"), "全国,,1".encode("cp932"), 1))
+    with pytest.raises(ValueError, match="全国"):
+        read_tables(path)
+
+
+def test_police_crime_opendata_counts(built):
+    # 窃盗7手口: 市区町村は年ごと、町丁目は5年合計だけ
+    def rows(ind, period, chunk):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/{period}/{chunk}.json")["rows"]}
+    munis = rows("street_crime_total", "2025-01-01", "municipalities")
+    assert munis["muni-13199"]["value"] == 4 * 7            # 町丁目が空の行も市区町村には入る
+    assert munis["muni-13499"]["value"] == 0                # 行のない市区町村は0件
+    assert munis["muni-14199"]["value"] == 7
+    assert rows("street_crime_total", "2025-01-01", "prefectures")["pref-13"]["value"] == 7 * 7
+    meta = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    total = meta["street_crime_total"]
+    assert all(p["levels"] == ["municipality", "prefecture"] for p in total["periods"] if not p["aggregate"])
+    assert total["default_period"] == "2021-2025"           # 町丁目の値は5年合計にだけある
+    assert not (built.releases / "test" / "values/street_crime_total/2025-01-01/13.json").exists()
+    areas = rows("street_crime_total", "2021-2025", "13")
+    assert areas["area-13199001001"]["value"] == 2 * 7 * 5  # 「見本町１丁目」（全角数字の表記ゆれ）
+    assert areas["area-13199001002"]["value"] == 7 * 5      # 「見本町一丁目二」
+    assert areas["area-13199001003"]["value"] is None       # 町丁目が空の行が5%を超えるので、記録のない町丁目も値なし
+    assert areas["area-13299090000"]["value"] == 7 * 5      # 丁目の行を、地図では丁目に分かれていない町にまとめる
+    assert areas["area-13299003003"]["value"] == 7 * 5      # 地図にない町名は、位置参照情報の代表点が入る小地域へ
+    assert areas["area-13299001002"]["value"] == 0          # 対応できない行がないので、記録のない町丁目は0件
+    bike = rows("street_crime_bicycle", "2021-2025", "13")
+    assert bike["area-13199001001"]["value"] == 2 * 5
+    rate = rows("street_crime_total_per_100_residents", "2021-2025", "municipalities")["muni-13199"]
+    assert rate["numerator"] == 4 * 7 * 5
+
+
+def test_police_crime_opendata_uncertain_towns(tmp_path):
+    # 地図のほうが細かい町は割り振らずに値なし、名前の合わない行が多い市区町村は記録のない町丁目も値なし
+    from tdm.ingest import police_crime_opendata as od
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    catalog = {k: d for k, d in load_indicators().items() if k == "street_crime_bicycle"}
+    upsert_indicators(conn, catalog)
+    conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES ('muni-27999', 'municipality', '見本市')")
+    for i, name in enumerate(["本町１丁目", "本町２丁目", "栄町", "緑町"]):
+        eid = f"area-27999{i:06d}"
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name, parent_id) VALUES (?, 'small_area', ?, 'muni-27999')",
+                     (eid, name))
+        conn.execute("INSERT INTO boundaries (boundary_id, boundary_version, entity_id, reference_date, source_id, "
+                     "geometry, bbox_west, bbox_south, bbox_east, bbox_north) VALUES (?, 'b', ?, '2020', 's', '{}', 0, 0, 0, 0)",
+                     (f"b:{eid}", eid))
+    head = "罪名,手口,市区町村コード（発生地）,市区町村（発生地）,町丁目（発生地）\n"
+    for y in range(2021, 2026):
+        body = head + "窃盗,自転車盗,279994,見本市,本町\n" + "窃盗,自転車盗,279994,見本市,大字栄町\n" * 30
+        (tmp_path / f"{y}_zitensyatou.csv").write_text(body, encoding="cp932")
+    files = sorted(tmp_path.glob("*.csv"))
+    od.ingest(conn, files, "s", catalog, "27", list(range(2021, 2026)), "b")
+    got = {r["entity_id"]: (r["value"], r["method_note"]) for r in conn.execute(
+        "SELECT entity_id, value, method_note FROM observations WHERE period_kind = 'multi_year'")}
+    assert got["area-27999000000"][0] is None and "割り振れない" in got["area-27999000000"][1]
+    assert got["area-27999000002"][0] == 150                # 「大字栄町」→ 栄町
+    assert got["area-27999000003"][0] == 0                  # 名前の合わない行は5%以下
+
+
+def test_police_crime_opendata_tab_and_old_town_names(tmp_path):
+    # タブ区切りのファイルを読み、地図で省かれた旧町名（「水口町本町２丁目」→地図「本町二丁目」）は末尾で対応付ける
+    from tdm.ingest import police_crime_opendata as od
+    head = "罪名\t手口\t市区町村コード（発生地）\t市区町村（発生地）\t町丁目（発生地）\n"
+    data = (head + "窃盗\t自転車盗\t252093\t甲賀市\t水口町本町２丁目\n").encode("cp932")
+    assert od.read_incidents(data) == [("25209", "甲賀市", "水口町本町２丁目", 1)]
+    assert od.detect_technique(data) == "zitensyatou"
+    areas = {od.town_key("本町二丁目"): ["a1"], od.town_key("新町"): ["a2"], od.town_key("松涛一丁目"): ["a3"]}
+    assert od._area_ids(areas, od.town_key("水口町本町２丁目")) == ["a1"]
+    assert od._area_ids(areas, od.town_key("西新町")) == []          # 前に残る部分が旧町村名に見えないものは対応付けない
+    assert od._area_ids(areas, od.town_key("松濤1丁目")) == ["a3"]   # 字体の違い
+    assert od.town_key("中町4丁目丁目") == od.town_key("中町四丁目")
+    areas[od.town_key("浄水町")] = ["a4"]
+    assert od._area_ids(areas, od.town_key("浄水町伊保原")) == ["a4"]   # 小字まで書いた行は地図の町にまとめる
+    assert od._area_ids(areas, od.town_key("浄水町字南平")) == ["a4"]
+    assert od._area_ids(areas, od.town_key("浄水町通1丁目")) == []
+    assert od.town_key("曾根崎新地1丁目") == od.town_key("曽根崎新地一丁目")   # 旧字体
+
+
 def test_weather_normals(built):
     data = load(built, "places/weather_normals.json")
     st = {s["id"]: s for s in data["stations"]}
@@ -1499,3 +1599,17 @@ def test_weather_normals(built):
     assert any(x.startswith("jma_normals_2020@") for x in data["source_ids"])
     # 観測所の値は地域に割り振らない
     assert not any(i["id"].endswith("_normal") for i in load(built, "indicators.json")["indicators"])
+
+
+def test_prefecture_denominator_ignores_municipalities_without_rows():
+    # 分母の指標に行のない区市町村（今はない市区町村など）があっても、都道府県の分母は区市町村の合計で作る
+    from tdm.derive import _add_prefecture_denominators
+    den = {("muni-13101", None): {"value": 10.0, "source_id": "s"},
+           ("muni-13102", None): {"value": 5.0, "source_id": "s"}}
+    types = {"muni-13101": "municipality", "muni-13102": "municipality", "muni-13100": "municipality"}
+    _add_prefecture_denominators(den, types)
+    assert den[("pref-13", None)]["value"] == 15.0
+    den = {("muni-13101", None): {"value": 10.0, "source_id": "s"},
+           ("muni-13102", None): {"value": None, "source_id": "s"}}
+    _add_prefecture_denominators(den, types)
+    assert ("pref-13", None) not in den                     # 値のない区市町村があれば作らない

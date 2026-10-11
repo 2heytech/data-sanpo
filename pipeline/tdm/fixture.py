@@ -161,6 +161,74 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out["census_history"] = _write_census_history(directory)
     out.update(_write_economic_census(directory))
     out["land_survey"] = _write_land_survey(directory, random.Random(f"{seed}-land-survey"))
+    out.update(_write_npa_crime_stats(directory))
+    out.update(_write_police_crime_opendata(directory))
+    return out
+
+
+# 警察庁「犯罪統計」の都道府県別（第3表 刑法犯・第4表 窃盗犯・第6表 重要犯罪）。北海道は「計」の行と方面ごとの行、
+# 東京都は2列目が空の行、ほかは2列目が都道府県名（1列目は管区）
+def npa_crime_values(year: int, pref: str) -> tuple[int, int, int]:
+    total = 1000 + int(pref) * 37 + (year - 2020) * 11
+    return total, total * 7 // 10, 10 + int(pref)
+
+
+def _write_npa_crime_stats(directory: Path) -> dict[str, Path]:
+    from .regions import PREFECTURES
+    out = {}
+    for year in range(2020, 2026):
+        lines = ["第１表,,,,刑法犯　罪種別　認知・検挙件数,,", ",罪種,\"2025年\n1～12月\",\"2024年\n1～12月\",増減",
+                 "刑法犯総数,,99,98,1"]
+        for no, k in ((3, 0), (4, 1), (6, 2)):
+            vals = {p: npa_crime_values(year, p)[k] for p in PREFECTURES}
+            lines += [f"第{str(no).translate(FULLWIDTH)}表,,,,都道府県別　認知件数", f"全国,,{sum(vals.values())},0,0"]
+            for code, name in PREFECTURES.items():
+                if code == "01":
+                    lines += [f"北海道,計,{vals[code]},0,0", f"北海道,札幌方面,{vals[code] - 5},0,0", "北海道,函館方面,5,0,0"]
+                elif code == "13":
+                    lines.append(f"東京都,,{vals[code]},0,0")
+                else:
+                    lines.append(f"関東,{name},{vals[code]},0,0")
+            lines.append("関東,計,1,0,0")
+        path = directory / f"npa_crime_stats_{year}" / f"npa_crime_stats_{year}.csv"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(("\r\n".join(lines) + "\r\n").encode("cp932"))
+        out[f"npa_crime_stats_{year}"] = path
+    return out
+
+
+# 都道府県警察の犯罪オープンデータ（窃盗7手口、1件1行）。ファイル名は sources.toml の download_files にそろえる。
+# 1ファイルごとに: サンプル区は「見本町１丁目」2件・「見本町一丁目二」1件・町丁目が空1件、ためし市は
+# 「試験町字はずれ１丁目」（地図では丁目に分かれていない町）1件と「試験町1丁目」1件と「遠い町」1件、かりの村は0件
+POLICE_OD_HEAD = ["罪名", "手口", "管轄警察署（発生地）", "管轄交番・駐在所（発生地）", "市区町村コード（発生地）",
+                  "都道府県（発生地）", "市区町村（発生地）", "町丁目（発生地）", "発生年月日（始期）"]
+POLICE_OD_ROWS = {   # 都道府県 → (市区町村コード6桁, 市区町村名, 町丁目)
+    "13": [("131997", "サンプル区", "見本町１丁目"), ("131997", "サンプル区", "見本町１丁目"),
+           ("131997", "サンプル区", "見本町一丁目二"), ("131997", "サンプル区", ""),
+           ("132993", "ためし市", "試験町字はずれ１丁目"), ("132993", "ためし市", "試験町1丁目"),
+           ("132993", "ためし市", "遠い町")],   # 地図にない町名（位置参照情報の代表点で小地域に入れる）
+    "14": [("141992", "みほん市中区", "標本町1丁目")],
+}
+
+
+def _write_police_crime_opendata(directory: Path) -> dict[str, Path]:
+    import tomllib
+    sources = tomllib.loads((Path(__file__).resolve().parents[1] / "config" / "sources.toml").read_text(encoding="utf-8"))
+    out = {}
+    for key, cfg in sources.items():
+        if cfg.get("kind") != "police_crime_opendata" or cfg["prefectures"][0] not in POLICE_OD_ROWS:
+            continue
+        pref = cfg["prefectures"][0]
+        for name in cfg["download_files"]:
+            year, tech = name.split(".")[0].split("_")
+            path = directory / key / pref / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("w", encoding="cp932", newline="") as f:
+                wr = csv.writer(f)
+                wr.writerow(POLICE_OD_HEAD)
+                for code, muni, town in POLICE_OD_ROWS[pref]:
+                    wr.writerow(["窃盗", tech, "見本警察署", "見本交番", code, PREF_NAMES[pref], muni, town, f"{year}0105"])
+            out[f"{key}_{name}"] = path
     out.update(_write_weather(directory))
     return out
 
@@ -840,6 +908,10 @@ def _write_schools(directory: Path, rnd: random.Random) -> dict[str, Path]:
         w.writerow(["13", "東京都", "13299", "ためし市", "132990099000", "遠い町", "35.700000", "139.680000", "0", "1"])
         w.writerow(["13", "東京都", "13499", "かりの村", "134990001000", "仮置", "34.720000", "139.380000", "0", "1"])
     out["isj_oaza"] = d / "13_2025.csv"
+    # 犯罪オープンデータの町丁目の照合に使う全国版（都道府県ごと）。同じ内容を東京都分として置く
+    d = directory / "mlit_isj_oaza_national" / "13" / "13000-19.0b"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "13_2025.csv").write_bytes((out["isj_oaza"]).read_bytes())
     grades = {"elementary": 6, "junior_high": 3, "compulsory": 9}
     for year in SCHOOL_YEARS:
         d = directory / f"tokyo_schools_{year}"

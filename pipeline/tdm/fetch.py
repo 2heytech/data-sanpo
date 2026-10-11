@@ -17,6 +17,7 @@ import json
 import re
 import sys
 import time
+import http.cookiejar
 import urllib.error
 import urllib.request
 import zipfile
@@ -87,6 +88,27 @@ def download(url: str) -> bytes:
                 raise
             time.sleep(5 * (attempt + 1))
     raise AssertionError("unreachable")
+
+
+def cookie_downloader():
+    """クッキーを覚えて取得する（愛知県警察のサイトは最初の応答でクッキーを渡し、クッキーなしで来た要求を
+    同じ URL に転送し続ける）。最初の 403 もクッキーを受け取ったあとなら通るので、1回だけやり直す。"""
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def get(url: str) -> bytes:
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+        for attempt in range(RETRIES):
+            try:
+                with opener.open(req, timeout=TIMEOUT) as res:
+                    return res.read()
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+                retry = (not isinstance(e, urllib.error.HTTPError) or e.code >= 500
+                         or e.code in (302, 403) and attempt == 0)
+                if not retry or attempt == RETRIES - 1:
+                    raise
+                time.sleep(5 * (attempt + 1))
+        raise AssertionError("unreachable")
+    return get
 
 
 def source_prefectures(cfg: dict, prefs: list[str]) -> list[str]:
@@ -303,6 +325,12 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
         files: list[Path] = []
         targets = source_prefectures(cfg, prefs or [])
         ids = resolve_file_ids(key, cfg, dest, targets, downloader) if cfg.get("estat_lookup") else {}
+        if cfg.get("download_files"):
+            # 都道府県の機関ごとにファイルの一覧を書く出典（犯罪オープンデータなど）。取れないファイルがあっても止めない
+            for pref in targets:
+                get = cookie_downloader() if downloader is download else downloader
+                files += _fetch_files_lenient(f"{key}/{pref}", cfg["download_files"], dest / pref, get)
+            return files
         for pref in targets:
             if cfg.get("estat_lookup") and pref not in ids:
                 continue
@@ -378,5 +406,43 @@ def _fetch_files(key: str, urls: dict[str, str], dest: Path, downloader) -> list
     (dest / "_fetch.json").write_text(json.dumps({
         "retrieved_at": now_iso(), "downloads": meta,
         "files": [f.relative_to(dest).as_posix() for f in files],
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    return files
+
+
+def _fetch_files_lenient(key: str, urls: dict[str, str], dest: Path, downloader) -> list[Path]:
+    """download_files の各ファイルを取得する。同じ URL で取得済みのファイルは取り直さない（過去の年の表は変わらない）。
+    取れない・HTML が返ったファイルは、前回の取得分があればそれを使い、なければ飛ばして警告だけ出す
+    （都道府県警察の47のサイトのうち1つが一時的に開けないだけで、全体の公開を止めないため）。"""
+    dest.mkdir(parents=True, exist_ok=True)
+    meta_path = dest / "_fetch.json"
+    prior = {d["file"]: d for d in (json.loads(meta_path.read_text(encoding="utf-8")).get("downloads", [])
+                                    if meta_path.exists() else [])}
+    files, meta = [], []
+    for name, url in urls.items():
+        target = dest / name
+        old = prior.get(name)
+        if old and old.get("url") == url and target.exists():
+            files.append(target)
+            meta.append(old)
+            continue
+        try:
+            data = downloader(url)
+            if _looks_like_html(data):
+                raise FetchError("ファイルではなくHTMLが返されました")
+        except (FetchError, OSError) as e:
+            if old and target.exists():
+                print(f"[{key}] {name}: 取得できないため前回の取得分を使います（{e}）", file=sys.stderr)
+                files.append(target)
+                meta.append(old)
+            else:
+                print(f"[{key}] {name}: 取得できないため飛ばします（{e}）: {url}", file=sys.stderr)
+            continue
+        target.write_bytes(data)
+        files.append(target)
+        meta.append({"url": url, "file": name, "bytes": len(data), "retrieved_at": now_iso(),
+                     "sha256": hashlib.sha256(data).hexdigest()})
+    meta_path.write_text(json.dumps({
+        "downloads": meta, "files": [f.relative_to(dest).as_posix() for f in files],
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     return files
