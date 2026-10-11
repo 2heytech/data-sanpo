@@ -695,7 +695,7 @@ WEATHER_FILE = "weather_normals"   # places/weather_normals.json（天気の指�
 def export_weather(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
                    release_id: str, ok_sources: set[str]) -> set[str]:
     """気象庁の平年値の観測所（places/weather_normals.json）。全国で約1,300地点と少ないので、都道府県に分けず
-    1ファイルにし、日照時間・降水量・最深積雪・降雪量をまとめて持つ（観測所を選ぶと4つとも見せる。docs/design-changes.md #92）。"""
+    1ファイルにし、日照時間・降水量・最深積雪・降雪量をまとめて持つ（観測所を選ぶと4つとも見せる。docs/design-changes.md #94）。"""
     ids = [i for i, d in catalog.items() if "weather_station" in d.get("levels", [])]
     rows = [r for r in conn.execute(
         f"""SELECT o.entity_id, o.indicator_id, o.definition_version, o.value, o.source_id FROM observations o

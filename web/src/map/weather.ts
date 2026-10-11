@@ -1,6 +1,6 @@
 // 天気の点レイヤー（気象庁の平年値、統計期間1991〜2020年）。観測所ごとの年間の日照時間・降水量・
 // 最深積雪・降雪量のうち、選んだ1つで円を塗り分ける。観測所は全国で約1,300地点と少ないので、
-// places/weather_normals.json の1ファイルに全地点をまとめ、全国を見ているときから表示する（docs/design-changes.md #92）。
+// places/weather_normals.json の1ファイルに全地点をまとめ、全国を見ているときから表示する（docs/design-changes.md #94）。
 // 地域の平均ではなく観測所1地点の値であることを凡例と詳細に明記し、地域には割り振らない。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import type { PointLayer } from "./points";

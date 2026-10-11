@@ -336,7 +336,7 @@ export interface WeatherStation {
   years: Record<string, [number, number, number]>;
 }
 
-/** places/weather_normals.json（全国で約1,300地点なので都道府県に分けない。#92） */
+/** places/weather_normals.json（全国で約1,300地点なので都道府県に分けない。#94） */
 export interface WeatherFile {
   schema_version: string;
   release_id: string;

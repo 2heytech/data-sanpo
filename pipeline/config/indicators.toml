@@ -2595,7 +2595,7 @@ caveats = ["地域全体の平均ではなく、選ばれた1地点の価格で�
 source_kind = "mlit_landsurvey"
 legend = { method = "quantile", classes = 12, scheme = "reds" }
 
-# 天気（気象庁の平年値）。観測所ごとの値なので、地図では点で出し、地域には割り振らない（docs/design-changes.md #92）。
+# 天気（気象庁の平年値）。観測所ごとの値なので、地図では点で出し、地域には割り振らない（docs/design-changes.md #94）。
 # element は平年値ファイルの要素番号、scale は値の単位（0.1時間・0.1mm）を直す倍率。
 [sunshine_normal]
 name = "年間の日照時間"
