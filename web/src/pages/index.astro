@@ -6,21 +6,14 @@ import AdSlot from "../components/AdSlot.astro";
 import CategoryIcon from "../components/CategoryIcon.astro";
 import { loadAreas, loadIndicators, loadPlace } from "../lib/data";
 import type { Indicator, WeatherElement } from "../lib/types";
+import { GENRES as BASE_GENRES } from "../lib/genres";
 
 const indicators = loadIndicators();
 const areas = loadAreas();
 const regions = ["区部", "多摩", "島しょ"] as const;  // 東京都の地域区分
 
-// ジャンル（指標の category）の並び。ここにないジャンルは最後に出る
-const GENRES: { title: string; categories: string[] }[] = [
-  { title: "人と暮らし", categories: ["人口・世帯", "年齢構成", "暮らし方", "外国人住民", "子育て"] },
-  { title: "仕事と学び", categories: ["働き方", "通勤・通学", "学歴", "教育"] },
-  { title: "安全", categories: ["犯罪", "交通事故"] },
-  { title: "所得と税", categories: ["所得・税"] },
-  { title: "まちと土地", categories: ["交通", "地価", "緑", "観光"] },
-  { title: "天気", categories: ["天気"] },
-  { title: "選挙", categories: ["選挙"] },
-];
+// ジャンル（指標の category）の並びは lib/genres.ts（地図の指標の選択画面と共有）
+const GENRES = structuredClone(BASE_GENRES);
 // 地図の点で見るデータ（地域の塗り分けではなく、駅・学校・地点ごとの値）。地図で点の表示をオンにして開く
 const POINTS = [
   { file: "station_passengers", category: "交通", show: "stations" },

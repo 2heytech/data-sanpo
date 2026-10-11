@@ -2,10 +2,13 @@
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
 import FeedbackLink from "../../components/FeedbackLink.astro";
+import CategoryIcon from "../../components/CategoryIcon.astro";
 import { readFileSync } from "node:fs";
-import { DATA_BASE } from "../../lib/data";
+import { DATA_BASE, loadIndicators } from "../../lib/data";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
+// 指標の選択画面で使う分類のアイコン（地図の処理が複製して使う）。点レイヤーのカテゴリも含める
+const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "天気"])];
 ---
 <Base title="地図" preload={maplibreUrl} description="全国の都道府県・市区町村・町丁目の人口や年齢構成などを色分けした地図。地域名で検索し、指標と時点を切り替えて比べられます。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl}>
@@ -16,7 +19,14 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
                role="combobox" aria-expanded="false" aria-controls="search-results" />
         <ul id="search-results" role="listbox" hidden></ul>
       </div>
-      <label class="field">指標 <select id="indicator-select"></select></label>
+      <div class="field">
+        <label for="indicator-open">指標</label>
+        <!-- 押すと指標の選択画面を開く。選んだ指標は下の select に入れる（select は状態の保持用） -->
+        <button type="button" id="indicator-open" class="indicator-open" aria-haspopup="dialog">
+          <span class="io-icon" aria-hidden="true"></span><span class="io-name"></span><span class="io-change">変更</span>
+        </button>
+        <select id="indicator-select" hidden aria-hidden="true" tabindex="-1"></select>
+      </div>
       <!-- 選んだ指標で見られる単位（都道府県・市区町村・町丁目）と対象の都道府県 -->
       <div id="indicator-scope" class="scope small" aria-live="polite"></div>
       <!-- 犯罪など、種別と基準（件数・人口当たり）を切り替える指標 -->
@@ -109,6 +119,21 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
       </p>
       <AdSlot name="map" />
     </aside>
+    <!-- 指標の選択画面（地図の上に重ねて開く。スマホでは全画面） -->
+    <dialog id="indicator-picker" class="picker" aria-labelledby="picker-title">
+      <div class="picker-head">
+        <h2 id="picker-title">指標をえらぶ</h2>
+        <input id="picker-search" type="search" placeholder="指標名で探す（例: 人口、犯罪）" autocomplete="off" aria-label="指標名で探す" />
+        <button type="button" class="picker-close" aria-label="閉じる">×</button>
+      </div>
+      <div class="picker-body">
+        <nav class="picker-nav" aria-label="分類"></nav>
+        <div class="picker-list" tabindex="-1" autofocus></div>
+      </div>
+    </dialog>
+    <template id="category-icons">
+      {categories.map((c) => <span data-category={c}><CategoryIcon category={c} /></span>)}
+    </template>
   </div>
 </Base>
 
@@ -167,13 +192,80 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
   /* display を指定した要素でも hidden で隠す（種別・基準、5年合計のチェック） */
   .panel [hidden] { display: none !important; }
   .facets { display: flex; flex-direction: column; gap: 6px; }
-  .scope { margin: -4px 0 12px; }
-  .scope p { margin: 4px 0 0; }
-  .scope-levels { display: flex; flex-wrap: wrap; gap: 4px; list-style: none; padding: 0; margin: 0; }
-  .scope-levels li { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 0.8rem; }
-  .scope-levels li.on { background: var(--accent-soft, #e6effa); border-color: var(--accent, #0b5cad); color: var(--accent, #0b5cad); font-weight: 600; }
+  /* 指標: 選択画面を開くボタン */
+  .indicator-open {
+    display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 4px; padding: 7px 10px; text-align: left;
+    font: inherit; font-size: 0.95rem; font-weight: 700; color: var(--fg); cursor: pointer;
+    border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface);
+  }
+  .indicator-open:hover { border-color: var(--accent); }
+  .io-icon { flex: none; display: inline-flex; color: var(--accent); }
+  .io-icon svg, .picker svg.cat { width: 22px; height: 22px; }
+  .io-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .io-change { flex: none; font-size: 0.75rem; font-weight: 600; color: var(--accent); }
+  /* 指標の選択画面 */
+  .picker {
+    width: min(960px, calc(100vw - 32px)); height: min(720px, calc(100dvh - 48px)); padding: 0;
+    border: 0; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25); color: var(--fg); background: var(--surface);
+  }
+  .picker[open] { display: flex; flex-direction: column; }
+  .picker::backdrop { background: rgba(20,30,45,.45); }
+  .picker-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .picker-head h2 { margin: 0; font-size: 1.05rem; white-space: nowrap; }
+  .picker-head input {
+    flex: 1; min-width: 0; font: inherit; font-size: 0.95rem; padding: 7px 10px;
+    border: 1px solid var(--line-strong); border-radius: 8px;
+  }
+  .picker-close { flex: none; width: 36px; height: 36px; border: 0; background: none; font-size: 1.4rem; cursor: pointer; color: var(--muted); }
+  .picker-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 180px minmax(0, 1fr); }
+  .picker-nav { overflow-y: auto; padding: 10px 8px; border-right: 1px solid var(--line); background: #fbfcfe; display: grid; align-content: start; gap: 2px; }
+  .picker-nav button {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 0; border-radius: 8px; background: none;
+    font: inherit; font-size: 0.9rem; text-align: left; cursor: pointer; color: var(--fg);
+  }
+  .picker-nav button:hover, .picker-nav button[aria-current="true"] { background: var(--accent-soft, #e6effa); color: var(--accent); }
+  .picker-nav svg { width: 18px; height: 18px; flex: none; color: var(--accent); }
+  .picker-list { overflow-y: auto; padding: 6px 18px 24px; scroll-padding-top: 8px; outline: none; }
+  .picker-genre > h3 { margin: 18px 0 4px; font-size: 0.8rem; color: var(--muted); letter-spacing: .05em; }
+  .picker-cat { margin: 6px 0 14px; }
+  .picker-cat h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 0.95rem; color: var(--accent); }
+  .picker-cat h4 svg { width: 22px; height: 22px; }
+  .picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
+  .picker-item {
+    display: grid; gap: 2px; padding: 8px 10px; text-align: left; font: inherit; cursor: pointer; color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+  }
+  .picker-item:hover { border-color: var(--accent); background: #f6f9fd; }
+  .picker-item[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft, #e6effa); box-shadow: inset 3px 0 0 var(--accent); }
+  .pi-name { font-weight: 600; font-size: 0.92rem; }
+  .pi-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: 0.72rem; color: var(--muted); }
+  .pi-meta > span { white-space: nowrap; display: inline-flex; }
+  .pi-meta svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.3; }
+  .pi-meta .limited { color: #8a4b00; font-weight: 600; }
+  .picker-points { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 0.85rem; }
+  .picker-points label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .picker-points .muted { font-size: 0.75rem; }
+  .picker-empty { margin: 24px 0; color: var(--muted); }
+  @media (max-width: 720px) {
+    .picker { width: 100vw; height: 100dvh; max-width: none; max-height: none; border-radius: 0; }
+    .picker-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+    .picker-nav { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 6px 8px; }
+    .picker-nav button { white-space: nowrap; flex: none; }
+    .picker-head h2 { display: none; }
+    .picker-list { padding: 4px 12px 24px; }
+    .picker-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  }
+  /* 見られる単位と対象地域（1行） */
+  .scope { display: flex; align-items: center; gap: 6px; margin: -6px 0 2px; white-space: nowrap; min-width: 0; }
+  .scope-levels { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0; flex: none; }
+  .scope-levels li { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72rem; line-height: 1.5; }
+  .scope-levels svg { fill: none; stroke: currentColor; stroke-width: 1.3; }
+  .scope-levels li.on { color: var(--accent, #0b5cad); font-weight: 600; }
+  .scope-levels li.on svg { fill: var(--accent-soft, #e6effa); }
   .scope-levels li.later { color: var(--muted); }
-  .scope-levels li.off { color: var(--muted); text-decoration: line-through; opacity: 0.7; }
+  .scope-levels li.later svg { stroke-dasharray: 2 1.5; }
+  .scope-area { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; padding-left: 6px; border-left: 1px solid var(--line); }
+  .scope-area.limited { color: #8a4b00; font-weight: 600; }
   .facets label.inline { font-weight: 600; }
   .period.aggregate #period-range, .period.aggregate .period-ticks, .period.aggregate #period-play { opacity: 0.4; }
   .view-options { border: 0; border-top: 1px solid var(--line); padding: 12px 0 0; margin: 0; display: grid; gap: 6px; }
@@ -220,9 +312,21 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
   #search-results li { padding: 6px 10px; cursor: pointer; }
   #search-results li[aria-selected="true"], #search-results li:hover { background: var(--panel); }
   .legend { font-size: 0.85rem; }
-  .legend ul { list-style: none; padding: 0; margin: 4px 0; }
-  .legend li { display: flex; align-items: center; gap: 6px; }
-  .legend .swatch { width: 18px; height: 12px; border: 1px solid rgba(0,0,0,.2); flex: none; }
+  .legend p { margin: 0; }
+  .legend-head { font-weight: 600; }
+  .legend-head .muted { font-weight: 400; }
+  /* 色の区切りは1本の帯にし、境目の下に値を書く */
+  .legend-bar { display: flex; height: 14px; margin-top: 6px; border: 1px solid rgba(0,0,0,.2); border-radius: 3px; overflow: hidden; }
+  .legend-bar span { flex: 1; }
+  .legend-ticks { position: relative; height: 1.3em; margin: 2px 0 0; font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .legend-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+  .legend-ticks.two { height: 2.5em; }
+  .legend-ticks span.low { top: 1.2em; }
+  .legend-ticks span::before { content: ""; position: absolute; left: 50%; top: -3px; height: 3px; border-left: 1px solid rgba(0,0,0,.35); }
+  .legend-ticks span.low::before { top: calc(-3px - 1.2em); height: calc(3px + 1.2em); border-left-color: rgba(0,0,0,.2); }
+  .legend-extra { display: flex; gap: 12px; margin-top: 4px !important; font-size: 0.75rem; color: var(--muted); }
+  .legend-extra span { display: inline-flex; align-items: center; gap: 4px; }
+  .legend .swatch { display: inline-block; width: 14px; height: 10px; border: 1px solid rgba(0,0,0,.2); flex: none; }
   .legend .swatch.blank { background: transparent; border-style: dashed; }
   .legend.dimmed { opacity: 0.45; }
   .detail .value { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }

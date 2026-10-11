@@ -5,7 +5,7 @@ import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, LngLatBoundsLike, PointLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { colorsFor, fillColorExpression, NO_DATA_COLOR } from "../lib/classify";
-import { formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
+import { compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
 import type {
@@ -19,6 +19,8 @@ import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
 import { initWeather } from "./weather";
 import type { PointLayer } from "./points";
+import { genresFor } from "../lib/genres";
+import { normalize } from "../lib/search";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
@@ -314,6 +316,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     return z >= AREA_ZOOM && !municipalityOnly() ? "small_area" : "municipality";
   };
   const LEVEL_LABEL: Record<Level, string> = { prefecture: "都道府県", municipality: "市区町村", small_area: "町丁・字等" };
+  const SHORT_LEVEL: Record<Level, string> = { prefecture: "都道府県", municipality: "市区町村", small_area: "町丁目" };
+  // 単位のアイコン: 1マス（都道府県）・2×2（市区町村）・3×3（町丁目）
+  const gridIcon = (k: number) => {
+    const d = 12 / k;
+    const lines = Array.from({ length: k - 1 }, (_, i) => `M${1 + d * (i + 1)} 1V13M1 ${1 + d * (i + 1)}H13`).join("");
+    return `<svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="1.5"/>${lines ? `<path d="${lines}"/>` : ""}</svg>`;
+  };
+  const LEVEL_ICON: Record<Level, string> = { prefecture: gridIcon(1), municipality: gridIcon(2), small_area: gridIcon(3) };
 
   // --- 値の読み込みと色分け ---------------------------------------------------------
   const valuesPath = (chunk: string) => `values/${indicator.id}/${period}/${chunk}.json`;
@@ -607,13 +617,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (areaChip.hidden !== !name) areaChip.hidden = !name;
   }
 
+  // 凡例: 指標名は選択欄、時点は時点のバーにあるので、ここは単位と何別かだけ書き、色は1本の帯で示す（#93）
   function renderLegend() {
     if (!legend) return;
     const level = levelNow();
     const info = legend.levels[level];
     let levelLabel = LEVEL_LABEL[level];
+    const head = (label: string) =>
+      `<p class="legend-head">${esc(indicator.unit)}<span class="muted">（${esc(label)}別）</span></p>`;
     if (!info) {
-      legendEl.innerHTML = `<strong>${esc(indicator.name)}</strong><p class="muted">この時点の${levelLabel}別の値はありません。</p>`;
+      legendEl.innerHTML = `<p class="muted small">この時点の${levelLabel}別の値はありません。</p>`;
       return;
     }
     // 市区町村の区切りは都道府県ごと。凡例は地図の中心（選んだ地域）の都道府県の区切りを出す
@@ -623,33 +636,35 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       breaks = info.by_prefecture![pref];
       levelLabel = `${prefName(pref)}の${levelLabel}`;
     }
+    const noData = `<span><i class="swatch" style="background:${NO_DATA_COLOR}"></i>値なし</span>`;
+    const blank = `<span><i class="swatch blank"></i>0（色なし）</span>`;
     // 県内がすべて0の都道府県（例: 私立中学校のない県）は色を付けない
     const focus = level === "municipality" ? focusPrefecture() : undefined;
     if (focus && info.zero_prefectures?.includes(focus)) {
-      legendEl.innerHTML =
-        `<strong>${esc(indicator.name)}</strong>（${esc(indicator.unit)}、${esc(prefName(focus))}の${esc(LEVEL_LABEL[level])}別・${esc(periodInfo().label)}）` +
-        `<ul><li><span class="swatch blank"></span>0（色なし）</li>` +
-        `<li><span class="swatch" style="background:${NO_DATA_COLOR}"></span>値なし（秘匿・欠測など）</li></ul>` +
+      legendEl.innerHTML = head(`${prefName(focus)}の${LEVEL_LABEL[level]}`) +
+        `<p class="legend-extra">${blank}${noData}</p>` +
         `<p class="muted small">${esc(prefName(focus))}の市区町村はすべて0のため、色を付けていません。</p>`;
       return;
     }
     const zeroBlank = !!legend.zero_blank;
     const colors = colorsFor(legend.scheme, breaks, zeroBlank);
     const fmt = (v: number) => formatNumber(v, indicator.digits);
-    const items = colors.map((c, i) => {
+    const labels = colors.map((_, i) => {
       const lo = i === 0 ? null : breaks[i - 1];
       const hi = i === breaks.length ? null : breaks[i];
-      const label = lo === null && hi === null ? (zeroBlank ? "0 より大きい" : "すべて")
+      return lo === null && hi === null ? (zeroBlank ? "0 より大きい" : "すべて")
         : lo === null ? (zeroBlank ? `0 より大きく ${fmt(hi!)} 未満` : `${fmt(hi!)} 未満`)
         : hi === null ? `${fmt(lo)} 以上` : `${fmt(lo)} 〜 ${fmt(hi)} 未満`;
-      return `<li><span class="swatch" style="background:${c}"></span>${label}</li>`;
     });
-    if (zeroBlank) items.unshift(`<li><span class="swatch blank"></span>0（色なし）</li>`);
-    items.push(`<li><span class="swatch" style="background:${NO_DATA_COLOR}"></span>値なし（秘匿・欠測など）</li>`);
-    legendEl.innerHTML =
-      `<strong>${esc(indicator.name)}</strong>（${esc(indicator.unit)}、${esc(levelLabel)}別・${esc(periodInfo().label)}）` +
-      `<ul>${items.join("")}</ul>` +
-      (pref ? `<p class="muted small">市区町村の色の区切りは都道府県ごとに決めています。</p>` : "");
+    const cells = colors.map((c, i) => `<span style="background:${c}" title="${esc(labels[i])}"></span>`).join("");
+    // 区切りの値は帯の境目に、上下2段に互い違いに出す（色にカーソルを合わせると範囲も出る）
+    const n = colors.length;
+    const ticks = breaks.slice(0, n - 1).map((b, k) =>
+      `<span class="${n > 6 && k % 2 ? "low" : ""}" style="left:${(((k + 1) / n) * 100).toFixed(2)}%">${esc(compactNumber(b, indicator.digits))}</span>`).join("");
+    legendEl.innerHTML = head(levelLabel) +
+      `<div class="legend-bar" role="img" aria-label="${esc(labels.join("、"))}">${cells}</div>` +
+      `<div class="legend-ticks${n > 6 ? " two" : ""}" aria-hidden="true">${ticks}</div>` +
+      `<p class="legend-extra">${zeroBlank ? blank : ""}${noData}</p>`;
   }
 
   async function rowsFor(id: string, at = period): Promise<ValueRow[]> {
@@ -741,6 +756,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <strong>${esc(formatValue(row, indicator))}</strong>${fraction ? `<span class="muted small">${esc(fraction)}</span>` : ""}</div>`;
   }
 
+  // 値の内訳（例: 1,337,033 人のうち 168,599 人）と求め方を1〜2行で書く（#95）
+  function calcHtml(row: ValueRow | undefined, fraction: string | null): string {
+    const basis = formatBasis(row, !!fraction);
+    return (fraction ? `<div class="muted">${esc(fraction)}</div>` : "") +
+      (basis.text ? `<div class="muted small">${esc(basis.text)}</div>` : "") +
+      (basis.note ? `<p class="note small">${esc(basis.note)}</p>` : "");
+  }
+
   // 順位: 範囲ごとの文と、1位（左）から最下位（右）までの横バー上の位置
   type Rank = { scope: string; rank: number; total: number };
   function rankHtml(ranks: Rank[]): string {
@@ -829,9 +852,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <h2>${esc(name)}</h2>
       <div>${esc(indicator.name)}（${esc(p.label)}）</div>
       <div class="value">${esc(formatValue(row, indicator))}</div>
-      ${fraction ? `<div class="muted">${esc(fraction)}</div>` : ""}
-      ${row?.value != null && STATUS_LABEL[row.status] ? `<div class="muted">${esc(STATUS_LABEL[row.status])}</div>` : ""}
-      ${row?.note ? `<p class="note small">${esc(row.note)}</p>` : ""}
+      ${calcHtml(row, fraction)}
       ${rankHtml(ranks)}
       ${city}
       ${within ? `<p class="note small">この指標は都道府県別の値だけです（${esc(entityName(within).name)}を含む${esc(name)}の値）。</p>` : ""}
@@ -928,25 +949,127 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       return `<optgroup label="${esc(c)}">${opts}</optgroup>`;
     })
     .join("");
+  // 指標の選択画面（#95）: 分類（ジャンル→カテゴリ、アイコン付き）ごとに指標を並べ、名前で絞り込める。
+  // 選ぶと上の select の値を変える。各カテゴリには、そのカテゴリの点レイヤー（駅など）の表示切替も並べる
+  const pickerEl = $<HTMLDialogElement>("#indicator-picker");
+  const pickerList = pickerEl.querySelector<HTMLElement>(".picker-list")!;
+  const pickerNav = pickerEl.querySelector<HTMLElement>(".picker-nav")!;
+  const pickerSearch = $<HTMLInputElement>("#picker-search");
+  const openButton = $<HTMLButtonElement>("#indicator-open");
+  const iconTemplate = root.querySelector<HTMLTemplateElement>("#category-icons");
+  const catIcon = (c: string, bubble = true) => {
+    const el = iconTemplate?.content.querySelector(`[data-category="${CSS.escape(c)}"]`);
+    if (!el) return "";
+    return bubble ? el.innerHTML : el.querySelector("svg")?.outerHTML ?? "";
+  };
+  const POINT_LAYERS = [
+    { toggle: "#stations-toggle", category: "交通" },
+    { toggle: "#schools-toggle", category: "教育" },
+    { toggle: "#land-toggle", category: "地価" },
+    { toggle: "#landsurvey-toggle", category: "地価" },
+    { toggle: "#nursery-toggle", category: "子育て" },
+    { toggle: "#weather-toggle", category: "天気" },
+  ].filter((p) => root.querySelector(p.toggle));
+  const pointLabel = (sel: string) => root.querySelector(sel)?.closest("label")?.textContent?.trim().replace(/を表示/, "") ?? "";
+  const pickerItem = (i: Indicator) => {
+    const members = membersOf(i);
+    const lv = levelsOf(members);
+    const prefs = nationwide ? prefsOf(members) : null;
+    const levels = LEVELS.filter((l) => lv.has(l)).map((l) => `<span title="${LEVEL_LABEL[l]}別">${LEVEL_ICON[l]}</span>`).join("");
+    const finest = lv.has("small_area") ? "町丁目まで" : lv.has("municipality") ? "市区町村まで" : "都道府県のみ";
+    return `<button type="button" class="picker-item" data-value="${esc(optionValue(i))}" data-key="${esc(normalize(optionLabel(i) + members.map((m) => m.name).join(" ")))}">
+      <span class="pi-name">${esc(optionLabel(i))}</span>
+      <span class="pi-meta">${levels}<span>${finest}</span>${prefs ? `<span class="limited">${esc(coverageLabel(prefs))}</span>` : ""}</span></button>`;
+  };
+  const pickerCats = [...new Set([...indicators.map((i) => i.category), ...POINT_LAYERS.map((p) => p.category)])];
+  const pickerGenres = genresFor(pickerCats);
+  pickerNav.innerHTML = pickerGenres.map((g, k) =>
+    `<button type="button" data-genre="${k}">${catIcon(g.categories[0], false)}${esc(g.title)}</button>`).join("");
+  pickerList.innerHTML = pickerGenres.map((g, k) => `<section class="picker-genre" id="picker-genre-${k}"><h3>${esc(g.title)}</h3>` +
+    g.categories.map((c) => {
+      const seen = new Set<string>();
+      const items = indicators.filter((i) => i.category === c && !seen.has(optionValue(i)) && seen.add(optionValue(i))).map(pickerItem).join("");
+      const points = POINT_LAYERS.filter((p) => p.category === c).map((p) =>
+        `<label><input type="checkbox" data-toggle="${p.toggle}" /> ${esc(pointLabel(p.toggle))}</label>`).join("");
+      return `<div class="picker-cat"><h4>${catIcon(c)}${esc(c)}</h4>` +
+        (items ? `<div class="picker-grid">${items}</div>` : "") +
+        (points ? `<div class="picker-points"><span class="muted">地図に点で重ねる:</span>${points}</div>` : "") + `</div>`;
+    }).join("") + `</section>`).join("") + `<p class="picker-empty" hidden>見つかりませんでした。</p>`;
+  function syncPicker() {
+    const v = optionValue(indicator);
+    for (const b of pickerList.querySelectorAll<HTMLElement>(".picker-item")) b.setAttribute("aria-current", String(b.dataset.value === v));
+    for (const c of pickerList.querySelectorAll<HTMLInputElement>("input[data-toggle]")) c.checked = $<HTMLInputElement>(c.dataset.toggle!).checked;
+    openButton.querySelector(".io-icon")!.innerHTML = catIcon(indicator.category, false);
+    openButton.querySelector(".io-name")!.textContent = optionLabel(indicator);
+    openButton.title = `指標を変える（今は「${optionLabel(indicator)}」）`;
+  }
+  function filterPicker() {
+    const q = normalize(pickerSearch.value.trim());
+    let any = false;
+    for (const b of pickerList.querySelectorAll<HTMLElement>(".picker-item")) {
+      const hit = !q || b.dataset.key!.includes(q);
+      b.hidden = !hit;
+      any ||= hit;
+    }
+    // 探しているときは、点の切替と、当てはまる指標のないカテゴリ・ジャンルを隠す
+    for (const p of pickerList.querySelectorAll<HTMLElement>(".picker-points")) p.hidden = !!q;
+    for (const c of pickerList.querySelectorAll<HTMLElement>(".picker-cat")) c.hidden = !!q && !c.querySelector(".picker-item:not([hidden])");
+    for (const g of pickerList.querySelectorAll<HTMLElement>(".picker-genre")) g.hidden = !!q && !g.querySelector(".picker-cat:not([hidden])");
+    pickerList.querySelector<HTMLElement>(".picker-empty")!.hidden = any;
+  }
+  openButton.addEventListener("click", () => {
+    syncPicker();
+    pickerSearch.value = "";
+    filterPicker();
+    pickerEl.showModal();
+    // 今の指標が見えるところまで送る
+    pickerList.querySelector<HTMLElement>('.picker-item[aria-current="true"]')?.scrollIntoView({ block: "center" });
+    if (matchMedia("(min-width: 721px)").matches) pickerSearch.focus();
+  });
+  pickerEl.querySelector(".picker-close")!.addEventListener("click", () => pickerEl.close());
+  // 選択画面の外（暗いところ）を押すと閉じる
+  pickerEl.addEventListener("click", (e) => { if (e.target === pickerEl) pickerEl.close(); });
+  pickerSearch.addEventListener("input", filterPicker);
+  pickerNav.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>("button[data-genre]");
+    if (b) pickerList.querySelector(`#picker-genre-${b.dataset.genre}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  });
+  pickerList.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>(".picker-item");
+    if (!b) return;
+    pickerEl.close();
+    if (b.dataset.value !== indicatorSelect.value) {
+      indicatorSelect.value = b.dataset.value!;
+      indicatorSelect.dispatchEvent(new Event("change"));
+    }
+  });
+  pickerList.addEventListener("change", (e) => {
+    const c = e.target as HTMLInputElement;
+    if (!c.dataset.toggle) return;
+    const real = $<HTMLInputElement>(c.dataset.toggle);
+    real.checked = c.checked;
+    real.dispatchEvent(new Event("change"));
+  });
+
   const unique = (xs: string[]) => [...new Set(xs)];
   // 選んだ指標（と時点）で見られる単位と、対象の都道府県
   function renderScope() {
     const all = levelsOf([indicator]);
     const now = levelsOf([indicator], period);
-    const chips = LEVELS.filter((l) => nationwide || l !== "prefecture").map((l) => {
-      const state = now.has(l) ? "on" : all.has(l) ? "later" : "off";
-      const title = state === "on" ? "この単位で見られます" : state === "later" ? "ほかの時点で見られます" : "この単位の値はありません";
-      return `<li class="${state}" title="${title}">${state === "on" ? "✓" : "－"} ${LEVEL_LABEL[l]}</li>`;
+    // 1行に収める: 見られる単位をアイコン（区切りが細かいほどマス目が多い）で示し、ない単位は出さない（#93）
+    const chips = LEVELS.filter((l) => all.has(l)).map((l) => {
+      const later = !now.has(l);
+      const title = `${LEVEL_LABEL[l]}別で${later ? "は、ほかの時点で見られます（この時点は値なし）" : "見られます"}`;
+      return `<li class="${later ? "later" : "on"}" title="${title}">${LEVEL_ICON[l]}${SHORT_LEVEL[l]}</li>`;
     }).join("");
     const prefs = nationwide ? prefsOf([indicator]) : null;
-    const missing = [...all].filter((l) => !now.has(l)).map((l) => LEVEL_LABEL[l]);
+    const area = prefs ? coverageLabel(prefs) : "全国";
     scopeEl.innerHTML = `<ul class="scope-levels" aria-label="見られる単位">${chips}</ul>` +
-      `<p class="scope-area">対象: ${prefs ? `<strong>${esc(coverageLabel(prefs))}</strong>` +
-        `<span class="muted">（ほかの地域は値なし）</span>` : "全国"}</p>` +
-      (missing.length ? `<p class="muted">この時点は${esc(missing.join("・"))}の値がありません。</p>` : "");
+      `<span class="scope-area${prefs ? " limited" : ""}" title="${prefs ? `対象: ${esc(area)}（ほかの地域は値なし）` : "対象: 全国"}">${esc(area)}</span>`;
   }
   function syncIndicatorControls() {
     indicatorSelect.value = optionValue(indicator);
+    syncPicker();
     facetsEl.hidden = !indicator.family;
     if (!indicator.family || !indicator.facets) return;
     const members = familyMembers(indicator.family);
