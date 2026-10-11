@@ -2594,3 +2594,73 @@ method = "国土交通省 国土数値情報「都道府県地価調査データ
 caveats = ["地域全体の平均ではなく、選ばれた1地点の価格です。", "住宅地・商業地など用途によって水準が大きく違います。", "その年に基準地でなかった年は値がありません（0円ではありません）。", "2025年の調査に含まれる基準地だけを表示しています。過去に廃止された基準地は含みません。", "地価公示の標準地と同じ地点のこともあります（調べる時点が違うため価格も違います）。"]
 source_kind = "mlit_landsurvey"
 legend = { method = "quantile", classes = 12, scheme = "reds" }
+
+# 天気（気象庁の平年値）。観測所ごとの値なので、地図では点で出し、地域には割り振らない（docs/design-changes.md #92）。
+# element は平年値ファイルの要素番号、scale は値の単位（0.1時間・0.1mm）を直す倍率。
+[sunshine_normal]
+name = "年間の日照時間"
+category = "天気"
+unit = "時間"
+kind = "count"
+not_additive = true
+definition_version = "1"
+digits = 0
+levels = ["weather_station"]
+description = "1年間に日が照っていた時間の合計の平年値（1991〜2020年の平均的な値）。観測所ごとの値です。"
+method = "気象庁「平年値（統計期間1991〜2020年）」アメダスの月・年別平年値の日照時間（年合計）。"
+caveats = ["地域全体の平均ではなく、観測所1地点の値です。山の上や海沿いなど、同じ市区町村でも場所によって違います。", "日照時間の平年値がある観測所だけです（日照時間を観測していない観測所や、観測を推計に切り替えた観測所は含まないことがあります）。", "観測を始めたり場所を移したりした観測所は、1991年より短い期間から求めた値です（観測所の情報に統計期間を書いています）。"]
+source_kind = "jma_normals"
+element = "3500"
+scale = 0.1
+legend = { method = "nice", classes = 8, scheme = "oranges" }
+
+[precipitation_normal]
+name = "年間の降水量"
+category = "天気"
+unit = "mm"
+kind = "count"
+not_additive = true
+definition_version = "1"
+digits = 0
+levels = ["weather_station"]
+description = "1年間に降った雨や雪（とけた水の量）の合計の平年値（1991〜2020年の平均的な値）。観測所ごとの値です。"
+method = "気象庁「平年値（統計期間1991〜2020年）」アメダスの月・年別平年値の降水量（年合計）。"
+caveats = ["地域全体の平均ではなく、観測所1地点の値です。山の上や海沿いなど、同じ市区町村でも場所によって違います。", "観測を始めたり場所を移したりした観測所は、1991年より短い期間から求めた値です（観測所の情報に統計期間を書いています）。"]
+source_kind = "jma_normals"
+element = "4000"
+scale = 0.1
+legend = { method = "nice", classes = 8, scheme = "blues" }
+
+[snow_depth_normal]
+name = "年最深積雪"
+category = "天気"
+unit = "cm"
+kind = "count"
+not_additive = true
+definition_version = "1"
+digits = 0
+levels = ["weather_station"]
+description = "1年間でいちばん雪が深く積もったときの深さの平年値（1991〜2020年の平均的な値）。観測所ごとの値です。"
+method = "気象庁「平年値（統計期間1991〜2020年）」アメダスの月・年別平年値の積雪の深さ（年最大）。"
+caveats = ["地域全体の平均ではなく、観測所1地点の値です。山の上や海沿いなど、同じ市区町村でも場所によって違います。", "積雪計で積雪の深さを観測している観測所だけです（雪の少ない地方には観測所がほとんどありません）。観測所のない場所は値がありません（0cmではありません）。", "観測を始めたり場所を移したりした観測所は、1991年より短い期間から求めた値です（観測所の情報に統計期間を書いています）。"]
+source_kind = "jma_normals"
+element = "6200"
+scale = 1
+legend = { method = "nice", classes = 8, scheme = "purples" }
+
+[snowfall_normal]
+name = "年間の降雪量"
+category = "天気"
+unit = "cm"
+kind = "count"
+not_additive = true
+definition_version = "1"
+digits = 0
+levels = ["weather_station"]
+description = "1年間に新しく降り積もった雪の深さの合計（降雪の深さの合計）の平年値（1991〜2020年の平均的な値）。観測所ごとの値です。"
+method = "気象庁「平年値（統計期間1991〜2020年）」アメダスの月・年別平年値の降雪の深さ（年合計）。"
+caveats = ["地域全体の平均ではなく、観測所1地点の値です。山の上や海沿いなど、同じ市区町村でも場所によって違います。", "積雪計で積雪の深さを観測している観測所だけです（雪の少ない地方には観測所がほとんどありません）。観測所のない場所は値がありません（0cmではありません）。", "降った雪がとけたり沈んだりするので、年最深積雪より大きな値になります。", "観測を始めたり場所を移したりした観測所は、1991年より短い期間から求めた値です（観測所の情報に統計期間を書いています）。"]
+source_kind = "jma_normals"
+element = "6300"
+scale = 1
+legend = { method = "nice", classes = 8, scheme = "purples" }

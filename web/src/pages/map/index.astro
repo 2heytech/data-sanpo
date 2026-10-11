@@ -60,6 +60,9 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
         <p id="landsurvey-legend" class="muted small" hidden></p>
         <label class="inline check"><input type="checkbox" id="nursery-toggle" /> 認可保育所を表示（定員）</label>
         <p id="nursery-legend" class="muted small" hidden></p>
+        <label class="inline check"><input type="checkbox" id="weather-toggle" /> 天気を表示（気象庁の観測所の平年値）</label>
+        <select id="weather-select" class="weather-select" aria-label="天気の指標" hidden></select>
+        <p id="weather-legend" class="muted small" hidden></p>
         <label for="basemap-select">背景</label>
         <select id="basemap-select"></select>
         <div id="photo-era" class="photo-era" hidden>
@@ -90,6 +93,7 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
       <section id="land-detail" class="detail station-detail" aria-live="polite" hidden></section>
       <section id="landsurvey-detail" class="detail station-detail" aria-live="polite" hidden></section>
       <section id="nursery-detail" class="detail station-detail" aria-live="polite" hidden></section>
+      <section id="weather-detail" class="detail station-detail" aria-live="polite" hidden></section>
       <section id="detail" class="detail" aria-live="polite">
         <p class="muted">地図をクリックするか、地域名で検索してください。</p>
       </section>
@@ -210,7 +214,8 @@ const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
   .station-detail .close {
     position: absolute; top: 0; right: 0; border: 0; background: none; font-size: 1.2rem; cursor: pointer; color: var(--muted);
   }
-  #stations-legend, #schools-legend, #land-legend, #landsurvey-legend, #nursery-legend { margin: -2px 0 0 22px; }
+  #stations-legend, #schools-legend, #land-legend, #landsurvey-legend, #nursery-legend, #weather-legend { margin: -2px 0 0 22px; }
+  #weather-select { margin: 0 0 0 22px; width: auto; }
   .land-bins { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px; }
   .land-bins .sw {
     display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: -1px;

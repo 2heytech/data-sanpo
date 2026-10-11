@@ -17,6 +17,7 @@ import { initStations } from "./stations";
 import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
+import { initWeather } from "./weather";
 import type { PointLayer } from "./points";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 
@@ -517,7 +518,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     renderAreaChip();
   }
 
-  // 点レイヤー（駅・学校・地価公示・都道府県地価調査・認可保育所）。オンにしたときだけ読み込む
+  // 点レイヤー（駅・学校・地価公示・都道府県地価調査・認可保育所・天気の観測所）。オンにしたときだけ読み込む
   const pickEl = $("#pick-detail");
   const pointOptions = (toggle: string, legendSel: string, panel: string) => ({
     map, fetchJSON, sources, beforeLayer: "area-label", labelFont: LABEL_FONT,
@@ -532,6 +533,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     initLandPrices({ kind: "land_survey_price",
       ...pointOptions("#landsurvey-toggle", "#landsurvey-legend", "#landsurvey-detail") }),
     initNurseries(pointOptions("#nursery-toggle", "#nursery-legend", "#nursery-detail")),
+    initWeather({ select: $<HTMLSelectElement>("#weather-select"),
+      ...pointOptions("#weather-toggle", "#weather-legend", "#weather-detail") }),
   ];
   // 地点の情報を出している間は、地域の情報を隠す（直前にクリックしたものだけを出す）
   function syncPanels() {

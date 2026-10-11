@@ -306,3 +306,44 @@ export interface NurseryFile {
   /** 古い公開版（1ファイルに全件）の一覧 */
   points?: NurseryPoint[];
 }
+
+/** 天気の指標（気象庁の平年値）の1つ。places/weather_normals.json の elements */
+export interface WeatherElement {
+  id: string;
+  name: string;
+  unit: string;
+  digits: number;
+  description: string;
+  method: string;
+  caveats: string[];
+  scheme: string;
+  count: number;
+  breaks: number[];
+  min: number;
+  max: number;
+}
+
+/** 気象庁の観測所。値・月の値・統計期間（開始年・終了年・資料年数）は指標IDごと。値のない指標は含まない */
+export interface WeatherStation {
+  id: string;
+  name: string;
+  kana: string | null;
+  municipality_id: string;
+  coord: [number, number];
+  altitude_m: number | null;
+  values: Record<string, number>;
+  monthly: Record<string, (number | null)[]>;
+  years: Record<string, [number, number, number]>;
+}
+
+/** places/weather_normals.json（全国で約1,300地点なので都道府県に分けない。#92） */
+export interface WeatherFile {
+  schema_version: string;
+  release_id: string;
+  name: string;
+  description: string;
+  periods: { period: string; label: string }[];
+  elements: WeatherElement[];
+  source_ids: string[];
+  stations: WeatherStation[];
+}
