@@ -6,6 +6,7 @@ export const GENRES: { title: string; categories: string[] }[] = [
   { title: "安全", categories: ["犯罪", "交通事故"] },
   { title: "所得と税", categories: ["所得・税"] },
   { title: "まちと土地", categories: ["交通", "地価", "緑", "観光"] },
+  { title: "天気", categories: ["天気"] },
   { title: "選挙", categories: ["選挙"] },
 ];
 

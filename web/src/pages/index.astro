@@ -5,7 +5,7 @@ import Base from "../layouts/Base.astro";
 import AdSlot from "../components/AdSlot.astro";
 import CategoryIcon from "../components/CategoryIcon.astro";
 import { loadAreas, loadIndicators, loadPlace } from "../lib/data";
-import type { Indicator } from "../lib/types";
+import type { Indicator, WeatherElement } from "../lib/types";
 import { GENRES as BASE_GENRES } from "../lib/genres";
 
 const indicators = loadIndicators();
@@ -27,7 +27,15 @@ const POINTS = [
   const first = d.periods[0]?.label.match(/\d{4}/)?.[0];
   const last = d.periods[d.periods.length - 1]?.label.match(/\d{4}/)?.[0];
   return [{ ...p, name: d.name, unit: d.unit, description: d.description, years: first === last ? `${last}年` : `${first}〜${last}年` }];
-});
+}).concat(weatherPoints());
+// 天気（気象庁の平年値）は1ファイルに日照時間・降水量などをまとめているので、指標ごとに1行にする（#94）
+function weatherPoints() {
+  const d = loadPlace("weather_normals") as (ReturnType<typeof loadPlace> & { elements?: WeatherElement[] }) | null;
+  return (d?.elements ?? []).map((e) => ({
+    file: "weather_normals", category: "天気", show: `weather&wx=${e.id}`, name: e.name, unit: e.unit,
+    description: e.description, years: d!.periods[0]?.label ?? "",
+  }));
+}
 const hasCategory = (c: string) => indicators.some((i) => i.category === c) || POINTS.some((p) => p.category === c);
 const known = new Set(GENRES.flatMap((g) => g.categories));
 const rest = [...new Set(indicators.map((i) => i.category))].filter((c) => !known.has(c));

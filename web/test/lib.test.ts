@@ -176,6 +176,17 @@ describe("compactNumber（凡例の目盛り）", () => {
   });
 });
 
+describe("天気の凡例", () => {
+  it("区切りから区分の文言を作り、区分の数と色の数が合う", async () => {
+    const { weatherBins, weatherColors } = await import("../src/map/weather");
+    const e = { breaks: [1000, 1500, 2000], unit: "mm", digits: 0, scheme: "blues" };
+    expect(weatherBins(e)).toEqual(["1,000mm未満", "1,000〜1,500mm", "1,500〜2,000mm", "2,000mm以上"]);
+    const colors = weatherColors(e);
+    expect(colors.length).toBe(4);
+    expect(colors[0]).not.toBe("#f7fbff");   // ほぼ白の色は地図の上で見えにくいので使わない
+  });
+});
+
 describe("labels", () => {
   it("広い地域ほど、長い名前ほど小さく収まる大きさになる", async () => {
     const { labelFit } = await import("../src/lib/labels");

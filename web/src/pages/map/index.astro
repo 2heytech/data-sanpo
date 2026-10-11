@@ -8,7 +8,7 @@ import { DATA_BASE, loadIndicators } from "../../lib/data";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
 // 指標の選択画面で使う分類のアイコン（地図の処理が複製して使う）。点レイヤーのカテゴリも含める
-const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て"])];
+const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "天気"])];
 ---
 <Base title="地図" preload={maplibreUrl} description="全国の都道府県・市区町村・町丁目の人口や年齢構成などを色分けした地図。地域名で検索し、指標と時点を切り替えて比べられます。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl}>
@@ -32,7 +32,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
       <!-- 犯罪など、種別と基準（件数・人口当たり）を切り替える指標 -->
       <div id="facets" class="field facets" hidden>
         <label class="inline">種別 <select id="facet-type"></select></label>
-        <label class="inline">基準 <select id="facet-basis"></select></label>
+        <label id="facet-basis-wrap" class="inline">基準 <select id="facet-basis"></select></label>
       </div>
       <div class="field period">
         <div class="period-head">
@@ -70,25 +70,30 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         <p id="landsurvey-legend" class="muted small" hidden></p>
         <label class="inline check"><input type="checkbox" id="nursery-toggle" /> 認可保育所を表示（定員）</label>
         <p id="nursery-legend" class="muted small" hidden></p>
-        <label for="basemap-select">背景</label>
-        <select id="basemap-select"></select>
-        <div id="photo-era" class="photo-era" hidden>
-          <div class="period-head">
-            <label for="photo-era-range">撮影年代</label>
-            <output id="photo-era-label" for="photo-era-range"></output>
-          </div>
-          <div class="period-control">
-            <button type="button" id="photo-era-play" class="play-button" aria-pressed="false" aria-label="撮影年代を順に再生">▶</button>
-            <input id="photo-era-range" type="range" min="0" max="0" step="1" value="0" />
-          </div>
-          <div id="photo-era-ends" class="photo-era-ends muted small" aria-hidden="true"></div>
-        </div>
-        <p id="basemap-note" class="muted small" hidden></p>
+        <label class="inline check"><input type="checkbox" id="weather-toggle" /> 天気を表示（気象庁の観測所の平年値）</label>
+        <select id="weather-select" class="weather-select" aria-label="天気の指標" hidden></select>
+        <p id="weather-legend" class="muted small" hidden></p>
+        <label class="inline check"><input type="checkbox" id="relief-toggle" /> 標高を色で表示（色別標高図）</label>
+        <p id="relief-note" class="muted small" hidden></p>
         <button type="button" id="locate">現在地へ移動</button>
       </fieldset>
     </aside>
     <div class="map-wrap">
       <div id="map" role="region" aria-label="地図"></div>
+      <!-- 航空写真（昔の写真も）: 地図の上のボタンで出し、撮影年代のスライドバーも地図の上に置く -->
+      <button type="button" id="photo-toggle" class="photo-toggle" aria-pressed="false" aria-controls="photo-panel">航空写真（昔の写真も）</button>
+      <section id="photo-panel" class="photo-panel" aria-label="航空写真の撮影年代" hidden>
+        <div class="photo-panel-head">
+          <output id="photo-era-label" for="photo-era-range" aria-live="polite"></output>
+          <button type="button" id="photo-close" class="photo-close" aria-label="航空写真を閉じる" title="航空写真を閉じる">×</button>
+        </div>
+        <div class="period-control">
+          <button type="button" id="photo-era-play" class="play-button" aria-pressed="false" aria-label="撮影年代を順に再生">▶</button>
+          <input id="photo-era-range" type="range" min="0" max="0" step="1" value="0" aria-label="撮影年代" />
+        </div>
+        <div id="photo-era-ends" class="photo-era-ends muted small" aria-hidden="true"></div>
+        <p id="photo-note" class="muted small"></p>
+      </section>
       <!-- 左右の欄の表示・非表示（地図を広く見る） -->
       <button type="button" class="panel-toggle left" data-panel="left" aria-pressed="false" aria-label="条件の欄を隠す" title="条件の欄を隠す">‹</button>
       <button type="button" class="panel-toggle right" data-panel="right" aria-pressed="false" aria-label="情報の欄を隠す" title="情報の欄を隠す">›</button>
@@ -100,6 +105,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
       <section id="land-detail" class="detail station-detail" aria-live="polite" hidden></section>
       <section id="landsurvey-detail" class="detail station-detail" aria-live="polite" hidden></section>
       <section id="nursery-detail" class="detail station-detail" aria-live="polite" hidden></section>
+      <section id="weather-detail" class="detail station-detail" aria-live="polite" hidden></section>
       <section id="detail" class="detail" aria-live="polite">
         <p class="muted">地図をクリックするか、地域名で検索してください。</p>
       </section>
@@ -279,7 +285,22 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .play-button:disabled { opacity: 0.4; cursor: default; }
   .period-ticks { display: flex; justify-content: space-between; margin-left: 40px; font-size: 0.8rem; color: var(--muted); }
   .period-ticks span { cursor: pointer; }
-  .photo-era { display: grid; gap: 2px; }
+  .photo-toggle {
+    position: absolute; top: 10px; left: 32px; z-index: 3; padding: 6px 12px; font: inherit; font-size: 0.9rem;
+    border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,.95); color: var(--fg);
+    cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  }
+  .photo-toggle[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .photo-panel {
+    position: absolute; left: 50%; bottom: 40px; z-index: 3; transform: translateX(-50%);
+    width: min(460px, calc(100% - 96px)); padding: 8px 12px 6px; border: 1px solid var(--line); border-radius: 8px;
+    background: rgba(255,255,255,.96); box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  }
+  .photo-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #photo-era-label { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .photo-close { border: 0; background: none; font-size: 1.3rem; line-height: 1; padding: 2px 6px; cursor: pointer; color: var(--muted); }
+  .photo-panel p { margin: 2px 0 0; }
+  .photo-panel [hidden] { display: none; }
   .photo-era-ends { display: flex; justify-content: space-between; margin-left: 40px; }
   .period-ticks span[aria-current="true"] { color: var(--fg); font-weight: 700; }
   .search { position: relative; }
@@ -314,7 +335,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .station-detail .close {
     position: absolute; top: 0; right: 0; border: 0; background: none; font-size: 1.2rem; cursor: pointer; color: var(--muted);
   }
-  #stations-legend, #schools-legend, #land-legend, #landsurvey-legend, #nursery-legend { margin: -2px 0 0 22px; }
+  #stations-legend, #schools-legend, #land-legend, #landsurvey-legend, #nursery-legend, #weather-legend { margin: -2px 0 0 22px; }
+  #weather-select { margin: 0 0 0 22px; width: auto; }
   .land-bins { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px; }
   .land-bins .sw {
     display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: -1px;

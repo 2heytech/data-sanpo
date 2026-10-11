@@ -1477,3 +1477,25 @@ def test_land_survey_points(built):
     # 地価公示の点には混ざらない
     assert not any(x["id"].startswith("landsv-") for x in load(built, "places/land_price.json")["points"])
     assert data["source_ids"] != load(built, "places/land_price.json")["source_ids"]
+
+
+def test_weather_normals(built):
+    data = load(built, "places/weather_normals.json")
+    st = {s["id"]: s for s in data["stations"]}
+    assert set(st) == {"wx-44901", "wx-44902", "wx-46901"}   # 地図の範囲外の観測所は取り込まない
+    assert [e["id"] for e in data["elements"]] == [
+        "sunshine_normal", "precipitation_normal", "snow_depth_normal", "snowfall_normal"]
+    s = st["wx-44901"]
+    assert s["name"] == "見本" and s["municipality_id"] == "muni-13199"
+    assert s["coord"] == [139.72, 35.68]   # 度・分から度に直す
+    assert s["values"] == {"sunshine_normal": 1923, "precipitation_normal": 1599,
+                           "snow_depth_normal": 6, "snowfall_normal": 8}   # 0.1時間・0.1mm を直す
+    assert s["monthly"]["precipitation_normal"][8] == 225
+    # 統計値なし（品質0）は値なしにし、0 にしない。統計期間の短い観測所は期間を持つ
+    t = st["wx-44902"]
+    assert set(t["values"]) == {"precipitation_normal"} and t["years"]["precipitation_normal"] == [2003, 2020, 18]
+    # 雪の降らない観測所の正常値 0cm は 0 として載せる
+    assert st["wx-46901"]["values"]["snow_depth_normal"] == 0
+    assert any(x.startswith("jma_normals_2020@") for x in data["source_ids"])
+    # 観測所の値は地域に割り振らない
+    assert not any(i["id"].endswith("_normal") for i in load(built, "indicators.json")["indicators"])

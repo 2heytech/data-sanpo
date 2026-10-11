@@ -17,6 +17,7 @@ import { initStations } from "./stations";
 import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
+import { initWeather } from "./weather";
 import type { PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
 import { normalize } from "../lib/search";
@@ -132,6 +133,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const facetsEl = $("#facets");
   const facetType = $<HTMLSelectElement>("#facet-type");
   const facetBasis = $<HTMLSelectElement>("#facet-basis");
+  const facetBasisWrap = $<HTMLElement>("#facet-basis-wrap");
   const aggregateWrap = $("#aggregate-wrap");
   const aggregateToggle = $<HTMLInputElement>("#aggregate-toggle");
   const aggregateLabel = $("#aggregate-label");
@@ -527,7 +529,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     renderAreaChip();
   }
 
-  // 点レイヤー（駅・学校・地価公示・都道府県地価調査・認可保育所）。オンにしたときだけ読み込む
+  // 点レイヤー（駅・学校・地価公示・都道府県地価調査・認可保育所・天気の観測所）。オンにしたときだけ読み込む
   const pickEl = $("#pick-detail");
   const pointOptions = (toggle: string, legendSel: string, panel: string) => ({
     map, fetchJSON, sources, beforeLayer: "area-label", labelFont: LABEL_FONT,
@@ -542,6 +544,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     initLandPrices({ kind: "land_survey_price",
       ...pointOptions("#landsurvey-toggle", "#landsurvey-legend", "#landsurvey-detail") }),
     initNurseries(pointOptions("#nursery-toggle", "#nursery-legend", "#nursery-detail")),
+    initWeather({ select: $<HTMLSelectElement>("#weather-select"),
+      ...pointOptions("#weather-toggle", "#weather-legend", "#weather-detail") }),
   ];
   // 地点の情報を出している間は、地域の情報を隠す（直前にクリックしたものだけを出す）
   function syncPanels() {
@@ -613,7 +617,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (areaChip.hidden !== !name) areaChip.hidden = !name;
   }
 
-  // 凡例: 指標名は選択欄、時点は時点のバーにあるので、ここは単位と何別かだけ書き、色は1本の帯で示す（#91）
+  // 凡例: 指標名は選択欄、時点は時点のバーにあるので、ここは単位と何別かだけ書き、色は1本の帯で示す（#93）
   function renderLegend() {
     if (!legend) return;
     const level = levelNow();
@@ -752,7 +756,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <strong>${esc(formatValue(row, indicator))}</strong>${fraction ? `<span class="muted small">${esc(fraction)}</span>` : ""}</div>`;
   }
 
-  // 値の内訳（例: 1,337,033 人のうち 168,599 人）と求め方を1〜2行で書く（#93）
+  // 値の内訳（例: 1,337,033 人のうち 168,599 人）と求め方を1〜2行で書く（#95）
   function calcHtml(row: ValueRow | undefined, fraction: string | null): string {
     const basis = formatBasis(row, !!fraction);
     return (fraction ? `<div class="muted">${esc(fraction)}</div>` : "") +
@@ -945,7 +949,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       return `<optgroup label="${esc(c)}">${opts}</optgroup>`;
     })
     .join("");
-  // 指標の選択画面（#93）: 分類（ジャンル→カテゴリ、アイコン付き）ごとに指標を並べ、名前で絞り込める。
+  // 指標の選択画面（#95）: 分類（ジャンル→カテゴリ、アイコン付き）ごとに指標を並べ、名前で絞り込める。
   // 選ぶと上の select の値を変える。各カテゴリには、そのカテゴリの点レイヤー（駅など）の表示切替も並べる
   const pickerEl = $<HTMLDialogElement>("#indicator-picker");
   const pickerList = pickerEl.querySelector<HTMLElement>(".picker-list")!;
@@ -964,6 +968,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     { toggle: "#land-toggle", category: "地価" },
     { toggle: "#landsurvey-toggle", category: "地価" },
     { toggle: "#nursery-toggle", category: "子育て" },
+    { toggle: "#weather-toggle", category: "天気" },
   ].filter((p) => root.querySelector(p.toggle));
   const pointLabel = (sel: string) => root.querySelector(sel)?.closest("label")?.textContent?.trim().replace(/を表示/, "") ?? "";
   const pickerItem = (i: Indicator) => {
@@ -1051,7 +1056,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   function renderScope() {
     const all = levelsOf([indicator]);
     const now = levelsOf([indicator], period);
-    // 1行に収める: 見られる単位をアイコン（区切りが細かいほどマス目が多い）で示し、ない単位は出さない（#91）
+    // 1行に収める: 見られる単位をアイコン（区切りが細かいほどマス目が多い）で示し、ない単位は出さない（#93）
     const chips = LEVELS.filter((l) => all.has(l)).map((l) => {
       const later = !now.has(l);
       const title = `${LEVEL_LABEL[l]}別で${later ? "は、ほかの時点で見られます（この時点は値なし）" : "見られます"}`;
@@ -1073,6 +1078,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       .map((t) => `<option${t === type ? " selected" : ""}>${esc(t)}</option>`).join("");
     facetBasis.innerHTML = unique(members.filter((m) => m.facets!.type === type).map((m) => m.facets!.basis))
       .map((b) => `<option${b === basis ? " selected" : ""}>${esc(b)}</option>`).join("");
+    // 基準が1つしかない組（世帯年収など）は、選べないので欄ごと隠す
+    facetBasisWrap.hidden = unique(members.map((m) => m.facets!.basis)).length < 2;
   }
   function setIndicator(next: Indicator, how: UsageHow | null) {
     stopPlay();
@@ -1204,20 +1211,43 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   // --- 背景・範囲・現在地 -------------------------------------------------------------
-  const baseSelect = $<HTMLSelectElement>("#basemap-select");
-  const baseNote = $<HTMLElement>("#basemap-note");
-  const photoWrap = $<HTMLElement>("#photo-era");
+  // 航空写真は地図の上のボタンで出す独立した機能。年代のスライドバーも地図の上に置き、見ている年代が地図と一緒に分かる。
+  // 標高（色別標高図）は左の欄のチェックで出す。どちらか一方だけを背景に重ねる
+  const photoToggle = $<HTMLButtonElement>("#photo-toggle");
+  const photoPanel = $<HTMLElement>("#photo-panel");
+  const photoClose = $<HTMLButtonElement>("#photo-close");
   const photoRange = $<HTMLInputElement>("#photo-era-range");
   const photoLabel = $<HTMLOutputElement>("#photo-era-label");
   const photoEnds = $<HTMLElement>("#photo-era-ends");
   const photoPlay = $<HTMLButtonElement>("#photo-era-play");
-  baseSelect.innerHTML = '<option value="pale">地図（淡色）</option><option value="photo">航空写真</option>' +
-    '<option value="relief">標高（色別標高図）</option>';
+  const photoNote = $<HTMLElement>("#photo-note");
+  const reliefToggle = $<HTMLInputElement>("#relief-toggle");
+  const reliefNote = $<HTMLElement>("#relief-note");
+  let baseMode: "pale" | "photo" | "relief" = "pale";
+  // 写真・標高を出すときは色分けを消して背景を見やすくし、閉じたら元に戻す
+  let colorsBeforeBase: boolean | null = null;
+  function setBaseMode(next: typeof baseMode) {
+    if (next === baseMode) return;
+    stopPhotoPlay();
+    if (baseMode === "pale" && next !== "pale") {
+      colorsBeforeBase = colorsToggle.checked;
+      if (colorsToggle.checked) { colorsToggle.checked = false; colorsToggle.dispatchEvent(new Event("change")); }
+    } else if (next === "pale" && colorsBeforeBase !== null) {
+      if (colorsToggle.checked !== colorsBeforeBase) {
+        colorsToggle.checked = colorsBeforeBase;
+        colorsToggle.dispatchEvent(new Event("change"));
+      }
+      colorsBeforeBase = null;
+    }
+    baseMode = next;
+    syncBasemap();
+    refreshPhotoEras();
+  }
   // 地図の中心で撮影されている年代だけをスライドバーに並べる（中心のタイルがあるかで判断し、結果は覚えておく）
   const photoTileCache = new Map<string, Promise<boolean>>();
   let photoEras: typeof PHOTO_ERAS = PHOTO_ERAS.filter((e) => e.id === "photo");
   let photoEraId = "photo";
-  let photoChecked = false;   // 縮小したまま航空写真を選んだときは、拡大するまで確かめない
+  let photoChecked = false;   // 縮小したまま航空写真を出したときは、拡大するまで確かめない
   function hasPhotoTile(era: (typeof PHOTO_ERAS)[number], x: number, y: number): Promise<boolean> {
     const key = `${era.path}/${x}/${y}`;
     let p = photoTileCache.get(key);
@@ -1230,7 +1260,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
   let photoCheck = 0;
   async function refreshPhotoEras() {
-    if (baseSelect.value !== "photo" || map.getZoom() < 10) return;   // 縮小しているときは前の結果のまま
+    if (baseMode !== "photo" || map.getZoom() < 10) return;   // 縮小しているときは前の結果のまま
     const { lng, lat } = map.getCenter();
     const n = 2 ** PHOTO_PROBE_ZOOM;
     const x = Math.floor((lng + 180) / 360 * n);
@@ -1238,7 +1268,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n);
     const check = ++photoCheck;
     const found = await Promise.all(PHOTO_ERAS.map((e) => e.id === "photo" ? true : hasPhotoTile(e, x, y)));
-    if (check !== photoCheck || baseSelect.value !== "photo") return;   // 確かめている間に地図が動いた
+    if (check !== photoCheck || baseMode !== "photo") return;   // 確かめている間に地図が動いた
     photoEras = PHOTO_ERAS.filter((_, i) => found[i]);
     photoChecked = true;
     // 選んでいた年代がこの場所にないときは、いちばん近い年代にする
@@ -1250,33 +1280,37 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     syncBasemap();
   }
   function chosenBasemap() {
-    return baseSelect.value === "photo" ? PHOTO_ERAS.find((e) => e.id === photoEraId)
-      : BASEMAPS.find((b) => b.id === baseSelect.value);
+    return baseMode === "photo" ? PHOTO_ERAS.find((e) => e.id === photoEraId)
+      : baseMode === "relief" ? BASEMAPS.find((b) => b.id === "relief") : undefined;
   }
   function syncBasemap() {
     const chosen = chosenBasemap();
     for (const b of BASEMAPS) map.setLayoutProperty(b.id, "visibility", b === chosen ? "visible" : "none");
-    const photo = baseSelect.value === "photo";
-    photoWrap.hidden = !photo;
-    if (photo) {
-      photoRange.max = String(photoEras.length - 1);
-      photoRange.value = String(Math.max(0, photoEras.findIndex((e) => e.id === photoEraId)));
-      photoRange.disabled = photoEras.length < 2;
-      photoPlay.disabled = photoEras.length < 2;
-      photoLabel.value = chosen ? chosen.label : "";
-      photoEnds.innerHTML = photoEras.length < 2 ? ""
-        : `<span>${esc(photoEras[0].label)}</span><span>${esc(photoEras[photoEras.length - 1].label)}</span>`;
-    }
-    // 年代別の写真は拡大したときだけ出る。撮られていない地域もあり、そこは淡色地図のまま
+    const photo = baseMode === "photo";
+    photoPanel.hidden = !photo;
+    photoToggle.setAttribute("aria-pressed", String(photo));
+    reliefToggle.checked = baseMode === "relief";
     const zoomIn = chosen && map.getZoom() < chosen.minzoom;
-    baseNote.hidden = !chosen || (chosen.id === "photo" && photoEras.length > 1);
-    baseNote.textContent = !chosen ? "" : zoomIn ? "拡大すると表示されます。"
-      : chosen.id === "relief" ? "標高が高いほど茶色、低いほど青く表示します。"
-      : chosen.id === "photo" ? (photoChecked ? "この場所の昔の写真は見つかりませんでした。"
-        : map.getZoom() < 10 ? "拡大すると、昔の写真を年代を選んで見られます。" : "この場所の写真の年代を確かめています。")
-      : "地図の中心で撮影されている年代を並べています。撮影されていない地域は地図のまま表示します。";
+    reliefNote.hidden = baseMode !== "relief";
+    reliefNote.textContent = zoomIn ? "拡大すると表示されます。" : "標高が高いほど茶色、低いほど青く表示します。";
+    if (!photo || !chosen) return;
+    photoRange.max = String(photoEras.length - 1);
+    photoRange.value = String(Math.max(0, photoEras.findIndex((e) => e.id === photoEraId)));
+    photoRange.disabled = photoEras.length < 2;
+    photoPlay.disabled = photoEras.length < 2;
+    photoLabel.value = chosen.id === "photo" ? "最新の写真" : `${chosen.label}の写真`;
+    photoEnds.hidden = photoEras.length < 2;
+    photoEnds.innerHTML = photoEras.length < 2 ? ""
+      : `<span>${esc(photoEras[0].label)}</span><span>${esc(photoEras[photoEras.length - 1].label)}</span>`;
+    // 年代別の写真は拡大したときだけ出る。撮られていない地域もあり、そこは淡色地図のまま
+    photoNote.textContent = zoomIn ? "拡大すると表示されます。"
+      : photoEras.length > 1 ? "この場所で撮影された年代だけを並べています。"
+      : photoChecked ? "この場所の昔の写真は見つかりませんでした。"
+      : map.getZoom() < 10 ? "拡大すると、昔の写真を年代を選んで見られます。" : "この場所の写真の年代を確かめています。";
   }
-  baseSelect.addEventListener("change", () => { stopPhotoPlay(); syncBasemap(); refreshPhotoEras(); });
+  photoToggle.addEventListener("click", () => setBaseMode(baseMode === "photo" ? "pale" : "photo"));
+  photoClose.addEventListener("click", () => setBaseMode("pale"));
+  reliefToggle.addEventListener("change", () => setBaseMode(reliefToggle.checked ? "relief" : "pale"));
   photoRange.addEventListener("input", () => {
     stopPhotoPlay();
     photoEraId = photoEras[Number(photoRange.value)]?.id ?? "photo";
@@ -1303,7 +1337,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       syncBasemap();
     }, PHOTO_PLAY_INTERVAL_MS);
   });
-  map.on("zoomend", () => { if (baseSelect.value !== "pale") syncBasemap(); });
+  map.on("zoomend", () => { if (baseMode !== "pale") syncBasemap(); });
   map.on("moveend", () => refreshPhotoEras());
   // 色分けを消して、背景地図と地名・数値だけで見る（地域のクリックはそのまま使える）
   colorsToggle.addEventListener("change", () => {
