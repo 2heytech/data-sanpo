@@ -2629,7 +2629,7 @@ caveats = ["地域全体の平均ではなく、観測所1地点の値です。�
 source_kind = "jma_normals"
 element = "4000"
 scale = 0.1
-legend = { method = "nice", classes = 8, scheme = "blues" }
+legend = { method = "nice", classes = 8, scheme = "bugn" }   # 人口などの青い塗り分けの上でも見分けられる色
 
 [snow_depth_normal]
 name = "年最深積雪"
