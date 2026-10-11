@@ -3032,6 +3032,253 @@ public_raw = false
 "2025_ootobaitou.csv" = "https://www.police.pref.nagasaki.jp/police/wp-content/uploads/2026/08/nagasaki_2025ootobaitou.csv"
 "2025_zitensyatou.csv" = "https://www.police.pref.nagasaki.jp/police/wp-content/uploads/2026/08/nagasaki_2025zitensyatou.csv"
 
+[police_crime_od_43]
+kind = "police_crime_opendata"
+per_prefecture = true
+prefectures = ["43"]
+years = [2021, 2022, 2023, 2024, 2025]
+title = "熊本県警察「犯罪発生情報」（窃盗7手口、2021〜2025年）"
+provider = "熊本県警察"
+url = "https://data.bodik.jp/organization/430005?q=犯罪"
+files = ["*.csv", "*.xlsx", "*.zip"]
+license = "CC BY 4.0（BODIK データセットの license_title: Creative Commons Attribution 4.0 International）"
+license_url = "https://data.bodik.jp/organization/430005"
+attribution = "出典：熊本県警察「犯罪発生情報」（https://data.bodik.jp/organization/430005?q=犯罪）"
+modification_note = "発生場所の市区町村・町丁目ごとに件数を数え、人口当たりの件数を算出して作成"
+redistributable = true
+public_raw = false
+
+[police_crime_od_43.download_files]
+"2021_hittakuri.csv" = "https://data.bodik.jp/dataset/e3f6ab3e-ca33-4d40-a27e-d952817b3c42/resource/a652d5fc-b758-4473-a0ac-dfae91c0d4ea/download/kumamoto_2021hittakuri.csv"
+"2021_syazyounerai.csv" = "https://data.bodik.jp/dataset/e3f6ab3e-ca33-4d40-a27e-d952817b3c42/resource/4351b780-09f7-48fa-9b06-31c0fe82077b/download/kumamoto_2021syazyounerai.csv"
+"2021_buhinnerai.csv" = "https://data.bodik.jp/dataset/e3f6ab3e-ca33-4d40-a27e-d952817b3c42/resource/f2fb9565-6fa5-4013-9b53-be72318307aa/download/kumamoto_2021buhinnerai.csv"
+"2021_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/e3f6ab3e-ca33-4d40-a27e-d952817b3c42/resource/db391fdf-3a10-4207-b9e0-be9075494d04/download/kumamoto_2021zidouhanbaikinerai.csv"
+"2021_zidousyatou.csv" = "https://data.bodik.jp/dataset/e3f6ab3e-ca33-4d40-a27e-d952817b3c42/resource/78dd1b74-39e5-418e-b3d9-14a4116b4fa1/download/kumamoto_2021zidousyatou.csv"
+"2021_ootobaitou.csv" = "https://data.bodik.jp/dataset/e3f6ab3e-ca33-4d40-a27e-d952817b3c42/resource/fa16226c-e549-4144-a13d-a1a147b0d15b/download/kumamoto_2021ootobaitou.csv"
+"2021_zitensyatou.csv" = "https://data.bodik.jp/dataset/e3f6ab3e-ca33-4d40-a27e-d952817b3c42/resource/e1da2ae1-4656-4213-9d19-e9988890f840/download/kumamoto_2021zitensyatou.csv"
+"2022_hittakuri.csv" = "https://data.bodik.jp/dataset/b8697f77-f436-4379-9973-0ab28fe89439/resource/8e2817a9-6bc0-4a36-9725-e1b0ed2fcca8/download/kumamoto_2022hittakuri.csv"
+"2022_syazyounerai.csv" = "https://data.bodik.jp/dataset/b8697f77-f436-4379-9973-0ab28fe89439/resource/c97851a5-89e9-43a9-81c7-1c8ead74d109/download/kumamoto_2022syazyounerai.csv"
+"2022_buhinnerai.csv" = "https://data.bodik.jp/dataset/b8697f77-f436-4379-9973-0ab28fe89439/resource/5bb38331-16ef-4557-bd5b-9c836811c330/download/kumamoto_2022buhinnerai.csv"
+"2022_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/b8697f77-f436-4379-9973-0ab28fe89439/resource/06a56081-1597-4bab-9d77-4994f5a6e65d/download/kumamoto_2022zidouhanbaikinerai.csv"
+"2022_zidousyatou.csv" = "https://data.bodik.jp/dataset/b8697f77-f436-4379-9973-0ab28fe89439/resource/2fa9841c-5ccf-4464-ab5a-718b8ab05b95/download/kumamoto_2022zidousyatou.csv"
+"2022_ootobaitou.csv" = "https://data.bodik.jp/dataset/b8697f77-f436-4379-9973-0ab28fe89439/resource/0bd1a0d7-6c0d-407f-b864-558c5b7af7fa/download/kumamoto_2022ootobaitou.csv"
+"2022_zitensyatou.csv" = "https://data.bodik.jp/dataset/b8697f77-f436-4379-9973-0ab28fe89439/resource/06f8ee3e-1be9-48b5-af21-c1219645e825/download/kumamoto_2022zitensyatou.csv"
+"2023_hittakuri.csv" = "https://data.bodik.jp/dataset/fbbb0641-c52b-4b54-b637-1775e6102f94/resource/dd17edc6-7800-47bd-bd31-58154dd8a214/download/5.csv"
+"2023_syazyounerai.csv" = "https://data.bodik.jp/dataset/fbbb0641-c52b-4b54-b637-1775e6102f94/resource/3b450765-f6b9-4dba-a5a7-0de27590c7a5/download/5.csv"
+"2023_buhinnerai.csv" = "https://data.bodik.jp/dataset/fbbb0641-c52b-4b54-b637-1775e6102f94/resource/06ec0a58-1439-456a-a95b-7134f1569eeb/download/5.csv"
+"2023_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/fbbb0641-c52b-4b54-b637-1775e6102f94/resource/34c5908a-46bc-4c10-b205-f5b1b6e6c25c/download/5.csv"
+"2023_zidousyatou.csv" = "https://data.bodik.jp/dataset/fbbb0641-c52b-4b54-b637-1775e6102f94/resource/e957875c-6f18-467b-b2be-6fd3a3615c75/download/5.csv"
+"2023_ootobaitou.csv" = "https://data.bodik.jp/dataset/fbbb0641-c52b-4b54-b637-1775e6102f94/resource/9a03865a-08ae-4d80-9669-4a40a5bfe0d8/download/5.csv"
+"2023_zitensyatou.csv" = "https://data.bodik.jp/dataset/fbbb0641-c52b-4b54-b637-1775e6102f94/resource/2f10a339-1f3a-4b1b-a166-0479bc5d49f5/download/5.csv"
+"2024_hittakuri.csv" = "https://data.bodik.jp/dataset/a08a0692-1d8d-4de2-ae92-3a12caf53ba6/resource/1de69f45-3e5e-40e7-b5c1-bf0c8851f0a4/download/kumamoto_2024hittakuri.csv"
+"2024_syazyounerai.csv" = "https://data.bodik.jp/dataset/a08a0692-1d8d-4de2-ae92-3a12caf53ba6/resource/724a858b-2696-419a-985a-3632ffda4c05/download/kumamoto_2024syazyounerai.csv"
+"2024_buhinnerai.csv" = "https://data.bodik.jp/dataset/a08a0692-1d8d-4de2-ae92-3a12caf53ba6/resource/0846d1c2-62cb-44c6-bbfe-19fac64f40dd/download/kumamoto_2024buhinnerai.csv"
+"2024_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/a08a0692-1d8d-4de2-ae92-3a12caf53ba6/resource/6071b306-9118-414c-a991-b788b4ab673e/download/kumamoto_2024zidouhanbaikinerai.csv"
+"2024_zidousyatou.csv" = "https://data.bodik.jp/dataset/a08a0692-1d8d-4de2-ae92-3a12caf53ba6/resource/b982cde2-bc22-4b20-9985-cd688475fc72/download/kumamoto_2024zidousyatou.csv"
+"2024_ootobaitou.csv" = "https://data.bodik.jp/dataset/a08a0692-1d8d-4de2-ae92-3a12caf53ba6/resource/42bb5ed4-ea4a-4678-afeb-3226ac7b4e6f/download/kumamoto_2024ootobaitou.csv"
+"2024_zitensyatou.csv" = "https://data.bodik.jp/dataset/a08a0692-1d8d-4de2-ae92-3a12caf53ba6/resource/13aa1bf5-2737-4e37-8b39-22ab6ce2302e/download/kumamoto_2024zitensyatou.csv"
+"2025_hittakuri.csv" = "https://data.bodik.jp/dataset/00b74cbd-734e-4a02-a0f4-00302f3f097e/resource/a9fac4c6-3943-48d0-83ea-48e1aa9ee5ee/download/kumamoto_2025hittakuri.csv"
+"2025_syazyounerai.csv" = "https://data.bodik.jp/dataset/00b74cbd-734e-4a02-a0f4-00302f3f097e/resource/360abeb6-68ae-4d0c-9b91-0f29e9d7d513/download/kumamoto_2025syazyounerai.csv"
+"2025_buhinnerai.csv" = "https://data.bodik.jp/dataset/00b74cbd-734e-4a02-a0f4-00302f3f097e/resource/425cc408-61c4-469a-9b43-d73ec0d0111d/download/kumamoto_2025buhinnerai.csv"
+"2025_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/00b74cbd-734e-4a02-a0f4-00302f3f097e/resource/f63ab652-25cd-480b-b1d7-398f558c67bc/download/kumamoto_2025zidouhanbaikinerai.csv"
+"2025_zidousyatou.csv" = "https://data.bodik.jp/dataset/00b74cbd-734e-4a02-a0f4-00302f3f097e/resource/51451691-32e0-4e79-8651-c2507197f523/download/kumamoto_2025zidousyatou.csv"
+"2025_ootobaitou.csv" = "https://data.bodik.jp/dataset/00b74cbd-734e-4a02-a0f4-00302f3f097e/resource/078e1e0e-376b-4dd0-8b4a-ebc6de5aca92/download/kumamoto_2025ootobaitou.csv"
+"2025_zitensyatou.csv" = "https://data.bodik.jp/dataset/00b74cbd-734e-4a02-a0f4-00302f3f097e/resource/9820ff20-3e8b-4758-a4a0-d7f3e6a450e7/download/kumamoto_2025zitensyatou.csv"
+
+[police_crime_od_44]
+kind = "police_crime_opendata"
+per_prefecture = true
+prefectures = ["44"]
+years = [2021, 2022, 2023, 2024, 2025]
+title = "大分県警察「犯罪発生情報」（窃盗7手口、2021〜2025年）"
+provider = "大分県警察"
+url = "https://www.pref.oita.jp/site/keisatu/seianki-toukei123.html"
+files = ["*.csv", "*.xlsx", "*.zip"]
+license = "CC BY 4.0（BODIK ODCS 大分県の利用規約：「クリエイティブ・コモンズ・ライセンスの表示4.0国際」）"
+license_url = "https://odcs.bodik.jp/440001/tos/"
+attribution = "出典：大分県警察「犯罪発生情報」（https://www.pref.oita.jp/site/keisatu/seianki-toukei123.html）"
+modification_note = "発生場所の市区町村・町丁目ごとに件数を数え、人口当たりの件数を算出して作成"
+redistributable = true
+public_raw = false
+
+[police_crime_od_44.download_files]
+"2021_hittakuri.csv" = "https://www.pref.oita.jp/uploaded/attachment/2154150.csv"
+"2021_syazyounerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2154148.csv"
+"2021_buhinnerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2154147.csv"
+"2021_zidouhanbaikinerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2154154.csv"
+"2021_zidousyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2154152.csv"
+"2021_ootobaitou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2154153.csv"
+"2021_zitensyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2154151.csv"
+"2022_hittakuri.csv" = "https://www.pref.oita.jp/uploaded/attachment/2184235.csv"
+"2022_syazyounerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2184234.csv"
+"2022_buhinnerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2184233.csv"
+"2022_zidouhanbaikinerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2184239.csv"
+"2022_zidousyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2184237.csv"
+"2022_ootobaitou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2184238.csv"
+"2022_zitensyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2184236.csv"
+"2023_hittakuri.csv" = "https://www.pref.oita.jp/uploaded/attachment/2228706.csv"
+"2023_syazyounerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2228710.csv"
+"2023_buhinnerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2228711.csv"
+"2023_zidouhanbaikinerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2228709.csv"
+"2023_zidousyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2228708.csv"
+"2023_ootobaitou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2228705.csv"
+"2023_zitensyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2228707.csv"
+"2024_hittakuri.csv" = "https://www.pref.oita.jp/uploaded/attachment/2243326.csv"
+"2024_syazyounerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2243330.csv"
+"2024_buhinnerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2243331.csv"
+"2024_zidouhanbaikinerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2243329.csv"
+"2024_zidousyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2243328.csv"
+"2024_ootobaitou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2243325.csv"
+"2024_zitensyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2243327.csv"
+"2025_hittakuri.csv" = "https://www.pref.oita.jp/uploaded/attachment/2272420.csv"
+"2025_syazyounerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2272424.csv"
+"2025_buhinnerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2272425.csv"
+"2025_zidouhanbaikinerai.csv" = "https://www.pref.oita.jp/uploaded/attachment/2272423.csv"
+"2025_zidousyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2272422.csv"
+"2025_ootobaitou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2272419.csv"
+"2025_zitensyatou.csv" = "https://www.pref.oita.jp/uploaded/attachment/2272421.csv"
+
+[police_crime_od_45]
+kind = "police_crime_opendata"
+per_prefecture = true
+prefectures = ["45"]
+years = [2021, 2022, 2023, 2024, 2025]
+title = "宮崎県警察「犯罪発生情報」（窃盗7手口、2021〜2025年）"
+provider = "宮崎県警察"
+url = "https://data.bodik.jp/dataset/450006_1069"
+files = ["*.csv", "*.xlsx", "*.zip"]
+license = "CC BY 4.0（BODIK license_title: Creative Commons Attribution 4.0 International）"
+license_url = "https://data.bodik.jp/dataset/450006_1069"
+attribution = "出典：宮崎県警察「犯罪発生情報」（https://data.bodik.jp/dataset/450006_1069）"
+modification_note = "発生場所の市区町村・町丁目ごとに件数を数え、人口当たりの件数を算出して作成"
+redistributable = true
+public_raw = false
+
+[police_crime_od_45.download_files]
+"2021_syazyounerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/d8ff69d5-9222-451a-b470-15e5116f8c63/download/miyazaki_2021syazyounerai1.csv"
+"2021_buhinnerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/35b2880f-7c3b-4765-bd31-cb3d834008dc/download/miyazaki_2021buhinnerai1.csv"
+"2021_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/ca1fdae1-528e-4221-8ad3-d60f8cb6e2f6/download/miyazaki_2021zidouhanbaikinerai1.csv"
+"2021_zidousyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/488ca00f-6411-4453-8f56-77b86c037f4a/download/miyazaki_2021zidousyatou1.csv"
+"2021_ootobaitou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/356ba936-db6a-41bd-89a4-c3637bf2d8bb/download/miyazaki_2021ootobaitou1.csv"
+"2021_zitensyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/c9475f03-779a-4342-a6cf-b1c5c1b1348b/download/miyazaki_2021zitensyatou1.csv"
+"2022_syazyounerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/10ab94e4-4f93-4eb6-84dc-759bc55cec0b/download/miyazaki_2022syazyounerai.csv"
+"2022_buhinnerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/90317753-1eb7-4aa2-9ff7-032c56bc6bd0/download/miyazaki_2022buhinnerai.csv"
+"2022_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/521e7281-c488-46d1-bdc6-48071108e0a9/download/miyazaki_2022zidouhanbaikinerai.csv"
+"2022_zidousyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/98551433-756d-4ad8-ab64-d92cac6888ce/download/miyazaki_2022zidousyatou.csv"
+"2022_ootobaitou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/7ba586ac-ff8e-4ba5-9985-c93609e9c123/download/miyazaki_2022ootobaitou.csv"
+"2022_zitensyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/6fce470f-39cf-4346-8f07-9938174f6fda/download/miyazaki_2022zitensyatou.csv"
+"2023_hittakuri.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/ab0641fe-04c5-46ff-9694-1e4deaf9a57c/download/miyazaki_2023hittakuri.csv"
+"2023_syazyounerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/1ad01860-90ec-4eff-8070-b99aa3336b0a/download/miyazaki_2023syazyounerai.csv"
+"2023_buhinnerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/2b2d3d43-bd29-4423-a036-87c72f36a52f/download/miyazaki_2023buhinnerai.csv"
+"2023_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/fbaa18f8-d7e5-48fd-ace0-10b8139fd31f/download/miyazaki_2023zidouhanbaikinerai.csv"
+"2023_zidousyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/456652ae-d106-4a52-87ce-f83564e84566/download/miyazaki_2023zidousyatou.csv"
+"2023_ootobaitou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/36d4f6b8-d91d-4d53-a904-efadc779e81e/download/miyazaki_2023ootobaitou.csv"
+"2023_zitensyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/62bc60dd-1e59-4f3e-aff2-b38730bc09bc/download/miyazaki_2023zitensyatou.csv"
+"2024_hittakuri.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/01a13084-2ebc-4874-b736-0d1cacd27fa0/download/miyazaki_2024hittakuri.csv"
+"2024_syazyounerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/f867417a-e6af-4f36-8140-474c68f9cc15/download/miyazaki_2024syazyounerai.csv"
+"2024_buhinnerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/38d10bd0-802c-4145-a470-d4c82204189a/download/miyazaki_2024buhinnerai.csv"
+"2024_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/da76ffb8-f4c1-40ff-aa97-52b5dbe981f3/download/miyazaki_2024zidouhanbaikinerai.csv"
+"2024_zidousyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/b7736020-6f5e-49d9-8625-1bf0be2d8fa7/download/miyazaki_2024zidousyatou.csv"
+"2024_ootobaitou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/dbc8dd3e-0220-4708-85b2-472818005b17/download/miyazaki_2024ootobaitou.csv"
+"2024_zitensyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/93f92c26-7d12-4e86-989b-77b73cfcbd94/download/miyazaki_2024zitensyatou.csv"
+"2025_syazyounerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/298b330c-0636-496f-87d5-ff79c054f41c/download/miyazaki_2025syazyounerai.csv"
+"2025_buhinnerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/f347c78b-4734-41b6-9839-d881a6d8aeeb/download/miyazaki_2025buhinnerai.csv"
+"2025_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/78808ff2-2deb-437c-978d-075303cf72dc/download/miyazaki_2025zidouhanbaikinerai.csv"
+"2025_zidousyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/cd2558ea-649e-40e0-889a-20a1e585df5d/download/miyazaki_2025zidousyatou.csv"
+"2025_ootobaitou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/8b4e2997-66fb-4903-b81c-a2720ca98a66/download/miyazaki_2025ootobaitou.csv"
+"2025_zitensyatou.csv" = "https://data.bodik.jp/dataset/a7c23d02-7ba8-4685-a09f-576a6cc7054f/resource/9544fe13-771a-430f-9e77-bc5f63652e8b/download/miyazaki_2025zitensyatou.csv"
+
+[police_crime_od_46]
+kind = "police_crime_opendata"
+per_prefecture = true
+prefectures = ["46"]
+years = [2021, 2022, 2023, 2024, 2025]
+title = "鹿児島県警察「犯罪発生情報」（窃盗7手口、2021〜2025年）"
+provider = "鹿児島県警察"
+url = "https://data.bodik.jp/organization/460001?q=犯罪"
+files = ["*.csv", "*.xlsx", "*.zip"]
+no_incident = ["2022_hittakuri", "2023_hittakuri"]
+license = "鹿児島県警察 オープンデータ利用規約（政府標準利用規約2.0準拠・CC BY 4.0互換。BODIK表示も CC BY 4.0）"
+license_url = "https://data.bodik.jp/dataset/bdf4b563-13c3-4647-8417-c8efe68fd33f/resource/a07696b5-0964-4a1a-b11b-04fa878b8d5b/download/bwsgmxmq5lsb.pdf"
+attribution = "出典：鹿児島県警察「犯罪発生情報」（https://data.bodik.jp/organization/460001?q=犯罪）"
+modification_note = "発生場所の市区町村・町丁目ごとに件数を数え、人口当たりの件数を算出して作成"
+redistributable = true
+public_raw = false
+
+[police_crime_od_46.download_files]
+"2021_hittakuri.csv" = "https://data.bodik.jp/dataset/51cb1874-287e-48c0-ba87-84ea18b91cd5/resource/b2687fc4-c8c1-4514-ada4-05e42fbb44e9/download/kagoshima_2021hittakuri.csv"
+"2021_syazyounerai.csv" = "https://data.bodik.jp/dataset/51cb1874-287e-48c0-ba87-84ea18b91cd5/resource/203e0ea5-bfc9-45e4-99e2-2301783ee02b/download/kagoshima_2021syazyounerai.csv"
+"2021_buhinnerai.csv" = "https://data.bodik.jp/dataset/51cb1874-287e-48c0-ba87-84ea18b91cd5/resource/33909330-b831-4184-ad9b-bc48ea672b98/download/kagoshima_2021buhinnerai.csv"
+"2021_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/51cb1874-287e-48c0-ba87-84ea18b91cd5/resource/d1cfb9f0-bb2e-4ec8-b907-8314cd847433/download/kagoshima_2021zidouhanbaikinerai.csv"
+"2021_zidousyatou.csv" = "https://data.bodik.jp/dataset/51cb1874-287e-48c0-ba87-84ea18b91cd5/resource/b8618a0e-9e64-42d2-a9c4-2ebc56722956/download/kagoshima_2021zidousyatou.csv"
+"2021_ootobaitou.csv" = "https://data.bodik.jp/dataset/51cb1874-287e-48c0-ba87-84ea18b91cd5/resource/136afd7d-5337-4c2e-8ec0-25b46fdc3a87/download/kagoshima_2021ootobaitou.csv"
+"2021_zitensyatou.csv" = "https://data.bodik.jp/dataset/51cb1874-287e-48c0-ba87-84ea18b91cd5/resource/f656d84d-2aea-4808-863f-24f9ab48c933/download/kagoshima_2021zitensyatou.csv"
+"2022_syazyounerai.csv" = "https://data.bodik.jp/dataset/2cf8b913-81c3-4a00-bf89-cc784ef1a46c/resource/8324ec1c-ce9a-4e01-97d2-7e81fdd68c8b/download/kagoshima_2022syazyounerai.csv"
+"2022_buhinnerai.csv" = "https://data.bodik.jp/dataset/2cf8b913-81c3-4a00-bf89-cc784ef1a46c/resource/d773ab75-7d93-433d-9787-356244d9868a/download/kagoshima_2022buhinnerai.csv"
+"2022_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/2cf8b913-81c3-4a00-bf89-cc784ef1a46c/resource/5f87ea37-8d92-4823-a497-7725f58c8ba8/download/kagoshima_2022zidouhanbaikinerai.csv"
+"2022_zidousyatou.csv" = "https://data.bodik.jp/dataset/2cf8b913-81c3-4a00-bf89-cc784ef1a46c/resource/af989192-2345-4da8-9308-0161990cdb41/download/kagoshima_2022zidousyatou.csv"
+"2022_ootobaitou.csv" = "https://data.bodik.jp/dataset/2cf8b913-81c3-4a00-bf89-cc784ef1a46c/resource/921ef9cf-4688-4508-9fed-177b9e3e88a5/download/kagoshima_2022ootobaitou.csv"
+"2022_zitensyatou.csv" = "https://data.bodik.jp/dataset/2cf8b913-81c3-4a00-bf89-cc784ef1a46c/resource/9e8a68c7-7217-4beb-bdcb-1b7a90702b62/download/kagoshima_2022zitensyatou.csv"
+"2023_syazyounerai.csv" = "https://data.bodik.jp/dataset/36969cd7-63c1-4a46-bf7a-3462b78435c8/resource/a5baaab4-950b-4754-aa49-8acaa608e68f/download/kagoshima_2023syazyounerai.csv"
+"2023_buhinnerai.csv" = "https://data.bodik.jp/dataset/36969cd7-63c1-4a46-bf7a-3462b78435c8/resource/91a92589-70cd-4060-a7ef-d22e4d2a3939/download/kagoshima_2023buhinnerai.csv"
+"2023_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/36969cd7-63c1-4a46-bf7a-3462b78435c8/resource/c21381f0-5d06-4deb-bf83-a0ec8985e1d2/download/kagoshima_2023zidouhanbaikinerai.csv"
+"2023_zidousyatou.csv" = "https://data.bodik.jp/dataset/36969cd7-63c1-4a46-bf7a-3462b78435c8/resource/c4dc96ee-153c-43d9-9a82-438dbad8b180/download/kagoshima_2023zidousyatou.csv"
+"2023_ootobaitou.csv" = "https://data.bodik.jp/dataset/36969cd7-63c1-4a46-bf7a-3462b78435c8/resource/dc2a1ca6-454b-4ba9-aeac-4ac2d755bb57/download/kagoshima_2023ootobaitou.csv"
+"2023_zitensyatou.csv" = "https://data.bodik.jp/dataset/36969cd7-63c1-4a46-bf7a-3462b78435c8/resource/f55f402e-016a-4589-8674-9e4824abcd61/download/kagoshima_2023zitensyatou.csv"
+"2024_hittakuri.csv" = "https://data.bodik.jp/dataset/d7bc06be-ac8b-4d4a-8108-9f25544276c0/resource/4dc2ad6f-87d9-4462-8351-aed7ef7ce87d/download/hittakuri.csv"
+"2024_syazyounerai.csv" = "https://data.bodik.jp/dataset/d7bc06be-ac8b-4d4a-8108-9f25544276c0/resource/d1595af4-045c-4f30-a3b9-9cf5208f3c92/download/syajounerai.csv"
+"2024_buhinnerai.csv" = "https://data.bodik.jp/dataset/d7bc06be-ac8b-4d4a-8108-9f25544276c0/resource/31ed0893-0188-4b3a-8382-4f096d2904e2/download/buhinnnerai.csv"
+"2024_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/d7bc06be-ac8b-4d4a-8108-9f25544276c0/resource/80962404-8898-48e7-a8db-2a32f8bc02a8/download/jidouhannbaikinerai.csv"
+"2024_zidousyatou.csv" = "https://data.bodik.jp/dataset/d7bc06be-ac8b-4d4a-8108-9f25544276c0/resource/a7aad9d9-aa71-43f1-8011-be85dba97063/download/jidousyatou.csv"
+"2024_ootobaitou.csv" = "https://data.bodik.jp/dataset/d7bc06be-ac8b-4d4a-8108-9f25544276c0/resource/08ed7034-db06-4690-9402-2e49df7d845d/download/o-tobaitou.csv"
+"2024_zitensyatou.csv" = "https://data.bodik.jp/dataset/d7bc06be-ac8b-4d4a-8108-9f25544276c0/resource/da75606e-cf9c-42dc-9519-63cf08c06d18/download/jitennsyatou.csv"
+"2025_hittakuri.csv" = "https://data.bodik.jp/dataset/bdf4b563-13c3-4647-8417-c8efe68fd33f/resource/ed1adbb0-dd66-4448-acc6-91ec93aed263/download/kagoshima_2025hittakuri.csv"
+"2025_syazyounerai.csv" = "https://data.bodik.jp/dataset/bdf4b563-13c3-4647-8417-c8efe68fd33f/resource/47451f28-32fb-48bb-b092-dc60ebc35d3e/download/kagoshima_2025syazyounerai.csv"
+"2025_buhinnerai.csv" = "https://data.bodik.jp/dataset/bdf4b563-13c3-4647-8417-c8efe68fd33f/resource/dea64814-83de-4341-9dcf-359c9fa866fa/download/kagoshima_2025buhinnerai.csv"
+"2025_zidouhanbaikinerai.csv" = "https://data.bodik.jp/dataset/bdf4b563-13c3-4647-8417-c8efe68fd33f/resource/3c555613-b21b-421b-88fc-3afd99857c92/download/kagoshima_2025zidouhanbaikinerai.csv"
+"2025_zidousyatou.csv" = "https://data.bodik.jp/dataset/bdf4b563-13c3-4647-8417-c8efe68fd33f/resource/988cb48d-6acb-4449-b50f-b83ea6e6e4c2/download/kagoshima_2025zidousyatou.csv"
+"2025_ootobaitou.csv" = "https://data.bodik.jp/dataset/bdf4b563-13c3-4647-8417-c8efe68fd33f/resource/8150d9e1-4689-480b-9fcc-e21bbf50f6b0/download/kagoshima_2025ootobaitou.csv"
+"2025_zitensyatou.csv" = "https://data.bodik.jp/dataset/bdf4b563-13c3-4647-8417-c8efe68fd33f/resource/eb66f04a-58bf-4884-8b74-e6ef31ac8342/download/kagoshima_2025zitensyatou.csv"
+
+[police_crime_od_47]
+kind = "police_crime_opendata"
+per_prefecture = true
+prefectures = ["47"]
+years = [2021, 2022, 2023, 2024, 2025]
+title = "沖縄県警察「犯罪発生情報」（窃盗7手口、2021〜2025年）"
+provider = "沖縄県警察"
+url = "https://www.police.pref.okinawa.jp/category/bunya/tokei"
+files = ["*.csv", "*.xlsx", "*.zip"]
+license = "PDL1.0（公共データ利用規約 第1.0版）準拠"
+license_url = "https://www.police.pref.okinawa.jp/docs/2026062900070/file_contents/R8.pdf"
+attribution = "出典：沖縄県警察「犯罪発生情報」（https://www.police.pref.okinawa.jp/category/bunya/tokei）"
+modification_note = "発生場所の市区町村・町丁目ごとに件数を数え、人口当たりの件数を算出して作成"
+redistributable = true
+public_raw = false
+
+[police_crime_od_47.download_files]
+"2023_hittakuri.csv" = "https://www.police.pref.okinawa.jp/docs/2024102200012/file_contents/R6_01_okinawa_2023hittakuri.csv"
+"2023_syazyounerai.csv" = "https://www.police.pref.okinawa.jp/docs/2024102200012/file_contents/R6_02_okinawa_2023syazyounerai.csv"
+"2023_buhinnerai.csv" = "https://www.police.pref.okinawa.jp/docs/2024102200012/file_contents/R6_03_okinawa_2023buhinnerai.csv"
+"2023_zidouhanbaikinerai.csv" = "https://www.police.pref.okinawa.jp/docs/2024102200012/file_contents/R6_04_okinawa_2023zidouhanbaikinerai.csv"
+"2023_zidousyatou.csv" = "https://www.police.pref.okinawa.jp/docs/2024102200012/file_contents/R6_05_okinawa_2023zidousyatou.csv"
+"2023_ootobaitou.csv" = "https://www.police.pref.okinawa.jp/docs/2024102200012/file_contents/R6_06_okinawa_2023ootobaitou.csv"
+"2023_zitensyatou.csv" = "https://www.police.pref.okinawa.jp/docs/2024102200012/file_contents/R6_07_okinawa_2023zitensyatou.csv"
+"2024_hittakuri.csv" = "https://www.police.pref.okinawa.jp/docs/2025062400016/file_contents/R7_01_okinawa_2024hittakuri.csv"
+"2024_syazyounerai.csv" = "https://www.police.pref.okinawa.jp/docs/2025062400016/file_contents/R7_02_okinawa_2024syazyounerai.csv"
+"2024_buhinnerai.csv" = "https://www.police.pref.okinawa.jp/docs/2025062400016/file_contents/R7_03_okinawa_2024buhinnerai.csv"
+"2024_zidouhanbaikinerai.csv" = "https://www.police.pref.okinawa.jp/docs/2025062400016/file_contents/R7_04_okinawa_2024zidouhanbaikinerai.csv"
+"2024_zidousyatou.csv" = "https://www.police.pref.okinawa.jp/docs/2025062400016/file_contents/R7_05_okinawa_2024zidousyatou.csv"
+"2024_ootobaitou.csv" = "https://www.police.pref.okinawa.jp/docs/2025062400016/file_contents/R7_06_okinawa_2024ootobaitou.csv"
+"2024_zitensyatou.csv" = "https://www.police.pref.okinawa.jp/docs/2025062400016/file_contents/R7_07_okinawa_2024zitensyatou.csv"
+"2025_hittakuri.csv" = "https://www.police.pref.okinawa.jp/docs/2026062900070/file_contents/okinawa2025hittakuri.csv"
+"2025_syazyounerai.csv" = "https://www.police.pref.okinawa.jp/docs/2026062900070/file_contents/okinawa2025syazyounerai.csv"
+"2025_buhinnerai.csv" = "https://www.police.pref.okinawa.jp/docs/2026062900070/file_contents/okinawa2025buhinnerai.csv"
+"2025_zidouhanbaikinerai.csv" = "https://www.police.pref.okinawa.jp/docs/2026062900070/file_contents/okinawa2025zidouhanbaikinerai.csv"
+"2025_zidousyatou.csv" = "https://www.police.pref.okinawa.jp/docs/2026062900070/file_contents/okinawa2025zidousyatou.csv"
+"2025_ootobaitou.csv" = "https://www.police.pref.okinawa.jp/docs/2026062900070/file_contents/okinawa2025ootobaitou.csv"
+"2025_zitensyatou.csv" = "https://www.police.pref.okinawa.jp/docs/2026062900070/file_contents/okinawa2025zitensyatou.csv"
+
 # 駅の利用者数（国土交通省 国土数値情報 S12）。2011〜2024年度の値が1つのファイルに入っている。
 # 形式は pipeline/tdm/ingest/mlit_stations.py を参照（docs/design-changes.md #33）。
 [mlit_s12_2024]
