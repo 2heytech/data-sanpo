@@ -103,10 +103,11 @@ const pointFeatures = (items: (LabelItem & { id: string; center: [number, number
   };
 };
 
-// 最大は最小の1.3倍ほどまで（並んだ地名の大きさの差が目立たないように、#90）
-const PREF_TEXT: [number, number, number][] = [[4, 11, 13], [6, 12, 15], [8, 13, 17]];
-const MUNI_TEXT: [number, number, number][] = [[8, 10, 13], [9, 11, 14], [12, 15, 19], [15, 17, 22], [18, 17, 22]];
-const AREA_TEXT: [number, number, number][] = [[13, 10, 13], [16, 13, 17], [18, 14, 18]];
+// 最大は最小の1.3倍ほどまで（並んだ地名の大きさの差が目立たないように、#90）。
+// 重なる地名は出せないので、たくさん出せるよう小さめにする（#96）
+const PREF_TEXT: [number, number, number][] = [[4, 10, 11], [6, 11, 13], [8, 11, 14]];
+const MUNI_TEXT: [number, number, number][] = [[8, 9, 11], [9, 10, 12], [12, 12, 15], [15, 14, 17], [18, 14, 17]];
+const AREA_TEXT: [number, number, number][] = [[13, 9, 11], [16, 11, 14], [18, 12, 15]];
 
 export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: string): Promise<void> {
   // MapLibre は public/vendor から読み込む（Worker を同じ場所から読み込ませるため）
@@ -272,25 +273,29 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const labelValues = new Map<string, string>();
   const nameOnly = ["get", "name"];
   const nameWithValue = ["format", ["get", "name"], {},
-    ["case", ["==", ["get", "value"], ""], "", ["concat", "\n", ["get", "value"]]], { "font-scale": 0.9 }];
+    ["case", ["==", ["get", "value"], ""], "", ["concat", "\n", ["get", "value"]]], { "font-scale": 0.85 }];
   const valuesToggle = $<HTMLInputElement>("#values-toggle");
   const labelText = () => (valuesToggle.checked ? nameWithValue : nameOnly);
   const fitProp = () => (valuesToggle.checked ? "fitv" : "fit");
   const LABEL_TEXT_SIZES = { "pref-label": PREF_TEXT, "muni-label": MUNI_TEXT, "area-label": AREA_TEXT } as const;
   const labelSize = (layer: keyof typeof LABEL_TEXT_SIZES) => growingTextSize(LABEL_TEXT_SIZES[layer], fitProp()) as never;
+  // 中央に置けないときは、少し上下左右にずらして置く（重なって消える地名を減らす。#96）
+  const SHIFTABLE: Pick<MapLibre.SymbolLayerSpecification["layout"] & object, "text-variable-anchor" | "text-radial-offset" | "text-justify"> = {
+    "text-variable-anchor": ["center", "top", "bottom", "left", "right"], "text-radial-offset": 0.2, "text-justify": "auto",
+  };
   const labelPaint = { "text-color": "#1f2328", "text-halo-color": "rgba(255,255,255,0.92)", "text-halo-width": 1.6 };
   map.addLayer({
     id: "area-label", type: "symbol", source: "area-labels", minzoom: AREA_LABEL_ZOOM,
     layout: {
       "text-field": labelText() as never, "text-font": LABEL_FONT,
       "text-size": labelSize("area-label"),
-      "text-max-width": 6, "text-padding": 1,
+      "text-max-width": 6, "text-padding": 0, ...SHIFTABLE,
     },
     paint: labelPaint,
   });
   map.addLayer({
     id: "pref-label", type: "symbol", source: "pref-labels", maxzoom: PREF_ZOOM,
-    layout: { "text-field": labelText() as never, "text-font": LABEL_FONT, "text-size": labelSize("pref-label"), "text-padding": 2 },
+    layout: { "text-field": labelText() as never, "text-font": LABEL_FONT, "text-size": labelSize("pref-label"), "text-padding": 1 },
     paint: { ...labelPaint, "text-halo-width": 2 },
   });
   map.addLayer({
@@ -298,7 +303,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     layout: {
       "text-field": labelText() as never, "text-font": LABEL_FONT,
       "text-size": labelSize("muni-label"),
-      "text-padding": 2,
+      "text-padding": 1, ...SHIFTABLE,
     },
     paint: { ...labelPaint, "text-halo-width": 2,
              "text-opacity": ["interpolate", ["linear"], ["zoom"], AREA_LABEL_ZOOM, 1, AREA_LABEL_ZOOM + 1, 0.55] },
