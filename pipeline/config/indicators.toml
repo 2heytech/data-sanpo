@@ -2417,7 +2417,7 @@ legend = { method = "nice", classes = 12, scheme = "blues" }
 
 
 [household_income_under300_share]
-name = "年収300万円未満の世帯の割合"
+name = "世帯年収（300万円未満の世帯の割合）"
 category = "所得・税"
 unit = "%"
 kind = "ratio"
@@ -2437,7 +2437,7 @@ period_labels = { "2018-10-01" = "2018年10月1日現在", "2023-10-01" = "2023�
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
 [household_income_1000plus_share]
-name = "年収1000万円以上の世帯の割合"
+name = "世帯年収（1000万円以上の世帯の割合）"
 category = "所得・税"
 unit = "%"
 kind = "ratio"
