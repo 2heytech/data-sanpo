@@ -975,7 +975,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     { toggle: "#nursery-toggle", category: "子育て" },
     { toggle: "#weather-toggle", category: "天気" },
   ].filter((p) => root.querySelector(p.toggle));
-  const pointLabel = (sel: string) => root.querySelector(sel)?.closest("label")?.textContent?.trim().replace(/を表示/, "") ?? "";
+  // 選択画面の点の切替は、左の欄のアイコンと同じもの（説明つきの名前で出す）
+  const pointLabel = (sel: string) => root.querySelector(sel)?.closest("label")?.title ?? "";
   const pickerItem = (i: Indicator) => {
     const members = membersOf(i);
     const lv = levelsOf(members);
@@ -1372,14 +1373,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       map.setLayoutProperty(layer, "text-size", labelSize(layer));
     }
   });
-  // 範囲: 全国・都道府県（東京都は島しょも）。都道府県の範囲は離島を含むので、県庁所在地側に寄らないこともある
+  // 範囲: 全国・都道府県（都道府県コードの順。東京都は島しょも、沖縄県の次に南西諸島）。
+  // 都道府県の範囲は離島を含むので、県庁所在地側に寄らないこともある
   const regionJump = $<HTMLSelectElement>("#region-jump");
-  const tokyoIslands = prefectures.has("13")
-    ? '<option value="mainland">東京都（区部・多摩）</option><option value="izu">東京都（伊豆諸島）</option>' +
-      '<option value="ogasawara">東京都（小笠原諸島）</option>' : "";
-  regionJump.innerHTML = (areas.prefectures.length > 1 ? '<option value="japan">全国</option><option value="okinawa">沖縄・南西諸島</option>' : "") +
-    areas.prefectures.filter((p) => p.code !== "13")
-      .map((p) => `<option value="pref:${esc(p.code)}">${esc(p.name)}</option>`).join("") + tokyoIslands;
+  const regionOptions = (p: { code: string; name: string }) =>
+    p.code === "13" ? '<option value="mainland">東京都（区部・多摩）</option><option value="izu">東京都（伊豆諸島）</option>' +
+      '<option value="ogasawara">東京都（小笠原諸島）</option>'
+    : `<option value="pref:${esc(p.code)}">${esc(p.name)}</option>` +
+      (p.code === "47" ? '<option value="okinawa">沖縄・南西諸島</option>' : "");
+  regionJump.innerHTML = (areas.prefectures.length > 1 ? '<option value="japan">全国</option>' : "") +
+    [...areas.prefectures].sort((a, b) => a.code.localeCompare(b.code)).map(regionOptions).join("");
   regionJump.value = areas.prefectures.length > 1 ? "japan" : "mainland";
   regionJump.addEventListener("change", () => {
     const v = regionJump.value;

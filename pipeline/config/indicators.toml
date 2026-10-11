@@ -1613,7 +1613,7 @@ family = "crime"
 facets = { type = "その他", basis = "昼間人口100人あたり" }
 legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
 
-# 全国の犯罪（#97）: 警察庁「犯罪統計」の都道府県別（刑法犯・窃盗犯・重要犯罪）と、各都道府県警察の
+# 全国の犯罪（#98）: 警察庁「犯罪統計」の都道府県別（刑法犯・窃盗犯・重要犯罪）と、各都道府県警察の
 # 犯罪オープンデータ（窃盗7手口、市区町村は年ごと・町丁目は5年合計）。annual_levels: 年ごとの時点で書き出す単位
 
 [crime_npa_total]

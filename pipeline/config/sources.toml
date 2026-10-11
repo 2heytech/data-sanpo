@@ -3410,7 +3410,7 @@ modification_note = "東京都の学校・保育所の住所の位置を求め�
 redistributable = true
 
 # 都道府県警察の犯罪オープンデータの町丁目名を、名前で地図の小地域に対応付けられないときに代表点で入れるための
-# 大字・町丁目レベル（19.0b、2025年版。東京都分と同じ版の全国）。サイトにはこのファイル自体は載せない（design-changes #97）。
+# 大字・町丁目レベル（19.0b、2025年版。東京都分と同じ版の全国）。サイトにはこのファイル自体は載せない（design-changes #98）。
 [mlit_isj_oaza_national]
 kind = "isj_town_points"
 per_prefecture = true
