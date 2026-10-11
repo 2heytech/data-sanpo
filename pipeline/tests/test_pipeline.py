@@ -1570,6 +1570,11 @@ def test_police_crime_opendata_tab_and_old_town_names(tmp_path):
     assert od._area_ids(areas, od.town_key("西新町")) == []          # 前に残る部分が旧町村名に見えないものは対応付けない
     assert od._area_ids(areas, od.town_key("松濤1丁目")) == ["a3"]   # 字体の違い
     assert od.town_key("中町4丁目丁目") == od.town_key("中町四丁目")
+    areas[od.town_key("浄水町")] = ["a4"]
+    assert od._area_ids(areas, od.town_key("浄水町伊保原")) == ["a4"]   # 小字まで書いた行は地図の町にまとめる
+    assert od._area_ids(areas, od.town_key("浄水町字南平")) == ["a4"]
+    assert od._area_ids(areas, od.town_key("浄水町通1丁目")) == []
+    assert od.town_key("曾根崎新地1丁目") == od.town_key("曽根崎新地一丁目")   # 旧字体
 
 
 def test_weather_normals(built):
@@ -1592,3 +1597,17 @@ def test_weather_normals(built):
     assert any(x.startswith("jma_normals_2020@") for x in data["source_ids"])
     # 観測所の値は地域に割り振らない
     assert not any(i["id"].endswith("_normal") for i in load(built, "indicators.json")["indicators"])
+
+
+def test_prefecture_denominator_ignores_municipalities_without_rows():
+    # 分母の指標に行のない区市町村（今はない市区町村など）があっても、都道府県の分母は区市町村の合計で作る
+    from tdm.derive import _add_prefecture_denominators
+    den = {("muni-13101", None): {"value": 10.0, "source_id": "s"},
+           ("muni-13102", None): {"value": 5.0, "source_id": "s"}}
+    types = {"muni-13101": "municipality", "muni-13102": "municipality", "muni-13100": "municipality"}
+    _add_prefecture_denominators(den, types)
+    assert den[("pref-13", None)]["value"] == 15.0
+    den = {("muni-13101", None): {"value": 10.0, "source_id": "s"},
+           ("muni-13102", None): {"value": None, "source_id": "s"}}
+    _add_prefecture_denominators(den, types)
+    assert ("pref-13", None) not in den                     # 値のない区市町村があれば作らない

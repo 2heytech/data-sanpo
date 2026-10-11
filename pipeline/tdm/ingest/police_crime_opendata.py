@@ -18,8 +18,9 @@
   そろった都道府県だけ）。町丁目の名前で地図の小地域に対応付ける（経済センサスと同じ正規化。「大字」「字」は除く）。
   元データが丁目まで分けていて地図が分けていない町は町にまとめる。地図のほうが細かい町（元データ「本町」、
   地図「本町１丁目」…）は割り振らずに値なしにする。町丁目が空の行・対応できない行は市区町村の値にだけ入る。
-  地図に省かれた旧町村名（甲賀市「水口町本町」→地図「本町」など）は末尾の一致で対応付ける。
-  行のない町丁目は0件。ただし対応できない行と町丁目が空の行が市区町村の件数の5%を超える市区町村は、行のない
+  地図に省かれた旧町村名（甲賀市「水口町本町」→地図「本町」など）は末尾の一致で対応付け、小字まで書いた行
+  （「浄水町伊保原」「六軒屋町字東丘」）は地図の町（「浄水町」）にまとめる。
+  行のない町丁目は0件。ただし対応できない行（地図のほうが細かい町の行は除く）と町丁目が空の行が市区町村の件数の5%を超える市区町村は、行のない
   町丁目を値なしにする（0件なのか名前が合わないだけなのか決められないため）。この判断は7手口の合計で行い、
   手口別の指標にも同じ判断を使う。
 """
@@ -56,7 +57,8 @@ ZERO_NOTE = "警察の公開データに発生の記録がないため0件"
 
 
 # 地図（国勢調査の町丁・字名）と警察の公開データで字体が違う字
-VARIANTS = str.maketrans({"濤": "涛", "檜": "桧", "籠": "篭", "舘": "館", "槇": "槙", "藪": "薮"})
+VARIANTS = str.maketrans({"濤": "涛", "檜": "桧", "籠": "篭", "舘": "館", "槇": "槙", "藪": "薮", "曾": "曽",
+                          "靱": "靭", "藏": "蔵", "螢": "蛍", "惠": "恵", "櫻": "桜", "龍": "竜", "瀧": "滝"})
 # 地図の町名から省かれている旧町村名・地区名（甲賀市「水口町本町」→地図「本町」、千代田区「神田猿楽町」→地図「猿楽町」）
 OLD_PREFIX = re.compile(r"(町|村|神田)$")
 
@@ -81,6 +83,12 @@ def _area_ids(areas: dict[str, list[str]], key: str) -> list[str]:
         ids = areas.get(CHOME.sub("", key), [])   # 地図では丁目に分かれていない町
     if ids:
         return ids
+    # 元データが小字まで書いている町（「浄水町伊保原」「六軒屋町字東丘」）は地図の町（「浄水町」）にまとめる。
+    # 地図の名前が「町・村」で終わり、残りが町名・丁目に見えないときだけ（「本町」と「本町通」を取り違えない）
+    head = [k for k in areas if k.endswith(("町", "村")) and key.startswith(k) and len(key) > len(k)
+            and not re.search(r"(町|村|丁目|通)", key[len(k):])]
+    if head:
+        return areas[max(head, key=len)]
     # 地図の名前が警察の名前の末尾と一致し、前に残る部分が旧町村名に見えるとき（いちばん長い一致を使う）
     best = [k for k in areas if len(k) >= 2 and key.endswith(k) and OLD_PREFIX.search(key[:-len(k)])]
     if best:
@@ -274,7 +282,7 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
             c = five.get(muni, Counter())
             sums: Counter = Counter()
             uncertain: set[str] = set()
-            unmatched = 0
+            unmatched = finer_rows = 0
             for key, n in c.items():
                 if not key:
                     continue   # 町丁目が空（市区町村の値にだけ入る）
@@ -283,15 +291,18 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
                     sums[ids[0]] += n
                     continue
                 unmatched += n
-                # 地図のほうが細かい町（「本町」に対して地図の「本町1丁目」…）は割り振らずに値なしにする
+                # 地図のほうが細かい町（「本町」に対して地図の「本町1丁目」…）は割り振らずに値なしにする。
+                # その町の中だと分かっている件数なので、ほかの町丁目を値なしにするかの判断には数えない
                 finer = ids or [e for k, es in areas[muni].items() if k.startswith(key) for e in es]
                 uncertain.update(finer)
-                if count_stats and not finer:
+                if finer:
+                    finer_rows += n
+                elif count_stats:
                     unmatched_names[munis[muni] + key] += n
             located = sum(n for k, n in c.items() if k)
             blank = c.get("", 0)
             # 町丁目が空の行も、どの町丁目か分からない件数なので対応できない行と合わせて数える
-            too_many = unmatched + blank > (located + blank) * UNMATCHED_LIMIT
+            too_many = unmatched - finer_rows + blank > (located + blank) * UNMATCHED_LIMIT
             if tech == TOTAL:
                 muni_too_many[muni] = too_many
             elif muni in muni_too_many:
@@ -302,7 +313,7 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
                 result["blank_rows"] += blank
                 result["uncertain_municipalities"] += bool(too_many)
                 if too_many:
-                    uncertain_munis.append(f"{munis[muni]}（対応できない{unmatched}・空{blank}／{located + blank}）")
+                    uncertain_munis.append(f"{munis[muni] or muni}（対応できない{unmatched - finer_rows}・空{blank}／{located + blank}）")
             for ids in areas[muni].values():
                 for entity_id in ids:
                     if entity_id in uncertain:

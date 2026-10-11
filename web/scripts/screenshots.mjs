@@ -38,6 +38,11 @@ const shots = [
   // 天気（気象庁の平年値、観測所の点）。全国の降水量と、東京の観測所を選んだところ
   ["36-map-weather-japan", "/map/?i=population_total&show=weather&wx=precipitation_normal", { width: 1280, height: 900 }],
   ["37-map-weather-tokyo", "/map/?i=population_total&show=weather&wx=sunshine_normal&ws=wx-44132", { width: 1280, height: 900 }],
+  // 全国の犯罪（警察庁の都道府県別、都道府県警察の窃盗7手口）。市区町村の年ごとと、町丁目の5年合計
+  ["38-map-npa-crime", "/map/?i=crime_npa_total_per_100_residents", { width: 1280, height: 900 }],
+  ["39-map-street-crime-japan", "/map/?i=street_crime_total&p=2025-01-01", { width: 1280, height: 900 }],
+  ["40-map-street-crime-osaka", "/map/?i=street_crime_total&a=muni-27127", { width: 1280, height: 900 }],
+  ["41-map-street-crime-nagoya", "/map/?i=street_crime_bicycle&a=muni-23106", { width: 1280, height: 900 }],
   ["90-about", "/about/", { width: 1280, height: 900 }],
 ];
 
