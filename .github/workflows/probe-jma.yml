@@ -1,0 +1,20 @@
+# 一時: 気象庁の平年値ファイルの形を確かめる（PR 前に消す）
+name: Probe JMA
+on:
+  push:
+    branches: [claude/project-thread-ltpjll]
+    paths: [".github/workflows/probe-jma.yml"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set -x
+          B=https://www.data.jma.go.jp/stats/data/mdrr/normal/2020/data
+          for f in normal_amedas_monthly amedas_station_index normal_surface; do
+            curl -sSfL -A "Mozilla/5.0" -o $f.zip $B/$f.zip; ls -l $f.zip; mkdir -p $f; (cd $f && unzip -q -o ../$f.zip); done
+          find . -maxdepth 3 -type f -not -name '*.zip' | head -100
+          find normal_amedas_monthly -type f | wc -l
+          for f in $(find amedas_station_index -type f | head -3); do echo "== $f"; iconv -f cp932 -t utf-8 "$f" | head -8; done
+          for f in $(find normal_amedas_monthly -type f | head -40); do echo "== $f"; iconv -f cp932 -t utf-8 "$f" | head -6 | cut -c1-600; done
+          for f in $(find normal_surface -maxdepth 2 | head -60); do echo "$f"; done
