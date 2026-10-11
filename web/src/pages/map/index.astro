@@ -8,11 +8,50 @@ import { DATA_BASE, loadIndicators } from "../../lib/data";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
 // 指標の選択画面で使う分類のアイコン（地図の処理が複製して使う）。点レイヤーのカテゴリも含める
+// 左の欄の切替アイコン（24×24 の線画）。name は短い名前、title は説明つきの名前（右の欄の見出しにも使う）
+const ICON: Record<string, string> = {
+  colors: '<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1" fill="currentColor" fill-opacity=".85"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1" fill="currentColor" fill-opacity=".45"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1" fill="currentColor" fill-opacity=".25"/><rect x="13" y="13" width="7.5" height="7.5" rx="1"/>',
+  labels: '<path d="M4 6V4.5h16V6M12 4.5v15M8.5 19.5h7"/>',
+  values: '<path d="M4.5 8 6.5 6.5V17M4.5 17h4M10.5 8.5a2.2 2.2 0 0 1 4.3.6c0 2.6-4.3 4.6-4.3 7.9h4.6M17 7h3.5l-2 3.3a2.9 2.9 0 1 1-2 4.9"/>',
+  stations: '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 10h14M8.5 14h.01M15.5 14h.01M8 17l-2.5 4M16 17l2.5 4"/>',
+  schools: '<path d="M3 20h18M5 20V10l7-5 7 5v10"/><path d="M10 20v-5h4v5M12 5V2.5h3"/>',
+  land: '<circle cx="12" cy="12" r="9"/><path d="M8.5 7 12 12l3.5-5M12 12v5.5M9 12.5h6M9 15h6"/>',
+  landsurvey: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><path d="M9.5 7.5 12 11l2.5-3.5M12 11v4M10 11.5h4M10 13.5h4"/>',
+  nursery: '<circle cx="8" cy="5.5" r="2.5"/><path d="M4 21v-7a4 4 0 0 1 8 0v7"/><circle cx="17" cy="10" r="2"/><path d="M14 21v-4a3 3 0 0 1 6 0v4M12 15h2"/>',
+  weather: '<circle cx="9" cy="9" r="3.5"/><path d="M9 2.5v1.5M2.5 9H4M4.4 4.4l1.1 1.1M13.6 4.4l-1.1 1.1"/><path d="M8 20h10a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.5A2.8 2.8 0 0 0 8 20z"/>',
+  relief: '<path d="M2 20 9 7.5l3.5 5.5 2.5-3.5L22 20z"/><path d="M7.2 10.7 9 12l1.8-1.3"/>',
+};
+const VIEW_TOGGLES = [
+  { id: "colors-toggle", name: "色分け", title: "色分けを表示", icon: ICON.colors },
+  { id: "labels-toggle", name: "地名", title: "地名を表示", icon: ICON.labels },
+  { id: "values-toggle", name: "数値", title: "地名の下に数値を表示", icon: ICON.values },
+];
+const OVERLAYS = [
+  { id: "stations-toggle", note: "stations-legend", name: "駅", title: "駅（乗降客数）", icon: ICON.stations },
+  { id: "schools-toggle", note: "schools-legend", name: "小中学校", title: "公立小中学校（児童・生徒数）", icon: ICON.schools },
+  { id: "land-toggle", note: "land-legend", name: "地価公示", title: "地価公示（標準地の価格）", icon: ICON.land },
+  { id: "landsurvey-toggle", note: "landsurvey-legend", name: "地価調査", title: "都道府県地価調査（基準地の価格）", icon: ICON.landsurvey },
+  { id: "nursery-toggle", note: "nursery-legend", name: "保育所", title: "認可保育所（定員）", icon: ICON.nursery },
+  { id: "weather-toggle", note: "weather-legend", name: "天気", title: "天気（気象庁の観測所の平年値）", icon: ICON.weather },
+  { id: "relief-toggle", note: "relief-note", name: "標高", title: "標高（色別標高図）", icon: ICON.relief },
+];
 const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "天気"])];
 ---
 <Base title="地図" preload={maplibreUrl} description="全国の都道府県・市区町村・町丁目の人口や年齢構成などを色分けした地図。地域名で検索し、指標と時点を切り替えて比べられます。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl}>
     <aside class="panel panel-conditions" aria-label="表示する条件">
+      <div class="field region">
+        <label for="region-jump">範囲</label>
+        <div class="region-row">
+          <select id="region-jump">
+            <!-- 公開版の都道府県から地図の処理で作る（都道府県コードの順） -->
+            <option value="mainland">東京都（区部・多摩）</option>
+          </select>
+          <button type="button" id="locate" class="locate" aria-label="現在地へ移動" title="現在地へ移動">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22"/></svg>
+          </button>
+        </div>
+      </div>
       <div class="search">
         <label for="search-input">地域を検索</label>
         <input id="search-input" type="search" placeholder="例: 新宿区、本町一丁目" autocomplete="off"
@@ -49,33 +88,29 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
           <span id="aggregate-label">直近5年の合計で見る</span></label>
       </div>
       <div id="legend" class="legend" aria-live="polite"></div>
+      <!-- 表示に関する切替（色分け・地名・数値）は1行のアイコン、地図に重ねるものはアイコンの並び。
+           細かい説明は右の情報の欄に出す（#97）。チェックボックスは見えないだけで、id と動きはそのまま -->
       <fieldset class="field view-options">
         <legend>表示</legend>
-        <label class="inline">範囲
-          <select id="region-jump">
-            <!-- 公開版の都道府県から地図の処理で作る -->
-            <option value="mainland">東京都（区部・多摩）</option>
-          </select>
-        </label>
-        <label class="inline check"><input type="checkbox" id="colors-toggle" checked /> 色分けを表示</label>
-        <label class="inline check"><input type="checkbox" id="labels-toggle" checked /> 地名を表示</label>
-        <label class="inline check"><input type="checkbox" id="values-toggle" checked /> 地名の下に数値を表示</label>
-        <label class="inline check"><input type="checkbox" id="stations-toggle" /> 駅を表示（乗降客数）</label>
-        <p id="stations-legend" class="muted small" hidden></p>
-        <label class="inline check"><input type="checkbox" id="schools-toggle" /> 公立小中学校を表示（児童・生徒数）</label>
-        <p id="schools-legend" class="muted small" hidden></p>
-        <label class="inline check"><input type="checkbox" id="land-toggle" /> 地価公示を表示（標準地の価格）</label>
-        <p id="land-legend" class="muted small" hidden></p>
-        <label class="inline check"><input type="checkbox" id="landsurvey-toggle" /> 都道府県地価調査を表示（基準地の価格）</label>
-        <p id="landsurvey-legend" class="muted small" hidden></p>
-        <label class="inline check"><input type="checkbox" id="nursery-toggle" /> 認可保育所を表示（定員）</label>
-        <p id="nursery-legend" class="muted small" hidden></p>
-        <label class="inline check"><input type="checkbox" id="weather-toggle" /> 天気を表示（気象庁の観測所の平年値）</label>
-        <select id="weather-select" class="weather-select" aria-label="天気の指標" hidden></select>
-        <p id="weather-legend" class="muted small" hidden></p>
-        <label class="inline check"><input type="checkbox" id="relief-toggle" /> 標高を色で表示（色別標高図）</label>
-        <p id="relief-note" class="muted small" hidden></p>
-        <button type="button" id="locate">現在地へ移動</button>
+        <div class="icon-toggles three">
+          {VIEW_TOGGLES.map((t) => (
+            <label class="icon-toggle" title={t.title}>
+              <input type="checkbox" id={t.id} checked class="vh" />
+              <svg viewBox="0 0 24 24" aria-hidden="true" set:html={t.icon} /><span>{t.name}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset class="field view-options">
+        <legend>地図に重ねる</legend>
+        <div class="icon-toggles">
+          {OVERLAYS.map((t) => (
+            <label class="icon-toggle" title={t.title}>
+              <input type="checkbox" id={t.id} class="vh" />
+              <svg viewBox="0 0 24 24" aria-hidden="true" set:html={t.icon} /><span>{t.name}</span>
+            </label>
+          ))}
+        </div>
       </fieldset>
     </aside>
     <div class="map-wrap">
@@ -99,6 +134,16 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
       <button type="button" class="panel-toggle right" data-panel="right" aria-pressed="false" aria-label="情報の欄を隠す" title="情報の欄を隠す">›</button>
     </div>
     <aside class="panel panel-info" aria-label="地域の情報">
+      <!-- 地図に重ねている点・標高の見方（左の欄のアイコンでオンにしたものだけ出す） -->
+      <section class="overlay-notes" aria-label="地図に重ねているものの見方">
+        {OVERLAYS.map((t) => (
+          <div class="overlay-note">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true" set:html={t.icon} />{t.title}</h3>
+            {t.id === "weather-toggle" && <select id="weather-select" class="weather-select" aria-label="天気の指標" hidden></select>}
+            <p id={t.note} class="muted small" hidden></p>
+          </div>
+        ))}
+      </section>
       <section id="pick-detail" class="detail station-detail" aria-live="polite" hidden></section>
       <section id="station-detail" class="detail station-detail" aria-live="polite" hidden></section>
       <section id="school-detail" class="detail station-detail" aria-live="polite" hidden></section>
@@ -269,10 +314,38 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .facets label.inline { font-weight: 600; }
   .period.aggregate #period-range, .period.aggregate .period-ticks, .period.aggregate #period-play { opacity: 0.4; }
   .view-options { border: 0; border-top: 1px solid var(--line); padding: 12px 0 0; margin: 0; display: grid; gap: 6px; }
-  .view-options button {
-    justify-self: start; font: inherit; font-size: 0.9rem; padding: 4px 10px;
-    border: 1px solid var(--line); border-radius: 6px; background: var(--surface); cursor: pointer;
+  /* 範囲と現在地ボタン */
+  .region-row { display: flex; gap: 6px; align-items: stretch; }
+  .region-row select { flex: 1; min-width: 0; }
+  .locate {
+    flex: none; width: 38px; margin-top: 4px; padding: 0; display: grid; place-items: center; cursor: pointer;
+    border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--accent);
   }
+  .locate:hover { background: var(--panel); }
+  .locate svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  /* アイコンの切替（押すと青くなる）。チェックボックスは見えなくして、ラベル全体を押せるようにする */
+  .vh { position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; opacity: 0; }
+  .icon-toggles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 2px; }
+  .icon-toggles.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .panel label.icon-toggle {
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px 5px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer;
+    font-size: 0.72rem; font-weight: 600; color: #3a4757; letter-spacing: 0; white-space: nowrap; user-select: none;
+  }
+  .icon-toggles.three label.icon-toggle { flex-direction: row; justify-content: center; gap: 4px; padding: 6px 4px; font-size: 0.8rem; }
+  .icon-toggle svg { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--accent); }
+  .icon-toggles.three .icon-toggle svg { width: 18px; height: 18px; }
+  .panel label.icon-toggle:hover { background: var(--panel); }
+  .panel label.icon-toggle:has(:checked) { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .icon-toggle:has(:checked) svg { color: #fff; }
+  .icon-toggle:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* 右の欄: 地図に重ねているものの見方。オンにしたもの（説明が出ているもの）だけ見せる */
+  .overlay-notes { display: grid; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 12px; }
+  .overlay-notes:not(:has(.overlay-note > p:not([hidden]))), .overlay-note:not(:has(> p:not([hidden]))) { display: none; }
+  .overlay-note h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; font-size: 0.85rem; }
+  .overlay-note h3 svg { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .overlay-note p { margin: 0; }
+  .overlay-note select { width: auto; margin: 0 0 4px; }
   .period-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   #period-label { font-weight: 700; font-variant-numeric: tabular-nums; }
   .period-control { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
@@ -335,8 +408,6 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .station-detail .close {
     position: absolute; top: 0; right: 0; border: 0; background: none; font-size: 1.2rem; cursor: pointer; color: var(--muted);
   }
-  #stations-legend, #schools-legend, #land-legend, #landsurvey-legend, #nursery-legend, #weather-legend { margin: -2px 0 0 22px; }
-  #weather-select { margin: 0 0 0 22px; width: auto; }
   .land-bins { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px; }
   .land-bins .sw {
     display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: -1px;
