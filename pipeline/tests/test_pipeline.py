@@ -1579,6 +1579,19 @@ def test_police_crime_opendata_tab_and_old_town_names(tmp_path):
     assert od.town_key("曾根崎新地1丁目") == od.town_key("曽根崎新地一丁目")   # 旧字体
 
 
+def test_police_crime_opendata_file_shapes(tmp_path):
+    # 発生なしの年は「問合せの結果に行はありません」だけのファイル。ZIP の中の CSV は名前が読めなくても1つなら使う
+    import zipfile
+    from tdm.ingest import police_crime_opendata as od
+    assert od.read_incidents("\ufeff問合せの結果に行はありません".encode("utf-8")) == []
+    head = "罪名,手口,市区町村コード（発生地）,市区町村（発生地）,町丁目（発生地）\n"
+    body = (head + "窃盗,車上ねらい,342025,呉市,本町\n").encode("cp932")
+    with zipfile.ZipFile(tmp_path / "2023_syazyounerai.csv", "w") as z:
+        z.writestr("\x93\x8c.csv", body)   # 文字化けした日本語のファイル名
+    got = od._files_by_year([tmp_path / "2023_syazyounerai.csv"])
+    assert od.read_incidents(got[2023]["syazyounerai"]) == [("34202", "呉市", "本町", 1)]
+
+
 def test_weather_normals(built):
     data = load(built, "places/weather_normals.json")
     st = {s["id"]: s for s in data["stations"]}
