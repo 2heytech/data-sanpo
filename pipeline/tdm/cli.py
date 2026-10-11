@@ -213,9 +213,15 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                                                  cfg.get("encoding", "cp932"))
         elif kind == "police_crime_opendata":
             # 都道府県警察ごとの出典（prefectures に1つだけ書く）。5年分の年計から町丁目の合計を作る
-            result[key] = police_crime_opendata.ingest(conn, files, src, catalog, cfg["prefectures"][0],
+            pref = cfg["prefectures"][0]
+            # 町丁目の名前で地図に対応付けられない行は、位置参照情報（大字・町丁目）の代表点で地図の小地域に入れる
+            pkey = cfg.get("town_points", "")
+            points = _prefecture_files(paths, pkey, sources[pkey], [pref]).get(pref, []) if pkey in sources else []
+            if points:
+                register_source(conn, pkey, sources[pkey], points, overrides)
+            result[key] = police_crime_opendata.ingest(conn, files, src, catalog, pref,
                                                        [int(y) for y in cfg["years"]], boundary_version,
-                                                       cfg.get("no_incident", []))
+                                                       cfg.get("no_incident", []), points)
         elif kind == "estat_census_history":
             result[key] = estat_census_history.ingest(conn, files[0], src, catalog)
         elif kind == "mhlw_tfr":

@@ -18,6 +18,8 @@
   そろった都道府県だけ）。町丁目の名前で地図の小地域に対応付ける（経済センサスと同じ正規化。「大字」「字」は除く）。
   元データが丁目まで分けていて地図が分けていない町は町にまとめる。地図のほうが細かい町（元データ「本町」、
   地図「本町１丁目」…）は割り振らずに値なしにする。町丁目が空の行・対応できない行は市区町村の値にだけ入る。
+  名前で対応付けられない町は、国土交通省の位置参照情報（大字・町丁目レベル）の代表点が入る小地域に数える
+  （国勢調査の小地域が複数の町をまとめた区域になっている帯広市・愛知県の市町など、地図の後にできた町名）。
   地図に省かれた旧町村名（甲賀市「水口町本町」→地図「本町」など）は末尾の一致で対応付け、小字まで書いた行
   （「浄水町伊保原」「六軒屋町字東丘」）は地図の町（「浄水町」）にまとめる。
   行のない町丁目は0件。ただし対応できない行（地図のほうが細かい町の行は除く）と町丁目が空の行が市区町村の件数の5%を超える市区町村は、行のない
@@ -36,7 +38,10 @@ import zipfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from ..db import insert_observation
+from shapely.geometry import Point
+from shapely.prepared import prep
+
+from ..db import insert_observation, load_geometry
 from ..xlsx import read_sheet
 from .estat_economic_census import CHOME, town_key as _town_key
 
@@ -190,8 +195,45 @@ def _files_by_year(files: list[Path]) -> dict[int, dict[str, bytes]]:
     return out
 
 
+def _loose(key: str) -> str:
+    """位置参照情報との照合用。「字」の有無の違いを吸収する。"""
+    return key.replace("字", "")
+
+
+def read_town_points(paths: list[Path], encoding: str = "cp932") -> dict[str, dict[str, tuple[float, float]]]:
+    """位置参照情報 大字・町丁目レベルの代表点。{市区町村コード5桁: {照合キー: (経度, 緯度)}}。
+    列: 都道府県コード, 都道府県名, 市区町村コード, 市区町村名, 大字町丁目コード, 大字町丁目名, 緯度, 経度, …"""
+    out: dict[str, dict[str, tuple[float, float]]] = defaultdict(dict)
+    for path in paths:
+        rows = csv.reader(io.StringIO(path.read_bytes().decode(encoding, errors="replace")))
+        head = next(rows, [])
+        col = {name.strip(): i for i, name in enumerate(head)}
+        if not {"市区町村コード", "大字町丁目名", "緯度", "経度"} <= set(col):
+            continue
+        for r in rows:
+            try:
+                code = r[col["市区町村コード"]].strip().zfill(5)
+                point = (float(r[col["経度"]]), float(r[col["緯度"]]))
+            except (IndexError, ValueError):
+                continue
+            out[code].setdefault(_loose(town_key(r[col["大字町丁目名"]])), point)
+    return out
+
+
+def _point_key(points: dict[str, tuple[float, float]], key: str) -> tuple[float, float] | None:
+    """警察の町丁目名から代表点を探す。見つからなければ、小字を除いた大字（いちばん後ろの「町・村」まで）で探す。"""
+    k = _loose(key)
+    if k in points:
+        return points[k]
+    for m in reversed(list(re.finditer(r"(町|村)", k))):
+        if m.end() < len(k) and k[:m.end()] in points:
+            return points[k[:m.end()]]
+    return None
+
+
 def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog: dict, pref: str,
-           years: list[int], boundary_version: str, no_incident: list[str] | None = None) -> dict:
+           years: list[int], boundary_version: str, no_incident: list[str] | None = None,
+           town_points: list[Path] | None = None) -> dict:
     """no_incident: 発生がなくファイルを公開していない年・手口（「2023_hittakuri」の形。ページに「発生なし」と
     書かれているものだけ）。その年・手口は全市区町村0件とする。"""
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == KIND}
@@ -208,6 +250,23 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
                           (boundary_version, f"area-{pref}%")):
         areas[r["parent_id"]][town_key(r["name"])].append(r["entity_id"])
 
+    # 名前で地図の小地域に対応付けられない町丁目は、位置参照情報の代表点が入る小地域に数える
+    # （国勢調査の小地域が複数の町をまとめた区域になっている市、地図の後にできた町名など）
+    points = read_town_points(town_points or [])
+    shapes: dict[str, list[tuple[str, object]]] = {}
+
+    def area_at(muni: str, key: str) -> str | None:
+        pt = _point_key(points.get(muni.split("-", 1)[1], {}), key)
+        if pt is None:
+            return None
+        if muni not in shapes:
+            ids = [e for es in areas[muni].values() for e in es]
+            shapes[muni] = [(r["entity_id"], prep(load_geometry(r["geometry"]))) for r in conn.execute(
+                f"SELECT entity_id, geometry FROM boundaries WHERE boundary_version = ? "
+                f"AND entity_id IN ({','.join('?' * len(ids))})", (boundary_version, *ids))]
+        p = Point(pt)
+        return next((e for e, g in shapes[muni] if g.contains(p)), None)
+
     raw = _files_by_year(files)
     for item in no_incident or []:
         y, _, t = item.partition("_")
@@ -215,7 +274,7 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
     # counts[(年, 手口)][市区町村ID][町丁目の照合キー] = 件数
     counts: dict[tuple[int, str], dict[str, Counter]] = {}
     result = {"municipalities": len(munis), "years": {}, "skipped_rows": 0, "unmatched_rows": 0,
-              "located_rows": 0, "blank_rows": 0, "uncertain_municipalities": 0, "areas": 0, "unmatched_examples": []}
+              "located_rows": 0, "located_by_point": 0, "blank_rows": 0, "uncertain_municipalities": 0, "areas": 0, "unmatched_examples": []}
     for year in years:
         got = raw.get(year, {})
         result["years"][year] = sorted(got)
@@ -290,10 +349,15 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
                 if len(ids) == 1:
                     sums[ids[0]] += n
                     continue
-                unmatched += n
                 # 地図のほうが細かい町（「本町」に対して地図の「本町1丁目」…）は割り振らずに値なしにする。
                 # その町の中だと分かっている件数なので、ほかの町丁目を値なしにするかの判断には数えない
                 finer = ids or [e for k, es in areas[muni].items() if k.startswith(key) for e in es]
+                if not finer and (at := area_at(muni, key)):
+                    sums[at] += n
+                    if count_stats:
+                        result["located_by_point"] += n
+                    continue
+                unmatched += n
                 uncertain.update(finer)
                 if finer:
                     finer_rows += n

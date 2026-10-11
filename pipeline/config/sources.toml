@@ -1090,6 +1090,7 @@ redistributable = true
 # 1件ごとの記録（被害者の年齢・性別など）を含むので、元ファイルは公開の Release に上げない（public_raw = false）
 [police_crime_od_01]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["01"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1143,6 +1144,7 @@ public_raw = false
 
 [police_crime_od_02]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["02"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1196,6 +1198,7 @@ public_raw = false
 
 [police_crime_od_03]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["03"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1248,6 +1251,7 @@ public_raw = false
 
 [police_crime_od_04]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["04"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1301,6 +1305,7 @@ public_raw = false
 
 [police_crime_od_05]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["05"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1350,6 +1355,7 @@ public_raw = false
 
 [police_crime_od_06]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["06"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1403,6 +1409,7 @@ public_raw = false
 
 [police_crime_od_07]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["07"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1456,6 +1463,7 @@ public_raw = false
 
 [police_crime_od_09]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["09"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1509,6 +1517,7 @@ public_raw = false
 
 [police_crime_od_10]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["10"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1562,6 +1571,7 @@ public_raw = false
 
 [police_crime_od_11]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["11"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1615,6 +1625,7 @@ public_raw = false
 
 [police_crime_od_12]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["12"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1668,6 +1679,7 @@ public_raw = false
 
 [police_crime_od_13]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["13"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1721,6 +1733,7 @@ public_raw = false
 
 [police_crime_od_14]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["14"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1774,6 +1787,7 @@ public_raw = false
 
 [police_crime_od_15]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["15"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1827,6 +1841,7 @@ public_raw = false
 
 [police_crime_od_17]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["17"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1879,6 +1894,7 @@ public_raw = false
 
 [police_crime_od_18]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["18"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1929,6 +1945,7 @@ public_raw = false
 
 [police_crime_od_19]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["19"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -1982,6 +1999,7 @@ public_raw = false
 
 [police_crime_od_20]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["20"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2035,6 +2053,7 @@ public_raw = false
 
 [police_crime_od_21]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["21"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2088,6 +2107,7 @@ public_raw = false
 
 [police_crime_od_22]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["22"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2141,6 +2161,7 @@ public_raw = false
 
 [police_crime_od_23]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["23"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2194,6 +2215,7 @@ public_raw = false
 
 [police_crime_od_24]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["24"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2247,6 +2269,7 @@ public_raw = false
 
 [police_crime_od_25]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["25"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2300,6 +2323,7 @@ public_raw = false
 
 [police_crime_od_26]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["26"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2353,6 +2377,7 @@ public_raw = false
 
 [police_crime_od_27]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["27"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2406,6 +2431,7 @@ public_raw = false
 
 [police_crime_od_28]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["28"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2459,6 +2485,7 @@ public_raw = false
 
 [police_crime_od_29]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["29"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2512,6 +2539,7 @@ public_raw = false
 
 [police_crime_od_30]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["30"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2565,6 +2593,7 @@ public_raw = false
 
 [police_crime_od_32]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["32"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2614,6 +2643,7 @@ public_raw = false
 
 [police_crime_od_34]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["34"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2667,6 +2697,7 @@ public_raw = false
 
 [police_crime_od_35]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["35"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2718,6 +2749,7 @@ public_raw = false
 
 [police_crime_od_36]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["36"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2771,6 +2803,7 @@ public_raw = false
 
 [police_crime_od_38]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["38"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2824,6 +2857,7 @@ public_raw = false
 
 [police_crime_od_39]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["39"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2877,6 +2911,7 @@ public_raw = false
 
 [police_crime_od_40]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["40"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2930,6 +2965,7 @@ public_raw = false
 
 [police_crime_od_41]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["41"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -2981,6 +3017,7 @@ public_raw = false
 
 [police_crime_od_42]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["42"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -3034,6 +3071,7 @@ public_raw = false
 
 [police_crime_od_43]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["43"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -3087,6 +3125,7 @@ public_raw = false
 
 [police_crime_od_44]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["44"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -3140,6 +3179,7 @@ public_raw = false
 
 [police_crime_od_45]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["45"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -3190,6 +3230,7 @@ public_raw = false
 
 [police_crime_od_46]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["46"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -3242,6 +3283,7 @@ public_raw = false
 
 [police_crime_od_47]
 kind = "police_crime_opendata"
+town_points = "mlit_isj_oaza_national"
 per_prefecture = true
 prefectures = ["47"]
 years = [2021, 2022, 2023, 2024, 2025]
@@ -3366,6 +3408,25 @@ license_url = "https://nlftp.mlit.go.jp/isj/agreement.html"
 attribution = "出典：大字・町丁目レベル位置参照情報 国土交通省（2025年版 19.0b）"
 modification_note = "東京都の学校・保育所の住所の位置を求めるために使用（加工して作成）"
 redistributable = true
+
+# 都道府県警察の犯罪オープンデータの町丁目名を、名前で地図の小地域に対応付けられないときに代表点で入れるための
+# 大字・町丁目レベル（19.0b、2025年版。東京都分と同じ版の全国）。サイトにはこのファイル自体は載せない（design-changes #97）。
+[mlit_isj_oaza_national]
+kind = "isj_town_points"
+per_prefecture = true
+title = "位置参照情報 大字・町丁目レベル（2025年版 19.0b）"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/isj/index.html"
+download_url = "https://nlftp.mlit.go.jp/isj/dls/data/19.0b/{pref}000-19.0b.zip"
+files = ["*.csv"]
+encoding = "cp932"
+cache = true
+license = "位置参照情報ダウンロードサービス 利用約款"
+license_url = "https://nlftp.mlit.go.jp/isj/agreement.html"
+attribution = "出典：大字・町丁目レベル位置参照情報 国土交通省（2025年版 19.0b）"
+modification_note = "犯罪オープンデータの町丁目名を地図の小地域に対応付けるために代表点を使用（加工して作成）"
+redistributable = true
+public_raw = false
 
 # 交通事故（警察庁 交通事故統計情報のオープンデータ、本票）。全国のファイルから東京都（警視庁）の行だけ残す
 [npa_traffic_2019]

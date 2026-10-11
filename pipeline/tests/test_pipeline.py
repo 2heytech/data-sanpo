@@ -1512,7 +1512,7 @@ def test_police_crime_opendata_counts(built):
     assert munis["muni-13199"]["value"] == 4 * 7            # 町丁目が空の行も市区町村には入る
     assert munis["muni-13499"]["value"] == 0                # 行のない市区町村は0件
     assert munis["muni-14199"]["value"] == 7
-    assert rows("street_crime_total", "2025-01-01", "prefectures")["pref-13"]["value"] == 6 * 7
+    assert rows("street_crime_total", "2025-01-01", "prefectures")["pref-13"]["value"] == 7 * 7
     meta = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
     total = meta["street_crime_total"]
     assert all(p["levels"] == ["municipality", "prefecture"] for p in total["periods"] if not p["aggregate"])
@@ -1523,6 +1523,8 @@ def test_police_crime_opendata_counts(built):
     assert areas["area-13199001002"]["value"] == 7 * 5      # 「見本町一丁目二」
     assert areas["area-13199001003"]["value"] is None       # 町丁目が空の行が5%を超えるので、記録のない町丁目も値なし
     assert areas["area-13299090000"]["value"] == 7 * 5      # 丁目の行を、地図では丁目に分かれていない町にまとめる
+    assert areas["area-13299003003"]["value"] == 7 * 5      # 地図にない町名は、位置参照情報の代表点が入る小地域へ
+    assert areas["area-13299001002"]["value"] == 0          # 対応できない行がないので、記録のない町丁目は0件
     bike = rows("street_crime_bicycle", "2021-2025", "13")
     assert bike["area-13199001001"]["value"] == 2 * 5
     rate = rows("street_crime_total_per_100_residents", "2021-2025", "municipalities")["muni-13199"]
