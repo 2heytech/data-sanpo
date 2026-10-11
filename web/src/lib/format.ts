@@ -17,6 +17,15 @@ export function formatNumber(value: number, digits: number): string {
   }).format(value);
 }
 
+/** 凡例の目盛り用の短い表記（1.2万・350万・1.5億）。1万未満はそのまま。 */
+export function compactNumber(value: number, digits: number): string {
+  const a = Math.abs(value);
+  const [div, unit] = a >= 1e8 ? [1e8, "億"] : a >= 1e4 ? [1e4, "万"] : [1, ""];
+  if (!unit) return formatNumber(value, digits);
+  const x = value / div;
+  return new Intl.NumberFormat("ja-JP", { maximumFractionDigits: Math.abs(x) < 10 ? 1 : 0 }).format(x) + unit;
+}
+
 /** 値と単位。値がない場合はゼロではなく理由を返す。 */
 export function formatValue(row: Pick<ValueRow, "value" | "status"> | undefined, ind: Indicator): string {
   if (!row) return "データなし";

@@ -5,7 +5,7 @@ import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, LngLatBoundsLike, PointLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { colorsFor, fillColorExpression, NO_DATA_COLOR } from "../lib/classify";
-import { formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
+import { compactNumber, formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
 import type {
@@ -312,6 +312,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     return z >= AREA_ZOOM && !municipalityOnly() ? "small_area" : "municipality";
   };
   const LEVEL_LABEL: Record<Level, string> = { prefecture: "都道府県", municipality: "市区町村", small_area: "町丁・字等" };
+  const SHORT_LEVEL: Record<Level, string> = { prefecture: "都道府県", municipality: "市区町村", small_area: "町丁目" };
+  // 単位のアイコン: 1マス（都道府県）・2×2（市区町村）・3×3（町丁目）
+  const gridIcon = (k: number) => {
+    const d = 12 / k;
+    const lines = Array.from({ length: k - 1 }, (_, i) => `M${1 + d * (i + 1)} 1V13M1 ${1 + d * (i + 1)}H13`).join("");
+    return `<svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="1.5"/>${lines ? `<path d="${lines}"/>` : ""}</svg>`;
+  };
+  const LEVEL_ICON: Record<Level, string> = { prefecture: gridIcon(1), municipality: gridIcon(2), small_area: gridIcon(3) };
 
   // --- 値の読み込みと色分け ---------------------------------------------------------
   const valuesPath = (chunk: string) => `values/${indicator.id}/${period}/${chunk}.json`;
@@ -603,13 +611,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (areaChip.hidden !== !name) areaChip.hidden = !name;
   }
 
+  // 凡例: 指標名は選択欄、時点は時点のバーにあるので、ここは単位と何別かだけ書き、色は1本の帯で示す（#91）
   function renderLegend() {
     if (!legend) return;
     const level = levelNow();
     const info = legend.levels[level];
     let levelLabel = LEVEL_LABEL[level];
+    const head = (label: string) =>
+      `<p class="legend-head">${esc(indicator.unit)}<span class="muted">（${esc(label)}別）</span></p>`;
     if (!info) {
-      legendEl.innerHTML = `<strong>${esc(indicator.name)}</strong><p class="muted">この時点の${levelLabel}別の値はありません。</p>`;
+      legendEl.innerHTML = `<p class="muted small">この時点の${levelLabel}別の値はありません。</p>`;
       return;
     }
     // 市区町村の区切りは都道府県ごと。凡例は地図の中心（選んだ地域）の都道府県の区切りを出す
@@ -619,33 +630,35 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       breaks = info.by_prefecture![pref];
       levelLabel = `${prefName(pref)}の${levelLabel}`;
     }
+    const noData = `<span><i class="swatch" style="background:${NO_DATA_COLOR}"></i>値なし</span>`;
+    const blank = `<span><i class="swatch blank"></i>0（色なし）</span>`;
     // 県内がすべて0の都道府県（例: 私立中学校のない県）は色を付けない
     const focus = level === "municipality" ? focusPrefecture() : undefined;
     if (focus && info.zero_prefectures?.includes(focus)) {
-      legendEl.innerHTML =
-        `<strong>${esc(indicator.name)}</strong>（${esc(indicator.unit)}、${esc(prefName(focus))}の${esc(LEVEL_LABEL[level])}別・${esc(periodInfo().label)}）` +
-        `<ul><li><span class="swatch blank"></span>0（色なし）</li>` +
-        `<li><span class="swatch" style="background:${NO_DATA_COLOR}"></span>値なし（秘匿・欠測など）</li></ul>` +
+      legendEl.innerHTML = head(`${prefName(focus)}の${LEVEL_LABEL[level]}`) +
+        `<p class="legend-extra">${blank}${noData}</p>` +
         `<p class="muted small">${esc(prefName(focus))}の市区町村はすべて0のため、色を付けていません。</p>`;
       return;
     }
     const zeroBlank = !!legend.zero_blank;
     const colors = colorsFor(legend.scheme, breaks, zeroBlank);
     const fmt = (v: number) => formatNumber(v, indicator.digits);
-    const items = colors.map((c, i) => {
+    const labels = colors.map((_, i) => {
       const lo = i === 0 ? null : breaks[i - 1];
       const hi = i === breaks.length ? null : breaks[i];
-      const label = lo === null && hi === null ? (zeroBlank ? "0 より大きい" : "すべて")
+      return lo === null && hi === null ? (zeroBlank ? "0 より大きい" : "すべて")
         : lo === null ? (zeroBlank ? `0 より大きく ${fmt(hi!)} 未満` : `${fmt(hi!)} 未満`)
         : hi === null ? `${fmt(lo)} 以上` : `${fmt(lo)} 〜 ${fmt(hi)} 未満`;
-      return `<li><span class="swatch" style="background:${c}"></span>${label}</li>`;
     });
-    if (zeroBlank) items.unshift(`<li><span class="swatch blank"></span>0（色なし）</li>`);
-    items.push(`<li><span class="swatch" style="background:${NO_DATA_COLOR}"></span>値なし（秘匿・欠測など）</li>`);
-    legendEl.innerHTML =
-      `<strong>${esc(indicator.name)}</strong>（${esc(indicator.unit)}、${esc(levelLabel)}別・${esc(periodInfo().label)}）` +
-      `<ul>${items.join("")}</ul>` +
-      (pref ? `<p class="muted small">市区町村の色の区切りは都道府県ごとに決めています。</p>` : "");
+    const cells = colors.map((c, i) => `<span style="background:${c}" title="${esc(labels[i])}"></span>`).join("");
+    // 区切りの値は帯の境目に、上下2段に互い違いに出す（色にカーソルを合わせると範囲も出る）
+    const n = colors.length;
+    const ticks = breaks.slice(0, n - 1).map((b, k) =>
+      `<span class="${n > 6 && k % 2 ? "low" : ""}" style="left:${(((k + 1) / n) * 100).toFixed(2)}%">${esc(compactNumber(b, indicator.digits))}</span>`).join("");
+    legendEl.innerHTML = head(levelLabel) +
+      `<div class="legend-bar" role="img" aria-label="${esc(labels.join("、"))}">${cells}</div>` +
+      `<div class="legend-ticks${n > 6 ? " two" : ""}" aria-hidden="true">${ticks}</div>` +
+      `<p class="legend-extra">${zeroBlank ? blank : ""}${noData}</p>`;
   }
 
   async function rowsFor(id: string, at = period): Promise<ValueRow[]> {
@@ -929,17 +942,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   function renderScope() {
     const all = levelsOf([indicator]);
     const now = levelsOf([indicator], period);
-    const chips = LEVELS.filter((l) => nationwide || l !== "prefecture").map((l) => {
-      const state = now.has(l) ? "on" : all.has(l) ? "later" : "off";
-      const title = state === "on" ? "この単位で見られます" : state === "later" ? "ほかの時点で見られます" : "この単位の値はありません";
-      return `<li class="${state}" title="${title}">${state === "on" ? "✓" : "－"} ${LEVEL_LABEL[l]}</li>`;
+    // 1行に収める: 見られる単位をアイコン（区切りが細かいほどマス目が多い）で示し、ない単位は出さない（#91）
+    const chips = LEVELS.filter((l) => all.has(l)).map((l) => {
+      const later = !now.has(l);
+      const title = `${LEVEL_LABEL[l]}別で${later ? "は、ほかの時点で見られます（この時点は値なし）" : "見られます"}`;
+      return `<li class="${later ? "later" : "on"}" title="${title}">${LEVEL_ICON[l]}${SHORT_LEVEL[l]}</li>`;
     }).join("");
     const prefs = nationwide ? prefsOf([indicator]) : null;
-    const missing = [...all].filter((l) => !now.has(l)).map((l) => LEVEL_LABEL[l]);
+    const area = prefs ? coverageLabel(prefs) : "全国";
     scopeEl.innerHTML = `<ul class="scope-levels" aria-label="見られる単位">${chips}</ul>` +
-      `<p class="scope-area">対象: ${prefs ? `<strong>${esc(coverageLabel(prefs))}</strong>` +
-        `<span class="muted">（ほかの地域は値なし）</span>` : "全国"}</p>` +
-      (missing.length ? `<p class="muted">この時点は${esc(missing.join("・"))}の値がありません。</p>` : "");
+      `<span class="scope-area${prefs ? " limited" : ""}" title="${prefs ? `対象: ${esc(area)}（ほかの地域は値なし）` : "対象: 全国"}">${esc(area)}</span>`;
   }
   function syncIndicatorControls() {
     indicatorSelect.value = optionValue(indicator);

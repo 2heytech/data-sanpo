@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BLANK_COLOR, classIndex, colorsFor, fillColorExpression, NO_DATA_COLOR } from "../src/lib/classify";
-import { formatFraction, formatValue, rankIfVaried, rankOf } from "../src/lib/format";
+import { compactNumber, formatFraction, formatValue, rankIfVaried, rankOf } from "../src/lib/format";
 import { AreaSearch, normalize } from "../src/lib/search";
 import type { Indicator, SearchIndex } from "../src/lib/types";
 import { municipalityCodeOf, parseState, serializeState } from "../src/lib/urlstate";
@@ -152,6 +152,17 @@ describe("地価公示の凡例", () => {
     expect(bins[1]).toBe("10万〜20万円");
     expect(bins[bins.length - 1]).toBe("1,000万円以上");
     expect(bins.length).toBe(LAND_COLORS.length);
+  });
+});
+
+describe("compactNumber（凡例の目盛り）", () => {
+  it("1万以上は万・億で短く書き、1万未満はそのまま", () => {
+    expect(compactNumber(2000, 0)).toBe("2,000");
+    expect(compactNumber(0.35, 2)).toBe("0.35");
+    expect(compactNumber(12000, 0)).toBe("1.2万");
+    expect(compactNumber(10000, 0)).toBe("1万");
+    expect(compactNumber(3500000, 0)).toBe("350万");
+    expect(compactNumber(150000000, 0)).toBe("1.5億");
   });
 });
 
