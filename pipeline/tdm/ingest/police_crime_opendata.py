@@ -124,6 +124,10 @@ def read_incidents(data: bytes) -> list[tuple[str, str, str, int]]:
     rows = _rows(data)
     at = next((i for i, r in enumerate(rows[:10]) if any("市区町村" in _norm(c) for c in r)), None)
     if at is None:
+        text = "".join("".join(r) for r in rows)
+        if re.search(r"行はありません|該当なし|該当データなし|発生なし|データなし|0件", text) or \
+                sum(1 for r in rows if any(c.strip() for c in r)) <= 1:
+            return []   # 発生がない年・手口（「問合せの結果に行はありません」だけのファイルなど）
         raise ValueError("市区町村の列が見つかりません")
     head = [_norm(c) for c in rows[at]]
 
@@ -162,36 +166,53 @@ def detect_technique(data: bytes) -> str | None:
     return None
 
 
+def _sheet_as_csv(source) -> bytes:
+    """Excel（.xlsx）の1枚目のシートを CSV と同じ形にする（秋田県の2024年、広島県の2023・2024年など）。"""
+    buf = io.StringIO()
+    csv.writer(buf).writerows([["" if c is None else str(c) for c in r] for r in read_sheet(source)])
+    return buf.getvalue().encode("utf-8")
+
+
 def _files_by_year(files: list[Path]) -> dict[int, dict[str, bytes]]:
-    """{年: {手口: CSV の中身}}。ZIP は中の CSV を手口ごとに読む（ファイル名に手口のローマ字か日本語がある前提）。"""
+    """{年: {手口: CSV の中身}}。ZIP は中の CSV を手口ごとに読む（ファイル名に手口のローマ字か日本語がある前提。
+    名前で分からなくても、CSV が1つだけならファイル名の手口とする）。拡張子が .csv でも中身が Excel のことがある。"""
     out: dict[int, dict[str, bytes]] = defaultdict(dict)
+
+    def put(year: int, tech: str, data: bytes, label: str) -> None:
+        found = detect_technique(data) or tech
+        if found in out[year]:
+            print(f"{label}: {year}年の{TECHNIQUES[found]}のファイルが2つあるため、後のファイルは使いません",
+                  file=sys.stderr)
+            return
+        out[year][found] = data
+
     for f in files:
         m = FILE_NAME.search(f.name)
         if not m:
             continue
         year, tech = int(m.group(1)), m.group(2)
         data = f.read_bytes()
-        if f.suffix == ".xlsx":
-            # Excel で公開している年（秋田県の2024年など）は、1枚目のシートを CSV と同じ形にして読む
-            buf = io.StringIO()
-            csv.writer(buf).writerows([["" if c is None else str(c) for c in r] for r in read_sheet(f)])
-            out[year][tech] = buf.getvalue().encode("utf-8")
-        elif data[:2] == b"PK":
-            with zipfile.ZipFile(io.BytesIO(data)) as z:
-                for name in z.namelist():
-                    if not name.lower().endswith(".csv"):
-                        continue
-                    label = unicodedata.normalize("NFKC", name)
-                    for key, ja in TECHNIQUES.items():
-                        if (key in label.lower() or ja in label) and (tech == "all" or tech == key):
-                            out[year][key] = z.read(name)
-        elif tech in TECHNIQUES:
-            found = detect_technique(data) or tech
-            if found in out[year]:
-                print(f"{f.name}: {year}年の{TECHNIQUES[found]}のファイルが2つあるため、後のファイルは使いません",
-                      file=sys.stderr)
+        if data[:2] != b"PK":
+            if tech in TECHNIQUES:
+                put(year, tech, data, f.name)
+            continue
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            names = z.namelist()
+            if "[Content_Types].xml" in names:   # Excel
+                if tech in TECHNIQUES:
+                    put(year, tech, _sheet_as_csv(io.BytesIO(data)), f.name)
                 continue
-            out[year][found] = data
+            inner = [n for n in names if n.lower().endswith((".csv", ".xlsx"))]
+            for name in inner:
+                body = z.read(name)
+                if name.lower().endswith(".xlsx"):
+                    body = _sheet_as_csv(io.BytesIO(body))
+                label = unicodedata.normalize("NFKC", name)
+                key = next((k for k, ja in TECHNIQUES.items() if k in label.lower() or ja in label), None)
+                if key is None and len(inner) == 1 and tech in TECHNIQUES:
+                    key = tech
+                if key and (tech == "all" or tech == key):
+                    put(year, key, body, f"{f.name}/{name}")
     return out
 
 
