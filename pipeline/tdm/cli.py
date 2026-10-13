@@ -158,7 +158,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "soumu_tax", "tokyo_childcare", "tokyo_street_trees", "tokyo_election",
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
                         "nier_gakuryoku", "estat_school_basic", "mlit_schools", "mlit_nurseries",
-                        "soumu_juki_foreign", "moj_zairyu_foreign", "estat_housing_income",
+                        "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata"):
@@ -192,9 +192,9 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             period = (cfg["period"], cfg["period"], "point")
             result[key] = tokyo_foreign.ingest(conn, files[0], src, catalog, period,
                                                cfg.get("encoding", "utf-8-sig"))
-        elif kind == "soumu_juki_foreign":
+        elif kind in ("soumu_juki_foreign", "soumu_juki_total"):
             result[key] = estat_foreign.ingest_juki(conn, files[0], src, catalog,
-                                                    (cfg["period"], cfg["period"], "point"))
+                                                    (cfg["period"], cfg["period"], "point"), kind)
         elif kind == "moj_zairyu_foreign":
             result[key] = estat_foreign.ingest_zairyu(conn, files[0], src, catalog,
                                                       (cfg["period"], cfg["period"], "point"), cfg.get("sheet"))

@@ -335,6 +335,8 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
     used_sources: set[str] = set()
     progress("境界・地域一覧を書き出した")
     for indicator_id, d in catalog.items():
+        if d.get("publish") is False:
+            continue   # 率の分母に使うだけの指標（画面には出さない）
         progress(f"書き出し: {indicator_id}")
         obs = conn.execute(
             """SELECT entity_id, period_start, period_end, period_kind, value, numerator,

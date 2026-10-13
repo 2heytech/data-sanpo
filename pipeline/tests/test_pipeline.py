@@ -448,6 +448,20 @@ def test_foreign_residents(built):
         built, "values/foreign_residents/2026-01-01/prefectures.json")["rows"]}
     tokyo = sum(v for c, v in juki.items() if c[:2] == "13")
     assert prefs["pref-13"]["value"] == tokyo + 7   # 出典の都道府県の行を使う
+    # 外国人住民の割合: 分母は同じ調査の【総計】の人口。分母の指標そのものは公開しない
+    share = by["foreign_residents_share"]
+    assert share["facets"] == {"type": "総数", "basis": "割合"} and share["family"] == "foreign"
+    assert [p["period"] for p in share["periods"]] == ["2025-01-01", "2026-01-01"]   # 2020年以前は分母がない
+    assert "juki_population" not in by
+    tot = fixture.juki_total_values(2026)
+    srows = {r["entity_id"]: r for r in load(
+        built, "values/foreign_residents_share/2026-01-01/municipalities.json")["rows"]}
+    assert srows["muni-13199"]["numerator"] == juki["13199"] and srows["muni-13199"]["denominator"] == tot["13199"]
+    assert srows["muni-13199"]["value"] == pytest.approx(juki["13199"] / tot["13199"] * 100, abs=1e-4)
+    assert srows["muni-13499"]["value"] is None and srows["muni-13499"]["status"] == "withheld"   # 分母が50人未満
+    sprefs = {r["entity_id"]: r for r in load(
+        built, "values/foreign_residents_share/2026-01-01/prefectures.json")["rows"]}
+    assert sprefs["pref-13"]["denominator"] == sum(v for c, v in tot.items() if c[:2] == "13") + 7
     china = {r["entity_id"]: r for r in load(
         built, "values/foreign_residents_china/2026-01-01/municipalities.json")["rows"]}
     assert china["muni-13199"]["value"] > 0 and "muni-14199" not in china   # 国籍別は東京都だけ

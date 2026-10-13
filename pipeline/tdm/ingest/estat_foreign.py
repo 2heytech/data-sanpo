@@ -30,6 +30,7 @@ from ..regions import municipality_entity_id, prefecture_entity_id
 from ..xlsx import read_sheet, sheet_names
 
 JUKI_KIND = "soumu_juki_foreign"
+JUKI_TOTAL_KIND = "soumu_juki_total"   # 同じ調査の【総計】（日本人住民と外国人住民の合計）。外国人住民の割合の分母
 ZAIRYU_KIND = "moj_zairyu_foreign"
 OTHER_CODE = "99999"   # 令和5年末の表で、総数10人以下の市区町村をまとめた行
 
@@ -62,10 +63,11 @@ def _write(conn, entity_id, targets, values: dict, source_id, period) -> None:
 
 
 def ingest_juki(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
-                period: tuple[str, str, str]) -> dict:
-    """住民基本台帳の外国人住民（市区町村別）。列は「見出し3行目/見出し4行目」（例: 人口/計）で指定する。"""
+                period: tuple[str, str, str], kind: str = JUKI_KIND) -> dict:
+    """住民基本台帳の外国人住民・総計（市区町村別）。列は「見出し3行目/見出し4行目」（例: 人口/計）で指定する。
+    【総計】のファイルも【外国人住民】と同じ形（団体コードの行・人口の男／女／計の列）。"""
     rows = read_sheet(path, 0)
-    targets = {i: d for i, d in catalog.items() if d.get("source_kind") == JUKI_KIND}
+    targets = {i: d for i, d in catalog.items() if d.get("source_kind") == kind}
     head = next(i for i, r in enumerate(rows) if r and str(r[0]).strip() == "団体コード")
     labels = {f"{rows[head - 2][j]}/{rows[head - 1][j]}": j for j in range(3, len(rows[head - 1]))
               if rows[head - 1][j] is not None}
