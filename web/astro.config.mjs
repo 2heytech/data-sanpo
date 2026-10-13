@@ -5,7 +5,8 @@ import sitemap from "@astrojs/sitemap";
 export default defineConfig({
   site: process.env.SITE_URL || "https://data-sanpo.com",
   trailingSlash: "always",
-  // /privacy/ は利用規約への案内だけのページなのでサイトマップに載せない
-  integrations: [sitemap({ filter: (page) => !page.endsWith("/privacy/") })],
+  // 移動先へ案内するだけのページ（noindex）はサイトマップに載せない。載せると Search Console が
+  // 「送信したページに noindex がある」と数える
+  integrations: [sitemap({ filter: (page) => !/\/(privacy|terms|indicators)\/$/.test(page) })],
   build: { format: "directory" },
 });
