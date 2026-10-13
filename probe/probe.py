@@ -7,7 +7,7 @@ def get(u):
         print("ERR", u, e); return ""
 def text(s):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", s))).strip()
-B = "https://www.e-stat.go.jp/stat-search/files?toukei=00200521&layout=datalist"
+B = "https://www.e-stat.go.jp/stat-search/files?toukei=00200521&layout=datalist&cycle=0"
 def crawl(year, params, depth, label):
     q = "".join(f"&{k}={v}" for k, v in params)
     t = get(f"{B}{q}&tclass{depth}val=0&page=1")
@@ -31,7 +31,7 @@ def crawl(year, params, depth, label):
     subs = {}
     for m in re.finditer(rf'tclass{depth}=(\d+)[^>]*>(.*?)</a>', t, re.S):
         subs.setdefault(m[1], text(m[2]))
-    print("sub", year, label, depth, subs, flush=True)
+    print("sub", year, label, depth, subs, len(t), t.count("statInfId"), t.count("tclass"), flush=True)
     for c, name in subs.items():
         if depth >= 2 and re.search(r"^\s*\d\d[：:]|北海道|青森|岩手|宮城|秋田|山形|福島", name) and "13" not in name[:3]:
             continue  # 都道府県別は東京都だけ見る
