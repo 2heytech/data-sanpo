@@ -13,9 +13,17 @@
 （estat_small_area.Table）で返す。都道府県の行は KEY_CODE を2桁にする。政令指定都市の市全体の行は使わない。
 都道府県の値は公表の都道府県の行を使う（2020年の境界に合わない市区町村があっても都道府県の値は出せるように。
 例: 浜松市は2024年に区を再編し、新しい区は2020年の境界に当てはまらない。docs/design-changes.md #73）。
+
+過去の調査の人口等基本集計の表も同じ形で読む（国籍別人口。docs/design-changes.md #102。2026-10-13 に GitHub Actions から取得して確認）:
+  令和2年（2020年）の Excel は「表章項目」「項目名」の見出しの文字がなく、値の列の上の行に表章項目（人口）と
+  項目名（0_総数、1_外国人、102_中国 …）だけが並ぶ。地域のコードは「地域名」の先頭（13101_千代田区）。
+  平成27年・22年（2015・2010年）は CSV（cp932）。「地域コード」「地域識別コード」のある行が列名の行で、
+  値の列名（総数（国籍）、中国、（別掲）総人口 …）は男女総数・男・女の順にくり返すので最初（男女総数）を使う。
+  列名の末尾の注の番号（「その他 1)」の「 1)」）は除いて照合する。地域識別コード b（市部・郡部）・d（人口集中地区）の行は使わない。
 """
 from __future__ import annotations
 
+import csv
 import re
 from pathlib import Path
 
@@ -40,19 +48,30 @@ def _cell_text(v) -> str:
     return str(v).strip()
 
 
-def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | None = None) -> Table:
+def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | None = None,
+               encoding: str = "cp932") -> Table:
     """columns: 返す列名 → 「表章項目/項目名」（項目名は先頭が一致すればよい。例: "人口/R1_（再掲）15歳未満"）。
+    CSV（2015・2010年）は列名そのもの（例: "（別掲）総人口"）。
     filters: 分類の列名 → 残す値（例: {"男女": "0_総数"}）。"""
+    if path.suffix.lower() == ".csv":
+        return _read_csv(path, columns, encoding)
     rows = read_sheet(path)
     h = next((i for i, r in enumerate(rows[:60]) if any(c == HEAD for c in r)), None)
     if h is None:
         raise KeyError(f"{path.name}: 「{HEAD}」の行が見つかりません")
     head = [_cell_text(c) for c in rows[h]]
-    item_row = next(i for i in range(h - 1, -1, -1) if "表章項目" in [_cell_text(c) for c in rows[i]])
-    name_row = next(i for i in range(h - 1, item_row, -1) if "項目名" in [_cell_text(c) for c in rows[i]])
-    items = [_cell_text(c) for c in rows[item_row]]
-    names = [_cell_text(c) for c in rows[name_row]] + [""] * len(items)
-    label_col = items.index("表章項目")
+    above = [[_cell_text(c) for c in r] for r in rows[:h]]
+    item_row = next((i for i in range(h - 1, -1, -1) if "表章項目" in above[i]), None)
+    if item_row is not None:
+        name_row = next(i for i in range(h - 1, item_row, -1) if "項目名" in above[i])
+        label_col = above[item_row].index("表章項目")
+    else:
+        # 見出しの文字がない形（2020年）: 「0_総数」のような項目名の行と、その上の値の列に文字のある最初の行
+        name_row = next(i for i in range(h - 1, -1, -1) if any(re.match(r"\d+_", c) for c in above[i]))
+        label_col = next(j for j, c in enumerate(above[name_row]) if re.match(r"\d+_", c)) - 1
+        item_row = next(i for i in range(name_row) if any(c for c in above[i][label_col + 1:]))
+    items = above[item_row]
+    names = above[name_row] + [""] * len(items)
     keys = {j: f"{items[j]}/{names[j]}" for j in range(label_col + 1, len(items)) if items[j]}
     picked: dict[str, int] = {}
     for out, spec in columns.items():
@@ -77,6 +96,43 @@ def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | No
         if not m:
             continue
         key = m[0]
+        if cells[level] == PREFECTURE_LEVEL:
+            if not key.endswith("000") or key == "00000":
+                continue   # 全国の行
+            key = key[:2]
+        if key in seen:
+            continue
+        seen.add(key)
+        out_rows.append({"KEY_CODE": key, "HTKSYORI": "", "HTKSAKI": "", "GASSAN": "",
+                         **{name: cells[j] for name, j in picked.items()}})
+    return Table(["KEY_CODE", "HTKSYORI", "HTKSAKI", "GASSAN", *columns], out_rows, prefecture_rows=True)
+
+
+def _csv_label(s: str) -> str:
+    return re.sub(r"\s*\d\)$", "", s.strip()).strip()
+
+
+def _read_csv(path: Path, columns: dict[str, str], encoding: str) -> Table:
+    with path.open(encoding=encoding, newline="") as f:
+        rows = [[c.strip() for c in r] for r in csv.reader(f)]
+    h = next((i for i, r in enumerate(rows[:60]) if HEAD in r and "地域コード" in r), None)
+    if h is None:
+        raise KeyError(f"{path.name}: 「地域コード」「{HEAD}」の行が見つかりません")
+    head = rows[h]
+    labels = [_csv_label(c) for c in head]
+    picked: dict[str, int] = {}
+    for out, spec in columns.items():
+        if _csv_label(spec) not in labels:
+            raise KeyError(f"{path.name}: 列 {spec} が見つかりません。列名: {head}")
+        picked[out] = labels.index(_csv_label(spec))   # 男女総数・男・女でくり返す列名は最初（男女総数）
+    level, code_col = head.index(HEAD), head.index("地域コード")
+    out_rows = []
+    seen: set[str] = set()
+    for r in rows[h + 1:]:
+        cells = r + [""] * len(head)
+        if cells[level] not in MUNICIPALITY_LEVELS | {PREFECTURE_LEVEL} or not re.fullmatch(r"\d{5}", cells[code_col]):
+            continue
+        key = cells[code_col]
         if cells[level] == PREFECTURE_LEVEL:
             if not key.endswith("000") or key == "00000":
                 continue   # 全国の行

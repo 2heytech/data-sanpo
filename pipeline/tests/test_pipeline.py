@@ -420,7 +420,8 @@ def test_foreign_residents(built):
     catalog = load(built, "indicators.json")
     by = {i["id"]: i for i in catalog["indicators"]}
     share = by["foreign_resident_share"]
-    assert share["category"] == "外国人住民" and [p["period"] for p in share["periods"]] == ["2020-10-01"]
+    assert share["category"] == "外国人住民" and share["family"] == "census_foreign"
+    assert [p["period"] for p in share["periods"]] == ["2010-10-01", "2015-10-01", "2020-10-01", "2025-10-01"]
     from tdm.ingest.estat_small_area import read_files_table
     path = next((built.raw / "census2020_small_area_foreign" / "13").glob("*.csv"))
     table = read_files_table(path)
@@ -470,6 +471,46 @@ def test_foreign_residents(built):
     assert old["muni-13199"]["value"] > 0 and "muni-14199" not in old
     # 2020年の東京都の表では、島しょ（支庁単位でしか公表されない町村）は値なし。0 にしない
     assert old.get("muni-13499") is None or old["muni-13499"]["value"] is None
+
+
+def test_census_foreign_by_nationality(built):
+    """国勢調査 人口等基本集計の男女・国籍別人口（市区町村・都道府県、2010〜2025年。#102）。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    periods = lambda i: [p["period"] for p in by[i]["periods"]]
+    assert by["census_foreign_population"]["facets"] == {"type": "総数", "basis": "人数"}
+    assert by["census_foreign_china_share"]["facets"] == {"type": "中国", "basis": "割合"}
+    assert {by[i]["family"] for i in ("census_foreign_population", "census_foreign_china", "foreign_resident_share")} \
+        == {"census_foreign"}
+    assert periods("census_foreign_china") == ["2010-10-01", "2015-10-01", "2020-10-01", "2025-10-01"]
+    assert periods("census_foreign_india") == ["2015-10-01", "2020-10-01", "2025-10-01"]   # 2010年の表にない
+    assert periods("census_foreign_nepal") == ["2020-10-01", "2025-10-01"]
+    assert periods("census_foreign_myanmar_share") == ["2025-10-01"]
+
+    def rows(indicator, year, level="municipalities"):
+        return {r["entity_id"]: r for r in load(built, f"values/{indicator}/{year}-10-01/{level}.json")["rows"]}
+
+    for year in (2010, 2015, 2020, 2025):
+        v = fixture.census_foreign_values(year)
+        china, total = rows("census_foreign_china", year), rows("census_foreign_population", year)
+        assert china["muni-13199"]["value"] == v["13199"]["中国"] and china["muni-14199"]["value"] == v["14199"]["中国"]
+        assert total["muni-14199"]["value"] == v["14199"]["外国人人口"]   # 男女の総数の行・列（男の値ではない）
+        assert total["muni-13499"]["value"] == 0 and total["muni-13499"]["status"] == "observed"   # 「-」は0人
+        assert set(total) == {"muni-13199", "muni-13299", "muni-13499", "muni-14199"}   # 市全体・消えた村の行は使わない
+        prefs = rows("census_foreign_china", year, "prefectures")
+        assert prefs["pref-13"]["value"] == v["13000"]["中国"]   # 公表の都道府県の行（市区町村の合計＋3）
+        share = rows("census_foreign_china_share", year)
+        assert share["muni-14199"]["numerator"] == v["14199"]["中国"]
+        assert share["muni-14199"]["denominator"] == v["14199"]["総数"]
+        assert share["muni-13499"]["value"] is None and share["muni-13499"]["status"] == "withheld"   # 人口50人未満
+        whole = rows("foreign_resident_share", year)
+        if year != 2020:
+            assert whole["muni-13199"]["numerator"] == v["13199"]["外国人人口"]
+        # 2020年の東京都の市区町村は小地域集計の表の値（同じ地域・時点の値を2つにしない）。神奈川県は人口等基本集計
+        assert whole["muni-14199"]["numerator"] == v["14199"]["外国人人口"]
+        wprefs = rows("foreign_resident_share", year, "prefectures")
+        assert wprefs["pref-13"]["numerator"] == v["13000"]["外国人人口"]
+        assert wprefs["pref-13"]["denominator"] == v["13000"]["総数"]
+    assert "small_area" not in [lv for p in by["census_foreign_china"]["periods"] for lv in p["levels"]]
 
 
 def test_zairyu_foreign_by_nationality(built):

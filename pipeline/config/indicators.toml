@@ -13,6 +13,7 @@
 # sum_columns（count）: 複数の列の合計。denominator_subtract_columns（ratio）: 分母から引く列（不詳など、#43）
 # denominator_period = "same": 分子と同じ時点の分母を使う。unbounded = true: 100%を超えてよい比（昼夜間人口比率、#42）
 # publish = false: 率の分母に使うだけで、画面・公開データには出さない指標（#101）
+# municipal_table: 町丁・字等は table（小地域の表）から、市区町村・都道府県は人口等基本集計のこの表からも取る（#102）
 
 [population_total]
 name = "人口"
@@ -512,8 +513,25 @@ fraction_units = ["人", "人"]
 compare_with = ["university_students", "population_total"]
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
+[census_foreign_population]
+name = "国勢調査の外国人の数"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「外国人」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "日本人・外国人の別が「不詳」の人は含みません（不詳の多い地域では少なめに出ます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["外国人人口"]
+family = "census_foreign"
+facets = { type = "総数", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
 [foreign_resident_share]
-name = "外国人の割合"
+name = "国勢調査の外国人の割合"
 category = "外国人住民"
 unit = "%"
 kind = "ratio"
@@ -521,14 +539,891 @@ definition_version = "1"
 digits = 1
 scale = 100
 min_denominator = 50
-levels = ["municipality", "small_area"]
-description = "国勢調査の人口のうち、外国人の割合。"
-method = "外国人人口 ÷ 人口総数 × 100。国勢調査 小地域集計 第2表（男女別人口，外国人人口及び世帯数）。"
-caveats = ["2020年の国勢調査の値です（町丁目ごとの外国人人口は2020年の表から公表）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。不詳が多い地域では割合が小さめに出ます。", "住民基本台帳の外国人住民数（「外国人住民の数」）とは調べ方が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+levels = ["municipality", "small_area", "prefecture"]
+description = "国勢調査の人口のうち、外国人の割合（各回10月1日現在）。"
+method = "外国人人口 ÷ 人口総数 × 100。町丁・字等と2020年の市区町村は国勢調査 小地域集計 第2表（男女別人口，外国人人口及び世帯数）、ほかの年の市区町村と都道府県は国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。市区町村・都道府県は2010・2015・2020・2025年、町丁・字等は2020年だけ（町丁目ごとの外国人人口は2020年の表から公表）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。不詳が多い地域では割合が小さめに出ます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
 table = "foreign"
+municipal_table = "census_foreign"
 numerator_column = ["外国人人口"]
 denominator_sum_columns = [["総数"]]
 fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "総数", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_korea]
+name = "国勢調査の外国人の数（韓国・朝鮮）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍が韓国・朝鮮の人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「韓国・朝鮮」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "韓国と朝鮮は分けずに公表されています。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["韓国・朝鮮"]
+family = "census_foreign"
+facets = { type = "韓国・朝鮮", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_korea_share]
+name = "国勢調査の外国人の割合（韓国・朝鮮）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍が韓国・朝鮮の人の割合（各回10月1日現在）。"
+method = "国籍が韓国・朝鮮の人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "韓国と朝鮮は分けずに公表されています。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["韓国・朝鮮"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "韓国・朝鮮", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_china]
+name = "国勢調査の外国人の数（中国）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍が中国の人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「中国」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["中国"]
+family = "census_foreign"
+facets = { type = "中国", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_china_share]
+name = "国勢調査の外国人の割合（中国）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍が中国の人の割合（各回10月1日現在）。"
+method = "国籍が中国の人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["中国"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "中国", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_philippines]
+name = "国勢調査の外国人の数（フィリピン）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がフィリピンの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「フィリピン」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["フィリピン"]
+family = "census_foreign"
+facets = { type = "フィリピン", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_philippines_share]
+name = "国勢調査の外国人の割合（フィリピン）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がフィリピンの人の割合（各回10月1日現在）。"
+method = "国籍がフィリピンの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["フィリピン"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "フィリピン", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_thailand]
+name = "国勢調査の外国人の数（タイ）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がタイの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「タイ」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["タイ"]
+family = "census_foreign"
+facets = { type = "タイ", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_thailand_share]
+name = "国勢調査の外国人の割合（タイ）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がタイの人の割合（各回10月1日現在）。"
+method = "国籍がタイの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["タイ"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "タイ", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_indonesia]
+name = "国勢調査の外国人の数（インドネシア）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がインドネシアの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「インドネシア」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["インドネシア"]
+family = "census_foreign"
+facets = { type = "インドネシア", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_indonesia_share]
+name = "国勢調査の外国人の割合（インドネシア）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がインドネシアの人の割合（各回10月1日現在）。"
+method = "国籍がインドネシアの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["インドネシア"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "インドネシア", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_vietnam]
+name = "国勢調査の外国人の数（ベトナム）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がベトナムの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「ベトナム」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["ベトナム"]
+family = "census_foreign"
+facets = { type = "ベトナム", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_vietnam_share]
+name = "国勢調査の外国人の割合（ベトナム）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がベトナムの人の割合（各回10月1日現在）。"
+method = "国籍がベトナムの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["ベトナム"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "ベトナム", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_india]
+name = "国勢調査の外国人の数（インド）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がインドの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「インド」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "2015年から（2010年は「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["インド"]
+family = "census_foreign"
+facets = { type = "インド", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_india_share]
+name = "国勢調査の外国人の割合（インド）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がインドの人の割合（各回10月1日現在）。"
+method = "国籍がインドの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "2015年から（2010年は「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["インド"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "インド", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_nepal]
+name = "国勢調査の外国人の数（ネパール）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がネパールの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「ネパール」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "2020年から（それより前は「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["ネパール"]
+family = "census_foreign"
+facets = { type = "ネパール", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_nepal_share]
+name = "国勢調査の外国人の割合（ネパール）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がネパールの人の割合（各回10月1日現在）。"
+method = "国籍がネパールの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "2020年から（それより前は「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["ネパール"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "ネパール", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_cambodia]
+name = "国勢調査の外国人の数（カンボジア）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がカンボジアの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「カンボジア」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["カンボジア"]
+family = "census_foreign"
+facets = { type = "カンボジア", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_cambodia_share]
+name = "国勢調査の外国人の割合（カンボジア）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がカンボジアの人の割合（各回10月1日現在）。"
+method = "国籍がカンボジアの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["カンボジア"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "カンボジア", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_srilanka]
+name = "国勢調査の外国人の数（スリランカ）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がスリランカの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「スリランカ」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["スリランカ"]
+family = "census_foreign"
+facets = { type = "スリランカ", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_srilanka_share]
+name = "国勢調査の外国人の割合（スリランカ）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がスリランカの人の割合（各回10月1日現在）。"
+method = "国籍がスリランカの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["スリランカ"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "スリランカ", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_pakistan]
+name = "国勢調査の外国人の数（パキスタン）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がパキスタンの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「パキスタン」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["パキスタン"]
+family = "census_foreign"
+facets = { type = "パキスタン", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_pakistan_share]
+name = "国勢調査の外国人の割合（パキスタン）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がパキスタンの人の割合（各回10月1日現在）。"
+method = "国籍がパキスタンの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["パキスタン"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "パキスタン", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_bangladesh]
+name = "国勢調査の外国人の数（バングラデシュ）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がバングラデシュの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「バングラデシュ」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["バングラデシュ"]
+family = "census_foreign"
+facets = { type = "バングラデシュ", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_bangladesh_share]
+name = "国勢調査の外国人の割合（バングラデシュ）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がバングラデシュの人の割合（各回10月1日現在）。"
+method = "国籍がバングラデシュの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["バングラデシュ"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "バングラデシュ", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_malaysia]
+name = "国勢調査の外国人の数（マレーシア）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がマレーシアの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「マレーシア」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["マレーシア"]
+family = "census_foreign"
+facets = { type = "マレーシア", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_malaysia_share]
+name = "国勢調査の外国人の割合（マレーシア）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がマレーシアの人の割合（各回10月1日現在）。"
+method = "国籍がマレーシアの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["マレーシア"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "マレーシア", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_myanmar]
+name = "国勢調査の外国人の数（ミャンマー）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がミャンマーの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「ミャンマー」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["ミャンマー"]
+family = "census_foreign"
+facets = { type = "ミャンマー", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_myanmar_share]
+name = "国勢調査の外国人の割合（ミャンマー）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がミャンマーの人の割合（各回10月1日現在）。"
+method = "国籍がミャンマーの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["ミャンマー"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "ミャンマー", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_mongolia]
+name = "国勢調査の外国人の数（モンゴル）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がモンゴルの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「モンゴル」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["モンゴル"]
+family = "census_foreign"
+facets = { type = "モンゴル", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_mongolia_share]
+name = "国勢調査の外国人の割合（モンゴル）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がモンゴルの人の割合（各回10月1日現在）。"
+method = "国籍がモンゴルの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["モンゴル"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "モンゴル", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_uk]
+name = "国勢調査の外国人の数（イギリス）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がイギリスの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「イギリス」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["イギリス"]
+family = "census_foreign"
+facets = { type = "イギリス", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_uk_share]
+name = "国勢調査の外国人の割合（イギリス）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がイギリスの人の割合（各回10月1日現在）。"
+method = "国籍がイギリスの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["イギリス"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "イギリス", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_france]
+name = "国勢調査の外国人の数（フランス）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がフランスの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「フランス」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["フランス"]
+family = "census_foreign"
+facets = { type = "フランス", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_france_share]
+name = "国勢調査の外国人の割合（フランス）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がフランスの人の割合（各回10月1日現在）。"
+method = "国籍がフランスの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["フランス"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "フランス", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_russia]
+name = "国勢調査の外国人の数（ロシア）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がロシアの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「ロシア」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["ロシア"]
+family = "census_foreign"
+facets = { type = "ロシア", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_russia_share]
+name = "国勢調査の外国人の割合（ロシア）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がロシアの人の割合（各回10月1日現在）。"
+method = "国籍がロシアの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["ロシア"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "ロシア", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_usa]
+name = "国勢調査の外国人の数（アメリカ）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がアメリカの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「アメリカ」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["アメリカ"]
+family = "census_foreign"
+facets = { type = "アメリカ", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_usa_share]
+name = "国勢調査の外国人の割合（アメリカ）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がアメリカの人の割合（各回10月1日現在）。"
+method = "国籍がアメリカの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["アメリカ"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "アメリカ", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_canada]
+name = "国勢調査の外国人の数（カナダ）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がカナダの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「カナダ」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["カナダ"]
+family = "census_foreign"
+facets = { type = "カナダ", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_canada_share]
+name = "国勢調査の外国人の割合（カナダ）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がカナダの人の割合（各回10月1日現在）。"
+method = "国籍がカナダの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["カナダ"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "カナダ", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_brazil]
+name = "国勢調査の外国人の数（ブラジル）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がブラジルの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「ブラジル」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["ブラジル"]
+family = "census_foreign"
+facets = { type = "ブラジル", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_brazil_share]
+name = "国勢調査の外国人の割合（ブラジル）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がブラジルの人の割合（各回10月1日現在）。"
+method = "国籍がブラジルの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["ブラジル"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "ブラジル", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_peru]
+name = "国勢調査の外国人の数（ペルー）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がペルーの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「ペルー」の数。都道府県の値は表の都道府県の行。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。"]
+table = "census_foreign"
+column = ["ペルー"]
+family = "census_foreign"
+facets = { type = "ペルー", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_peru_share]
+name = "国勢調査の外国人の割合（ペルー）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がペルーの人の割合（各回10月1日現在）。"
+method = "国籍がペルーの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["国勢調査（各年10月1日現在）の値です。2010・2015・2020・2025年。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "2010・2015年の値は当時の市区町村の区域の値です。その後に合併などで区域が変わった市区町村では、今の区域と範囲が違います。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["ペルー"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "ペルー", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_australia]
+name = "国勢調査の外国人の数（オーストラリア）"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "国勢調査で数えた外国人のうち、国籍がオーストラリアの人の数（各回10月1日現在）。"
+method = "国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）の「オーストラリア」の数。都道府県の値は表の都道府県の行。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。"]
+table = "census_foreign"
+column = ["オーストラリア"]
+family = "census_foreign"
+facets = { type = "オーストラリア", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[census_foreign_australia_share]
+name = "国勢調査の外国人の割合（オーストラリア）"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "国勢調査の人口のうち、国籍がオーストラリアの人の割合（各回10月1日現在）。"
+method = "国籍がオーストラリアの人の数 ÷ 人口総数 × 100。国勢調査 人口等基本集計の男女・国籍別人口の表（2025年 表49-1、2020年 表44-1、2015年 第38表、2010年 第41表）。"
+caveats = ["2025年の国勢調査（10月1日現在）の値だけです（それより前の調査では「その他」に含まれます）。", "分母の人口総数には日本人・外国人の別が「不詳」の人を含みます。", "住民基本台帳の外国人住民（「外国人住民の数」、1月1日現在）とは調べ方・時点が違うため一致しません。", "人口が50人未満の地域は値を表示しません。"]
+table = "census_foreign"
+numerator_column = ["オーストラリア"]
+denominator_sum_columns = [["総数"]]
+fraction_units = ["人", "人"]
+family = "census_foreign"
+facets = { type = "オーストラリア", basis = "割合" }
 legend = { method = "nice", classes = 12, scheme = "bupu" }
 
 [foreign_residents]
