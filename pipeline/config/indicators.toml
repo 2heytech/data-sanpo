@@ -12,6 +12,7 @@
 # multi_year_total: 年計の直近 N 年分の合計を時点として足す（#36）
 # sum_columns（count）: 複数の列の合計。denominator_subtract_columns（ratio）: 分母から引く列（不詳など、#43）
 # denominator_period = "same": 分子と同じ時点の分母を使う。unbounded = true: 100%を超えてよい比（昼夜間人口比率、#42）
+# publish = false: 率の分母に使うだけで、画面・公開データには出さない指標（#101）
 
 [population_total]
 name = "人口"
@@ -548,6 +549,42 @@ tokyo_foreign_before = "2021-01-01"
 family = "foreign"
 facets = { type = "総数", basis = "人数" }
 legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[foreign_residents_share]
+name = "外国人住民の割合"
+category = "外国人住民"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "住民基本台帳に記録されている人のうち、外国人の割合（各年1月1日現在）。"
+method = "外国人住民の人口 ÷ 住民基本台帳の人口（日本人住民と外国人住民の合計）× 100。総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【外国人住民】と【総計】の市区町村別人口の「人口 計」。"
+caveats = ["2021年以降の値です（2020年以前は全国の表が古い形式のファイルのため使っていません）。", "国勢調査の「外国人の割合」とは調べ方・時点が違うため一致しません。", "住民基本台帳の人口が50人未満の地域は値を表示しません。"]
+numerator_indicator = "foreign_residents"
+denominator_indicator = "juki_population"
+denominator_period = "same"
+denominator_label = "住民基本台帳の人口"
+fraction_units = ["人", "人"]
+family = "foreign"
+facets = { type = "総数", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
+[juki_population]
+name = "住民基本台帳の人口"
+category = "外国人住民"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+publish = false
+description = "住民基本台帳に記録されている人の数（日本人住民と外国人住民の合計、各年1月1日現在）。外国人住民の割合の分母。"
+method = "総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別人口の「人口 計」。"
+source_kind = "soumu_juki_total"
+column = "人口/計"
 
 [foreign_residents_china]
 name = "外国人住民の数（中国）"
