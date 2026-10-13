@@ -126,6 +126,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
         out.update({f"{k}_14": v for k, v in other.items()})
     out["daytime"] = _write_daytime(directory, base, random.Random(f"{seed}-daytime"))
     out.update(_write_census2025(directory, base))
+    out.update(_write_census_foreign(directory))
     out["daytime_2015"] = _write_daytime_past(directory, 2015, base, random.Random(f"{seed}-daytime-2015"))
     out["daytime_2010"] = _write_daytime_past(directory, 2010, base, random.Random(f"{seed}-daytime-2010"))
     out["foreign_census"] = _write_foreign_census(directory, base, random.Random(f"{seed}-foreign"))
@@ -1100,6 +1101,95 @@ def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
         rows.append([level, f"{pref}_{pnames[pref]}", f"{code}_{label}", "1", "3_単独世帯",
                      value(code, "単独世帯"), "-"])
     save("census2025_municipal_family_type", "b09_01.xlsx", rows)
+    return out
+
+
+# 国勢調査 人口等基本集計の男女・国籍別人口（#102）。年ごとの国籍の区分（その年の表にある国籍だけ）
+CENSUS_FOREIGN_NATIONS = {
+    2010: ["韓国・朝鮮", "中国", "フィリピン", "タイ", "インドネシア", "ベトナム", "イギリス", "アメリカ", "ブラジル", "ペルー"],
+    2015: ["韓国・朝鮮", "中国", "フィリピン", "タイ", "インドネシア", "ベトナム", "インド", "イギリス", "アメリカ",
+           "ブラジル", "ペルー"],
+    2020: ["韓国・朝鮮", "中国", "フィリピン", "タイ", "インドネシア", "ベトナム", "インド", "ネパール", "イギリス",
+           "アメリカ", "ブラジル", "ペルー"],
+    2025: ["韓国・朝鮮", "中国", "フィリピン", "タイ", "インドネシア", "ベトナム", "インド", "ネパール", "カンボジア",
+           "スリランカ", "パキスタン", "バングラデシュ", "マレーシア", "ミャンマー", "モンゴル", "イギリス", "フランス",
+           "ロシア", "アメリカ", "カナダ", "ブラジル", "ペルー", "オーストラリア"],
+}
+
+
+def census_foreign_values(year: int) -> dict[str, dict[str, int]]:
+    """男女・国籍別人口の表の見本の値（男女計）。地域コード（都道府県は5桁の 13000 など）→ 列名 → 値。
+    都道府県の行は市区町村の合計より少し多くする（公表の都道府県の行を使うことを確かめる）。
+    かりの村（13499）は人口50人未満で、外国人は0人（「-」）。"""
+    rnd = random.Random(f"census-foreign-{year}")
+    nations = CENSUS_FOREIGN_NATIONS[year]
+    out: dict[str, dict[str, int]] = {}
+    for city5, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES:
+        total = 30 + year % 7 if city5 == "13499" else rnd.randint(50_000, 400_000)
+        by_nation = {n: (0 if city5 == "13499" else rnd.randint(0, 3_000)) for n in nations}
+        foreign = sum(by_nation.values()) + (0 if city5 == "13499" else rnd.randint(0, 500))   # その他を含む
+        out[city5] = {"総数": total, "外国人人口": foreign, **by_nation}
+    for pref in ("13", "14"):
+        members = [v for c, v in out.items() if c[:2] == pref]
+        out[pref + "000"] = {k: sum(v[k] for v in members) + 3 for k in members[0]}
+    return out
+
+
+def _write_census_foreign(directory: Path) -> dict[str, Path]:
+    """2025・2020年は Excel（2020年は「表章項目」「項目名」の見出しの文字がない）、2015・2010年は CSV（cp932）。"""
+    from .xlsx import write_sheet
+    names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
+    out = {}
+    for year in (2010, 2015, 2020, 2025):
+        vals = census_foreign_values(year)
+        nations = CENSUS_FOREIGN_NATIONS[year]
+        areas = [("a", "13000", "東京都"), ("a", "14000", "神奈川県"), ("1", "14100", "みほん市")]
+        areas += [("0" if c.startswith(("131", "141")) else "2" if c[2] == "2" else "3", c, names[c]) for c in names]
+        areas.insert(0, ("a", "00000", "全国"))
+        areas.append(("3", "13498", "合併で消えた村"))   # 最新の境界にない市区町村（取り込まない）
+        def cell(code, key):
+            v = vals.get(code, {"総数": 999, "外国人人口": 9}).get(key, 0)
+            return "-" if v == 0 else v
+        d = directory / f"census{year}_municipal_foreign"
+        d.mkdir(parents=True, exist_ok=True)
+        if year >= 2020:
+            sep = "、" if year == 2025 else "，"
+            heads = ["0_総数", "1_外国人"] + [f"{101 + i}_{n.replace('・', sep)}" for i, n in enumerate(nations)] \
+                + [f"{101 + len(nations)}_その他", "2_日本人", "3_日本人・外国人の別「不詳」"]
+            keys = ["総数", "外国人人口", *nations, None, None, None]
+            title = [[f"令和{year - 2018}年国勢調査　人口等基本集計"], ["見本"], [], ["1) 注記"]]
+            if year == 2025:
+                head = [[None] * 3 + ["表章項目"] + ["人口"] * len(heads), [None] * 3 + ["事項名"] + ["国籍"] * len(heads),
+                        [None] * 3 + ["項目名"] + heads, [None] * 3 + ["表章単位"] + ["人"] * len(heads)]
+            else:
+                head = [[None] * 4 + ["人口"] * len(heads), [None] * 4 + ["国籍"] * len(heads),
+                        [None] * 4 + ["1.0"] * len(heads), [None] * 4 + heads, [None] * 4 + ["人"] * len(heads)]
+            rows = title + head + [["男女", "地域識別コード", "都道府県", "地域名", " "]]
+            for sex, f in (("0_総数", 1.0), ("1_男", 0.5)):
+                for level, code, label in areas:
+                    rows.append([sex, level, f"{code[:2]}_x", f"{code}_{label}"]
+                                + [(round(c * f) if isinstance(c := cell(code, k), int) else c) if k else 1
+                                   for k in keys])
+            fname = "b49_01.xlsx" if year == 2025 else "b44_01.xlsx"
+            write_sheet(d / fname, rows, fname.removesuffix(".xlsx"))
+        else:
+            labels = ["総数（国籍）", *[n.replace("・", "，") for n in nations], "その他 1)",
+                      "（別掲）総人口 2)" if year == 2010 else "（別掲）総人口 ", "（別掲）日本人"]
+            keys = ["外国人人口", *nations, None, "総数", None]
+            lines = [["1", f"国勢調査人口等基本集計（見本 {year}）"], ["2", "", "", "", "", "第38表　国籍別外国人数"],
+                     ["11", "", "", "", "", "総数（男女別）"] + [""] * (len(labels) - 1) + ["男"],
+                     ["12", "※大項目", "地域コード", "地域識別コード", "", *labels, *labels]]
+            for level, code, label in areas:
+                vals_row = [cell(code, k) if k else 1 for k in keys]
+                lines.append(["13", "", code, level, label, *vals_row, *vals_row])
+                if level == "a" and code == "13000":
+                    lines.append(["14", "", "13001", "b", "東京都 市部", *vals_row, *vals_row])
+                if level != "a":
+                    lines.append(["15", "", code, "d", f"{label}　人口集中地区", *vals_row, *vals_row])
+            fname = "c41.csv" if year == 2010 else "c38.csv"
+            with (d / fname).open("w", encoding="cp932", newline="") as fh:
+                csv.writer(fh, quoting=csv.QUOTE_MINIMAL).writerows(lines)
+        out[f"census{year}_municipal_foreign"] = d
     return out
 
 

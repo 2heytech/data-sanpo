@@ -3728,6 +3728,91 @@ attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat
 modification_note = "市区町村別の18歳未満世帯員のいる一般世帯数と一般世帯数（家族類型の総数）を抜き出し、割合を算出して作成"
 redistributable = true
 
+# 国勢調査 人口等基本集計の男女・国籍別人口（全国・都道府県・市区町村）。外国人の数・割合と国籍別の数・割合（#102）。
+# 2026-10-13 に GitHub Actions から取得して形式を確認した（形式は pipeline/tdm/ingest/estat_census_municipal.py を参照）。
+# 国籍の区分は年で違う（2025年は23か国、2020年は12か国、2015年は11か国、2010年は10か国。ほかは「その他」）。
+# 2015・2010年は CSV、2020・2025年は Excel。値はすべて男女の総数。
+
+[census2025_municipal_foreign]
+kind = "census_municipal"
+period = "2025-10-01"
+label = "2025年"
+table = "census_foreign"
+title = "令和7年国勢調査 人口等基本集計 表49-1 男女、国籍別人口－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230926&tclass2=000001232187&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506619&fileKind=0"
+download_filename = "b49_01.xlsx"
+files = ["b49_01.xlsx"]
+cache = true
+columns = { "総数" = "人口/0_総数", "外国人人口" = "人口/1_外国人", "韓国・朝鮮" = "人口/101_韓国、朝鮮", "中国" = "人口/102_中国", "フィリピン" = "人口/103_フィリピン", "タイ" = "人口/104_タイ", "インドネシア" = "人口/105_インドネシア", "ベトナム" = "人口/106_ベトナム", "インド" = "人口/107_インド", "ネパール" = "人口/108_ネパール", "カンボジア" = "人口/109_カンボジア", "スリランカ" = "人口/110_スリランカ", "パキスタン" = "人口/111_パキスタン", "バングラデシュ" = "人口/112_バングラデシュ", "マレーシア" = "人口/113_マレーシア", "ミャンマー" = "人口/114_ミャンマー", "モンゴル" = "人口/115_モンゴル", "イギリス" = "人口/116_イギリス", "フランス" = "人口/117_フランス", "ロシア" = "人口/118_ロシア", "アメリカ" = "人口/119_アメリカ", "カナダ" = "人口/120_カナダ", "ブラジル" = "人口/121_ブラジル", "ペルー" = "人口/122_ペルー", "オーストラリア" = "人口/123_オーストラリア" }
+filters = { "男女" = "0_総数" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
+modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（男女計）を抜き出し、割合を算出して作成"
+redistributable = true
+
+[census2020_municipal_foreign]
+kind = "census_municipal"
+period = "2020-10-01"
+label = "2020年"
+table = "census_foreign"
+title = "令和2年国勢調査 人口等基本集計 表44-1 男女，国籍別人口－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001136464&cycle=0&tclass1=000001136466&tclass2val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032142708&fileKind=0"
+download_filename = "b44_01.xlsx"
+files = ["b44_01.xlsx"]
+cache = true
+columns = { "総数" = "人口/0_総数", "外国人人口" = "人口/1_外国人", "韓国・朝鮮" = "人口/101_韓国，朝鮮", "中国" = "人口/102_中国", "フィリピン" = "人口/103_フィリピン", "タイ" = "人口/104_タイ", "インドネシア" = "人口/105_インドネシア", "ベトナム" = "人口/106_ベトナム", "インド" = "人口/107_インド", "ネパール" = "人口/108_ネパール", "イギリス" = "人口/109_イギリス", "アメリカ" = "人口/110_アメリカ", "ブラジル" = "人口/111_ブラジル", "ペルー" = "人口/112_ペルー" }
+filters = { "男女" = "0_総数" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 人口等基本集計"
+modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（男女計）を抜き出し、割合を算出して作成"
+redistributable = true
+
+[census2015_municipal_foreign]
+kind = "census_municipal"
+period = "2015-10-01"
+label = "2015年"
+table = "census_foreign"
+title = "平成27年国勢調査 人口等基本集計 第38表 国籍(12区分)，男女別外国人数(総人口及び日本人-特掲)－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001080615&cycle=0&tclass1=000001089055&tclass2=000001089056&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031473275&fileKind=1"
+download_filename = "c38.csv"
+files = ["c38.csv"]
+cache = true
+encoding = "cp932"
+columns = { "総数" = "（別掲）総人口", "外国人人口" = "総数（国籍）", "韓国・朝鮮" = "韓国，朝鮮", "中国" = "中国", "フィリピン" = "フィリピン", "タイ" = "タイ", "インドネシア" = "インドネシア", "ベトナム" = "ベトナム", "インド" = "インド", "イギリス" = "イギリス", "アメリカ" = "アメリカ", "ブラジル" = "ブラジル", "ペルー" = "ペルー" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 人口等基本集計"
+modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（男女計）を抜き出し、割合を算出して作成"
+redistributable = true
+
+[census2010_municipal_foreign]
+kind = "census_municipal"
+period = "2010-10-01"
+label = "2010年"
+table = "census_foreign"
+title = "平成22年国勢調査 人口等基本集計 第41表 国籍(11区分)，男女別外国人数－全国，都道府県，市町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001039448&cycle=0&tclass1=000001045009&tclass2=000001046265&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000012460729&fileKind=1"
+download_filename = "c41.csv"
+files = ["c41.csv"]
+cache = true
+encoding = "cp932"
+columns = { "総数" = "（別掲）総人口", "外国人人口" = "総数（国籍）", "韓国・朝鮮" = "韓国，朝鮮", "中国" = "中国", "フィリピン" = "フィリピン", "タイ" = "タイ", "インドネシア" = "インドネシア", "ベトナム" = "ベトナム", "イギリス" = "イギリス", "アメリカ" = "アメリカ", "ブラジル" = "ブラジル", "ペルー" = "ペルー" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 人口等基本集計"
+modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（男女計）を抜き出し、割合を算出して作成"
+redistributable = true
+
 [soumu_tax_2023]
 kind = "soumu_tax"
 fiscal_year = 2023

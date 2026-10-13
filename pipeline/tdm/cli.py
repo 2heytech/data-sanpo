@@ -121,14 +121,22 @@ def _ingest_municipal_census(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = "元ファイルがないため除外"
             continue
         src = register_source(conn, key, cfg, files, overrides)
-        table = estat_census_municipal.read_table(files[0], cfg["columns"], cfg.get("filters"))
+        table = estat_census_municipal.read_table(files[0], cfg["columns"], cfg.get("filters"),
+                                                  cfg.get("encoding", "cp932"))
         period = (cfg["period"], cfg["period"], "point")
         for indicator_id, d in catalog.items():
-            if d.get("table") != cfg["table"]:
+            # municipal_table: 町丁・字等の値は小地域の表（table）から、市区町村・都道府県の値はこの表からも取る（#102）
+            if cfg["table"] not in (d.get("table"), d.get("municipal_table")):
+                continue
+            missing = _missing_columns(d, table)
+            if missing:
+                # 調査の年によって国籍の区分が違う（例: 2010年の表にインドはない）。その年は値なし
+                result[f"{key} {indicator_id}"] = f"列 {missing} がないため対象外"
                 continue
             fn = (estat_small_area.ingest_ratio if d["kind"] == "ratio"
                   else estat_small_area.ingest_counts)
-            result[f"{key} {indicator_id}"] = fn(conn, table, src, indicator_id, d, period)
+            result[f"{key} {indicator_id}"] = fn(conn, _without_ingested(conn, table, indicator_id, d, period),
+                                                 src, indicator_id, d, period)
         pseudo = {"period": cfg["period"], "label": cfg.get("label", cfg["period"][:4] + "年"),
                   "boundary_version": last_census["boundary_version"]}
         for indicator_id, d in catalog.items():
@@ -141,6 +149,38 @@ def _ingest_municipal_census(conn, paths: Paths, sources: dict, catalog: dict,
                 result[f"{key} {indicator_id}"] = derive_change(
                     conn, indicator_id, d, catalog[d["base"]], [last_census, pseudo], {})
     return result
+
+
+def _missing_columns(d: dict, table) -> list[list[str]]:
+    """国勢調査の表を使う指標が参照する列のうち、表にないもの。column・numerator_column は候補の並び
+    （どれか1つがあればよい）、sum_columns などは候補の並びの並び。"""
+    groups: list[list[str]] = []
+    for k in ("column", "numerator_column"):
+        if d.get(k) is not None:
+            groups.append(d[k] if isinstance(d[k], list) else [d[k]])
+    for k in ("sum_columns", "numerator_sum_columns", "denominator_sum_columns", "denominator_subtract_columns"):
+        groups.extend(d.get(k) or [])
+    missing = []
+    for g in groups:
+        try:
+            table.column(g)
+        except KeyError:
+            missing.append(g)
+    return missing
+
+
+def _without_ingested(conn, table, indicator_id: str, d: dict, period: tuple) -> "estat_small_area.Table":
+    """小地域の表から市区町村の値を取り込み済みの時点（2020年の外国人の割合など）は、その市区町村の行を除く
+    （同じ地域・時点の値が出典違いで2つにならないように）。"""
+    if not d.get("municipal_table"):
+        return table
+    done = {r[0] for r in conn.execute(
+        """SELECT entity_id FROM observations WHERE indicator_id = ? AND period_start = ?
+           AND entity_id LIKE 'muni-%'""", (indicator_id, period[0]))}
+    if not done:
+        return table
+    rows = [r for r in table.rows if f"muni-{r['KEY_CODE']}" not in done]
+    return estat_small_area.Table(table.labels, rows, table.prefecture_rows)
 
 
 def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
