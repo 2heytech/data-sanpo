@@ -13,10 +13,14 @@ interface Props {
   preload?: string;
   /** 見ている都道府県の名前（地域ページなど）。ロゴの横に出す */
   prefecture?: string;
+  /** title をそのまま使う（サイト名を後ろに付けない）。トップページ用 */
+  titleIsFull?: boolean;
 }
-const { title, description, wide = false, preload, prefecture } = Astro.props;
+const { title, description, wide = false, preload, prefecture, titleIsFull = false } = Astro.props;
 const SITE_NAME = "データさんぽ";
-const fullTitle = title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
+const fullTitle = titleIsFull || title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
+// SNS で共有されたときの画像（全ページ共通、1200×630）。作り方は scripts/og-image.mjs
+const ogImage = Astro.site ? new URL("/og.png", Astro.site).href : "/og.png";
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const indexable = ALLOW_INDEXING;
 // ロゴの横の都道府県名。見ている都道府県が決まるページ（地域ページ、地図で選んだ・拡大したとき）だけ出し、
@@ -62,6 +66,12 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={`${SITE_NAME} — 全国の市区町村・町丁目を公開データで色分けした地図`} />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="sitemap" href="/sitemap-index.xml" />
     {preload && <link rel="modulepreload" href={preload} />}

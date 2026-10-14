@@ -35,11 +35,14 @@ const usedSources = [...new Set(stats.flatMap((s) => s.period.source_ids))].map(
 const pop = stats.find((s) => s.ind.id === "population_total");
 const pref = areas.prefectures.find((p) => p.code === muni.prefecture)?.name ?? "";
 const place = [pref, muni.region].filter(Boolean).join("・");
-const description = `${muni.name}（${place}）の人口・年齢構成などを公開データで紹介。` +
+const statCount = stats.filter((s) => s.row?.value != null).length;
+const description = `${muni.name}（${place}）の人口・年齢構成など${statCount}の指標を公開データで紹介。` +
   (pop?.row?.value != null ? `人口は${formatValue(pop.row, pop.ind)}（${pop.period.label}）。` : "") +
-  "近隣の市区町村との比較と出典つき。";
+  `${pref}内・全国の順位と、となりの市区町村との比較、出典つき。`;
+// 検索結果で同じ名前の市区町村（府中市・伊達市など）を見分けられるよう、題名に都道府県名を入れる
+const pageTitle = pref ? `${muni.name}（${pref}）の人口・統計データと順位` : `${muni.name}の人口・統計データと順位`;
 ---
-<Base title={`${muni.name}のデータ`} description={description} prefecture={pref || undefined}>
+<Base title={pageTitle} description={description} prefecture={pref || undefined}>
   <header class="page-head">
     <p class="eyebrow">{place}</p>
     <h1>{muni.name}のデータ</h1>
