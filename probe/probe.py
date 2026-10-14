@@ -1,44 +1,7 @@
-import urllib.request, re, html
+import urllib.request
 UA = {"User-Agent": "Mozilla/5.0"}
-def get(u):
-    try:
-        return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=60).read().decode("utf-8", "replace")
-    except Exception as e:
-        print("ERR", u, e); return ""
-def text(s):
-    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", s))).strip()
-B = "https://www.e-stat.go.jp/stat-search/files?toukei=00200521&cycle=0"
-def links(t, n):
-    out = {}
-    for m in re.finditer(r'<a[^>]+href="([^"]*tclass%d=(\d+)[^"]*)"[^>]*>(.*?)</a>' % n, t, re.S):
-        if m[2] not in out: out[m[2]] = (html.unescape(m[1]), text(m[3]))
-    return out
-def leaves(year, url):
-    seen = set()
-    for page in range(1, 40):
-        t = get(url.replace("layout=normal", "layout=datalist") + f"&layout=datalist&page={page}")
-        new = 0
-        for m in re.finditer(r"statInfId=(\d+)&(?:amp;)?fileKind=(\d)", t):
-            if m[1] in seen: continue
-            seen.add(m[1]); new += 1
-            before = text(t[max(0, m.start() - 1500):m.start()])[-220:].split("表番号")[-1]
-            if True:
-                print(year, page, m[1], m[2], "|", before[:190], flush=True)
-        if new == 0: break
-    print("-- leaves", year, len(seen), flush=True)
-
-
-
-import json
-l3 = links(get(f"{B}&tstat=000001039448&tclass1=000001049567&tclass2=000001051130"), 3)
-ids = {}
-for k3, (u3, n3) in l3.items():
-    pref = n3[:2]
-    t = get(f"{B}&tstat=000001039448&tclass1=000001049567&tclass2=000001051130&tclass3={k3}&tclass4val=0&layout=datalist&page=1")
-    prev = 0
-    for m in re.finditer(r"statInfId=(\d+)", t):
-        txt = text(t[prev:m.start()]); prev = m.end()
-        if re.search(r"(^|\s)1 常住地又は従業地・通学地による年齢", txt.split("表番号")[-1]):
-            ids[pref] = m[1]; break
-    print(pref, n3[:8], ids.get(pref), flush=True)
-print("IDS", json.dumps(ids, sort_keys=True))
+for y in ("2020", "2015"):
+    u = f"https://www.toukei.metro.tokyo.lg.jp/tyukanj/{y}/tj{y[2:]}zv0100.csv"
+    t = urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=60).read().decode("utf-8-sig")
+    for line in t.splitlines():
+        if line.split(",")[1:2] and line.split(",")[1] in ("13000", "13101", "13104", "13421", "地域コード"): print(y, line[:200])

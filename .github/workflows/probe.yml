@@ -7,4 +7,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 probe/probe.py && python3 probe/dump.py 000013173074
+      - run: python3 probe/probe.py
