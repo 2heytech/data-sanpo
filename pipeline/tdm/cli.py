@@ -225,7 +225,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "mlit_airport_locations":
             transport_locations["airport"] = (files, src)
         elif kind == "wikidata_ports":
-            transport_locations["port"] = (files[0], src)
+            transport_locations.setdefault("port", []).extend((f, src) for f in files)
         elif kind == "tokyo_schools":
             school_tables += tokyo_schools.tables_of(files, cfg, src)
         elif kind == "isj_gazetteer":

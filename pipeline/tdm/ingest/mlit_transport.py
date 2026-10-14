@@ -27,6 +27,7 @@ from ..xlsx import read_sheet, sheet_names
 from .mlit_stations import _municipality_index, _municipality_of
 
 DIMENSIONS = ("all", "domestic", "international")
+PORT_NEAR_DEGREES = 0.05   # 約5km
 ZERO = {"-", "－", "―", "‐", "—", "–"}
 MARKS = "☆◎○●◇◆△▲※*＊"
 PORT_LOCATIONS = Path(__file__).resolve().parents[2] / "config" / "port_locations.toml"
@@ -64,12 +65,15 @@ def _preview(rows: list[list], start: int, n: int, width: int = 18) -> list[str]
 
 # --- 空港 -----------------------------------------------------------------------
 
+AIRPORT_ALIASES = {"石垣": "新石垣"}   # 調書と国土数値情報で名前が違う空港（調書 → 国土数値情報）
+
+
 def norm_airport(name: str) -> str:
     """空港名の比べ方。「東京国際空港」と「東京国際」、「新千歳空港」と「新千歳」を同じにする。"""
     s = re.sub(r"[(（].*?[)）]", "", _t(name))
     for w in ("国際空港", "空港", "飛行場", "国際"):
         s = s.replace(w, "")
-    return s
+    return AIRPORT_ALIASES.get(s, s)
 
 
 MONTHS = [f"{m}月" for m in range(1, 13)]
@@ -118,7 +122,7 @@ def read_airports(path: Path) -> tuple[dict[str, dict[str, float | None]], list[
             name = re.sub(r"[(（].*?[)）]$", "", name) or name
             block = rows[i:starts[n + 1] if n + 1 < len(starts) else len(rows)]
             h = next((x for x, b in enumerate(block[:6]) if any("乗降客" in _t(c) for c in b)), None)
-            if not name or h is None:
+            if not name or h is None or "計" in name:   # 会社管理空港計・全空港計などの合計の欄
                 continue
             cols = _airport_columns(block, h)
             if not cols:
@@ -129,6 +133,8 @@ def read_airports(path: Path) -> tuple[dict[str, dict[str, float | None]], list[
                 labels = [_t(c) for c in b[:min(cols.values())] if isinstance(c, str) and _t(c)]
                 lab = labels[-1] if labels else ""
                 if lab in MONTHS:
+                    if lab in months:      # 同じ欄の下の表（貨物・郵便など）の月の行
+                        break
                     months[lab] = b
                 elif lab in ("計", "合計", "年計", "年間計") and year_row is None:
                     year_row = b
@@ -250,17 +256,21 @@ def read_ports(path: Path) -> tuple[dict[tuple[str, str], dict[str, float | None
     return out, notes
 
 
-def read_wikidata_ports(path: Path) -> dict[tuple[str, str], tuple[float, float, str]]:
-    """Wikidata の港 → (都道府県コード, 正規化した名前) → (経度, 緯度, QID)。同じ名前が複数あれば番号の小さい項目。"""
+def read_wikidata_ports(path: Path) -> dict[tuple[str | None, str], tuple[float, float, str]]:
+    """Wikidata の港 → (都道府県コード, 正規化した名前) → (経度, 緯度, QID)。同じ名前が複数あれば番号の小さい項目。
+    ラベル（label）か日本語版ウィキペディアの記事名（title、「大島港 (香川県)」など）で名前を取る。
+    都道府県の分からない項目（所在地 P131 がない）は都道府県を None にし、位置の市区町村で確かめてから使う。"""
     data = json.loads(path.read_text(encoding="utf-8"))
-    out: dict[tuple[str, str], tuple[float, float, str]] = {}
+    out: dict[tuple[str | None, str], tuple[float, float, str]] = {}
     for b in data.get("results", {}).get("bindings", []):
-        pref = PREF_NAMES.get(b.get("prefLabel", {}).get("value", ""))
+        name = (b.get("label") or b.get("title") or {}).get("value", "")
         m = re.match(r"Point\(([-\d.]+) ([-\d.]+)\)", b.get("coord", {}).get("value", ""))
-        if not pref or not m:
+        if not name or not m:
             continue
+        paren = re.search(r"[(（](.+?)[)）]", name)
+        pref = PREF_NAMES.get(b.get("prefLabel", {}).get("value", "")) or (paren and PREF_NAMES.get(paren.group(1)))
         qid = b["item"]["value"].rsplit("/", 1)[-1]
-        key = (pref, norm_port(b["label"]["value"]))
+        key = (pref or None, norm_port(name))
         if key not in out or int(qid[1:]) < int(out[key][2][1:]):
             out[key] = (float(m.group(1)), float(m.group(2)), qid)
     return out
@@ -360,15 +370,28 @@ def ingest_airports(conn: sqlite3.Connection, tables: list[tuple[int, Path, str]
     return result
 
 
+def _port_municipality(point: Point, pref: str, ids, geoms, tree) -> str | None:
+    """港の位置の市区町村。港の位置は海の上のこともあるので、同じ都道府県の約5km以内の市区町村まで探す。"""
+    hits = [i for i in tree.query(point, predicate="intersects") if ids[i].startswith(f"muni-{pref}")]
+    if hits:
+        return ids[hits[0]]
+    near = [i for i in tree.query(point.buffer(PORT_NEAR_DEGREES), predicate="intersects")
+            if ids[i].startswith(f"muni-{pref}")]
+    return ids[min(near, key=lambda i: geoms[i].distance(point))] if near else None
+
+
 def ingest_ports(conn: sqlite3.Connection, tables: list[tuple[int, list[Path], str]],
-                 wikidata: tuple[Path, str] | None, catalog: dict, boundary_version: str,
+                 wikidata: list[tuple[Path, str]] | None, catalog: dict, boundary_version: str,
                  prefs: list[str]) -> dict:
     found = _def(catalog, "mlit_ports")
-    result = {"ports": 0, "no_location": 0, "outside": 0, "no_passengers": 0, "observations": 0}
+    result = {"ports": 0, "no_location": 0, "wrong_location": 0, "outside": 0, "no_passengers": 0, "observations": 0}
     if not found:
         return result
     indicator_id, d = found
-    wd = read_wikidata_ports(wikidata[0]) if wikidata else {}
+    wd: dict = {}
+    for path, src in wikidata or []:
+        for key, v in read_wikidata_ports(path).items():
+            wd.setdefault(key, (*v, src))
     manual = read_port_overrides()
     progress(f"港の位置: Wikidata {len(wd)} 件、手で付けた位置 {len(manual)} 件")
     manual_src = register_source(conn, "port_locations", MANUAL_SOURCE, [PORT_LOCATIONS]) if manual else ""
@@ -382,24 +405,28 @@ def ingest_ports(conn: sqlite3.Connection, tables: list[tuple[int, list[Path], s
             for key, vals in table.items():
                 by_port.setdefault(key, {})[year] = (vals, src)
     munis = _municipality_index(conn, boundary_version, prefs)
-    missing = []
+    missing, wrong = [], []
     for (pref, name), series in sorted(by_port.items()):
         if not any(v.get("all") for v, _ in series.values()):
             result["no_passengers"] += 1      # 旅客の乗り降りのない港（どの年も0）
             continue
+        norm = norm_port(name)
         if (pref, name) in manual:
             lon, lat = manual[(pref, name)]
             loc_src, qid = manual_src, None
-        elif (pref, norm_port(name)) in wd:
-            lon, lat, qid = wd[(pref, norm_port(name))]
-            loc_src = wikidata[1]
+        elif (pref, norm) in wd or (None, norm) in wd:
+            lon, lat, qid, loc_src = wd.get((pref, norm)) or wd[(None, norm)]
         else:
             missing.append(f"{PREFECTURES[pref]}/{name}")
             result["no_location"] += 1
             continue
-        muni = _municipality_of(Point(lon, lat), *munis)
-        if muni is None:
+        if pref not in prefs:
             result["outside"] += 1
+            continue
+        muni = _port_municipality(Point(lon, lat), pref, *munis)
+        if muni is None:   # 位置が都道府県から離れている（同じ名前の別の港など）
+            wrong.append(f"{PREFECTURES[pref]}/{name}（{qid or '手で付けた位置'} {lon:.3f},{lat:.3f}）")
+            result["wrong_location"] += 1
             continue
         eid = f"port-{pref}-{hashlib.sha1(name.encode()).hexdigest()[:8]}"
         result["observations"] += _store(conn, eid, "port", name, muni, lon, lat, loc_src,
@@ -407,4 +434,6 @@ def ingest_ports(conn: sqlite3.Connection, tables: list[tuple[int, list[Path], s
         result["ports"] += 1
     if missing:
         progress(f"位置の分からない港 {len(missing)}: " + "、".join(missing))
+    if wrong:
+        progress(f"位置が都道府県と合わない港 {len(wrong)}: " + "、".join(wrong))
     return result
