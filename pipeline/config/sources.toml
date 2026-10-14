@@ -4604,3 +4604,275 @@ license_url = "https://www.jma.go.jp/jma/kishou/info/coment.html"
 attribution = "出典：気象庁ホームページ（https://www.data.jma.go.jp/stats/data/mdrr/normal/index.html） 平年値（統計期間1991〜2020年）"
 modification_note = "観測所ごとの年・月の平年値（日照時間・降水量・最深積雪・降雪量）を抜き出して作成"
 redistributable = true
+
+# 空港の乗降客数（国土交通省 航空局「空港管理状況調書」、暦年）。1年分が1つの Excel。
+# 形式は pipeline/tdm/ingest/mlit_transport.py を参照。国土交通省のサイトのコンテンツは政府標準利用規約（第2.0版）
+# （商用利用・加工可、出典の記載が必要。CC BY 4.0 と両立）。
+[mlit_airports_2025]
+kind = "mlit_airports"
+year = 2025
+title = "空港管理状況調書（令和7年・2025年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/koku/content/002016480.xlsx"
+download_filename = "airports_2025.xlsx"
+files = ["airports_2025.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2024]
+kind = "mlit_airports"
+year = 2024
+title = "空港管理状況調書（令和6年・2024年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/koku/content/001905537.xlsx"
+download_filename = "airports_2024.xlsx"
+files = ["airports_2024.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2023]
+kind = "mlit_airports"
+year = 2023
+title = "空港管理状況調書（令和5年・2023年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/koku/content/001904216.xlsx"
+download_filename = "airports_2023.xlsx"
+files = ["airports_2023.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2022]
+kind = "mlit_airports"
+year = 2022
+title = "空港管理状況調書（令和4年・2022年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/koku/content/001753894.xlsx"
+download_filename = "airports_2022.xlsx"
+files = ["airports_2022.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2021]
+kind = "mlit_airports"
+year = 2021
+title = "空港管理状況調書（令和3年・2021年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001494176.xlsx"
+download_filename = "airports_2021.xlsx"
+files = ["airports_2021.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2020]
+kind = "mlit_airports"
+year = 2020
+title = "空港管理状況調書（令和2年・2020年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001491420.xlsx"
+download_filename = "airports_2020.xlsx"
+files = ["airports_2020.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2019]
+kind = "mlit_airports"
+year = 2019
+title = "空港管理状況調書（令和元年・2019年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001491398.xlsx"
+download_filename = "airports_2019.xlsx"
+files = ["airports_2019.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2018]
+kind = "mlit_airports"
+year = 2018
+title = "空港管理状況調書（平成30年・2018年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001491408.xlsx"
+download_filename = "airports_2018.xlsx"
+files = ["airports_2018.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2017]
+kind = "mlit_airports"
+year = 2017
+title = "空港管理状況調書（平成29年・2017年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001475217.xlsx"
+download_filename = "airports_2017.xlsx"
+files = ["airports_2017.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2016]
+kind = "mlit_airports"
+year = 2016
+title = "空港管理状況調書（平成28年・2016年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001475271.xlsx"
+download_filename = "airports_2016.xlsx"
+files = ["airports_2016.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+# 空港の位置（国土数値情報 C28 空港、2021年）。空港管理状況調書には位置がないので、空港の名前で対応付ける。
+[mlit_c28_2021]
+kind = "mlit_airport_locations"
+title = "国土数値情報 空港データ（令和3年）"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-C28-2021.html"
+download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/C28/C28-21/C28-21_GML.zip"
+files = ["*.geojson"]
+cache = true
+license = "国土数値情報 利用約款（商用可）"
+license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
+attribution = "出典：国土交通省 国土数値情報（空港データ）"
+modification_note = "空港の位置を空港管理状況調書の空港に対応付けて作成"
+redistributable = true
+
+# 港の船舶乗降人員（国土交通省「港湾統計（年報）」第2表 船舶乗降人員表、e-Stat の Excel 閲覧用）。
+# 甲種港湾（第2部）と乙種港湾（第3部）の2ファイル。e-Stat の利用規約は政府標準利用規約準拠（商用可）。
+[mlit_ports_2024]
+kind = "mlit_ports"
+year = 2024
+title = "港湾調査 港湾統計（年報）2024年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2024_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040392430&fileKind=4", "ports_2024_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040392456&fileKind=4" }
+files = ["ports_2024_kou.xlsx", "ports_2024_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+[mlit_ports_2023]
+kind = "mlit_ports"
+year = 2023
+title = "港湾調査 港湾統計（年報）2023年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2023_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040237669&fileKind=4", "ports_2023_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040237695&fileKind=4" }
+files = ["ports_2023_kou.xlsx", "ports_2023_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+[mlit_ports_2022]
+kind = "mlit_ports"
+year = 2022
+title = "港湾調査 港湾統計（年報）2022年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2022_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040133010&fileKind=4", "ports_2022_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040133036&fileKind=4" }
+files = ["ports_2022_kou.xlsx", "ports_2022_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+[mlit_ports_2021]
+kind = "mlit_ports"
+year = 2021
+title = "港湾調査 港湾統計（年報）2021年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2021_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032274467&fileKind=4", "ports_2021_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032274506&fileKind=4" }
+files = ["ports_2021_kou.xlsx", "ports_2021_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+[mlit_ports_2020]
+kind = "mlit_ports"
+year = 2020
+title = "港湾調査 港湾統計（年報）2020年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2020_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032160058&fileKind=4", "ports_2020_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032160077&fileKind=4" }
+files = ["ports_2020_kou.xlsx", "ports_2020_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+# 港の位置（Wikidata、CC0）。港湾統計には位置がなく、国土数値情報の港湾（C02）は非商用のため使わない。
+# 港の名前と都道府県で対応付け、対応付かない港は pipeline/config/port_locations.toml で補う。
+[wikidata_ports]
+kind = "wikidata_ports"
+title = "Wikidata 日本の港の位置"
+provider = "Wikidata"
+url = "https://www.wikidata.org/"
+download_url = "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fitem%20%3Flabel%20%3Fpref%20%3FprefLabel%20%3Fcoord%20WHERE%20%7B%20%7B%20%3Fitem%20wdt%3AP31/wdt%3AP279%2A%20wd%3AQ44782%20%7D%20UNION%20%7B%20%3Fitem%20wdt%3AP31/wdt%3AP279%2A%20wd%3AQ283202%20%7D%20%3Fitem%20wdt%3AP17%20wd%3AQ17%20%3B%20wdt%3AP625%20%3Fcoord%20%3B%20rdfs%3Alabel%20%3Flabel%20.%20FILTER%28LANG%28%3Flabel%29%20%3D%20%22ja%22%29%20OPTIONAL%20%7B%20%3Fitem%20wdt%3AP131%2B%20%3Fpref%20.%20%3Fpref%20wdt%3AP31%20wd%3AQ50337%20.%20%3Fpref%20rdfs%3Alabel%20%3FprefLabel%20.%20FILTER%28LANG%28%3FprefLabel%29%20%3D%20%22ja%22%29%20%7D%20%7D"
+download_filename = "ports.json"
+files = ["ports.json"]
+cache = true
+license = "CC0 1.0"
+license_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+attribution = "港の位置：Wikidata（CC0）"
+modification_note = "港の位置を港湾統計の港に対応付けて作成"
+redistributable = true
