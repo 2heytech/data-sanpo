@@ -7,31 +7,45 @@ def get(u):
         print("ERR", u, e); return ""
 def text(s):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", s))).strip()
-B = "https://www.e-stat.go.jp/stat-search/files?toukei=00200521&layout=datalist&cycle=0"
-def crawl(year, q):
+B = "https://www.e-stat.go.jp/stat-search/files?toukei=00200521&cycle=0"
+def links(t, n):
+    out = {}
+    for m in re.finditer(r'<a[^>]+href="([^"]*tclass%d=(\d+)[^"]*)"[^>]*>(.*?)</a>' % n, t, re.S):
+        if m[2] not in out: out[m[2]] = (html.unescape(m[1]), text(m[3]))
+    return out
+def leaves(year, url):
     seen = set()
     for page in range(1, 40):
-        t = get(f"{B}&{q}&page={page}")
+        t = get(url.replace("layout=normal", "layout=datalist") + f"&layout=datalist&page={page}")
         new = 0
         for m in re.finditer(r"statInfId=(\d+)&(?:amp;)?fileKind=(\d)", t):
-            sid = m[1]
-            if sid in seen: continue
-            seen.add(sid); new += 1
-            before = text(t[max(0, m.start() - 1500):m.start()])[-200:].split("表番号")[-1]
-            if "昼間人口" in before or "昼夜間" in before:
-                print(year, q[-40:], page, sid, m[2], "|", before[:170], flush=True)
+            if m[1] in seen: continue
+            seen.add(m[1]); new += 1
+            before = text(t[max(0, m.start() - 1500):m.start()])[-220:].split("表番号")[-1]
+            if "昼間" in before or "昼夜間" in before or "従業地・通学地" in before:
+                print(year, page, m[1], m[2], "|", before[:190], flush=True)
         if new == 0: break
-    print("--", year, q, len(seen), flush=True)
-crawl("2020", "tstat=000001136464&tclass1=000001136469&tclass2val=0")
-for c in ("000001089055", "000001095955", "000001104835", "000001104855", "000001101935", "000001104875", "000001093875", "000001103715"):
-    top = get(f"{B}&tstat=000001080615&tclass1={c}&tclass2val=0")
-    subs = dict(re.findall(r'tclass2=(\d+)[^>]*>(.*?)</a>', top, re.S))
-    sub = next((k for k, v in subs.items() if "全国" in text(v)), None)
-    if sub: crawl("2015", f"tstat=000001080615&tclass1={c}&tclass2={sub}&tclass3val=0")
-    else: crawl("2015", f"tstat=000001080615&tclass1={c}&tclass2val=0")
-for c in ("000001045009", "000001047544", "000001051859", "000001059198", "000001049567", "000001057366", "000001062588", "000001048107", "000001051632", "000001058685"):
-    top = get(f"{B}&tstat=000001039448&tclass1={c}&tclass2val=0")
-    subs = dict(re.findall(r'tclass2=(\d+)[^>]*>(.*?)</a>', top, re.S))
-    sub = next((k for k, v in subs.items() if "全国" in text(v)), None)
-    if sub: crawl("2010", f"tstat=000001039448&tclass1={c}&tclass2={sub}&tclass3val=0")
-    else: crawl("2010", f"tstat=000001039448&tclass1={c}&tclass2val=0")
+    print("-- leaves", year, len(seen), flush=True)
+for year, tstat in (("2015", "000001080615"), ("2010", "000001039448")):
+    top = get(f"{B}&tstat={tstat}")
+    l1 = links(top, 1)
+    for k, (u, name) in l1.items():
+        print(year, "L1", k, name, flush=True)
+    for k, (u, name) in l1.items():
+        if "従業" not in name: continue
+        t = get(f"{B}&tstat={tstat}&tclass1={k}")
+        l2 = links(t, 2)
+        for k2, (u2, n2) in l2.items():
+            print(year, " L2", k2, n2, flush=True)
+        for k2, (u2, n2) in l2.items():
+            if "全国" not in n2 and "都道府県" not in n2: continue
+            t3 = get(f"{B}&tstat={tstat}&tclass1={k}&tclass2={k2}")
+            l3 = links(t3, 3)
+            for k3, (u3, n3) in l3.items():
+                print(year, "  L3", k3, n3, flush=True)
+            if l3:
+                for k3, (u3, n3) in l3.items():
+                    if "全国" in n3:
+                        leaves(year, f"{B}&tstat={tstat}&tclass1={k}&tclass2={k2}&tclass3={k3}&tclass4val=0")
+            else:
+                leaves(year, f"{B}&tstat={tstat}&tclass1={k}&tclass2={k2}&tclass3val=0")

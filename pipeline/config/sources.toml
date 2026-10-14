@@ -814,6 +814,105 @@ attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat
 modification_note = "都道府県・市区町村別の外国人住民の人口を抜き出して作成"
 redistributable = true
 
+# 住民基本台帳の【総計】（日本人住民と外国人住民の合計、各年1月1日現在）。外国人住民の割合の分母。
+# 【外国人住民】と同じ形のファイル（2026-10-13 に GitHub Actions から取得して確認）。
+
+[soumu_juki_total_2021]
+kind = "soumu_juki_total"
+period = "2021-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和3年1月1日現在）【総計】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20210"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040306659&fileKind=0"
+download_filename = "juki_total_2021.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の住民基本台帳の人口（総計）を抜き出し、外国人住民の割合の分母に使用"
+redistributable = true
+
+[soumu_juki_total_2022]
+kind = "soumu_juki_total"
+period = "2022-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和4年1月1日現在）【総計】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20220"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032224636&fileKind=0"
+download_filename = "juki_total_2022.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の住民基本台帳の人口（総計）を抜き出し、外国人住民の割合の分母に使用"
+redistributable = true
+
+[soumu_juki_total_2023]
+kind = "soumu_juki_total"
+period = "2023-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和5年1月1日現在）【総計】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20230"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040306647&fileKind=0"
+download_filename = "juki_total_2023.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の住民基本台帳の人口（総計）を抜き出し、外国人住民の割合の分母に使用"
+redistributable = true
+
+[soumu_juki_total_2024]
+kind = "soumu_juki_total"
+period = "2024-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和6年1月1日現在）【総計】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20240"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040306672&fileKind=0"
+download_filename = "juki_total_2024.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の住民基本台帳の人口（総計）を抜き出し、外国人住民の割合の分母に使用"
+redistributable = true
+
+[soumu_juki_total_2025]
+kind = "soumu_juki_total"
+period = "2025-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和7年1月1日現在）【総計】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20250"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040306653&fileKind=0"
+download_filename = "juki_total_2025.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の住民基本台帳の人口（総計）を抜き出し、外国人住民の割合の分母に使用"
+redistributable = true
+
+[soumu_juki_total_2026]
+kind = "soumu_juki_total"
+period = "2026-01-01"
+title = "住民基本台帳に基づく人口、人口動態及び世帯数（令和8年1月1日現在）【総計】市区町村別人口、人口動態及び世帯数"
+provider = "総務省自治行政局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200241&tstat=000001039591&layout=dataset&cycle=7&year=20260"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040479049&fileKind=0"
+download_filename = "juki_total_2026.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住民基本台帳に基づく人口、人口動態及び世帯数」"
+modification_note = "都道府県・市区町村別の住民基本台帳の人口（総計）を抜き出し、外国人住民の割合の分母に使用"
+redistributable = true
+
 # 全国の在留外国人（在留外国人統計、各年12月末現在）の市区町村別・国籍別。形式は pipeline/tdm/ingest/estat_foreign.py を参照。
 
 [moj_zairyu_foreign_2021]

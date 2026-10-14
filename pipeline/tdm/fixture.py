@@ -134,6 +134,8 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
         out[f"foreign_{year}"] = _write_foreign(directory, year, base, random.Random(f"{seed}-foreign-{year}"))
     for year in JUKI_FOREIGN_YEARS:
         out[f"juki_foreign_{year}"] = _write_juki_foreign(directory, year, random.Random(f"{seed}-juki-{year}"))
+        out[f"juki_total_{year}"] = _write_juki_foreign(directory, year, random.Random(f"{seed}-juki-{year}"),
+                                                        total=True)
     for year in ZAIRYU_YEARS:
         out[f"zairyu_{year}"] = _write_zairyu(directory, year, random.Random(f"{seed}-zairyu-{year}"))
     for year in TRAFFIC_YEARS:
@@ -1236,14 +1238,23 @@ def juki_foreign_values(year: int) -> dict[str, int]:
             for c, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
 
 
-def _write_juki_foreign(directory: Path, year: int, rnd: random.Random) -> Path:
+def juki_total_values(year: int) -> dict[str, int]:
+    """見本の市区町村ごとの住民基本台帳の人口（日本人住民と外国人住民の合計）。島しょの村は50人未満にする。"""
+    rnd = random.Random(f"juki-total-{year}")
+    return {c: v + (rnd.randint(20000, 300000) if c != "13499" else 28)
+            for c, v in juki_foreign_values(year).items()}
+
+
+def _write_juki_foreign(directory: Path, year: int, rnd: random.Random, total: bool = False) -> Path:
+    """【外国人住民】（total なら【総計】）の市区町村別人口。2つは同じ形。"""
     from .xlsx import write_sheet
-    d = directory / f"soumu_juki_foreign_{year}"
+    kind, label = ("total", "総計") if total else ("foreign", "外国人住民")
+    d = directory / f"soumu_juki_{kind}_{year}"
     d.mkdir(parents=True, exist_ok=True)
-    vals = juki_foreign_values(year)
+    vals = juki_total_values(year) if total else juki_foreign_values(year)
     names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
     era = f"令和{year - 2018}年"
-    rows = [[f"{era}1月1日住民基本台帳人口・世帯数、{era}（1月1日から同年12月31日まで）人口動態（市区町村別）【外国人住民】"],
+    rows = [[f"{era}1月1日住民基本台帳人口・世帯数、{era}（1月1日から同年12月31日まで）人口動態（市区町村別）【{label}】"],
             [None] * 3 + [era] * 4, [None] * 3 + [f"{year}年"] * 4, [None] * 3 + ["人口", "人口", "人口", "世帯数"],
             [None] * 3 + ["男", "女", "計", "世帯数"], ["団体コード", "都道府県名", "市区町村名", "人", "人", "人", "世帯"]]
 
@@ -1259,8 +1270,8 @@ def _write_juki_foreign(directory: Path, year: int, rnd: random.Random) -> Path:
             rows.append(row("14190", PREF_NAMES[pref], "みほん市", sum(members.values())))
         rows += [row(c, PREF_NAMES[pref], names[c], v) for c, v in members.items()]
     rows.append(["注：見本の注記"])
-    path = d / f"juki_foreign_{year}.xlsx"
-    write_sheet(path, rows, "人口、世帯数、人口動態（市区町村別）【外国人住民】")
+    path = d / f"juki_{kind}_{year}.xlsx"
+    write_sheet(path, rows, f"人口、世帯数、人口動態（市区町村別）【{label}】")
     return path
 
 
