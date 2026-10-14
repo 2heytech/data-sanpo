@@ -133,6 +133,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const legendEl = $("#legend");
   const facetsEl = $("#facets");
   const facetType = $<HTMLSelectElement>("#facet-type");
+  const facetTypeWrap = $<HTMLElement>("#facet-type-wrap");
   const facetBasis = $<HTMLSelectElement>("#facet-basis");
   const facetBasisWrap = $<HTMLElement>("#facet-basis-wrap");
   const aggregateWrap = $("#aggregate-wrap");
@@ -1084,8 +1085,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       .map((t) => `<option${t === type ? " selected" : ""}>${esc(t)}</option>`).join("");
     facetBasis.innerHTML = unique(members.filter((m) => m.facets!.type === type).map((m) => m.facets!.basis))
       .map((b) => `<option${b === basis ? " selected" : ""}>${esc(b)}</option>`).join("");
-    // 基準が1つしかない組（世帯年収など）は、選べないので欄ごと隠す
+    // 種別・基準が1つしかない組（交通事故の種別ごとの組、世帯年収など）は、選べないので欄ごと隠す
+    facetTypeWrap.hidden = unique(members.map((m) => m.facets!.type)).length < 2;
     facetBasisWrap.hidden = unique(members.map((m) => m.facets!.basis)).length < 2;
+    facetsEl.hidden = facetTypeWrap.hidden && facetBasisWrap.hidden;
   }
   function setIndicator(next: Indicator, how: UsageHow | null) {
     stopPlay();
