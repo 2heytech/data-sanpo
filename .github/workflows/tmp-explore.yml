@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -e pipeline
-      - run: sudo apt-get install -y poppler-utils poppler-data >/dev/null 2>&1; pdftotext -v || true
+      - run: (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils poppler-data) >/dev/null 2>&1 || true; pdftotext -v || true; pip install -q pdfminer.six
       - name: J51 headers
         run: |
           for f in J51-25-a J51-25-b; do
@@ -27,11 +27,12 @@ jobs:
           "
           done
       - name: shuugaku PDFs
+        continue-on-error: true
         run: |
           for n in 5 13; do
             curl -sSL -o s$n.pdf https://www.mext.go.jp/content/20260708-mxt_shuugaku-000050859_$n.pdf
             pdfinfo s$n.pdf | head -20
             pdftotext -layout s$n.pdf s$n.txt
             echo "===== layout $n"; head -c 12000 s$n.txt
-            pdftotext s$n.pdf s${n}r.txt; echo "===== raw $n"; head -c 4000 s${n}r.txt
+            echo "===== pdfminer $n"; pdf2txt.py -t text s$n.pdf | head -c 6000
           done
