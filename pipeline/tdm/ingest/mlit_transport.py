@@ -21,6 +21,7 @@ from shapely.geometry import Point, shape
 
 from ..db import insert_observation, upsert_entity
 from ..progress import progress
+from ..sources import register_source
 from ..regions import PREFECTURES
 from ..xlsx import read_sheet, sheet_names
 from .mlit_stations import _municipality_index, _municipality_of
@@ -29,6 +30,12 @@ DIMENSIONS = ("all", "domestic", "international")
 ZERO = {"-", "－", "―", "‐", "—", "–"}
 MARKS = "☆◎○●◇◆△▲※*＊"
 PORT_LOCATIONS = Path(__file__).resolve().parents[2] / "config" / "port_locations.toml"
+MANUAL_SOURCE = {   # 手で付けた港の位置の出典（sources.json に載せる）
+    "title": "港の代表地点（データさんぽで作成）", "provider": "データさんぽ",
+    "url": "https://github.com/2heytech/data-sanpo/blob/main/pipeline/config/port_locations.toml",
+    "license": "クリエイティブ・コモンズ 表示 4.0 国際", "license_url": "https://creativecommons.org/licenses/by/4.0/deed.ja",
+    "attribution": "港の位置：データさんぽ（Wikidata にない港）", "redistributable": True,
+}
 
 
 def _t(cell) -> str:
@@ -65,81 +72,119 @@ def norm_airport(name: str) -> str:
     return s
 
 
-def read_airports(path: Path) -> tuple[dict[str, dict[str, float | None]], list[str]]:
-    """空港名 → {all, domestic, international}（年の乗降客数）と、調べた表の様子（ログ用）。"""
+MONTHS = [f"{m}月" for m in range(1, 13)]
+
+
+def _airport_columns(rows: list[list], h: int) -> dict[str, int]:
+    """見出し（h 行目から3行）の列。乗降客数の下に「国際線（乗客・降客・通過客・小計）」「国内線（乗客・降客・小計）」
+    「合計」が並ぶので、乗降客数より右で次の項目（航空燃料供給量）より左の「小計」を国際線・国内線、「合計」を合計にする。"""
+    c0 = next(j for j, c in enumerate(rows[h]) if "乗降客" in _t(c))
+    end = next((j for j in range(c0 + 1, len(rows[h])) if _t(rows[h][j])), max(len(r) for r in rows[h:h + 4]))
+    found: dict[str, list[int]] = {"小計": [], "合計": []}
+    for r in rows[h + 1:h + 4]:
+        for j in range(c0, min(end, len(r))):
+            if _t(r[j]) in found:
+                found[_t(r[j])].append(j)
+    sub = sorted(set(found["小計"]))
+    cols = {}
+    if len(sub) >= 2:
+        cols["international"], cols["domestic"] = sub[0], sub[1]
+    if found["合計"]:
+        cols["all"] = max(found["合計"])
+    return cols
+
+
+def read_airports(path: Path) -> tuple[dict[str, dict[str, float | None]], list[str], bool]:
+    """空港名 → {all, domestic, international}（1年の乗降客数）、調べた表の様子（ログ用）、年度の表か。
+
+    形式（2016〜2025年分を 2026-10-14 に GitHub Actions から取得して確認）: 1シートに空港ごとの欄が縦に並ぶ。
+    欄の1行目に「空港名:」と空港名（例「成田国際(会社管理)」）、続く3行が見出し（項目／着陸回数(回)・乗降客数(人)・
+    航空燃料供給量(KL)…）、その下に1月〜12月の行。乗降客数は国際線（乗客・降客・通過客・小計）・国内線（乗客・降客・小計）・合計。
+    年の値は「計」「合計」の行があればその値、なければ12か月の合計（どれかの月が空なら値なし）。"""
     notes: list[str] = []
     out: dict[str, dict[str, float | None]] = {}
+    fiscal = False
     for sheet in sheet_names(path):
         rows = read_sheet(path, sheet)
-        h = next((i for i, r in enumerate(rows[:30]) if any("乗降客" in _t(c) for c in r)), None)
-        if h is None:
+        starts = [i for i, r in enumerate(rows) if any(_t(c).startswith("空港名") for c in r)]
+        if not starts:
             continue
-        c0 = next(j for j, c in enumerate(rows[h]) if "乗降客" in _t(c))
-        end = next((j for j in range(c0 + 1, len(rows[h])) if _t(rows[h][j])), len(rows[h]))
-        sub = rows[h:h + 4]
-        label = {j: "".join(_t(r[j]) for r in sub if j < len(r)) for j in range(c0, end)}
-        cols: dict[str, int] = {}
-        for key, words in (("international", ("国際",)), ("domestic", ("国内",))):
-            starts = [j for j in range(c0, end) if any(w in label[j] for w in words)]
-            if not starts:
+        notes.append(f"{path.name} シート「{sheet}」 空港の欄 {len(starts)}")
+        notes += _preview(rows, starts[0], 6)
+        for n, i in enumerate(starts):
+            r = rows[i]
+            k = next(j for j, c in enumerate(r) if _t(c).startswith("空港名"))
+            name = next((_t(c) for c in r[k + 1:] if _t(c)), "")
+            name = re.sub(r"[(（].*?[)）]$", "", name) or name
+            block = rows[i:starts[n + 1] if n + 1 < len(starts) else len(rows)]
+            h = next((x for x, b in enumerate(block[:6]) if any("乗降客" in _t(c) for c in b)), None)
+            if not name or h is None:
                 continue
-            s = starts[0]
-            nxt = min([j for j in range(s + 1, end) if ("国際" in label[j] or "国内" in label[j]) and j not in starts]
-                      + [end])
-            span = [j for j in range(s, nxt)]
-            tot = [j for j in span if label[j].endswith("計") and j != s] or [s]
-            cols[key] = tot[-1] if len(span) > 1 and tot != [s] else s
-        tot_cols = [j for j in range(c0, end) if label[j].endswith("計") and j not in cols.values()
-                    and not any(w in label[j] for w in ("国際", "国内"))]
-        if tot_cols:
-            cols["all"] = tot_cols[-1]
-        # 空港名の列: 見出しに「空港」とある乗降客数より左の列、なければ左端の文字の多い列
-        name_col = next((j for j in range(c0) for r in rows[h:h + 4] if j < len(r) and "空港" in _t(r[j])), None)
-        if name_col is None:
-            counts = [sum(1 for r in rows[h + 1:] if j < len(r) and isinstance(r[j], str) and _t(r[j]))
-                      for j in range(c0)]
-            name_col = max(range(c0), key=lambda j: counts[j]) if c0 else 0
-        notes.append(f"{path.name} シート「{sheet}」見出し{h}行 乗降客数の列{c0}〜{end - 1} 名前の列{name_col} 列{cols}")
-        notes += _preview(rows, max(0, h - 1), 6)
-        n0 = len(out)
-        for r in rows[h + 1:]:
-            name = _t(r[name_col]) if name_col < len(r) else ""
-            if not name or "計" in name or re.fullmatch(r"[\d.]+", name):
+            cols = _airport_columns(block, h)
+            if not cols:
                 continue
-            vals = {k: (_num(r[j]) if j < len(r) else None) for k, j in cols.items()}
-            if not any(v is not None for v in vals.values()):
-                continue
-            if "all" not in vals and vals.get("domestic") is not None and vals.get("international") is not None:
-                vals["all"] = vals["domestic"] + vals["international"]
-            out.setdefault(name, {k: vals.get(k) for k in DIMENSIONS})
-        notes.append(f"  空港 {len(out) - n0} か所: " + "、".join(list(out)[n0:n0 + 12]) + " …")
-    return out, notes
+            months: dict[str, list] = {}
+            year_row = None
+            for b in block[h + 1:]:
+                labels = [_t(c) for c in b[:min(cols.values())] if isinstance(c, str) and _t(c)]
+                lab = labels[-1] if labels else ""
+                if lab in MONTHS:
+                    months[lab] = b
+                elif lab in ("計", "合計", "年計", "年間計") and year_row is None:
+                    year_row = b
+            if months:
+                first = next(lab for lab in (_t(c) for b in block[h + 1:] for c in b if isinstance(c, str))
+                             if lab in MONTHS)
+                fiscal = fiscal or first == "4月"
+            vals: dict[str, float | None] = {}
+            for key, j in cols.items():
+                if year_row is not None:
+                    vals[key] = _num(year_row[j]) if j < len(year_row) else None
+                else:
+                    ms = [_num(m[j]) if j < len(m) else None for m in months.values()]
+                    vals[key] = sum(ms) if len(ms) == 12 and all(v is not None for v in ms) else None
+            if n == 0:
+                notes.append(f"  列 {cols} 年の行 {'あり' if year_row is not None else 'なし（12か月の合計）'}")
+            out.setdefault(name, {d: vals.get(d) for d in DIMENSIONS})
+    notes.append(f"  空港 {len(out)} か所{'（年度の表）' if fiscal else ''}: " + "、".join(
+        f"{k} {v['all']:,.0f}" if v["all"] is not None else k for k, v in list(out.items())[:8]) + " …")
+    return out, notes, fiscal
 
 
 def read_airport_locations(files: list[Path]) -> tuple[dict[str, tuple[float, float, str]], list[str]]:
-    """国土数値情報 C28 の空港 → 正規化した名前 → (経度, 緯度, 名前)。標点（点）があれば面より優先する。"""
-    utf8 = [f for f in files if "utf" in str(f).lower()]
-    out: dict[str, tuple[float, float, str, bool]] = {}
+    """国土数値情報 C28 → 正規化した空港名 → (経度, 緯度, 名前)。
+
+    形式（C28-21 を 2026-10-14 に GitHub Actions から取得して確認）: UTF-8/C28-21_Airport.geojson が空港の範囲（面）で
+    C28_005 が名前、C28_101 が空港標点の参照（「#cf03_00001」）。C28-21_AirportReferencePoint.geojson が標点（点）で
+    C28_000 がその番号。標点があればその位置、なければ範囲の中の1点にする。"""
+    utf8 = [f for f in files if "utf" in str(f).lower()] or files
+    points: dict[str, tuple[float, float]] = {}
+    areas = []
     notes = []
-    for f in utf8 or files:
+    for f in utf8:
         try:
             feats = json.loads(f.read_text(encoding="utf-8")).get("features", [])
         except (UnicodeDecodeError, json.JSONDecodeError):
             continue
-        types = sorted({(ft.get("geometry") or {}).get("type", "") for ft in feats})
-        notes.append(f"{f.name}: {len(feats)} 地物 {types} 例 {json.dumps(feats[0]['properties'], ensure_ascii=False)[:300] if feats else ''}")
+        notes.append(f"{f.name}: {len(feats)} 地物")
         for ft in feats:
-            names = [v for v in (ft.get("properties") or {}).values()
-                     if isinstance(v, str) and re.search(r"(空港|飛行場)$", _t(v))]
-            if not names or not ft.get("geometry"):
+            p, g = ft.get("properties") or {}, ft.get("geometry")
+            if not g:
                 continue
-            g = shape(ft["geometry"])
-            is_point = g.geom_type == "Point"
-            p = g if is_point else g.representative_point()
-            key = norm_airport(names[0])
-            if key not in out or (is_point and not out[key][3]):
-                out[key] = (p.x, p.y, _t(names[0]), is_point)
-    return {k: v[:3] for k, v in out.items()}, notes
+            if g["type"] == "Point" and p.get("C28_000"):
+                points[p["C28_000"]] = tuple(g["coordinates"][:2])
+            elif p.get("C28_005"):
+                areas.append((_t(p["C28_005"]), str(p.get("C28_101") or "").lstrip("#"), shape(g)))
+    out: dict[str, tuple[float, float, str]] = {}
+    for name, ref, geom in areas:
+        key = norm_airport(name)
+        if ref in points:
+            out[key] = (*points[ref], name)
+        elif key not in out:
+            c = geom.representative_point()
+            out[key] = (c.x, c.y, name)
+    notes.append(f"空港 {len(out)} か所（標点 {len(points)}）")
+    return out, notes
 
 
 # --- 港 -------------------------------------------------------------------------
@@ -148,9 +193,12 @@ PREF_NAMES = {name: code for code, name in PREFECTURES.items()}
 PORT_LABELS = {"外": "international", "内": "domestic", "計": "all"}
 
 
-def _pref_in(text: str) -> str | None:
-    """「北海道」「東京都合計」など、都道府県名で始まる文字の都道府県コード。"""
-    return next((code for name, code in PREF_NAMES.items() if text.startswith(name)), None)
+SHORT_PREFS = {(n if n == "北海道" else n[:-1]): c for n, c in PREF_NAMES.items()}
+
+
+def _pref_of(text: str) -> str | None:
+    """「北海道」「千葉」「東京都」など、都道府県名（「都・府・県」のない形も）の都道府県コード。"""
+    return PREF_NAMES.get(text) or SHORT_PREFS.get(text)
 
 
 def port_name(text: str) -> str:
@@ -163,43 +211,42 @@ def norm_port(name: str) -> str:
 
 
 def read_ports(path: Path) -> tuple[dict[tuple[str, str], dict[str, float | None]], list[str]]:
-    """(都道府県コード, 港名) → {all, domestic, international}。表は印刷向けで、1行に2つの都道府県の欄が
-    並ぶことがあるので、「外・内・計」の文字の右に数が3つ（計・乗込・上陸）並ぶところを欄ごとに読む。"""
+    """(都道府県コード, 港名) → {all, domestic, international}。
+
+    形式（2020〜2024年の甲種港湾 2-2・乙種港湾 3-2 を 2026-10-14 に GitHub Actions から取得して確認）: シート「2-2」「3-2」が
+    印刷向けで、1行に左右2つの欄（都道府県・港湾の印・港湾名・種別・計・乗込人員・上陸人員）が並ぶ。都道府県は「千葉」のように
+    「県」を付けない名前で、都道府県の最初の行に「合計」と一緒に出る。種別は「計」「外」（外国航路）「内」（国内航路）で、
+    外国航路のない港は「内」の行だけ。港名の前の ☆◎○ は港湾の種類の印。総計・国際戦略港湾計などの行も同じ欄にある。"""
     out: dict[tuple[str, str], dict[str, float | None]] = {}
     notes = []
     for sheet in sheet_names(path):
         rows = read_sheet(path, sheet)
-        notes.append(f"{path.name} シート「{sheet}」 {len(rows)} 行")
-        notes += _preview(rows, 0, 14, 24)
         names: dict[int, str] = {}     # 欄（「外・内・計」の列）ごとの直前の港名
         prefs: dict[int, str] = {}     # 欄ごとの直前の都道府県
+        n0 = len(out)
         for r in rows:
             for j, c in enumerate(r):
                 lab = _t(c)
                 if lab not in PORT_LABELS or j + 1 >= len(r) or not _is_num(r[j + 1]):
                     continue
-                # 名前は同じ行の左の数個の列にある（ない行は同じ欄の直前の名前）
-                left = [_t(r[k]) for k in range(max(0, j - 4), j) if isinstance(r[k], str) and _t(r[k])
-                        and not _is_num(r[k]) and _t(r[k]) not in PORT_LABELS]
-                if left:
-                    text = left[-1]
-                    pref = _pref_in(text)
-                    if pref and (text in PREFECTURES.values() or text.endswith("計")):
-                        prefs[j] = pref
-                        names[j] = ""          # 都道府県の合計の行
-                    elif "計" in text and len(text) <= 3:
-                        names[j] = ""          # 総計
-                    else:
-                        names[j] = port_name(text)
-                name = names.get(j, "")
-                pref = prefs.get(j)
+                # 都道府県は「種別」の4つ左の列、港名はその間の列（港名と同じ名前の都道府県もある: 千葉港・東京港など）
+                if j >= 4 and _pref_of(port_name(r[j - 4])):
+                    prefs[j] = _pref_of(port_name(r[j - 4]))
+                left = [port_name(r[k]) for k in range(max(0, j - 3), j)
+                        if isinstance(r[k], str) and port_name(r[k]) and not _is_num(r[k])]
+                if left or (j >= 4 and _t(r[j - 4])):
+                    names[j] = "" if not left or "計" in left[-1] else left[-1]   # 合計・総計の行は港ではない
+                name, pref = names.get(j, ""), prefs.get(j)
                 if not name or not pref:
                     continue
                 out.setdefault((pref, name), {k: None for k in DIMENSIONS})[PORT_LABELS[lab]] = _num(r[j + 1])
+        if len(out) > n0:
+            notes.append(f"{path.name} シート「{sheet}」 港 {len(out) - n0}")
     for v in out.values():
         if v["all"] is None and (v["domestic"] is not None or v["international"] is not None):
             v["all"] = (v["domestic"] or 0) + (v["international"] or 0)   # 片方だけの港（もう片方は表に行がない＝該当なし）
-    notes.append(f"  港 {len(out)} か所: " + "、".join(f"{PREFECTURES[p]}{n}" for p, n in list(out)[:15]) + " …")
+    notes.append(f"  港 {len(out)} か所: " + "、".join(
+        f"{PREFECTURES[p]}{n} {v['all']:,.0f}" for (p, n), v in list(out.items())[:10]) + " …")
     return out, notes
 
 
@@ -276,14 +323,18 @@ def ingest_airports(conn: sqlite3.Connection, tables: list[tuple[int, Path, str]
         return result
     indicator_id, d = found
     locs, notes = read_airport_locations(locations[0])
-    for line in notes[:6]:
+    for line in notes:
         progress(f"空港の位置: {line}")
     by_name: dict[str, dict[int, tuple[dict, str]]] = {}
     shown: dict[str, str] = {}
+    latest = max(t[0] for t in tables)
     for year, path, src in sorted(tables, key=lambda t: t[0]):
-        table, notes = read_airports(path)
-        for line in notes[:40] if year == max(t[0] for t in tables) or not table else notes[:2]:
-            progress(f"空港の表: {line}")
+        table, notes, fiscal = read_airports(path)
+        for line in notes if year == latest or not table else notes[-1:]:
+            progress(f"空港の表 {year}: {line}")
+        if fiscal:   # 年度（4月〜翌3月）の表は暦年の値と並べられないので使わない
+            progress(f"空港の表 {year}: 年度の表のため使いません")
+            continue
         for name, vals in table.items():
             key = norm_airport(name)
             by_name.setdefault(key, {})[year] = (vals, src)
@@ -320,6 +371,7 @@ def ingest_ports(conn: sqlite3.Connection, tables: list[tuple[int, list[Path], s
     wd = read_wikidata_ports(wikidata[0]) if wikidata else {}
     manual = read_port_overrides()
     progress(f"港の位置: Wikidata {len(wd)} 件、手で付けた位置 {len(manual)} 件")
+    manual_src = register_source(conn, "port_locations", MANUAL_SOURCE, [PORT_LOCATIONS]) if manual else ""
     by_port: dict[tuple[str, str], dict[int, tuple[dict, str]]] = {}
     latest = max((t[0] for t in tables), default=0)
     for year, paths, src in sorted(tables, key=lambda t: t[0]):
@@ -337,7 +389,7 @@ def ingest_ports(conn: sqlite3.Connection, tables: list[tuple[int, list[Path], s
             continue
         if (pref, name) in manual:
             lon, lat = manual[(pref, name)]
-            loc_src, qid = (wikidata[1] if wikidata else ""), None   # TODO: 手で付けた位置の出典
+            loc_src, qid = manual_src, None
         elif (pref, norm_port(name)) in wd:
             lon, lat, qid = wd[(pref, norm_port(name))]
             loc_src = wikidata[1]
