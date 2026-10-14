@@ -9,6 +9,7 @@
 指標（definition の tax_value で選ぶ）:
   income_levy: 所得割額（市町村民税＋道府県民税）÷ 所得割の納税義務者数（市町村民税の行）
   taxable_income: 課税対象所得（市町村民税の行）÷ 所得割の納税義務者数（同）
+  taxpayers: 所得割の納税義務者数（市町村民税の行）。住民に占める割合（derive_rate）の分子
 金額は千円単位なので円に直す（scale = 1000）。
 """
 from __future__ import annotations
@@ -88,6 +89,12 @@ def _insert(conn: sqlite3.Connection, entity_id: str, sides: dict, targets: dict
     city, pref = sides.get(CITY, {}), sides.get(PREF, {})
     taxpayers = _column(city, "所得割の納税義務者数")
     for indicator_id, d in targets.items():
+        if d["tax_value"] == "taxpayers":
+            insert_observation(conn, entity_id=entity_id, indicator_id=indicator_id,
+                               definition_version=d["definition_version"], period_start=period[0],
+                               period_end=period[1], period_kind=period[2], source_id=source_id,
+                               value=taxpayers, status="missing" if taxpayers is None else "observed")
+            continue
         if d["tax_value"] == "income_levy":
             parts = [_column(city, "所得割額"), _column(pref, "所得割額")]
             numerator = None if None in parts else sum(parts)

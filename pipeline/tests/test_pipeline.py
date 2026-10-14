@@ -926,6 +926,16 @@ def test_resident_tax(built):
     assert "14190" in read_rows(next((built.raw / "soumu_tax_2025").glob("*.xlsx")), ["13", "14"])
     rows = {r["entity_id"]: r for r in load(built, f"values/resident_tax_per_taxpayer/{pid}/municipalities.json")["rows"]}
     assert rows.get("muni-14199", {}).get("value") is None
+    # 所得割を納める人の割合: 分母は同じ年の1月1日の住民基本台帳の人口（#106）
+    share = by["income_levy_taxpayer_share"]
+    assert share["unit"] == "%" and "income_levy_taxpayers" not in by    # 分子の人数は公開しない
+    r = {r["entity_id"]: r for r in load(built, f"values/income_levy_taxpayer_share/{pid}/municipalities.json")["rows"]}
+    assert r["muni-13199"]["numerator"] == city["所得割の納税義務者数"]
+    assert r["muni-13199"]["denominator"] == fixture.juki_total_values(2025)["13199"]
+    assert abs(r["muni-13199"]["value"] - city["所得割の納税義務者数"] / fixture.juki_total_values(2025)["13199"] * 100) < 0.01
+    assert r["muni-13499"]["value"] is None                                # 人口50人未満は出さない
+    pref = {r["entity_id"]: r for r in load(built, f"values/income_levy_taxpayer_share/{pid}/prefectures.json")["rows"]}
+    assert 0 < pref["pref-13"]["value"] < 100
 
 
 def test_childcare(built):
@@ -1477,6 +1487,10 @@ def test_housing_income_and_vacancy(built):
         r = rows("vacant_house_rate", f"{year}-10-01", "municipalities")["muni-13199"]
         assert r["numerator"] == vacant and r["denominator"] == total
         assert rows("vacant_house_rate", f"{year}-10-01", "municipalities")["muni-13499"]["value"] is None
+    # 世帯年収の2つは組にまとめず、別々の指標として一覧から選ぶ（種別の欄は出ない。#106）
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert by["household_income_under300_share"]["family"] is None
+    assert by["household_income_1000plus_share"]["family"] is None
 
 
 def test_fertility_and_life_expectancy(built):
@@ -1685,3 +1699,23 @@ def test_prefecture_denominator_ignores_municipalities_without_rows():
            ("muni-13102", None): {"value": None, "source_id": "s"}}
     _add_prefecture_denominators(den, types)
     assert ("pref-13", None) not in den                     # 値のない区市町村があれば作らない
+
+
+def test_school_aid_rate(built):
+    """就学援助率: 文部科学省の PDF（見本はテキスト）の5%刻みの区分を、区分の上の端の値で持つ（#106）。"""
+    from tdm.ingest.mext_school_aid import read_rates
+    year, rates = read_rates((built.raw / "mext_school_aid_2024" / "13" / "13.txt").read_text(encoding="utf-8"))
+    assert year == 2024 and rates[("東京都", "サンプル区")] == 20 and rates[("東京都", "かりの村")] == 0
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    aid = by["school_aid_rate"]
+    assert [p["label"] for p in aid["periods"]] == ["2021年度", "2022年度", "2023年度", "2024年度"]
+    assert all(p["levels"] == ["municipality"] for p in aid["periods"])   # 都道府県の値は作らない
+    rows = {r["entity_id"]: r for r in load(built, "values/school_aid_rate/2024-04-01/municipalities.json")["rows"]}
+    assert rows["muni-13199"]["value"] == 20 and rows["muni-13299"]["value"] == 10
+    assert rows["muni-13499"]["value"] == 0                    # 「0%未満」は0%（援助を受けた子どもがいない）
+    assert rows.get("muni-14199", {}).get("value") is None     # 政令指定都市の区には割り振らない
+    old = {r["entity_id"]: r for r in load(built, "values/school_aid_rate/2021-04-01/municipalities.json")["rows"]}
+    assert old["muni-13299"]["value"] is None                  # 区分の欄が空なら0ではなく値なし
+    # 凡例は区分ごとに1色（全時点の最大の区分まで5%ごと）
+    legend = load(built, "values/school_aid_rate/2024-04-01/legend.json")
+    assert legend["levels"]["municipality"]["breaks"] == [5, 10, 15, 20]

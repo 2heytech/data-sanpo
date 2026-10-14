@@ -38,7 +38,8 @@ export interface Indicator {
   /** 率の倍率（分子 ÷ 分母 × scale。% なら 100） */
   scale?: number;
   /** zero_blank: 値が0の地域は色を塗らない（犯罪の件数など） */
-  legend: { method: string; classes: number; scheme: string; zero_blank?: boolean };
+  /** band: 区分で公表された値（就学援助率の「10%未満」など）の区分の幅。値は区分の上の端 */
+  legend: { method: string; classes: number; scheme: string; zero_blank?: boolean; band?: number };
   /** 率の内訳に添える単位（分子, 分母）。省略時は ["人", "人"]。 */
   fraction_units?: [string, string] | null;
   /** 地域の情報に並べて表示する指標（例: 住民当たりと昼間人口当たりの犯罪件数）。 */
