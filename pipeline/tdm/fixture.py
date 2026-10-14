@@ -124,11 +124,9 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
         other = _write_year(directory, year, {k: v for k, v in keys.items() if k != "education"}, base,
                             random.Random(f"{seed}-{year}-14"), "14", OTHER_MUNICIPALITIES)
         out.update({f"{k}_14": v for k, v in other.items()})
-    out["daytime"] = _write_daytime(directory, base, random.Random(f"{seed}-daytime"))
     out.update(_write_census2025(directory, base))
     out.update(_write_census_foreign(directory))
-    out["daytime_2015"] = _write_daytime_past(directory, 2015, base, random.Random(f"{seed}-daytime-2015"))
-    out["daytime_2010"] = _write_daytime_past(directory, 2010, base, random.Random(f"{seed}-daytime-2010"))
+    out.update(_write_census_daytime(directory, base))
     out["foreign_census"] = _write_foreign_census(directory, base, random.Random(f"{seed}-foreign"))
     out.update(_write_mobility(directory, base, random.Random(f"{seed}-mobility")))
     for year in FOREIGN_YEARS:
@@ -1229,47 +1227,81 @@ def _write_census_foreign(directory: Path) -> dict[str, Path]:
     return out
 
 
-def _write_daytime(directory: Path, base: dict, rnd: random.Random) -> Path:
-    d = directory / "tokyo_daytime_2020"
-    d.mkdir(parents=True, exist_ok=True)
-    header = ["階層", "地域コード", "地域", "昼間人口／総数（人）", "昼間人口／男（人）", "昼間人口／女（人）",
-              "常住人口／総数（人）", "昼夜間人口比率／総数（％）"]
-    rows = []
-    for (city5, city_name, town, west, south), ratio in zip(MUNICIPALITIES, (2.5, 0.85, 1.0)):
-        resident = sum(base[k][0][0] for k, _, _ in _cells(city5, town, west, south))
-        day = round(resident * ratio * rnd.uniform(0.98, 1.02))
-        rows.append(["2", city5, city_name, day, day // 2, day - day // 2, resident,
-                     round(day / resident * 100, 1)])
-    path = d / "tj20zv0100.csv"
-    with path.open("w", encoding="utf-8-sig", newline="") as f:
-        wr = csv.writer(f)
-        wr.writerow(header)
-        wr.writerow(["0", "13000", "東京都総数"] + [""] * (len(header) - 3))
-        wr.writerows(rows)
-        wr.writerow(["階層（0:東京都の合計　1:区部・市部・郡部・島部　2:区市町村）"] + [""] * (len(header) - 1))
-    return path
+DAYTIME_RATIOS = {"13199": 2.5, "13299": 0.85, "13499": 1.0, "14199": 0.9}
 
 
-def _write_daytime_past(directory: Path, year: int, base: dict, rnd: random.Random) -> Path:
-    """平成27年は列名が「地域階層」、平成22年は階層の列がなく区部・市部の行が混じる形式。"""
-    d = directory / f"tokyo_daytime_{year}"
-    d.mkdir(parents=True, exist_ok=True)
-    head = ["地域コード", "地域", "昼間人口／総数（人）", "夜間人口／総数（人）"]
-    rows = [["13000", "東京都総数"], ["13100", "区部"]]
-    for (city5, city_name, town, west, south), ratio in zip(MUNICIPALITIES, (2.3, 0.86, 1.0)):
-        resident = sum(base[k][0][0] for k, _, _ in _cells(city5, town, west, south))
-        rows.append([city5, city_name, round(resident * ratio * rnd.uniform(0.95, 1.0)), resident])
-    rows[0] += [sum(r[2] for r in rows[2:]), sum(r[3] for r in rows[2:])]
-    rows[1] += rows[2][2:]
-    if year == 2015:
-        head = ["地域階層"] + head
-        rows = [["0" if r[0] == "13000" else "1" if r[0] == "13100" else "2"] + r for r in rows]
-    path = d / f"tj{str(year)[2:]}zv0100.csv"
-    with path.open("w", encoding="utf-8-sig", newline="") as f:
-        wr = csv.writer(f)
-        wr.writerow(head)
-        wr.writerows(rows)
-    return path
+def census_daytime_values(year: int, base: dict) -> dict[str, int]:
+    """国勢調査 従業地・通学地集計の昼間人口の見本（地域コード → 昼間人口。都道府県は 13000 など）。
+    都道府県の行は市区町村の合計より少し多くする（公表の都道府県の行を使うことを確かめる）。"""
+    rnd = random.Random(f"census-daytime-{year}")
+    out: dict[str, int] = {}
+    for city5, _, town, west, south in MUNICIPALITIES + OTHER_MUNICIPALITIES:
+        resident = sum(base[k][0][0] for k, _, _ in _cells(city5, town, west, south) if k in base) or 100_000
+        out[city5] = round(resident * DAYTIME_RATIOS[city5] * rnd.uniform(0.95, 1.02))
+    for pref in ("13", "14"):
+        out[pref + "000"] = sum(v for c, v in out.items() if c[:2] == pref) + 3
+    return out
+
+
+def _write_census_daytime(directory: Path, base: dict) -> dict[str, Path]:
+    """2020年は Excel（「男女」「年齢」の分類の列があり、見出しの文字がない形）、2015年は CSV（cp932、
+    列名の末尾に注の番号と記号がつく）、2010年は都道府県ごとの CSV。"""
+    from .xlsx import write_sheet
+    names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
+    areas = [("a", "00000", "全国"), ("a", "13000", "東京都"), ("a", "14000", "神奈川県"), ("1", "14100", "みほん市")]
+    areas += [("0" if c.startswith(("131", "141")) else "2" if c[2] == "2" else "3", c, names[c]) for c in names]
+    areas.append(("3", "13498", "合併で消えた村"))   # 最新の境界にない市区町村（取り込まない）
+    out = {}
+    for year in (2010, 2015, 2020):
+        vals = census_daytime_values(year, base)
+        day = lambda code: vals.get(code, 999)
+        d = directory / f"census{year}_municipal_daytime"
+        d.mkdir(parents=True, exist_ok=True)
+        if year == 2020:
+            heads = ["0_常住地による人口（夜間人口）", "001_従業も通学もしていない", "1_従業地・通学地による人口（昼間人口）",
+                     "101_うち他市区町村に常住"]
+            rows = [["令和２年国勢調査　従業地・通学地による人口・就業状態等集計"], ["第１－１表　見本"], [],
+                    ["1) 注記"], [None] * 5 + ["人口"] * 4 + ["昼夜間人口比率"],
+                    [None] * 5 + ["常住地又は従業地・通学地"] * 4, [None] * 5 + [1, 2, 1, 2],
+                    [None] * 5 + heads, [None] * 5 + ["人"] * 4,
+                    ["地域識別コード", "都道府県", "地域名", "男女", "年齢", " "]]
+            for sex, f in (("0_総数", 1.0), ("1_男", 0.5)):
+                for age, g in (("00_総数", 1.0), ("01_15歳未満", 0.1)):
+                    for level, code, label in areas:
+                        v = round(day(code) * f * g)
+                        rows.append([level, f"{code[:2]}_x", f"{code}_{label}", sex, age, v + 7, 3, v, 5, 100])
+            write_sheet(d / "001-1.xlsx", rows, "001-1")
+        elif year == 2010:
+            # 都道府県ごとのファイル。男女・年齢の分類は列名のない列の符号（男女総数・年齢総数の行を使う）
+            labels = ["総数（夜間人口） 1)", "従業も通学もしていない", "総数", "総数（昼間人口） 1)3)", "総数 3)"]
+            for pref in ("13", "14"):
+                lines = [["1", "平成22年国勢調査従業地・通学地集計（見本）"], ["2", "", "", "", "", "", "", "", "", "第1表　見本"],
+                         ["12", "", "", "", "", "", "", "", "", "常住地による人口"],
+                         ["13", "※大項目", "地域コード", "地域識別コード", "", "", "", "", "", *labels],
+                         ["14", "", "", "", "", "", "", "", f"{pref} {PREF_NAMES[pref]}"] + [""] * len(labels)]
+                for level, code, label in areas:
+                    if code[:2] != pref:
+                        continue
+                    for sex, age, f in (("danjo.0000", "nen5EX.0000", 1.0), ("danjo.0000", "nen5EX.0001", 0.1),
+                                        ("danjo.0001", "nen5EX.0000", 0.5)):
+                        v = round(day(code) * f)
+                        lines.append(["15", "", code, level, sex, sex[-1], age, age[-1], label, v + 7, 3, 9, v, 9])
+                sub = d / pref
+                sub.mkdir(parents=True, exist_ok=True)
+                with (sub / f"{pref}.csv").open("w", encoding="cp932", newline="") as fh:
+                    csv.writer(fh, quoting=csv.QUOTE_MINIMAL).writerows(lines)
+        else:
+            labels = ["総数（夜間人口） (a)", "従業も通学もしていない 1) (b)", "総数（昼間人口） 2)3) (k)",
+                      "うち他県に常住 (n)", "（別掲）昼夜間人口比率 (q)", "総数", "総数 3)"]
+            lines = [["1", "平成27年国勢調査従業地・通学地集計（見本）"], ["2", "", "", "", "", "第1表　見本"],
+                     ["13", "", "", "", "", "常住地による人口"],
+                     ["14", "※大項目", "地域コード", "地域識別コード", "", *labels]]
+            for level, code, label in areas:
+                lines.append(["15", "", code, level, label, day(code) + 7, 3, day(code), "-", 100.0, 9, 9])
+            with (d / "001.csv").open("w", encoding="cp932", newline="") as fh:
+                csv.writer(fh, quoting=csv.QUOTE_MINIMAL).writerows(lines)
+        out[f"census{year}_municipal_daytime"] = d
+    return out
 
 
 # 外国人人口（国勢調査 小地域集計 第2表。男女の列がなく、外国人人口・世帯数の列名は1行上）
