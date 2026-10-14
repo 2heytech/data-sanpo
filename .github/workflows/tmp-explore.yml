@@ -15,36 +15,31 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install -q -e pipeline
       - run: (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils poppler-data) >/dev/null 2>&1
-      - name: J51 headers
-        continue-on-error: true
+      - name: parse all prefectures
+        working-directory: pipeline
         run: |
-          for f in J51-25-a J51-25-b; do
-            curl -sSL -o $f.xlsx https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/$f.xlsx
-            python -c "
-          from tdm.xlsx import read_sheet; from pathlib import Path
-          rows = read_sheet(Path('$f.xlsx'))
-          print('ROWS', len(rows))
-          for r in rows[:9]: print('|'.join('' if c is None else str(c) for c in r)[:1500])
-          "
-          done
-      - name: shuugaku PDFs
-        continue-on-error: true
-        run: |
-          declare -A U=(
-            [r7]=https://www.mext.go.jp/content/20260708-mxt_shuugaku-000050859_13.pdf
-            [r6]=https://www.mext.go.jp/content/20250115-mxt_shuugaku-000039572_013.pdf
-            [r5]=https://www.mext.go.jp/content/20250227-mxt_shuugaku-000033128_013.pdf
-            [r4]=https://www.mext.go.jp/content/20221222-mxt_shuugaku-000026589_013.pdf
-            [r3]=https://www.mext.go.jp/content/20211209-mxt_shuukyo03-000019313_13.PDF
-            [r2]=https://www.mext.go.jp/content/20210316-mxt_shuugaku-000013456_13.pdf
-            [r7hk]=https://www.mext.go.jp/content/20260708-mxt_shuugaku-000050859_1.pdf
-          )
-          for y in r7 r6 r5 r4 r3 r2 r7hk; do
-            curl -sSL -o $y.pdf "${U[$y]}"
-            pdftotext -layout $y.pdf $y.txt
-            echo "################ $y pages=$(pdfinfo $y.pdf | awk '/^Pages/{print $2}') bytes=$(stat -c %s $y.pdf)"
-            grep -n "援助率\|年度$\|年度 *$" $y.txt | sed 's/  \+/ | /g' | head -12
-            echo "-- rate tokens"; grep -oE "[0-9]+%(以上|未満)[^ ]*|[0-9]+％(以上|未満)" $y.txt | sort | uniq -c | sort -rn | head -15
-            echo "-- rows"; grep -E "(千代田区|世田谷区|青ヶ島村|御蔵島村|札幌市|夕張市)" $y.txt | grep -E "%|％" | sed 's/  \+/ | /g' | head -8
-            echo "-- rows w/o rate on rate pages"; awk '/援助率/{f=1} f' $y.txt | grep -E "^ *(東京都|北海道) " | grep -vE "%|％" | sed 's/  \+/ | /g' | head -5
-          done
+          python - <<'PY'
+          import tomllib, urllib.request, collections
+          from pathlib import Path
+          from tdm.ingest.mext_school_aid import pdf_text, read_rates
+          src = tomllib.loads(Path("config/sources.toml").read_text(encoding="utf-8"))
+          for key in ("mext_school_aid_2024", "mext_school_aid_2023", "mext_school_aid_2022", "mext_school_aid_2021"):
+              cfg = src[key]
+              tot = collections.Counter(); bad = []
+              for n in range(1, 48):
+                  pref = f"{n:02d}"
+                  url = cfg["download_url"].replace("{pref_n}", str(n)).replace("{pref3}", pref.zfill(3))
+                  path = Path(f"/tmp/{key}_{pref}.pdf")
+                  try:
+                      path.write_bytes(urllib.request.urlopen(url, timeout=60).read())
+                      year, rates = read_rates(pdf_text(path))
+                  except Exception as e:
+                      bad.append(f"{pref}:ERR {e}"); continue
+                  none = [m for (p, m), v in rates.items() if v is None]
+                  tot["rows"] += len(rates); tot["none"] += len(none)
+                  for v in rates.values(): tot[v] += 1
+                  if year != cfg["fiscal_year"] or none or len(rates) < 5:
+                      bad.append(f"{pref}: year={year} rows={len(rates)} none={none[:8]}")
+              print("=====", key, dict(tot))
+              for b in bad: print("  ", b)
+          PY

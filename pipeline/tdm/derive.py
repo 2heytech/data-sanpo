@@ -170,6 +170,8 @@ def derive_rate(conn: sqlite3.Connection, indicator_id: str, definition: dict,
 
     分母は denominator_period の時点の値を全時点に使う（例: 2020年国勢調査の人口）。
     denominator_period = "same" なら分子と同じ時点の分母を使う（例: 各年の昼間人口 ÷ 同じ年の人口）。
+    denominator_period = "same_year" なら分子と同じ年に始まる時点の分母を使う（例: 2025年度の住民税の納税者 ÷
+    2025年1月1日の住民基本台帳の人口）。
     分母が min_denominator 未満なら値を出さない（withheld）。
     levels に prefecture があれば都道府県も計算する。都道府県の分母がなければ、県内の区市町村の分母を合計して
     使う（値のない区市町村が1つでもあれば作らない）。例: ふるさと納税の県内合計 ÷ 県内の人口。
@@ -180,8 +182,13 @@ def derive_rate(conn: sqlite3.Connection, indicator_id: str, definition: dict,
     levels = {lv if lv in ("municipality", "prefecture") else "small_area" for lv in definition["levels"]}
     types = {r["entity_id"]: r["entity_type"] for r in conn.execute(
         "SELECT entity_id, entity_type FROM entities")}
-    same_period = definition["denominator_period"] == "same"
-    den = {(r["entity_id"], r["period_start"] if same_period else None): r for r in conn.execute(
+    same_period = definition["denominator_period"] in ("same", "same_year")
+    key_len = 4 if definition["denominator_period"] == "same_year" else None
+
+    def key(period_start: str) -> str | None:
+        return period_start[:key_len] if same_period else None
+
+    den = {(r["entity_id"], key(r["period_start"])): r for r in conn.execute(
         """SELECT * FROM observations WHERE indicator_id = ? AND definition_version = ?
              AND dimension_key = 'all' AND (? OR period_start = ?)""",
         (definition["denominator_indicator"], den_def["definition_version"],
@@ -196,7 +203,7 @@ def derive_rate(conn: sqlite3.Connection, indicator_id: str, definition: dict,
             (definition["numerator_indicator"], num_def["definition_version"])).fetchall():
         if types.get(r["entity_id"]) not in levels:
             continue
-        d = den.get((r["entity_id"], r["period_start"] if same_period else None))
+        d = den.get((r["entity_id"], key(r["period_start"])))
         if d is None:
             continue  # 分母のない地域（昼間人口は区市町村のみ）
         obs = dict(entity_id=r["entity_id"], indicator_id=indicator_id,
