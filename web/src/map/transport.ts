@@ -50,6 +50,12 @@ export function changeText(prev: number | null | undefined, v: number | null | u
   return `${r >= 0.05 ? "+" : r <= -0.05 ? "−" : "±"}${formatNumber(Math.abs(r), 1)}%`;
 }
 
+/** 地図・右の欄に出す名前。表の名前は「東京国際」「東京」なので「空港」「港」を付ける（飛行場・ヘリポートはそのまま） */
+export function displayName(kind: TransportKind, name: string): string {
+  if (kind === "airport") return /(空港|飛行場|ヘリポート)$/.test(name) ? name : `${name}空港`;
+  return name.endsWith("港") ? name : `${name}港`;
+}
+
 export function initTransport(o: Options): PointLayer {
   const k = KINDS[o.kind];
   const LAYER = `${o.kind}-circle`;
@@ -77,7 +83,7 @@ export function initTransport(o: Options): PointLayer {
         // 最新の年に値のない（廃止・休止した）空港・港は描かない
         features: data.points.filter((p) => p.values[last] != null).map((p) => ({
           type: "Feature",
-          properties: { id: p.id, name: p.name, v: p.values[last], label: `${formatNumber(p.values[last]!, 0)}人` },
+          properties: { id: p.id, name: displayName(o.kind, p.name), v: p.values[last], label: `${formatNumber(p.values[last]!, 0)}人` },
           geometry: { type: "Point", coordinates: p.coord },
         })),
       } as never,
@@ -130,6 +136,8 @@ export function initTransport(o: Options): PointLayer {
   o.toggle.addEventListener("change", () => void setVisible(o.toggle.checked));
 
   const people = (x: number | null | undefined) => (x == null ? "−" : `${formatNumber(x, 0)}人`);
+  // 推移の表は右の欄の幅に収まるよう単位を見出しにまとめる
+  const num = (x: number | null | undefined) => (x == null ? "−" : formatNumber(x, 0));
 
   function showPoint(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, ["==", ["get", "id"], id ?? ""]);
@@ -145,19 +153,19 @@ export function initTransport(o: Options): PointLayer {
     const rows = per.map((x, n) => {
       if (p.values[n] == null && p.domestic[n] == null && p.international[n] == null) return "";
       return `<tr${n === i ? ' aria-current="true"' : ""}><td>${esc(x.label)}</td>
-        <td class="num">${people(p.values[n])}</td><td class="num">${people(p.domestic[n])}</td>
-        <td class="num">${people(p.international[n])}</td><td class="num">${changeText(p.values[n - 1], p.values[n])}</td></tr>`;
+        <td class="num">${num(p.values[n])}</td><td class="num">${num(p.domestic[n])}</td>
+        <td class="num">${num(p.international[n])}</td><td class="num">${changeText(p.values[n - 1], p.values[n])}</td></tr>`;
     }).join("");
     const srcs = [...new Set(data.source_ids.map((sid) => o.sources.get(sid)?.attribution ?? sid))];
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="${k.label}の情報を閉じる">×</button>
       <p class="muted">${esc(o.municipalityName(p.municipality_id))}</p>
-      <h2>${esc(p.name)}${o.kind === "port" && !p.name.endsWith("港") ? "港" : ""}</h2>
+      <h2>${esc(displayName(o.kind, p.name))}</h2>
       <div>${esc(data.name)}（${esc(per[i]?.label ?? "")}）</div>
       <div class="value">${people(p.values[i])}</div>
       <p class="small">${k.domestic} ${people(p.domestic[i])}・${k.international} ${people(p.international[i])}</p>
-      <table class="trend"><caption>推移</caption>
+      <table class="trend"><caption>推移（人）</caption>
         <thead><tr><th>年</th><th class="num">合計</th><th class="num">${k.domestic}</th><th class="num">${k.international}</th><th class="num">前年から</th></tr></thead>
         <tbody>${rows}</tbody></table>
       <p class="muted small">${esc(data.description)}</p>

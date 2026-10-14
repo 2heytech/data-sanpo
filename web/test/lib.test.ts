@@ -203,6 +203,13 @@ describe("空港・港の点", () => {
     expect(changeText(null, 100)).toBe("");
     expect(changeText(0, 100)).toBe("");   // 前の年が0なら増減率は出さない
   });
+  it("名前に「空港」「港」を付ける", async () => {
+    const { displayName } = await import("../src/map/transport");
+    expect(displayName("airport", "東京国際")).toBe("東京国際空港");
+    expect(displayName("airport", "調布飛行場")).toBe("調布飛行場");
+    expect(displayName("port", "東京")).toBe("東京港");
+    expect(displayName("port", "竹生島港")).toBe("竹生島港");
+  });
 });
 
 describe("labels", () => {
