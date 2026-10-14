@@ -1,7 +1,7 @@
 import urllib.request, sys, io, zipfile
 UA = {"User-Agent": "Mozilla/5.0"}
 for sid in sys.argv[1:]:
-    b = urllib.request.urlopen(urllib.request.Request(f"https://www.e-stat.go.jp/stat-search/file-download?statInfId={sid}&fileKind=0", headers=UA), timeout=120).read()
+    b = urllib.request.urlopen(urllib.request.Request(f"https://www.e-stat.go.jp/stat-search/file-download?statInfId={sid}&fileKind=1", headers=UA) if sid.startswith("0000315") else urllib.request.Request(f"https://www.e-stat.go.jp/stat-search/file-download?statInfId={sid}&fileKind=0", headers=UA), timeout=120).read()
     print("==", sid, len(b), b[:4], flush=True)
     if b[:2] == b"PK" and b"xl/" in b[:2000] or b[:2] == b"PK":
         try:
