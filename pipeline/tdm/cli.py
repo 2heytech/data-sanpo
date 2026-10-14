@@ -28,8 +28,9 @@ from .derive import derive_change, derive_density, derive_multi_year_sum, derive
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
 from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
-                     estat_economic_census, estat_school_basic, estat_school_municipal, jma_normals,
-                     estat_small_area, mhlw_vital,
+                     estat_commerce, estat_economic_census, estat_school_basic, estat_school_municipal,
+                     jma_normals,
+                     estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
                      keishicho_crime, mext_school_aid,
                      mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
                      npa_crime_stats, npa_traffic, police_crime_opendata, soumu_furusato, soumu_tax, tokyo_childcare,
@@ -209,7 +210,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
-                        "police_crime_opendata", "mext_school_aid"):
+                        "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
+                        "estat_commerce"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -272,6 +274,12 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                                                        cfg.get("no_incident", []), points)
         elif kind == "estat_census_history":
             result[key] = estat_census_history.ingest(conn, files[0], src, catalog)
+        elif kind == "maff_agri_output":
+            result[key] = maff_agri_output.ingest(conn, files[0], src, catalog)
+        elif kind == "meti_manufacturing":
+            result[key] = meti_manufacturing.ingest(conn, files[0], src, catalog)
+        elif kind == "estat_commerce":
+            result[key] = estat_commerce.ingest(conn, files, src, catalog, int(cfg["year"]))
         elif kind == "mhlw_tfr":
             # ベイズ推定の合計特殊出生率は5年分の出生をまとめた1つの値。multi_year（年計の合計）とは違い、
             # スライドバーの時点として並べたいので年の時点として扱い、表示名は period_labels で付ける
