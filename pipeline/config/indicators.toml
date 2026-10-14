@@ -2015,7 +2015,7 @@ multi_year_total = 5
 legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
 
 [traffic_accidents_pedestrian]
-name = "交通事故の件数（歩行者）"
+name = "歩行者が関係する交通事故の件数"
 category = "交通事故"
 unit = "件"
 kind = "count"
@@ -2028,13 +2028,13 @@ caveats = ["人身事故だけで、物損事故は含みません。", "高速�
 source_kind = "npa_traffic"
 traffic_filter = "pedestrian"
 compare_with = ["traffic_accidents_pedestrian_per_100_residents", "traffic_accidents_pedestrian_per_100_daytime"]
-family = "traffic"
+family = "traffic_pedestrian"
 facets = { type = "歩行者が関係", basis = "件数" }
 multi_year_total = 5
 legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
 
 [traffic_accidents_bicycle]
-name = "交通事故の件数（自転車）"
+name = "自転車が関係する交通事故の件数"
 category = "交通事故"
 unit = "件"
 kind = "count"
@@ -2047,13 +2047,13 @@ caveats = ["人身事故だけで、物損事故は含みません。", "高速�
 source_kind = "npa_traffic"
 traffic_filter = "bicycle"
 compare_with = ["traffic_accidents_bicycle_per_100_residents", "traffic_accidents_bicycle_per_100_daytime"]
-family = "traffic"
+family = "traffic_bicycle"
 facets = { type = "自転車が関係", basis = "件数" }
 multi_year_total = 5
 legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
 
 [traffic_accidents_fatal]
-name = "交通事故の件数（死亡事故）"
+name = "死亡事故の件数"
 category = "交通事故"
 unit = "件"
 kind = "count"
@@ -2066,7 +2066,7 @@ caveats = ["人身事故だけで、物損事故は含みません。", "高速�
 source_kind = "npa_traffic"
 traffic_filter = "fatal"
 compare_with = ["traffic_accidents_fatal_per_100_residents", "traffic_accidents_fatal_per_100_daytime"]
-family = "traffic"
+family = "traffic_fatal"
 facets = { type = "死亡事故", basis = "件数" }
 multi_year_total = 5
 legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
@@ -2118,7 +2118,7 @@ facets = { type = "総数", basis = "昼間人口100人あたり" }
 legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
 
 [traffic_accidents_pedestrian_per_100_residents]
-name = "交通事故の件数（歩行者・住民100人当たり）"
+name = "歩行者が関係する交通事故の件数（住民100人当たり）"
 category = "交通事故"
 unit = "件/100人"
 kind = "ratio"
@@ -2128,7 +2128,7 @@ scale = 100
 min_denominator = 100
 levels = ["municipality", "small_area"]
 description = "歩行者が巻き込まれた人身事故の件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
-method = "交通事故の件数（歩行者） ÷ 2020年の人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
+method = "歩行者が関係する交通事故の件数 ÷ 2020年の人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
 caveats = ["住民の事故の起きやすさではありません。事故の多くは通過する車や来訪者が関わります。", "幹線道路や繁華街があり住民が少ない地域は値が極端に大きくなります。市区町村では「昼間人口100人当たり」とあわせて見てください。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
 numerator_indicator = "traffic_accidents_pedestrian"
 denominator_indicator = "population_total"
@@ -2136,12 +2136,12 @@ denominator_period = "2020-10-01"
 denominator_label = "2020年の人口"
 compare_with = ["traffic_accidents_pedestrian_per_100_daytime", "traffic_accidents_pedestrian"]
 fraction_units = ["件", "人"]
-family = "traffic"
+family = "traffic_pedestrian"
 facets = { type = "歩行者が関係", basis = "住民100人あたり" }
 legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
 
 [traffic_accidents_pedestrian_per_100_daytime]
-name = "交通事故の件数（歩行者・昼間人口100人当たり）"
+name = "歩行者が関係する交通事故の件数（昼間人口100人当たり）"
 category = "交通事故"
 unit = "件/100人"
 kind = "ratio"
@@ -2151,7 +2151,7 @@ scale = 100
 min_denominator = 100
 levels = ["municipality"]
 description = "歩行者が巻き込まれた人身事故の件数を、昼間にその市区町村にいる人（2020年の昼間人口）100人当たりにした値。"
-method = "交通事故の件数（歩行者） ÷ 2020年の昼間人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
+method = "歩行者が関係する交通事故の件数 ÷ 2020年の昼間人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
 caveats = ["事故の起きやすさではありません。通過する車や来訪者は昼間人口に含まれません。", "分母はどの年も2020年の昼間人口です。", "市区町村単位の値です（町丁目の昼間人口は国勢調査の公表値がありません）。"]
 numerator_indicator = "traffic_accidents_pedestrian"
 denominator_indicator = "daytime_population"
@@ -2159,12 +2159,12 @@ denominator_period = "2020-10-01"
 denominator_label = "2020年の昼間人口"
 compare_with = ["traffic_accidents_pedestrian_per_100_residents", "traffic_accidents_pedestrian"]
 fraction_units = ["件", "人"]
-family = "traffic"
+family = "traffic_pedestrian"
 facets = { type = "歩行者が関係", basis = "昼間人口100人あたり" }
 legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
 
 [traffic_accidents_bicycle_per_100_residents]
-name = "交通事故の件数（自転車・住民100人当たり）"
+name = "自転車が関係する交通事故の件数（住民100人当たり）"
 category = "交通事故"
 unit = "件/100人"
 kind = "ratio"
@@ -2174,7 +2174,7 @@ scale = 100
 min_denominator = 100
 levels = ["municipality", "small_area"]
 description = "自転車が当事者の人身事故の件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
-method = "交通事故の件数（自転車） ÷ 2020年の人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
+method = "自転車が関係する交通事故の件数 ÷ 2020年の人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
 caveats = ["住民の事故の起きやすさではありません。事故の多くは通過する車や来訪者が関わります。", "幹線道路や繁華街があり住民が少ない地域は値が極端に大きくなります。市区町村では「昼間人口100人当たり」とあわせて見てください。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
 numerator_indicator = "traffic_accidents_bicycle"
 denominator_indicator = "population_total"
@@ -2182,12 +2182,12 @@ denominator_period = "2020-10-01"
 denominator_label = "2020年の人口"
 compare_with = ["traffic_accidents_bicycle_per_100_daytime", "traffic_accidents_bicycle"]
 fraction_units = ["件", "人"]
-family = "traffic"
+family = "traffic_bicycle"
 facets = { type = "自転車が関係", basis = "住民100人あたり" }
 legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
 
 [traffic_accidents_bicycle_per_100_daytime]
-name = "交通事故の件数（自転車・昼間人口100人当たり）"
+name = "自転車が関係する交通事故の件数（昼間人口100人当たり）"
 category = "交通事故"
 unit = "件/100人"
 kind = "ratio"
@@ -2197,7 +2197,7 @@ scale = 100
 min_denominator = 100
 levels = ["municipality"]
 description = "自転車が当事者の人身事故の件数を、昼間にその市区町村にいる人（2020年の昼間人口）100人当たりにした値。"
-method = "交通事故の件数（自転車） ÷ 2020年の昼間人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
+method = "自転車が関係する交通事故の件数 ÷ 2020年の昼間人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
 caveats = ["事故の起きやすさではありません。通過する車や来訪者は昼間人口に含まれません。", "分母はどの年も2020年の昼間人口です。", "市区町村単位の値です（町丁目の昼間人口は国勢調査の公表値がありません）。"]
 numerator_indicator = "traffic_accidents_bicycle"
 denominator_indicator = "daytime_population"
@@ -2205,12 +2205,12 @@ denominator_period = "2020-10-01"
 denominator_label = "2020年の昼間人口"
 compare_with = ["traffic_accidents_bicycle_per_100_residents", "traffic_accidents_bicycle"]
 fraction_units = ["件", "人"]
-family = "traffic"
+family = "traffic_bicycle"
 facets = { type = "自転車が関係", basis = "昼間人口100人あたり" }
 legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
 
 [traffic_accidents_fatal_per_100_residents]
-name = "交通事故の件数（死亡事故・住民100人当たり）"
+name = "死亡事故の件数（住民100人当たり）"
 category = "交通事故"
 unit = "件/100人"
 kind = "ratio"
@@ -2220,7 +2220,7 @@ scale = 100
 min_denominator = 100
 levels = ["municipality", "small_area"]
 description = "死亡事故の件数を、その地域に住んでいる人（2020年国勢調査の人口）100人当たりにした値。"
-method = "交通事故の件数（死亡事故） ÷ 2020年の人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
+method = "死亡事故の件数 ÷ 2020年の人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
 caveats = ["住民の事故の起きやすさではありません。事故の多くは通過する車や来訪者が関わります。", "幹線道路や繁華街があり住民が少ない地域は値が極端に大きくなります。市区町村では「昼間人口100人当たり」とあわせて見てください。", "分母はどの年も2020年の人口です。", "人口が100人未満の地域は値を表示しません。"]
 numerator_indicator = "traffic_accidents_fatal"
 denominator_indicator = "population_total"
@@ -2228,12 +2228,12 @@ denominator_period = "2020-10-01"
 denominator_label = "2020年の人口"
 compare_with = ["traffic_accidents_fatal_per_100_daytime", "traffic_accidents_fatal"]
 fraction_units = ["件", "人"]
-family = "traffic"
+family = "traffic_fatal"
 facets = { type = "死亡事故", basis = "住民100人あたり" }
 legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
 
 [traffic_accidents_fatal_per_100_daytime]
-name = "交通事故の件数（死亡事故・昼間人口100人当たり）"
+name = "死亡事故の件数（昼間人口100人当たり）"
 category = "交通事故"
 unit = "件/100人"
 kind = "ratio"
@@ -2243,7 +2243,7 @@ scale = 100
 min_denominator = 100
 levels = ["municipality"]
 description = "死亡事故の件数を、昼間にその市区町村にいる人（2020年の昼間人口）100人当たりにした値。"
-method = "交通事故の件数（死亡事故） ÷ 2020年の昼間人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
+method = "死亡事故の件数 ÷ 2020年の昼間人口 × 100。5年合計は5年分の件数を同じ分母で割った値。"
 caveats = ["事故の起きやすさではありません。通過する車や来訪者は昼間人口に含まれません。", "分母はどの年も2020年の昼間人口です。", "市区町村単位の値です（町丁目の昼間人口は国勢調査の公表値がありません）。"]
 numerator_indicator = "traffic_accidents_fatal"
 denominator_indicator = "daytime_population"
@@ -2251,7 +2251,7 @@ denominator_period = "2020-10-01"
 denominator_label = "2020年の昼間人口"
 compare_with = ["traffic_accidents_fatal_per_100_residents", "traffic_accidents_fatal"]
 fraction_units = ["件", "人"]
-family = "traffic"
+family = "traffic_fatal"
 facets = { type = "死亡事故", basis = "昼間人口100人あたり" }
 legend = { method = "nice", classes = 12, scheme = "reds", zero_blank = true }
 
