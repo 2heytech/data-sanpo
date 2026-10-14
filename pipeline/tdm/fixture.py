@@ -2148,7 +2148,7 @@ def _write_weather(directory: Path) -> dict[str, Path]:
 # 港湾統計の船舶乗降人員表（1行に左右2つの欄）と Wikidata の港。いずれも実ファイルの形に合わせた架空の値。
 # 「遠く」は地図の範囲外、「ない」は位置がなく、取り込まない。2025年の「かりの」は12月が空で年の値なし
 AIRPORTS = {   # 名前 → (国際線の月の乗客, 国内線の月の乗客)。降客は乗客と同じ、通過客は国際線の1割
-    "見本": (1000, 5000), "かりの": (0, 300), "遠く": (0, 100), "ない": (0, 50),
+    "見本": (1000, 5000), "かりの": (0, 300), "遠く": (0, 100), "ない": (0, 50), "ゼロ": (0, 0),
 }
 
 
@@ -2238,6 +2238,11 @@ def _write_transport(directory: Path) -> dict[str, Path]:
 
     def place(title, x, y):
         return {"type": "Feature", "geometry": {"type": "Point", "coordinates": [x, y]}, "properties": {"title": title}}
+    # C28 にない空港（ヘリポートなど）。「ない」は国土地理院の地名「ないヘリポート」の位置、「ゼロ」はどの年も乗降客数が0
+    a = directory / "gsi_airport_names"
+    a.mkdir(parents=True, exist_ok=True)
+    (a / "ない@ないヘリポート.json").write_text(json.dumps(
+        [place("ないヘリポート", 139.68, 35.70), place("ないヘリポート入口", 139.0, 35.0)], ensure_ascii=False), encoding="utf-8")
     out["gsi_ports"] = d / "13_ない.json"
     out["gsi_ports"].write_text(json.dumps([place("ない港", 135.4, 34.6), place("ないの浜", 139.70, 35.70),
                                             place("ない港", 139.67, 35.69)], ensure_ascii=False), encoding="utf-8")
