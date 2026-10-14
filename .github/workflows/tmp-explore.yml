@@ -30,14 +30,21 @@ jobs:
       - name: shuugaku PDFs
         continue-on-error: true
         run: |
-          curl -sSL -o s13.pdf https://www.mext.go.jp/content/20260708-mxt_shuugaku-000050859_13.pdf
-          pages=$(pdfinfo s13.pdf | awk '/^Pages/{print $2}'); echo "PAGES $pages"
-          for p in $(seq 1 $pages); do
-            t=$(pdftotext -layout -f $p -l $p s13.pdf - | head -c 400 | tr -s ' \n' ' ')
-            echo "PAGE $p: ${t:0:200}"
-          done
-          for p in $(seq 1 $pages); do
-            if pdftotext -f $p -l $p s13.pdf - | grep -q "援助率"; then
-              echo "======== PAGE $p (援助率)"; pdftotext -layout -f $p -l $p s13.pdf - | sed 's/  \+/ | /g' | head -120
-            fi
+          declare -A U=(
+            [r7]=https://www.mext.go.jp/content/20260708-mxt_shuugaku-000050859_13.pdf
+            [r6]=https://www.mext.go.jp/content/20250115-mxt_shuugaku-000039572_013.pdf
+            [r5]=https://www.mext.go.jp/content/20250227-mxt_shuugaku-000033128_013.pdf
+            [r4]=https://www.mext.go.jp/content/20221222-mxt_shuugaku-000026589_013.pdf
+            [r3]=https://www.mext.go.jp/content/20211209-mxt_shuukyo03-000019313_13.PDF
+            [r2]=https://www.mext.go.jp/content/20210316-mxt_shuugaku-000013456_13.pdf
+            [r7hk]=https://www.mext.go.jp/content/20260708-mxt_shuugaku-000050859_1.pdf
+          )
+          for y in r7 r6 r5 r4 r3 r2 r7hk; do
+            curl -sSL -o $y.pdf "${U[$y]}"
+            pdftotext -layout $y.pdf $y.txt
+            echo "################ $y pages=$(pdfinfo $y.pdf | awk '/^Pages/{print $2}') bytes=$(stat -c %s $y.pdf)"
+            grep -n "援助率\|年度$\|年度 *$" $y.txt | sed 's/  \+/ | /g' | head -12
+            echo "-- rate tokens"; grep -oE "[0-9]+%(以上|未満)[^ ]*|[0-9]+％(以上|未満)" $y.txt | sort | uniq -c | sort -rn | head -15
+            echo "-- rows"; grep -E "(千代田区|世田谷区|青ヶ島村|御蔵島村|札幌市|夕張市)" $y.txt | grep -E "%|％" | sed 's/  \+/ | /g' | head -8
+            echo "-- rows w/o rate on rate pages"; awk '/援助率/{f=1} f' $y.txt | grep -E "^ *(東京都|北海道) " | grep -vE "%|％" | sed 's/  \+/ | /g' | head -5
           done
