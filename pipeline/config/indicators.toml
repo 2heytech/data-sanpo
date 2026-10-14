@@ -12,6 +12,7 @@
 # multi_year_total: 年計の直近 N 年分の合計を時点として足す（#36）
 # sum_columns（count）: 複数の列の合計。denominator_subtract_columns（ratio）: 分母から引く列（不詳など、#43）
 # denominator_period = "same": 分子と同じ時点の分母を使う。unbounded = true: 100%を超えてよい比（昼夜間人口比率、#42）
+# allow_negative = true: 負の値がありうる額（製造業の付加価値額、#108）
 # publish = false: 率の分母に使うだけで、画面・公開データには出さない指標（#101）
 # municipal_table: 町丁・字等は table（小地域の表）から、市区町村・都道府県は人口等基本集計のこの表からも取る（#102）
 
@@ -4035,6 +4036,309 @@ column = "T001167019"
 family = "economic_census"
 facets = { type = "従業者", basis = "数" }
 legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[employees_agriculture]
+name = "農林漁業で働く人の数"
+category = "農業"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+description = "その地域にある農林漁業の民営の事業所（農業・林業・漁業の会社や団体（農業法人・森林組合・漁業の会社など））で働いている人の数。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」町丁・大字別集計の産業（大分類）別民営事業所の従業者数（農林漁業）。2021年6月1日現在。"
+caveats = ["個人経営の農家・漁家は経済センサスの対象外なので含みません。農業の規模は「農業産出額」で見てください。", "町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "国・地方公共団体の事業所で働く人は含みません。", "事業所の所在地で数えます（従業者が住んでいる場所ではありません）。"]
+source_kind = "estat_economic_census"
+column = "T001167020"
+compare_with = ["employees_agriculture_share", "employees"]
+family = "economic_census_agriculture"
+facets = { type = "農林漁業", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[employees_agriculture_share]
+name = "農林漁業で働く人の割合"
+category = "農業"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 50
+levels = ["municipality", "small_area"]
+description = "その地域の民営の事業所で働いている人のうち、農林漁業の事業所で働いている人の割合。"
+method = "農林漁業の従業者数 ÷ 全産業の従業者数（公務を除く）× 100。総務省・経済産業省「令和3年経済センサス‐活動調査」町丁・大字別集計。2021年6月1日現在。"
+caveats = ["個人経営の農家・漁家は経済センサスの対象外なので含みません。農業の規模は「農業産出額」で見てください。", "町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "事業所で働く人が50人未満の地域は値を表示しません。"]
+numerator_indicator = "employees_agriculture"
+denominator_indicator = "employees"
+denominator_period = "2021-06-01"
+denominator_label = "全産業の従業者数"
+fraction_units = ["人", "人"]
+compare_with = ["employees_agriculture", "employees"]
+family = "economic_census_agriculture"
+facets = { type = "農林漁業", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[employees_manufacturing]
+name = "製造業で働く人の数"
+category = "工業"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+description = "その地域にある製造業の民営の事業所（工場・製造所など、ものを作る事業所）で働いている人の数。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」町丁・大字別集計の産業（大分類）別民営事業所の従業者数（製造業）。2021年6月1日現在。"
+caveats = ["町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "国・地方公共団体の事業所で働く人は含みません。", "事業所の所在地で数えます（従業者が住んでいる場所ではありません）。"]
+source_kind = "estat_economic_census"
+column = "T001167023"
+compare_with = ["employees_manufacturing_share", "employees"]
+family = "economic_census_manufacturing"
+facets = { type = "製造業", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[employees_manufacturing_share]
+name = "製造業で働く人の割合"
+category = "工業"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 50
+levels = ["municipality", "small_area"]
+description = "その地域の民営の事業所で働いている人のうち、製造業の事業所で働いている人の割合。"
+method = "製造業の従業者数 ÷ 全産業の従業者数（公務を除く）× 100。総務省・経済産業省「令和3年経済センサス‐活動調査」町丁・大字別集計。2021年6月1日現在。"
+caveats = ["町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "事業所で働く人が50人未満の地域は値を表示しません。"]
+numerator_indicator = "employees_manufacturing"
+denominator_indicator = "employees"
+denominator_period = "2021-06-01"
+denominator_label = "全産業の従業者数"
+fraction_units = ["人", "人"]
+compare_with = ["employees_manufacturing", "employees"]
+family = "economic_census_manufacturing"
+facets = { type = "製造業", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[employees_commerce]
+name = "卸売業・小売業で働く人の数"
+category = "商業"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+description = "その地域にある卸売業・小売業の民営の事業所（問屋・商社・スーパー・商店・コンビニなど、ものを売る事業所）で働いている人の数。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」町丁・大字別集計の産業（大分類）別民営事業所の従業者数（卸売業・小売業）。2021年6月1日現在。"
+caveats = ["飲食店は含みません（宿泊業・飲食サービス業に分類されます）。", "町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "国・地方公共団体の事業所で働く人は含みません。", "事業所の所在地で数えます（従業者が住んでいる場所ではありません）。"]
+source_kind = "estat_economic_census"
+column = "T001167027"
+compare_with = ["employees_commerce_share", "employees"]
+family = "economic_census_commerce"
+facets = { type = "卸売業・小売業", basis = "人数" }
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[employees_commerce_share]
+name = "卸売業・小売業で働く人の割合"
+category = "商業"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 50
+levels = ["municipality", "small_area"]
+description = "その地域の民営の事業所で働いている人のうち、卸売業・小売業の事業所で働いている人の割合。"
+method = "卸売業・小売業の従業者数 ÷ 全産業の従業者数（公務を除く）× 100。総務省・経済産業省「令和3年経済センサス‐活動調査」町丁・大字別集計。2021年6月1日現在。"
+caveats = ["飲食店は含みません（宿泊業・飲食サービス業に分類されます）。", "町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "事業所で働く人が50人未満の地域は値を表示しません。"]
+numerator_indicator = "employees_commerce"
+denominator_indicator = "employees"
+denominator_period = "2021-06-01"
+denominator_label = "全産業の従業者数"
+fraction_units = ["人", "人"]
+compare_with = ["employees_commerce", "employees"]
+family = "economic_census_commerce"
+facets = { type = "卸売業・小売業", basis = "割合" }
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[agri_output]
+name = "農業産出額"
+category = "農業"
+unit = "億円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.1
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "米・野菜・果実・畜産など、その市町村で生産された農産物の額（農家が売った値段で計算）の合計。"
+method = "農林水産省「市町村別農業産出額（推計）」の農業産出額（千万円）を億円に直したもの。"
+caveats = ["市町村ごとの推計値です（農林水産省が都道府県の農業産出額を作付面積や家畜の頭数などで市町村に割り振って推計したもの）。", "政令指定都市と東京23区は市全体（23区全体）の値しか公表されていないため、区の値はありません（都道府県の合計には含めます）。", "秘匿されている市町村は値がありません（0ではありません）。都道府県の値は県内の市町村の合計で、県内に秘匿の市町村があるときは値がありません。", "その年の1月から12月までの値です。"]
+source_kind = "maff_agri_output"
+agri_item = "農業産出額"
+legend = { method = "nice", classes = 12, scheme = "greens", zero_blank = true }
+
+[agri_output_rice]
+name = "米の産出額"
+category = "農業"
+unit = "億円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.1
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "その市町村で生産された米の産出額。"
+method = "農林水産省「市町村別農業産出額（推計）」の品目「米」の産出額（千万円）を億円に直したもの。"
+caveats = ["市町村ごとの推計値です（農林水産省が都道府県の農業産出額を作付面積や家畜の頭数などで市町村に割り振って推計したもの）。", "政令指定都市と東京23区は市全体（23区全体）の値しか公表されていないため、区の値はありません（都道府県の合計には含めます）。", "秘匿されている市町村は値がありません（0ではありません）。都道府県の値は県内の市町村の合計で、県内に秘匿の市町村があるときは値がありません。", "その年の1月から12月までの値です。"]
+source_kind = "maff_agri_output"
+agri_item = "米"
+legend = { method = "nice", classes = 12, scheme = "greens", zero_blank = true }
+
+[agri_output_vegetables]
+name = "野菜の産出額"
+category = "農業"
+unit = "億円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.1
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "その市町村で生産された野菜（いも類を除く）の産出額。"
+method = "農林水産省「市町村別農業産出額（推計）」の品目「野菜計」の産出額（千万円）を億円に直したもの。"
+caveats = ["市町村ごとの推計値です（農林水産省が都道府県の農業産出額を作付面積や家畜の頭数などで市町村に割り振って推計したもの）。", "政令指定都市と東京23区は市全体（23区全体）の値しか公表されていないため、区の値はありません（都道府県の合計には含めます）。", "秘匿されている市町村は値がありません（0ではありません）。都道府県の値は県内の市町村の合計で、県内に秘匿の市町村があるときは値がありません。", "その年の1月から12月までの値です。"]
+source_kind = "maff_agri_output"
+agri_item = "野菜計"
+legend = { method = "nice", classes = 12, scheme = "greens", zero_blank = true }
+
+[agri_output_fruits]
+name = "果実の産出額"
+category = "農業"
+unit = "億円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.1
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "その市町村で生産された果実（みかん・りんご・ぶどうなど）の産出額。"
+method = "農林水産省「市町村別農業産出額（推計）」の品目「果実計」の産出額（千万円）を億円に直したもの。"
+caveats = ["市町村ごとの推計値です（農林水産省が都道府県の農業産出額を作付面積や家畜の頭数などで市町村に割り振って推計したもの）。", "政令指定都市と東京23区は市全体（23区全体）の値しか公表されていないため、区の値はありません（都道府県の合計には含めます）。", "秘匿されている市町村は値がありません（0ではありません）。都道府県の値は県内の市町村の合計で、県内に秘匿の市町村があるときは値がありません。", "その年の1月から12月までの値です。"]
+source_kind = "maff_agri_output"
+agri_item = "果実計"
+legend = { method = "nice", classes = 12, scheme = "greens", zero_blank = true }
+
+[agri_output_livestock]
+name = "畜産の産出額"
+category = "農業"
+unit = "億円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.1
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "その市町村で生産された牛・豚・鶏・牛乳・卵などの畜産物の産出額。"
+method = "農林水産省「市町村別農業産出額（推計）」の品目「畜産計」の産出額（千万円）を億円に直したもの。"
+caveats = ["市町村ごとの推計値です（農林水産省が都道府県の農業産出額を作付面積や家畜の頭数などで市町村に割り振って推計したもの）。", "政令指定都市と東京23区は市全体（23区全体）の値しか公表されていないため、区の値はありません（都道府県の合計には含めます）。", "秘匿されている市町村は値がありません（0ではありません）。都道府県の値は県内の市町村の合計で、県内に秘匿の市町村があるときは値がありません。", "その年の1月から12月までの値です。"]
+source_kind = "maff_agri_output"
+agri_item = "畜産計"
+legend = { method = "nice", classes = 12, scheme = "greens", zero_blank = true }
+
+[manufacturing_shipments]
+name = "製造品出荷額等"
+category = "工業"
+unit = "億円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.0001
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "その市区町村にある工場などの製造業の事業所が、1年間に出荷した製品の額と、加工賃・修理料などの収入の合計。「ものづくりの規模」を表す代表的な数字です。"
+method = "経済産業省「経済構造実態調査（製造業事業所調査）」の「地域別」統計表データ 参考表（市区町村別）の製造業計の製造品出荷額等（万円）を億円に直したもの。"
+caveats = ["個人経営を除く、製造業の事業所の値です。事業所の所在地で数えます。", "その年の1月から12月までの実績です（例: 2024年の値は2025年の調査）。", "製造業の事業所が1・2しかない市区町村は秘匿されて値がありません（0ではありません）。", "2023年と2024年は令和6年経済センサス‐基礎調査を反映した集計で、2022年以前とは少し対象が違います。"]
+source_kind = "meti_manufacturing"
+meti_item = "製造品出荷額等"
+compare_with = ["manufacturing_value_added", "employees_manufacturing"]
+legend = { method = "nice", classes = 12, scheme = "blues", zero_blank = true }
+
+[manufacturing_value_added]
+name = "製造業の付加価値額"
+category = "工業"
+unit = "億円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.0001
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "製造業の事業所が1年間に生み出した価値の額（出荷額などから原材料費や税などを差し引いた額）。"
+method = "経済産業省「経済構造実態調査（製造業事業所調査）」の「地域別」統計表データ 参考表（市区町村別）の製造業計の粗付加価値額（万円）を億円に直したもの。従業者29人以下の事業所は粗付加価値額。"
+caveats = ["個人経営を除く、製造業の事業所の値です。事業所の所在地で数えます。", "その年の1月から12月までの実績です（例: 2024年の値は2025年の調査）。", "製造業の事業所が1・2しかない市区町村は秘匿されて値がありません（0ではありません）。", "2023年と2024年は令和6年経済センサス‐基礎調査を反映した集計で、2022年以前とは少し対象が違います。", "付加価値額は粗付加価値額（減価償却費を差し引く前の額）です。", "原材料費などが出荷額などを上回った市区町村は、付加価値額が負（マイナス）になります。"]
+source_kind = "meti_manufacturing"
+meti_item = "粗付加価値額"
+allow_negative = true
+compare_with = ["manufacturing_shipments", "employees_manufacturing"]
+legend = { method = "nice", classes = 12, scheme = "blues", zero_blank = true }
+
+[retail_sales]
+name = "小売業の年間商品販売額"
+category = "商業"
+unit = "億円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.01
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "その市区町村にあるスーパー・商店・コンビニ・ドラッグストアなどの小売業の事業所が、1年間に販売した商品の額。「買い物の場所としての大きさ」の目安です。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」卸売業，小売業に関する集計 産業編（市区町村表）の小売業計の年間商品販売額（百万円）を億円に直したもの。"
+caveats = ["令和3年経済センサス‐活動調査の値で、販売額は2020年1年間の額です。", "販売額は法人の事業所だけの値です（個人経営の商店の販売額は調査していません）。", "秘匿されている市区町村は値がありません（0ではありません）。", "事業所の所在地で数えます。通信販売の販売額は会社のある場所に計上されます。"]
+source_kind = "estat_commerce"
+commerce_column = ["I2_小売業計", "年間商品販売額"]
+compare_with = ["retail_sales_per_capita", "wholesale_sales"]
+legend = { method = "nice", classes = 12, scheme = "purples", zero_blank = true }
+
+[retail_sales_per_capita]
+name = "小売業の年間商品販売額（住民1人あたり）"
+category = "商業"
+unit = "万円"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 10000
+unbounded = true
+min_denominator = 100
+levels = ["municipality", "prefecture"]
+description = "小売業の年間商品販売額を、その市区町村に住む人（2020年国勢調査の人口）1人あたりにした値。大きいほど、周りの地域からも買い物に来る人が多いことを表します。"
+method = "小売業の年間商品販売額 ÷ 2020年の人口。総務省・経済産業省「令和3年経済センサス‐活動調査」と国勢調査。"
+caveats = ["令和3年経済センサス‐活動調査の値で、販売額は2020年1年間の額です。", "販売額は法人の事業所だけの値です（個人経営の商店の販売額は調査していません）。", "秘匿されている市区町村は値がありません（0ではありません）。", "繁華街や大きな商業施設があり住民が少ない地域は値が極端に大きくなります。"]
+numerator_indicator = "retail_sales"
+denominator_indicator = "population_total"
+denominator_period = "2020-10-01"
+denominator_label = "2020年の人口"
+fraction_units = ["億円", "人"]
+compare_with = ["retail_sales"]
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[wholesale_sales]
+name = "卸売業の年間商品販売額"
+category = "商業"
+unit = "億円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.01
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "その市区町村にある問屋・商社などの卸売業の事業所が、1年間に販売した商品の額。商社の本社が集まる地域で大きくなります。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」卸売業，小売業に関する集計 産業編（市区町村表）の卸売業計の年間商品販売額（百万円）を億円に直したもの。"
+caveats = ["令和3年経済センサス‐活動調査の値で、販売額は2020年1年間の額です。", "販売額は法人の事業所だけの値です（個人経営の商店の販売額は調査していません）。", "秘匿されている市区町村は値がありません（0ではありません）。", "本社でまとめて販売を計上する会社が多いため、都心の区に集中します。"]
+source_kind = "estat_commerce"
+commerce_column = ["I1_卸売業計", "年間商品販売額"]
+compare_with = ["retail_sales"]
+legend = { method = "nice", classes = 12, scheme = "purples", zero_blank = true }
 
 [land_survey_price]
 name = "都道府県地価調査の価格"
