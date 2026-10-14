@@ -1295,43 +1295,76 @@ def test_jhs_progress(built):
 
 
 def test_elections(built):
-    from tdm.ingest.tokyo_election import read_party_votes, read_turnout
+    from tdm.ingest.tokyo_election import read_turnout
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
     names = {n for _, n, *_ in fixture.MUNICIPALITIES}
     turnout = by["voter_turnout"]
-    assert [p["period"] for p in turnout["periods"]] == ["2024-07-07", "2024-10-27"]
-    assert [p["label"] for p in turnout["periods"]] == ["2024年7月 都知事選", "2024年10月 衆院選"]
+    assert [p["period"] for p in turnout["periods"]] == ["2024-07-07", "2024-10-27", "2025-07-20", "2026-02-08"]
+    assert [p["label"] for p in turnout["periods"]] == ["2024年7月 都知事選", "2024年10月 衆院選", "2025年7月 参院選",
+                                                        "2026年2月 衆院選"]
 
-    def muni(indicator, period, entity="muni-13199"):
-        rows = load(built, f"values/{indicator}/{period}/municipalities.json")["rows"]
-        return {r["entity_id"]: r for r in rows}.get(entity)
+    def rows(indicator, period, level="municipalities"):
+        path = built.releases / "test" / "values" / indicator / period / f"{level}.json"
+        return {r["entity_id"]: r for r in json.loads(path.read_text(encoding="utf-8"))["rows"]} if path.exists() else {}
 
-    # 小選挙区で分かれる区は「…計」の行を使う（「…4区」の行は使わない）
+    # 区市町村の投票率は都選管（小選挙区で分かれる区は「…計」の行を使う）、都道府県は総務省の表
     t = read_turnout(built.raw / "tokyo_election_2024_shugiin_touhyou" / "r6_syuugiin_hirei_touhyou.csv", names)
     assert sorted(t) == sorted(names)
-    row = muni("voter_turnout", "2024-10-27")
+    row = rows("voter_turnout", "2024-10-27")["muni-13199"]
     assert (row["numerator"], row["denominator"]) == t["サンプル区"]
-    assert abs(row["value"] - t["サンプル区"][0] / t["サンプル区"][1] * 100) < 0.01
+    for period in ("2024-10-27", "2025-07-20", "2026-02-08"):
+        prefs = rows("voter_turnout", period, "prefectures")
+        for pref in ("13", "14"):
+            voters, electorate = fixture.election_turnout(period, pref)
+            assert (prefs[f"pref-{pref}"]["numerator"], prefs[f"pref-{pref}"]["denominator"]) == (voters, electorate)
+    assert "muni-14199" not in rows("voter_turnout", "2025-07-20")   # 市区町村の投票率は東京都だけ
 
-    # 衆院比例: 政党の得票 ÷ 合計
-    votes = read_party_votes(built.raw / "tokyo_election_2024_shugiin_hirei" / "r6_syuugiin_hirei_kaihyou2.csv",
-                             names, "shugiin_hirei")
-    v, total = votes["サンプル区"]
-    assert abs(total - sum(v.values())) < 0.01
-    row = muni("vote_share_ldp", "2024-10-27")
-    assert row["numerator"] == v["自由民主党"] and row["denominator"] == total
-    # 参院比例: 政党ごとの3列のうち得票総数（政党名＋候補者名）
-    votes = read_party_votes(built.raw / "tokyo_election_2025_sangiin_hirei" / "r7_sangiin_hirei_kaihyou0724.csv",
-                             names, "sangiin_hirei")
-    v, total = votes["ためし市"]
-    assert set(v) == set(fixture.ELECTION_PARTIES["2025_sangiin_hirei"])
-    assert abs(total - sum(v.values())) < 0.01
-    assert muni("vote_share_sanseito", "2025-07-20", "muni-13299")["numerator"] == v["参政党"]
+    def share(period, party, name):
+        votes = fixture.election_votes(period, name)
+        return votes[fixture.ELECTION_PARTIES[period].index(party)], sum(votes)
+
+    # 令和6年衆院選: 小選挙区で分かれた行（「サンプル区第４区」「…第２６区」）を合計する
+    ldp = rows("vote_share_ldp", "2024-10-27")
+    num, den = share("2024-10-27", "自由民主党", "サンプル区")
+    assert abs(ldp["muni-13199"]["numerator"] - num) < 0.01 and abs(ldp["muni-13199"]["denominator"] - den) < 0.01
+    num, den = share("2024-10-27", "自由民主党", "みほん市中区")
+    assert abs(ldp["muni-14199"]["value"] - num / den * 100) < 0.01
+    # 都道府県の値は都道府県別の表から（市区町村の合計ではない）
+    pref = rows("vote_share_ldp", "2024-10-27", "prefectures")["pref-13"]
+    votes = fixture.election_prefecture_votes("2024-10-27", "13")
+    assert abs(pref["value"] - votes[3] / sum(votes) * 100) < 0.01
+    # 表の最後の「合計」の欄を政党の得票数に取り違えない（分母は全政党の合計）
+    for period in ["2024-10-27", "2025-07-20", "2026-02-08"]:
+        votes = fixture.election_prefecture_votes(period, "14")
+        assert abs(rows("vote_share_ldp", period, "prefectures")["pref-14"]["denominator"] - sum(votes)) < 0.01
+    # 令和7年参院選: 政党ごとの3列のうち得票総数。空欄の村は値なし（0 にしない）
+    sanseito = rows("vote_share_sanseito", "2025-07-20")
+    num, den = share("2025-07-20", "参政党", "ためし市")
+    assert sanseito["muni-13299"]["numerator"] == num and abs(sanseito["muni-13299"]["denominator"] - den) < 0.01
+    assert sanseito["muni-13499"]["value"] is None and "空欄" in sanseito["muni-13499"]["note"]
+    assert rows("vote_share_sanseito", "2025-07-20", "prefectures")["pref-14"]["value"] is not None
+    # 令和8年衆院選: 区全体の行を使い「…第１」の行は足さない。政令指定都市の市全体の行は使わない
+    mirai = rows("vote_share_mirai", "2026-02-08")
+    num, den = share("2026-02-08", "チームみらい", "サンプル区")
+    assert mirai["muni-13199"]["numerator"] == num and mirai["muni-13199"]["denominator"] == den
+    num, den = share("2026-02-08", "チームみらい", "みほん市中区")
+    assert mirai["muni-14199"]["numerator"] == num
     ldp = by["vote_share_ldp"]
-    assert [p["label"] for p in ldp["periods"]] == ["2024年10月 衆院選（比例）", "2025年7月 参院選（比例）"]
+    assert [p["label"] for p in ldp["periods"]] == ["2024年10月 衆院選（比例）", "2025年7月 参院選（比例）",
+                                                    "2026年2月 衆院選（比例）"]
     # 名簿を出していない選挙は値を入れない（参政党は見本の衆院選に出ていない）
     assert [p["period"] for p in by["vote_share_sanseito"]["periods"]] == ["2025-07-20"]
-    assert "vote_share_mirai" not in by
+    assert [p["period"] for p in by["vote_share_chudo"]["periods"]] == ["2026-02-08"]
+    assert "vote_share_ishin" not in by
+
+
+def test_soumu_election_names():
+    from tdm.ingest.soumu_election import municipality_votes, norm
+    names = {norm(n): f"muni-{i}" for i, n in enumerate(["鰺ケ沢町", "檮原町", "茅ヶ崎市", "佐伯市", "大田区"])}
+    rows = {norm("鯵ケ沢町"): {"a": 1.0}, norm("梼原町"): {"a": 2.0}, norm("茅ケ崎市"): {"a": 3.0},
+            norm("佐伯氏"): {"a": 4.0}, norm("大田区第４区"): {"a": 5.0}, norm("大田区第２６区"): {"a": 6.0}}
+    assert municipality_votes(rows, names) == {"muni-0": {"a": 1.0}, "muni-1": {"a": 2.0}, "muni-2": {"a": 3.0},
+                                               "muni-3": {"a": 4.0}, "muni-4": {"a": 11.0}}
 
 
 def test_tokyo_only_sources_skip_same_named_municipalities_in_other_prefectures(tmp_path):
