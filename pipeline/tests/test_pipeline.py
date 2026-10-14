@@ -1487,9 +1487,10 @@ def test_housing_income_and_vacancy(built):
         r = rows("vacant_house_rate", f"{year}-10-01", "municipalities")["muni-13199"]
         assert r["numerator"] == vacant and r["denominator"] == total
         assert rows("vacant_house_rate", f"{year}-10-01", "municipalities")["muni-13499"]["value"] is None
-    # 世帯年収の2つは別々の組で、指標の一覧から選ぶ（種別の欄は出ない。#106）
+    # 世帯年収の2つは組にまとめず、別々の指標として一覧から選ぶ（種別の欄は出ない。#106）
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
-    assert by["household_income_under300_share"]["family"] != by["household_income_1000plus_share"]["family"]
+    assert by["household_income_under300_share"]["family"] is None
+    assert by["household_income_1000plus_share"]["family"] is None
 
 
 def test_fertility_and_life_expectancy(built):

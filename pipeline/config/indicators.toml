@@ -3876,7 +3876,7 @@ legend = { method = "nice", classes = 12, scheme = "blues" }
 
 
 [household_income_under300_share]
-name = "世帯年収（300万円未満の世帯の割合）"
+name = "世帯年収300万円未満の割合"
 category = "所得・税"
 unit = "%"
 kind = "ratio"
@@ -3890,13 +3890,11 @@ caveats = ["市・区と人口1万5千人以上の町村だけの値です（そ
 source_kind = "estat_housing_income"
 income_max = 300
 fraction_units = ["世帯", "世帯"]
-family = "household_income_under300"
-facets = { type = "300万円未満", basis = "世帯の割合" }
 period_labels = { "2018-10-01" = "2018年10月1日現在", "2023-10-01" = "2023年10月1日現在" }
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
 [household_income_1000plus_share]
-name = "世帯年収（1000万円以上の世帯の割合）"
+name = "世帯年収1000万円以上の割合"
 category = "所得・税"
 unit = "%"
 kind = "ratio"
@@ -3910,8 +3908,6 @@ caveats = ["市・区と人口1万5千人以上の町村だけの値です（そ
 source_kind = "estat_housing_income"
 income_min = 1000
 fraction_units = ["世帯", "世帯"]
-family = "household_income_1000plus"
-facets = { type = "1000万円以上", basis = "世帯の割合" }
 period_labels = { "2018-10-01" = "2018年10月1日現在", "2023-10-01" = "2023年10月1日現在" }
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
