@@ -5,7 +5,7 @@ import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, LngLatBoundsLike, PointLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { colorsFor, fillColorExpression, NO_DATA_COLOR } from "../lib/classify";
-import { compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
+import { bandLabel, compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
 import type {
@@ -655,7 +655,11 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const zeroBlank = !!legend.zero_blank;
     const colors = colorsFor(legend.scheme, breaks, zeroBlank);
     const fmt = (v: number) => formatNumber(v, indicator.digits);
+    // 区分で公表された値（就学援助率など）は、色ごとに区分の名前を出す（値は区分の上の端）
+    const band = indicator.legend.band;
+    const bandValue = (i: number) => (i === 0 ? 0 : breaks[i - 1]);
     const labels = colors.map((_, i) => {
+      if (band) return bandLabel(bandValue(i), band, indicator.unit);
       const lo = i === 0 ? null : breaks[i - 1];
       const hi = i === breaks.length ? null : breaks[i];
       return lo === null && hi === null ? (zeroBlank ? "0 より大きい" : "すべて")
@@ -665,7 +669,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const cells = colors.map((c, i) => `<span style="background:${c}" title="${esc(labels[i])}"></span>`).join("");
     // 区切りの値は帯の境目に、上下2段に互い違いに出す（色にカーソルを合わせると範囲も出る）
     const n = colors.length;
-    const ticks = breaks.slice(0, n - 1).map((b, k) =>
+    const ticks = band
+      ? colors.map((_, i) => `<span class="${n > 6 && i % 2 ? "low" : ""}" style="left:${(((i + 0.5) / n) * 100).toFixed(2)}%">${
+          esc(i === 0 ? "0" : `〜${compactNumber(bandValue(i), indicator.digits)}`)}</span>`).join("")
+      : breaks.slice(0, n - 1).map((b, k) =>
       `<span class="${n > 6 && k % 2 ? "low" : ""}" style="left:${(((k + 1) / n) * 100).toFixed(2)}%">${esc(compactNumber(b, indicator.digits))}</span>`).join("");
     legendEl.innerHTML = head(levelLabel) +
       `<div class="legend-bar" role="img" aria-label="${esc(labels.join("、"))}">${cells}</div>` +
@@ -691,7 +698,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     })));
     let prev: number | null = null;
     // 増減率はそれ自体が前回からの変化なので、さらに差を取る列は出さない
-    const withChange = indicator.kind !== "change";
+    // 区分で公表された値も、区分の端どうしの差は意味がないので出さない
+    const withChange = indicator.kind !== "change" && !indicator.legend.band;
     const body = rows.map(({ p, row }) => {
       const v = row?.value ?? null;
       let change = "";
@@ -1085,7 +1093,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       .map((t) => `<option${t === type ? " selected" : ""}>${esc(t)}</option>`).join("");
     facetBasis.innerHTML = unique(members.filter((m) => m.facets!.type === type).map((m) => m.facets!.basis))
       .map((b) => `<option${b === basis ? " selected" : ""}>${esc(b)}</option>`).join("");
-    // 種別・基準が1つしかない組（交通事故の種別ごとの組、世帯年収など）は、選べないので欄ごと隠す
+    // 種別・基準が1つしかない組（交通事故の種別ごとの組など）は、選べないので欄ごと隠す
     facetTypeWrap.hidden = unique(members.map((m) => m.facets!.type)).length < 2;
     facetBasisWrap.hidden = unique(members.map((m) => m.facets!.basis)).length < 2;
     facetsEl.hidden = facetTypeWrap.hidden && facetBasisWrap.hidden;

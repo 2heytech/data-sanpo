@@ -335,8 +335,10 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
             if cfg.get("estat_lookup") and pref not in ids:
                 continue
             # {pref_dir} は都道府県ごとのフォルダ名（例: 国立教育政策研究所の 13_tokyo）。pref_dirs に書く
+            # {pref_n} は先頭の0を付けない番号（例: 文部科学省の 1〜47）、{pref3} は3桁（001〜047）
             url = (cfg["download_url"].replace("{pref}", pref).replace("{id}", ids.get(pref, ""))
-                   .replace("{pref_dir}", cfg.get("pref_dirs", {}).get(pref, "")))
+                   .replace("{pref_dir}", cfg.get("pref_dirs", {}).get(pref, ""))
+                   .replace("{pref_n}", str(int(pref))).replace("{pref3}", pref.zfill(3)))
             sub = dest / pref
             cached = _already_fetched(sub, url)
             if cached is None:

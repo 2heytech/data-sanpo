@@ -30,7 +30,8 @@ from .fetch import FetchError, fetch_source, source_prefectures
 from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
                      estat_commerce, estat_economic_census, estat_school_basic, jma_normals,
                      estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
-                     keishicho_crime, mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
+                     keishicho_crime, mext_school_aid,
+                     mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
                      npa_crime_stats, npa_traffic, police_crime_opendata, soumu_furusato, soumu_tax, tokyo_childcare,
                      tokyo_daytime, tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
@@ -201,7 +202,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
-                        "police_crime_opendata", "maff_agri_output", "meti_manufacturing", "estat_commerce"):
+                        "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
+                        "estat_commerce"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -301,6 +303,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "estat_school_basic":
             result[key] = estat_school_basic.ingest(conn, files, src, catalog,
                                                     (cfg["period"], cfg["period"], "point"), prefs)
+        elif kind == "mext_school_aid":
+            result[key] = mext_school_aid.ingest(conn, files, src, catalog, int(cfg["fiscal_year"]))
         elif kind == "soumu_tax":
             y = int(cfg["fiscal_year"])
             result[key] = soumu_tax.ingest(conn, files[0], src, catalog,
