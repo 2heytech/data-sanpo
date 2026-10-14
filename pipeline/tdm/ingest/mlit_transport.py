@@ -276,23 +276,39 @@ def read_wikidata_ports(path: Path) -> dict[tuple[str | None, str], tuple[float,
     return out
 
 
-def read_gsi_ports(path: Path) -> dict[tuple[str | None, str], list[tuple[float, float, str | None]]]:
-    """国土地理院の地名検索の結果（ファイル名「<都道府県コード>_<港名>.json」に「港名＋港」で引いた結果）
-    → (都道府県コード, 正規化した名前) → 位置の候補。名前が「港名＋港」で終わる地名だけを使う。
-    同じ名前の地名がほかの都道府県にもあるので、取り込みで位置の都道府県を確かめる。"""
-    pref, _, name = path.stem.partition("_")
+def _gsi_places(path: Path, want: str) -> list[tuple[float, float, str]]:
+    """国土地理院の地名検索の結果のうち、名前が want で終わる地名の (経度, 緯度, 名前)。"""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except ValueError:
-        return {}
-    want = f"{name}港"
-    cands = []
+        return []
+    out = []
     for f in data if isinstance(data, list) else []:
         title = (f.get("properties") or {}).get("title", "")
         coords = (f.get("geometry") or {}).get("coordinates") or []
         if title.endswith(want) and len(coords) == 2:
-            cands.append((float(coords[0]), float(coords[1]), None))
+            out.append((float(coords[0]), float(coords[1]), title))
+    return out
+
+
+def read_gsi_ports(path: Path) -> dict[tuple[str | None, str], list[tuple[float, float, str | None]]]:
+    """国土地理院の地名検索の結果（ファイル名「<都道府県コード>_<港名>.json」に「港名＋港」で引いた結果）
+    → (都道府県コード, 正規化した名前) → 位置の候補。名前が「港名＋港」で終わる地名だけを使う。
+    港湾統計と地名で港の名前が違うときは「<都道府県コード>_<港名>@<地名>.json」に地名で引いた結果を置き、
+    名前がその地名で終わるものを使う（例: 青ヶ島 → 三宝港）。
+    同じ名前の地名がほかの都道府県にもあるので、取り込みで位置の都道府県を確かめる。"""
+    stem, _, alias = path.stem.partition("@")
+    pref, _, name = stem.partition("_")
+    cands = [(lon, lat, None) for lon, lat, _ in _gsi_places(path, alias or f"{name}港")]
     return {(pref, norm_port(name)): cands} if cands else {}
+
+
+def read_gsi_airports(path: Path) -> dict[str, list[tuple[float, float, str]]]:
+    """国土地理院の地名検索の結果（ファイル名「<調書の空港名>@<地名>.json」）→ 正規化した空港名 → 位置の候補。
+    国土数値情報 C28 にないヘリポートなどに使う。名前がその地名で終わるものだけを使う。"""
+    name, _, query = path.stem.partition("@")
+    cands = _gsi_places(path, query or name)
+    return {norm_airport(name): cands} if cands else {}
 
 
 def read_port_overrides(path: Path = PORT_LOCATIONS) -> dict[tuple[str, str], tuple[float, float]]:
@@ -345,15 +361,22 @@ def _def(catalog: dict, kind: str) -> tuple[str, dict] | None:
 
 def ingest_airports(conn: sqlite3.Connection, tables: list[tuple[int, Path, str]],
                     locations: tuple[list[Path], str] | None, catalog: dict, boundary_version: str,
-                    prefs: list[str]) -> dict:
+                    prefs: list[str], extra: list[tuple[Path, str]] | None = None) -> dict:
+    """extra: C28 にない空港（ヘリポートなど）の位置。国土地理院の地名検索の結果。"""
     found = _def(catalog, "mlit_airports")
-    result = {"airports": 0, "no_location": 0, "outside": 0, "observations": 0}
+    result = {"airports": 0, "no_location": 0, "outside": 0, "no_passengers": 0, "observations": 0}
     if not found or not locations:
         return result
     indicator_id, d = found
-    locs, notes = read_airport_locations(locations[0])
+    c28, notes = read_airport_locations(locations[0])
     for line in notes:
         progress(f"空港の位置: {line}")
+    locs = {k: (*v, locations[1]) for k, v in c28.items()}
+    for path, src in extra or []:
+        for key, cands in read_gsi_airports(path).items():
+            if key not in locs:
+                locs[key] = (*cands[0], src)
+                progress(f"空港の位置（国土地理院の地名）: {key} → {cands[0][2]} {cands[0][0]:.3f},{cands[0][1]:.3f}")
     by_name: dict[str, dict[int, tuple[dict, str]]] = {}
     shown: dict[str, str] = {}
     latest = max(t[0] for t in tables)
@@ -371,9 +394,13 @@ def ingest_airports(conn: sqlite3.Connection, tables: list[tuple[int, Path, str]
     munis = _municipality_index(conn, boundary_version, prefs)
     missing = []
     for key, series in by_name.items():
+        if not any(v.get("all") for v, _ in series.values()):
+            result["no_passengers"] += 1      # どの年も乗り降りのない空港・ヘリポート
+            continue
         loc = locs.get(key)
         if loc is None:
-            missing.append(shown[key])
+            last = series[max(series)][0].get("all")
+            missing.append(f"{shown[key]}（{max(series)}年 {last:,.0f}人）" if last is not None else shown[key])
             result["no_location"] += 1
             continue
         muni = _municipality_of(Point(loc[0], loc[1]), *munis)
@@ -381,12 +408,17 @@ def ingest_airports(conn: sqlite3.Connection, tables: list[tuple[int, Path, str]
             result["outside"] += 1
             continue
         eid = f"airport-{hashlib.sha1(key.encode()).hexdigest()[:8]}"
-        result["observations"] += _store(conn, eid, "airport", shown[key], muni, loc[0], loc[1], locations[1],
+        result["observations"] += _store(conn, eid, "airport", shown[key], muni, loc[0], loc[1], loc[3],
                                          {"official_name": loc[2]}, series, indicator_id, d)
         result["airports"] += 1
     if missing:
         progress("位置の分からない空港: " + "、".join(missing))
     return result
+
+
+def _entity_name(conn, entity_id: str) -> str:
+    row = conn.execute("SELECT name FROM entities WHERE entity_id = ?", (entity_id,)).fetchone()
+    return row[0] if row else ""
 
 
 def _port_municipality(point: Point, pref: str, ids, geoms, tree) -> str | None:
@@ -449,9 +481,14 @@ def ingest_ports(conn: sqlite3.Connection, tables: list[tuple[int, list[Path], s
         if pref not in prefs:
             result["outside"] += 1
             continue
-        # 候補のうち、位置が港湾統計の都道府県の中（か近く）にある最初のもの
-        hit = next(((lon, lat, qid, loc_src, muni) for lon, lat, qid, loc_src in options
-                    if (muni := _port_municipality(Point(lon, lat), pref, *munis)) is not None), None)
+        # 候補のうち、位置が港湾統計の都道府県の中（か近く）にある最初のもの。
+        # 港名に市町村名の括弧書きがあれば（「水納(本部町)」）、その市町村にある候補だけ
+        in_pref = [(lon, lat, qid, loc_src, muni) for lon, lat, qid, loc_src in options
+                   if (muni := _port_municipality(Point(lon, lat), pref, *munis)) is not None]
+        town = re.search(r"[(（](.+?[市町村区])[)）]", name)
+        if town:
+            in_pref = [h for h in in_pref if _entity_name(conn, h[4]) == town.group(1)]
+        hit = in_pref[0] if in_pref else None
         if hit is None:   # 位置が都道府県から離れている（同じ名前の別の港など）
             lon, lat, qid, _ = options[0]
             wrong.append(f"{PREFECTURES[pref]}/{name}（{qid or '位置'} {lon:.3f},{lat:.3f}）")

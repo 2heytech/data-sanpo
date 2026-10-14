@@ -216,7 +216,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
-                        "gsi_ports", "soumu_election"):
+                        "gsi_airports", "gsi_ports", "soumu_election"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -234,6 +234,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             port_tables.append((int(cfg["year"]), files, src))
         elif kind == "mlit_airport_locations":
             transport_locations["airport"] = (files, src)
+        elif kind == "gsi_airports":
+            transport_locations.setdefault("airport_extra", []).extend((f, src) for f in files)
         elif kind in ("wikidata_ports", "gsi_ports"):
             transport_locations.setdefault("port", []).extend((f, src, kind) for f in files)
         elif kind == "tokyo_schools":
@@ -363,7 +365,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
     traffic_indexes.clear()   # 全国の町丁目の形は数GBあるので、使い終わったらすぐ手放す
     if airport_tables:
         result["mlit_airports"] = mlit_transport.ingest_airports(
-            conn, airport_tables, transport_locations.get("airport"), catalog, boundary_version, prefs)
+            conn, airport_tables, transport_locations.get("airport"), catalog, boundary_version, prefs,
+            transport_locations.get("airport_extra"))
     if port_tables:
         result["mlit_ports"] = mlit_transport.ingest_ports(
             conn, port_tables, transport_locations.get("port"), catalog, boundary_version, prefs)

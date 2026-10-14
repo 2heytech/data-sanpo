@@ -5772,3 +5772,51 @@ redistributable = true
   "47_野甫.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%87%8E%E7%94%AB%E6%B8%AF"
   "47_鳩間.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%B3%A9%E9%96%93%E6%B8%AF"
   "47_黒島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%BB%92%E5%B3%B6%E6%B8%AF"
+"13_神湊@神湊.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%A5%9E%E6%B9%8A"
+"13_青ヶ島@三宝港.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%89%E5%AE%9D%E6%B8%AF"
+"28_淡路交流の翼@夢舞台.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A2%E8%88%9E%E5%8F%B0"
+"42_口ノ津@口之津港.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8F%A3%E4%B9%8B%E6%B4%A5%E6%B8%AF"
+"46_獅子島@獅子島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%8D%85%E5%AD%90%E5%B3%B6"
+"46_請島@請島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%AB%8B%E5%B3%B6"
+"47_前泊@前泊.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%89%8D%E6%B3%8A"
+"47_多良間@多良間.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%9A%E8%89%AF%E9%96%93"
+"47_水納(本部町)@水納港.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B0%B4%E7%B4%8D%E6%B8%AF"
+"13_青ヶ島@青ヶ島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%9D%92%E3%83%B6%E5%B3%B6"
+"13_神湊@三根.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%89%E6%A0%B9"
+"47_水納(本部町)@水納島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B0%B4%E7%B4%8D%E5%B3%B6"
+
+# 空港の位置の続き。国土数値情報 C28 にない空港（公共用ヘリポートなど）を国土地理院の地名検索で引く。
+# ファイル名は「<空港管理状況調書の空港名>@<地名>.json」で、名前がその地名で終わる地名の位置を使う。
+[gsi_airport_names]
+kind = "gsi_airports"
+title = "国土地理院 地名検索（ヘリポートなどの位置）"
+provider = "国土地理院"
+url = "https://maps.gsi.go.jp/"
+lenient = true
+files = ["*@*.json"]
+cache = true
+license = "国土地理院コンテンツ利用規約"
+license_url = "https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html"
+attribution = "空港の位置：国土地理院（地名検索）"
+modification_note = "地名の位置を空港管理状況調書の空港に対応付けて作成"
+redistributable = true
+
+[gsi_airport_names.download_files]
+"豊富@豊富ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%B1%8A%E5%AF%8C%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"砂川@砂川ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%A0%82%E5%B7%9D%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"占冠@占冠ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8D%A0%E5%86%A0%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"ニセコ@ニセコヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E3%83%8B%E3%82%BB%E3%82%B3%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"増毛@増毛ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A2%97%E6%AF%9B%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"乙部@乙部ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B9%99%E9%83%A8%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"米沢@米沢ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%B1%B3%E6%B2%A2%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"つくば@つくばヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E3%81%A4%E3%81%8F%E3%81%B0%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"栃木@栃木ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%A0%83%E6%9C%A8%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"高崎@高崎ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%AB%98%E5%B4%8E%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"群馬@群馬ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%BE%A4%E9%A6%AC%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"東京都東京@東京ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%9D%B1%E4%BA%AC%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"若狭@若狭ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%8B%A5%E7%8B%AD%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"津市伊勢湾@津市伊勢湾ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B4%A5%E5%B8%82%E4%BC%8A%E5%8B%A2%E6%B9%BE%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"舞洲@舞洲ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%88%9E%E6%B4%B2%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"奈良県@奈良県ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A5%88%E8%89%AF%E7%9C%8C%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"佐伯@佐伯ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BD%90%E4%BC%AF%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"
+"枕崎@枕崎ヘリポート.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%9E%95%E5%B4%8E%E3%83%98%E3%83%AA%E3%83%9D%E3%83%BC%E3%83%88"

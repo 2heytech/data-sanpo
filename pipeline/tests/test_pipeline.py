@@ -1887,13 +1887,26 @@ def test_school_aid_rate(built):
     assert legend["levels"]["municipality"]["breaks"] == [5, 10, 15, 20]
 
 
+def test_gsi_port_alias(tmp_path):
+    """港湾統計と地名で名前が違う港は「<都道府県>_<港名>@<地名>.json」の地名で引く。"""
+    import json
+    from tdm.ingest.mlit_transport import read_gsi_ports
+    f = tmp_path / "13_青ヶ島@三宝港.json"
+    f.write_text(json.dumps([{"geometry": {"coordinates": [139.76, 32.45]}, "properties": {"title": "三宝港"}},
+                             {"geometry": {"coordinates": [139.0, 32.0]}, "properties": {"title": "青ヶ島港"}}],
+                            ensure_ascii=False), encoding="utf-8")
+    assert read_gsi_ports(f) == {("13", "青ヶ島"): [(139.76, 32.45, None)]}
+
+
 def test_airports_and_ports(built):
     import hashlib
     h = lambda s: hashlib.sha1(s.encode()).hexdigest()[:8]
     air = load(built, "places/airport_passengers.json")
     assert [p["label"] for p in air["periods"]] == ["2024年", "2025年"]
     pts = {p["name"]: p for p in air["points"]}
-    assert set(pts) == {"見本国際", "かりの"}   # 地図の範囲外（遠く）と位置のない空港（ない）は出さない
+    # 地図の範囲外（遠く）とどの年も乗降客数が0の空港（ゼロ）は出さない。C28 にない空港（ない）は国土地理院の地名の位置
+    assert set(pts) == {"見本国際", "かりの", "ない"}
+    assert pts["ない"]["coord"] == [139.68, 35.7] and any(s.startswith("gsi_airport_names@") for s in air["source_ids"])
     a = pts["見本国際"]
     assert a["id"] == f"airport-{h('見本')}" and a["municipality_id"] == "muni-13199"
     assert a["coord"] == [139.731, 35.69]   # 国土数値情報の空港標点
