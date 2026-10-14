@@ -13,6 +13,12 @@ describe("formatValue", () => {
     expect(formatValue({ value: 12345, status: "observed" }, people)).toBe("12,345 人");
     expect(formatValue({ value: 23.456, status: "derived" }, pct)).toBe("23.5%");
   });
+  it("区分で公表された値は区分の名前で書く（就学援助率、値は区分の上の端）", () => {
+    const band = { unit: "%", digits: 0, kind: "ratio", legend: { method: "bands", classes: 12, scheme: "oranges", band: 5 } } as Indicator;
+    expect(formatValue({ value: 15, status: "observed" }, band)).toBe("10%以上15%未満");
+    expect(formatValue({ value: 5, status: "observed" }, band)).toBe("5%未満");
+    expect(formatValue({ value: 0, status: "observed" }, band)).toBe("0%");
+  });
   it("値がない理由を示し、0にしない", () => {
     expect(formatValue({ value: null, status: "suppressed" }, people)).toContain("秘匿");
     expect(formatValue({ value: null, status: "withheld" }, pct)).toContain("非表示");
