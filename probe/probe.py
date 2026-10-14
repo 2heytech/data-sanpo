@@ -29,4 +29,16 @@ def leaves(year, url):
 
 
 
-leaves("2010 tokyo", f"{B}&tstat=000001039448&tclass1=000001049567&tclass2=000001051130&tclass3=000001051143&tclass4val=0")
+import json
+l3 = links(get(f"{B}&tstat=000001039448&tclass1=000001049567&tclass2=000001051130"), 3)
+ids = {}
+for k3, (u3, n3) in l3.items():
+    pref = n3[:2]
+    t = get(f"{B}&tstat=000001039448&tclass1=000001049567&tclass2=000001051130&tclass3={k3}&tclass4val=0&layout=datalist&page=1")
+    prev = 0
+    for m in re.finditer(r"statInfId=(\d+)", t):
+        txt = text(t[prev:m.start()]); prev = m.end()
+        if re.search(r"(^|\s)1 常住地又は従業地・通学地による年齢", txt.split("表番号")[-1]):
+            ids[pref] = m[1]; break
+    print(pref, n3[:8], ids.get(pref), flush=True)
+print("IDS", json.dumps(ids, sort_keys=True))
