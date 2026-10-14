@@ -772,6 +772,9 @@ def _write_soumu_elections(directory: Path, rnd: random.Random) -> dict[str, Pat
         rows.append(["東京都", "東京都", *map(fmt, election_prefecture_votes(period, "13"))])
         rows.append(["南関東", "神奈川県", *map(fmt, election_prefecture_votes(period, "14"))])
         rows.append(["", "計", *map(fmt, election_prefecture_votes(period, "14"))])
+        rows += [[*head, "合計"], []]   # 最後に全政党の合計の欄（政党の得票数ではない）
+        rows += [[b, n, fmt(sum(election_prefecture_votes(period, c)))]
+                 for b, n, c in [("東京都", "東京都", "13"), ("南関東", "神奈川県", "14")]]
         return rows
 
     def turnout_table(period: str) -> list[list]:
@@ -823,6 +826,8 @@ def _write_soumu_elections(directory: Path, rnd: random.Random) -> dict[str, Pat
             v = election_prefecture_votes(period, pref)[start:start + 2]
             rows.append([name, *[c for x in v for c in (fmt(x), "10.00", fmt(x), "0")]])
         rows.append(["計", "1", "100.00"])
+    rows += [[None, "合計"], [None, ""], ["都道府県", "得票総数"]]   # 最後に全政党の合計の欄
+    rows += [[name, fmt(sum(election_prefecture_votes(period, pref)))] for pref, name in [("13", "東京都"), ("14", "神奈川県")]]
     save("2025_sangiin_hirei_pref", "001027818.xlsx", {"都道府県別": rows})
     rows = turnout_table(period)
     save("2025_sangiin_turnout", "001027809.xlsx", {"Sheet1": [r[1:] for r in rows]})   # 1列目に都道府県名

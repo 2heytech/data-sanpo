@@ -1307,6 +1307,10 @@ def test_elections(built):
     pref = rows("vote_share_ldp", "2024-10-27", "prefectures")["pref-13"]
     votes = fixture.election_prefecture_votes("2024-10-27", "13")
     assert abs(pref["value"] - votes[3] / sum(votes) * 100) < 0.01
+    # 表の最後の「合計」の欄を政党の得票数に取り違えない（分母は全政党の合計）
+    for period in ["2024-10-27", "2025-07-20", "2026-02-08"]:
+        votes = fixture.election_prefecture_votes(period, "14")
+        assert abs(rows("vote_share_ldp", period, "prefectures")["pref-14"]["denominator"] - sum(votes)) < 0.01
     # 令和7年参院選: 政党ごとの3列のうち得票総数。空欄の村は値なし（0 にしない）
     sanseito = rows("vote_share_sanseito", "2025-07-20")
     num, den = share("2025-07-20", "参政党", "ためし市")

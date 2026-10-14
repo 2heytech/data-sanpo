@@ -12,7 +12,7 @@
     数値は「6,170.858」「53,072       」のように桁区切り・末尾の空白つきの文字列か数値。按分による小数を含む。
     参院選の表は、16の市区町（葛飾区・福井市・豊橋市・吹田市など）の行が空欄で、県計もその市区町を含まない。
   比例代表の都道府県別得票数（layout = "party_prefecture"）: 政党が数党ずつ縦に並ぶ表。政党名の行の下に都道府県の
-    行が続き、政党名と同じ列が得票数（参院選は得票総数）。市区町村の表の県計は上の空欄の市を含まないので、
+    行が続き、政党名と同じ列が得票数（参院選は得票総数）。表の最後に見出しが「合計」だけの欄（全政党の合計）がある。市区町村の表の県計は上の空欄の市を含まないので、
     都道府県の値はこの表から作る。
   都道府県別の有権者数・投票者数（layout = "turnout"）: 「男・女・計」の見出しの行の、1つ目の「計」が選挙当日の
     有権者数、2つ目の「計」が投票者数。都道府県名は1列目か2列目（衆院選は1列目がブロック名）。
@@ -135,8 +135,11 @@ def read_prefecture_party_votes(path: Path) -> dict[str, dict[str, float]]:
                 # 政党名の行: 数値がなく、見出しの語（「区分」「得票総数」など）でない文字がある行
                 names = {j: _text(c) for j, c in enumerate(r) if j >= 1 and _text(c) and _text(c) not in LABELS
                          and not any(w in _text(c) for w in HEAD_WORDS)}
-                if names and not any(_num(c) is not None for c in r):
-                    parties = {norm(t): j for j, t in names.items()}
+                if not any(_num(c) is not None for c in r):
+                    if names:
+                        parties = {norm(t): j for j, t in names.items()}
+                    elif any(_text(c) in ("合計", "計") for c in r[1:]):
+                        parties = {}   # 表の最後の「合計」の欄（全政党の合計）。前の政党の列と取り違えない
                 continue
             for p, j in parties.items():
                 if j < len(r) and (v := _num(r[j])) is not None:
