@@ -398,6 +398,13 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
         method = d["legend"]["method"]
         breaks_fn = (diverging_breaks if method == "diverging" else
                      nice_breaks if method == "nice" else _quantile_breaks)
+        if method == "bands":
+            # 区分で公表された値（就学援助率の「10%未満」など、値は区分の上の端）。区分ごとに1色にし、
+            # 都道府県・時点が違っても同じ区分は同じ色にする（区切りは全国・全時点の最大値まで同じ）
+            band = float(d["legend"]["band"])
+            top = max((v for vals in pooled.values() for v in vals), default=0.0)
+            fixed = [round(band * k, d["digits"]) for k in range(1, int(top // band) + 1)]
+            breaks_fn = lambda vals, classes, digits: list(fixed)  # noqa: E731
         breaks_by_level = {key: breaks_fn(vals, d["legend"]["classes"], d["digits"])
                            for key, vals in pooled.items()}
         # 市区町村は都道府県ごとにも区切る（全国の区切りだと、東京都と山梨県のように水準の違う県で
@@ -869,8 +876,8 @@ def _add_prefecture_rows(rows: dict, d: dict, munis_by_pref: dict[str, list]) ->
     ある都道府県は、欠けた分を0とみなすことになるので値なしにする。合計できない指標（平均など分子・分母の
     ない値）は作らない。"""
     munis = {r["entity_id"]: r for r in rows.get(("municipality", "municipalities"), [])}
-    if not munis:
-        return
+    if not munis or d["legend"]["method"] == "bands":
+        return  # 区分で公表された値（就学援助率など）は合計も平均もできない
     have = {r["entity_id"] for r in rows.get(("prefecture", "prefectures"), [])}
     scale = d.get("scale", 1)
     out = []

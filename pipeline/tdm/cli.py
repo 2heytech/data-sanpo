@@ -30,9 +30,10 @@ from .fetch import FetchError, fetch_source, source_prefectures
 from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
                      estat_economic_census, estat_school_basic, estat_school_municipal, jma_normals,
                      estat_small_area, mhlw_vital,
-                     keishicho_crime, mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
+                     keishicho_crime, mext_school_aid,
+                     mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
                      npa_crime_stats, npa_traffic, police_crime_opendata, soumu_furusato, soumu_tax, tokyo_childcare,
-                     tokyo_daytime, tokyo_election,
+                     tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
 from .regions import selected_prefectures
 from .sources import find_files, register_source
@@ -90,8 +91,8 @@ def ingest_all(paths: Paths, overrides: dict | None = None, prefs: list[str] | N
                                                      censuses, comparable)
         progress("増減率を計算した")
         # 市区町村の値だけの国勢調査（2025年）。最新の境界の面積で人口密度、前回の調査からの増減率を出す
-        result.update(_ingest_municipal_census(conn, paths, sources, catalog, overrides, censuses[-1]))
-        # 国勢調査以外の出典（犯罪・交通事故・昼間人口・駅など）。地域IDは最新の境界の町丁・字等を使う
+        result.update(_ingest_municipal_census(conn, paths, sources, catalog, overrides, censuses[-1], prefs))
+        # 国勢調査以外の出典（犯罪・交通事故・駅など）。地域IDは最新の境界の町丁・字等を使う
         result.update(_ingest_other_sources(conn, paths, sources, catalog, overrides,
                                             latest_version, prefs))
         progress("国勢調査以外の出典を取り込んだ")
@@ -111,18 +112,25 @@ def ingest_all(paths: Paths, overrides: dict | None = None, prefs: list[str] | N
 
 
 def _ingest_municipal_census(conn, paths: Paths, sources: dict, catalog: dict,
-                        overrides: dict | None, last_census: dict) -> dict:
+                        overrides: dict | None, last_census: dict, prefs: list[str] | None = None) -> dict:
     result: dict = {}
     for key, cfg in sources.items():
         if cfg.get("kind") != "census_municipal":
             continue
-        files = find_files(paths.raw / key, cfg["files"])
+        if cfg.get("per_prefecture"):
+            # 都道府県ごとの表（平成22年の従業地・通学地集計など）は、取得した都道府県の分をつなげる
+            by_pref = _prefecture_files(paths, key, cfg, prefs or selected_prefectures())
+            files = [fs[0] for _, fs in sorted(by_pref.items())]
+        else:
+            files = find_files(paths.raw / key, cfg["files"])[:1]
         if not files:
             result[key] = "元ファイルがないため除外"
             continue
         src = register_source(conn, key, cfg, files, overrides)
-        table = estat_census_municipal.read_table(files[0], cfg["columns"], cfg.get("filters"),
-                                                  cfg.get("encoding", "cp932"))
+        parts = [estat_census_municipal.read_table(f, cfg["columns"], cfg.get("filters"),
+                                                   cfg.get("encoding", "cp932"), cfg.get("row_codes"))
+                 for f in files]
+        table = estat_small_area.Table(parts[0].labels, [r for t in parts for r in t.rows], True)
         period = (cfg["period"], cfg["period"], "point")
         for indicator_id, d in catalog.items():
             # municipal_table: 町丁・字等の値は小地域の表（table）から、市区町村・都道府県の値はこの表からも取る（#102）
@@ -193,7 +201,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
     traffic_indexes: dict = {}   # 交通事故の年ごとのファイルで境界の索引を使い回す
     for key, cfg in sources.items():
         kind = cfg.get("kind")
-        if kind not in ("keishicho_crime", "tokyo_daytime", "mlit_stations", "tokyo_schools",
+        if kind not in ("keishicho_crime", "mlit_stations", "tokyo_schools",
                         "isj_gazetteer", "tokyo_foreign", "npa_traffic", "mlit_landprice",
                         "soumu_tax", "tokyo_childcare", "tokyo_street_trees", "tokyo_election",
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
@@ -201,7 +209,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
-                        "police_crime_opendata"):
+                        "police_crime_opendata", "mext_school_aid"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -301,6 +309,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "estat_school_progress":
             result[key] = estat_school_municipal.ingest_progress(
                 conn, files, src, catalog, (cfg["period"], cfg["period"], "point"), prefs)
+        elif kind == "mext_school_aid":
+            result[key] = mext_school_aid.ingest(conn, files, src, catalog, int(cfg["fiscal_year"]))
         elif kind == "soumu_tax":
             y = int(cfg["fiscal_year"])
             result[key] = soumu_tax.ingest(conn, files[0], src, catalog,
@@ -326,13 +336,6 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                 if d.get("source_kind") == kind:
                     result[f"{key} {indicator_id}"] = mlit_stations.ingest(
                         conn, files[0], src, indicator_id, d, boundary_version, source_prefectures(cfg, prefs))
-        else:
-            period = (cfg["period"], cfg["period"], "point")
-            for indicator_id, d in catalog.items():
-                if d.get("source_kind") == kind:
-                    result[f"{key} {indicator_id}"] = tokyo_daytime.ingest(
-                        conn, files[0], src, indicator_id, d, period,
-                        cfg.get("encoding", "utf-8-sig"))
     traffic_indexes.clear()   # 全国の町丁目の形は数GBあるので、使い終わったらすぐ手放す
     if tree_files:
         period = (tree_files[0][3], tree_files[0][3], "point")
