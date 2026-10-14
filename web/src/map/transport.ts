@@ -136,7 +136,7 @@ export function initTransport(o: Options): PointLayer {
   o.toggle.addEventListener("change", () => void setVisible(o.toggle.checked));
 
   const people = (x: number | null | undefined) => (x == null ? "−" : `${formatNumber(x, 0)}人`);
-  // 推移の表は右の欄の幅に収まるよう単位を見出しにまとめる
+  // 表の中は単位を見出しにまとめる
   const num = (x: number | null | undefined) => (x == null ? "−" : formatNumber(x, 0));
 
   function showPoint(id: string | null) {
@@ -150,12 +150,13 @@ export function initTransport(o: Options): PointLayer {
     }
     const i = latestIndex(p);
     const per = data.periods;
-    const rows = per.map((x, n) => {
-      if (p.values[n] == null && p.domestic[n] == null && p.international[n] == null) return "";
-      return `<tr${n === i ? ' aria-current="true"' : ""}><td>${esc(x.label)}</td>
-        <td class="num">${num(p.values[n])}</td><td class="num">${num(p.domestic[n])}</td>
-        <td class="num">${num(p.international[n])}</td><td class="num">${changeText(p.values[n - 1], p.values[n])}</td></tr>`;
-    }).join("");
+    // 右の欄の幅に収まるよう、合計の推移と国内・国際の内訳を別の表にする
+    const has = (n: number) => p.values[n] != null || p.domestic[n] != null || p.international[n] != null;
+    const cur = (n: number) => (n === i ? ' aria-current="true"' : "");
+    const rows = per.map((x, n) => has(n) ? `<tr${cur(n)}><td>${esc(x.label)}</td><td class="num">${num(p.values[n])}</td>
+        <td class="num">${changeText(p.values[n - 1], p.values[n])}</td></tr>` : "").join("");
+    const parts = per.map((x, n) => has(n) ? `<tr${cur(n)}><td>${esc(x.label)}</td><td class="num">${num(p.domestic[n])}</td>
+        <td class="num">${num(p.international[n])}</td></tr>` : "").join("");
     const srcs = [...new Set(data.source_ids.map((sid) => o.sources.get(sid)?.attribution ?? sid))];
     o.panel.hidden = false;
     o.panel.innerHTML = `
@@ -166,8 +167,11 @@ export function initTransport(o: Options): PointLayer {
       <div class="value">${people(p.values[i])}</div>
       <p class="small">${k.domestic} ${people(p.domestic[i])}・${k.international} ${people(p.international[i])}</p>
       <table class="trend"><caption>推移（人）</caption>
-        <thead><tr><th>年</th><th class="num">合計</th><th class="num">${k.domestic}</th><th class="num">${k.international}</th><th class="num">前年から</th></tr></thead>
+        <thead><tr><th>年</th><th class="num">${k.total}</th><th class="num">前年から</th></tr></thead>
         <tbody>${rows}</tbody></table>
+      <table class="trend"><caption>内訳（人）</caption>
+        <thead><tr><th>年</th><th class="num">${k.domestic}</th><th class="num">${k.international}</th></tr></thead>
+        <tbody>${parts}</tbody></table>
       <p class="muted small">${esc(data.description)}</p>
       <p class="muted small">${data.caveats.map(esc).join(" ")}</p>
       <p class="muted small">${srcs.map(esc).join("／")}</p>`;

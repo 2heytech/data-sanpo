@@ -46,6 +46,7 @@ const shots = [
   // 空港の乗降客数・港の船舶乗降人員（点）。全国と、羽田空港を選んだところ
   ["42-map-airports-ports", "/map/?i=population_total&show=airports,ports", { width: 1280, height: 900 }],
   ["43-map-airport-haneda", "/map/?i=population_total&show=airports,ports&ap=airport-681ee300", { width: 1280, height: 900 }],
+  ["44-map-port-okata", "/map/?i=population_total&show=airports,ports&pt=port-13-7c5c475d", { width: 1280, height: 900 }],
   ["90-about", "/about/", { width: 1280, height: 900 }],
 ];
 
