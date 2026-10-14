@@ -1454,6 +1454,27 @@ def test_preschool_shares(built):
     assert {"preschool_kindergarten_share", "preschool_nursery_share", "preschool_kodomoen_share"} <= ids
 
 
+def test_prefecture_rows_include_withheld():
+    # 分母が小さくて値を出さない市区町村も、都道府県の分子・分母の合計には入れる（#109）
+    from collections import defaultdict
+    from tdm.export import _add_prefecture_rows
+    rows = defaultdict(list)
+    rows[("municipality", "municipalities")] = [
+        {"entity_id": "muni-13101", "value": 50.0, "status": "derived", "numerator": 50.0, "denominator": 100.0},
+        {"entity_id": "muni-13362", "value": None, "status": "withheld", "_parts": (3.0, 10.0)},
+        {"entity_id": "muni-13999", "value": None, "status": "not_applicable", "_parts": (0.0, 0.0)}]
+    munis = {"13": [{"entity_id": e} for e in ("muni-13101", "muni-13362", "muni-13999")]}
+    _add_prefecture_rows(rows, {"scale": 100, "digits": 1, "kind": "ratio"}, munis)
+    pref = rows[("prefecture", "prefectures")][0]
+    assert pref["numerator"] == 53 and pref["denominator"] == 110
+    # 秘匿などで分子・分母もない市区町村があれば、これまでどおり都道府県の値は出さない
+    rows[("municipality", "municipalities")][1] = {"entity_id": "muni-13362", "value": None, "status": "suppressed"}
+    rows[("prefecture", "prefectures")] = []
+    _add_prefecture_rows(rows, {"scale": 100, "digits": 1, "kind": "ratio"}, munis)
+    assert rows[("prefecture", "prefectures")][0]["value"] is None
+
+
+
 def test_zero_prefectures(built):
     # 県内の市区町村がすべて0の都道府県は凡例に記し、地図で色を付けない（#75）
     found = 0
