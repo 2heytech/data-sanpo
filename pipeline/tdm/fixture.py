@@ -2095,4 +2095,13 @@ def _write_transport(directory: Path) -> dict[str, Path]:
         item("Q100", "東京港", "東京都", 139.75, 35.70), item("Q101", "見本港", "東京都", 139.66, 35.68),
         item("Q102", "みほん港", "神奈川県", 139.62, 35.47), item("Q99", "東京港", "大阪府", 135.4, 34.6),
     ]}}, ensure_ascii=False), encoding="utf-8")
+    # 国土地理院の地名検索（Wikidata にない港）。ほかの都道府県の同じ名前の地名と、名前の違う地名は使わない
+    d = directory / "gsi_port_names"
+    d.mkdir(parents=True, exist_ok=True)
+
+    def place(title, x, y):
+        return {"type": "Feature", "geometry": {"type": "Point", "coordinates": [x, y]}, "properties": {"title": title}}
+    out["gsi_ports"] = d / "13_ない.json"
+    out["gsi_ports"].write_text(json.dumps([place("ない港", 135.4, 34.6), place("ないの浜", 139.70, 35.70),
+                                            place("ない港", 139.67, 35.69)], ensure_ascii=False), encoding="utf-8")
     return out

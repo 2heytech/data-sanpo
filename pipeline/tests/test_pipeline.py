@@ -1756,8 +1756,10 @@ def test_airports_and_ports(built):
     port = load(built, "places/port_passengers.json")
     assert [p["label"] for p in port["periods"]] == ["2023年", "2024年"]
     pp = {p["name"]: p for p in port["points"]}
-    # 位置のない港・どの年も乗降のない港は出さない。港名と同じ名前の都道府県（東京）も港として読む
-    assert set(pp) == {"東京", "見本", "みほん"}
+    # どの年も乗降のない港は出さない。港名と同じ名前の都道府県（東京）も港として読む
+    assert set(pp) == {"東京", "見本", "みほん", "ない"}
+    # Wikidata にない港は国土地理院の地名から。ほかの都道府県の同じ名前の地名は使わない
+    assert pp["ない"]["coord"] == [139.67, 35.69] and any(s.startswith("gsi_port_names@") for s in port["source_ids"])
     t = pp["東京"]
     assert t["id"] == f"port-13-{h('東京')}" and t["coord"] == [139.75, 35.7]   # 大阪府の同名の港と取り違えない
     assert t["values"] == [1200, 1500] and t["domestic"] == [1200, 1400]

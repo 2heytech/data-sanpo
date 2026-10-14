@@ -276,6 +276,25 @@ def read_wikidata_ports(path: Path) -> dict[tuple[str | None, str], tuple[float,
     return out
 
 
+def read_gsi_ports(path: Path) -> dict[tuple[str | None, str], list[tuple[float, float, str | None]]]:
+    """国土地理院の地名検索の結果（ファイル名「<都道府県コード>_<港名>.json」に「港名＋港」で引いた結果）
+    → (都道府県コード, 正規化した名前) → 位置の候補。名前が「港名＋港」で終わる地名だけを使う。
+    同じ名前の地名がほかの都道府県にもあるので、取り込みで位置の都道府県を確かめる。"""
+    pref, _, name = path.stem.partition("_")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return {}
+    want = f"{name}港"
+    cands = []
+    for f in data if isinstance(data, list) else []:
+        title = (f.get("properties") or {}).get("title", "")
+        coords = (f.get("geometry") or {}).get("coordinates") or []
+        if title.endswith(want) and len(coords) == 2:
+            cands.append((float(coords[0]), float(coords[1]), None))
+    return {(pref, norm_port(name)): cands} if cands else {}
+
+
 def read_port_overrides(path: Path = PORT_LOCATIONS) -> dict[tuple[str, str], tuple[float, float]]:
     """手で付けた港の位置（「都道府県名/港名」= [経度, 緯度]）。Wikidata にない・違う港に使う。"""
     if not path.exists():
@@ -381,19 +400,27 @@ def _port_municipality(point: Point, pref: str, ids, geoms, tree) -> str | None:
 
 
 def ingest_ports(conn: sqlite3.Connection, tables: list[tuple[int, list[Path], str]],
-                 wikidata: list[tuple[Path, str]] | None, catalog: dict, boundary_version: str,
+                 locations: list[tuple[Path, str, str]] | None, catalog: dict, boundary_version: str,
                  prefs: list[str]) -> dict:
     found = _def(catalog, "mlit_ports")
     result = {"ports": 0, "no_location": 0, "wrong_location": 0, "outside": 0, "no_passengers": 0, "observations": 0}
     if not found:
         return result
     indicator_id, d = found
-    wd: dict = {}
-    for path, src in wikidata or []:
-        for key, v in read_wikidata_ports(path).items():
-            wd.setdefault(key, (*v, src))
+    # 位置の候補: (都道府県コード or None, 正規化した名前) → [(経度, 緯度, QID, 出典)]。Wikidata を先に、国土地理院の地名を後に
+    cands: dict = {}
+    counts = {"wikidata_ports": 0, "gsi_ports": 0}
+    for path, src, kind in sorted(locations or [], key=lambda t: t[2] != "wikidata_ports"):
+        if kind == "gsi_ports":
+            found_locs = read_gsi_ports(path)
+        else:
+            found_locs = {k: [v] for k, v in read_wikidata_ports(path).items()}
+        for key, vs in found_locs.items():
+            cands.setdefault(key, []).extend((*v, src) for v in vs)
+            counts[kind] += 1
     manual = read_port_overrides()
-    progress(f"港の位置: Wikidata {len(wd)} 件、手で付けた位置 {len(manual)} 件")
+    progress(f"港の位置: Wikidata {counts['wikidata_ports']} 件、国土地理院の地名 {counts['gsi_ports']} 件、"
+             f"手で付けた位置 {len(manual)} 件")
     manual_src = register_source(conn, "port_locations", MANUAL_SOURCE, [PORT_LOCATIONS]) if manual else ""
     by_port: dict[tuple[str, str], dict[int, tuple[dict, str]]] = {}
     latest = max((t[0] for t in tables), default=0)
@@ -412,22 +439,25 @@ def ingest_ports(conn: sqlite3.Connection, tables: list[tuple[int, list[Path], s
             continue
         norm = norm_port(name)
         if (pref, name) in manual:
-            lon, lat = manual[(pref, name)]
-            loc_src, qid = manual_src, None
-        elif (pref, norm) in wd or (None, norm) in wd:
-            lon, lat, qid, loc_src = wd.get((pref, norm)) or wd[(None, norm)]
+            options = [(*manual[(pref, name)], None, manual_src)]
         else:
+            options = cands.get((pref, norm), []) + cands.get((None, norm), [])
+        if not options:
             missing.append(f"{PREFECTURES[pref]}/{name}")
             result["no_location"] += 1
             continue
         if pref not in prefs:
             result["outside"] += 1
             continue
-        muni = _port_municipality(Point(lon, lat), pref, *munis)
-        if muni is None:   # 位置が都道府県から離れている（同じ名前の別の港など）
-            wrong.append(f"{PREFECTURES[pref]}/{name}（{qid or '手で付けた位置'} {lon:.3f},{lat:.3f}）")
+        # 候補のうち、位置が港湾統計の都道府県の中（か近く）にある最初のもの
+        hit = next(((lon, lat, qid, loc_src, muni) for lon, lat, qid, loc_src in options
+                    if (muni := _port_municipality(Point(lon, lat), pref, *munis)) is not None), None)
+        if hit is None:   # 位置が都道府県から離れている（同じ名前の別の港など）
+            lon, lat, qid, _ = options[0]
+            wrong.append(f"{PREFECTURES[pref]}/{name}（{qid or '位置'} {lon:.3f},{lat:.3f}）")
             result["wrong_location"] += 1
             continue
+        lon, lat, qid, loc_src, muni = hit
         eid = f"port-{pref}-{hashlib.sha1(name.encode()).hexdigest()[:8]}"
         result["observations"] += _store(conn, eid, "port", name, muni, lon, lat, loc_src,
                                          {"wikidata": qid} if qid else {}, series, indicator_id, d)

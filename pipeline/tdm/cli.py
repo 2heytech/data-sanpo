@@ -213,7 +213,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata", "mext_school_aid", "mlit_airports", "mlit_airport_locations",
-                        "mlit_ports", "wikidata_ports"):
+                        "mlit_ports", "wikidata_ports", "gsi_ports"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -231,8 +231,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             port_tables.append((int(cfg["year"]), files, src))
         elif kind == "mlit_airport_locations":
             transport_locations["airport"] = (files, src)
-        elif kind == "wikidata_ports":
-            transport_locations.setdefault("port", []).extend((f, src) for f in files)
+        elif kind in ("wikidata_ports", "gsi_ports"):
+            transport_locations.setdefault("port", []).extend((f, src, kind) for f in files)
         elif kind == "tokyo_schools":
             school_tables += tokyo_schools.tables_of(files, cfg, src)
         elif kind == "isj_gazetteer":
