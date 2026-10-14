@@ -513,6 +513,66 @@ fraction_units = ["人", "人"]
 compare_with = ["university_students", "population_total"]
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
+[preschool_kindergarten_share]
+name = "幼稚園に通う子どもの割合（小学校入学前）"
+category = "教育"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 20
+levels = ["municipality", "small_area"]
+description = "その地域に住む、まだ小学校に入っていない子ども（0歳から）のうち、幼稚園に通っている子どもの割合。"
+method = "未就学者のうち「幼稚園」÷（未就学者 − 未就学者の「不詳」）× 100。国勢調査 小地域集計 第14表（在学学校・未就学の種類別人口）。"
+caveats = ["2020年の国勢調査の値です（10月1日現在）。", "分母は0歳からの未就学の子ども全員なので、どこにも通っていない0〜2歳の子どもも含みます。", "住んでいる地域で数えます（幼稚園・保育園のある地域ではありません）。", "通い先が「不詳」の子どもは分母から除いています。", "分母が20人未満の地域は値を表示しません。"]
+table = "school"
+numerator_column = ["（未就学者）幼稚園"]
+denominator_sum_columns = [["未就学者"]]
+denominator_subtract_columns = [["（未就学者）不詳"]]
+fraction_units = ["人", "人"]
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[preschool_nursery_share]
+name = "保育園・保育所に通う子どもの割合（小学校入学前）"
+category = "教育"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 20
+levels = ["municipality", "small_area"]
+description = "その地域に住む、まだ小学校に入っていない子ども（0歳から）のうち、保育園・保育所に通っている子どもの割合。"
+method = "未就学者のうち「保育園・保育所」÷（未就学者 − 未就学者の「不詳」）× 100。国勢調査 小地域集計 第14表（在学学校・未就学の種類別人口）。"
+caveats = ["2020年の国勢調査の値です（10月1日現在）。", "分母は0歳からの未就学の子ども全員なので、どこにも通っていない0〜2歳の子どもも含みます。", "住んでいる地域で数えます（幼稚園・保育園のある地域ではありません）。", "通い先が「不詳」の子どもは分母から除いています。", "分母が20人未満の地域は値を表示しません。"]
+table = "school"
+numerator_column = ["（未就学者）保育園・保育所"]
+denominator_sum_columns = [["未就学者"]]
+denominator_subtract_columns = [["（未就学者）不詳"]]
+fraction_units = ["人", "人"]
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[preschool_kodomoen_share]
+name = "認定こども園に通う子どもの割合（小学校入学前）"
+category = "教育"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 20
+levels = ["municipality", "small_area"]
+description = "その地域に住む、まだ小学校に入っていない子ども（0歳から）のうち、認定こども園に通っている子どもの割合。"
+method = "未就学者のうち「認定こども園」÷（未就学者 − 未就学者の「不詳」）× 100。国勢調査 小地域集計 第14表（在学学校・未就学の種類別人口）。"
+caveats = ["2020年の国勢調査の値です（10月1日現在）。", "分母は0歳からの未就学の子ども全員なので、どこにも通っていない0〜2歳の子どもも含みます。", "住んでいる地域で数えます（幼稚園・保育園のある地域ではありません）。", "通い先が「不詳」の子どもは分母から除いています。", "分母が20人未満の地域は値を表示しません。"]
+table = "school"
+numerator_column = ["（未就学者）認定こども園"]
+denominator_sum_columns = [["未就学者"]]
+denominator_subtract_columns = [["（未就学者）不詳"]]
+fraction_units = ["人", "人"]
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
 [census_foreign_population]
 name = "国勢調査の外国人の数"
 category = "外国人住民"
@@ -3825,6 +3885,143 @@ fraction_units = ["人", "人"]
 source_kind = "estat_school_basic"
 legend = { method = "nice", classes = 12, scheme = "blues" }
 
+
+[elem_class_size]
+name = "小学校の1学級あたり児童数"
+category = "教育"
+unit = "人"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1
+min_denominator = 1
+levels = ["municipality", "prefecture"]
+description = "その市区町村にある小学校（国立・公立・私立）の通常の学級（特別支援学級を除く）1学級あたりの児童の数。"
+method = "（児童数 − 特別支援学級の児童数）÷（学級数 − 特別支援学級の数）。文部科学省「学校基本調査」市町村別集計「市町村別編制方式別学級数」と「市町村別学級編制方式別児童数」（いずれも計）。"
+caveats = ["学校の所在地で数えます（その市区町村に住む子どもの数ではありません）。", "複式学級（2つ以上の学年をまとめた学級）を含みます。小さな学校の多い地域では少なく出ます。", "義務教育学校・中等教育学校は含みません。"]
+school_level = "elementary"
+class_value = "regular_class_size"
+period_labels = { "2025-05-01" = "2025年5月1日現在" }
+fraction_units = ["人", "学級"]
+source_kind = "estat_school_classes"
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
+[elem_special_class_share]
+name = "特別支援学級の児童の割合（小学校）"
+category = "教育"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 10
+levels = ["municipality", "prefecture"]
+description = "その市区町村にある小学校（国立・公立・私立）の児童のうち、特別支援学級で学ぶ児童の割合。"
+method = "特別支援学級の児童数 ÷ 児童数 × 100。文部科学省「学校基本調査」市町村別集計「市町村別学級編制方式別児童数」（計）。"
+caveats = ["学校の所在地で数えます（その市区町村に住む子どもの数ではありません）。", "特別支援学校の子どもや、通常の学級に在籍して通級指導を受ける子どもは含みません。", "義務教育学校・中等教育学校は含みません。", "児童が10人未満の市区町村は値を表示しません。"]
+school_level = "elementary"
+class_value = "special_class_share"
+period_labels = { "2025-05-01" = "2025年5月1日現在" }
+fraction_units = ["人", "人"]
+source_kind = "estat_school_classes"
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[jhs_class_size]
+name = "中学校の1学級あたり生徒数"
+category = "教育"
+unit = "人"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1
+min_denominator = 1
+levels = ["municipality", "prefecture"]
+description = "その市区町村にある中学校（国立・公立・私立）の通常の学級（特別支援学級を除く）1学級あたりの生徒の数。"
+method = "（生徒数 − 特別支援学級の生徒数）÷（学級数 − 特別支援学級の数）。文部科学省「学校基本調査」市町村別集計「市町村別編制方式別学級数」と「市町村別学級編制方式別生徒数」（いずれも計）。"
+caveats = ["学校の所在地で数えます（その市区町村に住む子どもの数ではありません）。", "複式学級（2つ以上の学年をまとめた学級）を含みます。小さな学校の多い地域では少なく出ます。", "義務教育学校・中等教育学校は含みません。"]
+school_level = "junior_high"
+class_value = "regular_class_size"
+period_labels = { "2025-05-01" = "2025年5月1日現在" }
+fraction_units = ["人", "学級"]
+source_kind = "estat_school_classes"
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
+[jhs_special_class_share]
+name = "特別支援学級の生徒の割合（中学校）"
+category = "教育"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 10
+levels = ["municipality", "prefecture"]
+description = "その市区町村にある中学校（国立・公立・私立）の生徒のうち、特別支援学級で学ぶ生徒の割合。"
+method = "特別支援学級の生徒数 ÷ 生徒数 × 100。文部科学省「学校基本調査」市町村別集計「市町村別学級編制方式別生徒数」（計）。"
+caveats = ["学校の所在地で数えます（その市区町村に住む子どもの数ではありません）。", "特別支援学校の子どもや、通常の学級に在籍して通級指導を受ける子どもは含みません。", "義務教育学校・中等教育学校は含みません。", "生徒が10人未満の市区町村は値を表示しません。"]
+school_level = "junior_high"
+class_value = "special_class_share"
+period_labels = { "2025-05-01" = "2025年5月1日現在" }
+fraction_units = ["人", "人"]
+source_kind = "estat_school_classes"
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[hs_grad_university_rate]
+name = "高校卒業者の大学等進学率"
+category = "教育"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 10
+levels = ["municipality", "prefecture"]
+description = "その市区町村にある高校（全日制・定時制）を卒業した人のうち、大学・短期大学などに進学した人の割合（3月の卒業者）。"
+method = "大学等進学者（大学・短期大学の学部・本科・別科、高校等の専攻科、特別支援学校高等部専攻科への進学者） ÷ 卒業者数 × 100。文部科学省「学校基本調査」市町村別集計「市町村別状況別卒業者数」（高等学校 全日制・定時制、計）。"
+caveats = ["学校の所在地で数えます（その市区町村に住む高校生ではありません）。私立高校や進学校の多い市区町村は高めに出ます。", "通信制の高校、中等教育学校の後期課程、特別支援学校の高等部は含みません。", "高校のない市区町村は値がありません。卒業者が10人未満の市区町村は値を表示しません。"]
+progress_value = "university"
+period_labels = { "2025-03-31" = "2025年3月卒業" }
+fraction_units = ["人", "人"]
+source_kind = "estat_school_progress"
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
+[hs_grad_vocational_rate]
+name = "高校卒業者の専門学校進学率"
+category = "教育"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 10
+levels = ["municipality", "prefecture"]
+description = "その市区町村にある高校（全日制・定時制）を卒業した人のうち、専修学校（専門課程）、いわゆる専門学校に進学した人の割合（3月の卒業者）。"
+method = "専修学校（専門課程）進学者 ÷ 卒業者数 × 100。文部科学省「学校基本調査」市町村別集計「市町村別状況別卒業者数」（高等学校 全日制・定時制、計）。"
+caveats = ["学校の所在地で数えます（その市区町村に住む高校生ではありません）。私立高校や進学校の多い市区町村は高めに出ます。", "通信制の高校、中等教育学校の後期課程、特別支援学校の高等部は含みません。", "高校のない市区町村は値がありません。卒業者が10人未満の市区町村は値を表示しません。"]
+progress_value = "vocational"
+period_labels = { "2025-03-31" = "2025年3月卒業" }
+fraction_units = ["人", "人"]
+source_kind = "estat_school_progress"
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
+[hs_grad_employment_rate]
+name = "高校卒業者の就職率"
+category = "教育"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 10
+levels = ["municipality", "prefecture"]
+description = "その市区町村にある高校（全日制・定時制）を卒業した人のうち、就職した人の割合（3月の卒業者）。"
+method = "就職者等（自営業主等・無期雇用労働者・有期雇用労働者のうち1年以上の雇用） ÷ 卒業者数 × 100。文部科学省「学校基本調査」市町村別集計「市町村別状況別卒業者数」（高等学校 全日制・定時制、計）。"
+caveats = ["学校の所在地で数えます（その市区町村に住む高校生ではありません）。私立高校や進学校の多い市区町村は高めに出ます。", "通信制の高校、中等教育学校の後期課程、特別支援学校の高等部は含みません。", "高校のない市区町村は値がありません。卒業者が10人未満の市区町村は値を表示しません。"]
+progress_value = "employment"
+period_labels = { "2025-03-31" = "2025年3月卒業" }
+fraction_units = ["人", "人"]
+source_kind = "estat_school_progress"
+legend = { method = "nice", classes = 12, scheme = "blues" }
 
 [household_income_under300_share]
 name = "世帯年収（300万円未満の世帯の割合）"
