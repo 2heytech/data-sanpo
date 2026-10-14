@@ -476,6 +476,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
     used_sources |= export_land_prices(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_nurseries(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_weather(conn, catalog, out, release_id, ok_sources)
+    used_sources |= export_transport(conn, catalog, out, release_id, ok_sources)
 
     used_sources |= {r["source_id"] for r in muni_rows} | {r["source_id"] for r in area_rows}
     src = conn.execute(
@@ -759,6 +760,58 @@ def export_weather(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
         "periods": [{"period": "1991-2020", "label": "1991〜2020年の平年値"}],
         "elements": elements, "source_ids": sorted(used),
         "stations": sorted(points.values(), key=lambda p: p["id"])})
+    return used
+
+
+TRANSPORT_LEVELS = ("airport", "port")
+
+
+def export_transport(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
+                     release_id: str, ok_sources: set[str]) -> set[str]:
+    """空港・港の点（places/<指標>.json）。全国で空港は約100、港は数百と少ないので都道府県に分けず1ファイルにし、
+    年ごとの合計・国内・国際の値を periods の順に並べる。"""
+    used: set[str] = set()
+    for indicator_id, d in catalog.items():
+        level = next((lv for lv in TRANSPORT_LEVELS if lv in d.get("levels", [])), None)
+        if level is None:
+            continue
+        rows = [r for r in conn.execute(
+            """SELECT o.entity_id, o.period_start, o.period_end, o.period_kind, o.dimension_key, o.value, o.source_id
+               FROM observations o JOIN entities e ON e.entity_id = o.entity_id
+               WHERE e.entity_type = ? AND o.indicator_id = ? AND o.definition_version = ?""",
+            (level, indicator_id, d["definition_version"])).fetchall() if r["source_id"] in ok_sources]
+        if not rows:
+            continue
+        periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
+        index = {p[0]: i for i, p in enumerate(periods)}
+        info = {r["entity_id"]: r for r in conn.execute(
+            """SELECT e.entity_id, e.name, e.parent_id, l.lon, l.lat, l.source_id AS loc_source
+               FROM entities e JOIN locations l ON l.entity_id = e.entity_id AND l.role = 'main'
+               WHERE e.entity_type = ?""", (level,))}
+        points: dict[str, dict] = {}
+        srcs: set[str] = set()
+        for r in rows:
+            e = info.get(r["entity_id"])
+            if e is None or e["loc_source"] not in ok_sources:
+                continue
+            pt = points.setdefault(r["entity_id"], {
+                "id": r["entity_id"], "name": e["name"], "municipality_id": e["parent_id"],
+                "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)],
+                "values": [None] * len(periods), "domestic": [None] * len(periods),
+                "international": [None] * len(periods)})
+            key = {"all": "values"}.get(r["dimension_key"], r["dimension_key"])
+            if key in pt and r["value"] is not None:
+                pt[key][index[r["period_start"]]] = round(r["value"])
+            srcs |= {r["source_id"], e["loc_source"]}
+        _write(out, f"places/{indicator_id}.json", {
+            "schema_version": SCHEMA_VERSION, "release_id": release_id,
+            "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
+            "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
+            "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
+                         "label": _period_label(*p)} for p in periods],
+            "source_ids": sorted(srcs),
+            "points": sorted(points.values(), key=lambda p: p["id"])})
+        used |= srcs
     return used
 
 

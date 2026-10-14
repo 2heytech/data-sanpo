@@ -187,6 +187,18 @@ describe("天気の凡例", () => {
   });
 });
 
+describe("空港・港の点", () => {
+  it("最新の値のある年と、前の年からの増減", async () => {
+    const { latestIndex, changeText } = await import("../src/map/transport");
+    expect(latestIndex({ values: [100, 120, null] })).toBe(1);
+    expect(latestIndex({ values: [null, null] })).toBe(1);
+    expect(changeText(100, 120)).toBe("+20.0%");
+    expect(changeText(200, 100)).toBe("−50.0%");
+    expect(changeText(null, 100)).toBe("");
+    expect(changeText(0, 100)).toBe("");   // 前の年が0なら増減率は出さない
+  });
+});
+
 describe("labels", () => {
   it("広い地域ほど、長い名前ほど小さく収まる大きさになる", async () => {
     const { labelFit } = await import("../src/lib/labels");
