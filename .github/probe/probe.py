@@ -18,11 +18,11 @@ print("munis", len(codes))
 print("combos(top-level)", [c for c in combos if c[1] == c[2] or c[1].endswith("計") or c[0] == c[1]][:60])
 for r in rows[1:]:
     if r[5] in ("千代田区", "横浜市", "特別区部", "八王子市", "大島町") or (isinstance(r[2], int) and r[2] in (0, 100) and r[1] in ("13", "14", 13, 14)) or r[5] in (None, "", "計", "都道府県計"):
-        if r[7] in ("農業産出額", "米", "野菜計", "果実計", "畜産計", "野菜", "果実", "畜産"):
+        if r[8] in ("農業産出額", "米", "野菜計", "果実計", "畜産計"):
             print("  ", r)
 vals = collections.Counter(type(r[9]).__name__ if not isinstance(r[9], str) else r[9] for r in rows[1:])
 print("value kinds", vals.most_common(10))
-print("first codes", sorted(codes)[:20], sorted(codes)[-5:])
+sc = sorted(codes, key=str); print("first codes", sc[:20], sc[-5:])
 
 for name, url in [("METI2025", "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040480531&fileKind=0"),
                   ("METI2022", "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040137360&fileKind=0"),
