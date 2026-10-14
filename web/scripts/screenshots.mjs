@@ -59,9 +59,9 @@ async function shoot([name, path, viewport]) {
   page.on("pageerror", (e) => { errors++; console.error(`[${name}] ${e.message}`); });
   const open = () => page.goto(base + path, { waitUntil: "networkidle", timeout: 60_000 }).catch((e) => console.error(`[${name}] ${e.message}`));
   await open();
-  // 同時に開くと読み込みが遅れることがあるので、地図は凡例が出る（指標の値を読み終える）まで待つ。出なければ1回だけ開き直す
+  // 同時に開くと読み込みが遅れることがあるので、地図は凡例（色の見本か「値がない」の文）が出る（指標の値を読み終える）まで待つ。出なければ1回だけ開き直す
   if (path.startsWith("/map/")) {
-    const ready = () => page.waitForSelector("#legend li", { timeout: 20_000 }).then(() => true, () => false);
+    const ready = () => page.waitForSelector("#legend .swatch, #legend p", { timeout: 20_000 }).then(() => true, () => false);
     if (!(await ready())) {
       console.error(`[${name}] 凡例が出ないので開き直します`);
       await open();

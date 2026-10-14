@@ -20,6 +20,12 @@
   平成27年・22年（2015・2010年）は CSV（cp932）。「地域コード」「地域識別コード」のある行が列名の行で、
   値の列名（総数（国籍）、中国、（別掲）総人口 …）は男女総数・男・女の順にくり返すので最初（男女総数）を使う。
   列名の末尾の注の番号（「その他 1)」の「 1)」）は除いて照合する。地域識別コード b（市部・郡部）・d（人口集中地区）の行は使わない。
+
+従業地・通学地集計の表も同じ形で読む（昼間人口。docs/design-changes.md #107。2026-10-14 に GitHub Actions から取得して確認）:
+  令和2年の表1-1（Excel）は「男女」「年齢」の分類の列がある（filters で総数の行を選ぶ）。
+  平成27年の第1表（CSV）は列名の末尾に注の番号と記号がつく（「総数（昼間人口） 2)3) (k)」）。どちらも除いて照合する。
+  平成22年は都道府県ごとの第1表（CSV）で、男女・年齢の分類が列名のない列に符号（danjo.0000・nen5EX.0000）で入る
+  （row_codes で男女総数・年齢総数の行を選ぶ）。
 """
 from __future__ import annotations
 
@@ -49,12 +55,13 @@ def _cell_text(v) -> str:
 
 
 def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | None = None,
-               encoding: str = "cp932") -> Table:
+               encoding: str = "cp932", row_codes: list[str] | None = None) -> Table:
     """columns: 返す列名 → 「表章項目/項目名」（項目名は先頭が一致すればよい。例: "人口/R1_（再掲）15歳未満"）。
     CSV（2015・2010年）は列名そのもの（例: "（別掲）総人口"）。
-    filters: 分類の列名 → 残す値（例: {"男女": "0_総数"}）。"""
+    filters: 分類の列名 → 残す値（例: {"男女": "0_総数"}）。
+    row_codes: CSV で、行に含まれていなければならない分類の符号（列名のない分類の列。例: "danjo.0000"）。"""
     if path.suffix.lower() == ".csv":
-        return _read_csv(path, columns, encoding)
+        return _read_csv(path, columns, encoding, row_codes or [])
     rows = read_sheet(path)
     h = next((i for i, r in enumerate(rows[:60]) if any(c == HEAD for c in r)), None)
     if h is None:
@@ -109,10 +116,11 @@ def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | No
 
 
 def _csv_label(s: str) -> str:
-    return re.sub(r"\s*\d\)$", "", s.strip()).strip()
+    # 末尾の注の番号（「 1)」「 2)3)」）と記号（「 (k)」）を除く
+    return re.sub(r"(\s*(\d\)|\([a-z]\)))+$", "", s.strip()).strip()
 
 
-def _read_csv(path: Path, columns: dict[str, str], encoding: str) -> Table:
+def _read_csv(path: Path, columns: dict[str, str], encoding: str, row_codes: list[str]) -> Table:
     with path.open(encoding=encoding, newline="") as f:
         rows = [[c.strip() for c in r] for r in csv.reader(f)]
     h = next((i for i, r in enumerate(rows[:60]) if HEAD in r and "地域コード" in r), None)
@@ -131,6 +139,8 @@ def _read_csv(path: Path, columns: dict[str, str], encoding: str) -> Table:
     for r in rows[h + 1:]:
         cells = r + [""] * len(head)
         if cells[level] not in MUNICIPALITY_LEVELS | {PREFECTURE_LEVEL} or not re.fullmatch(r"\d{5}", cells[code_col]):
+            continue
+        if any(c not in cells for c in row_codes):
             continue
         key = cells[code_col]
         if cells[level] == PREFECTURE_LEVEL:
