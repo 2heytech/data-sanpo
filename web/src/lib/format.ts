@@ -84,3 +84,22 @@ export function rankOf(rows: ValueRow[], entityId: string): { rank: number; tota
 export function rankIfVaried(rows: ValueRow[], entityId: string): { rank: number; total: number } | null {
   return new Set(rows.map((r) => r.value).filter((v) => v !== null)).size > 1 ? rankOf(rows, entityId) : null;
 }
+
+/**
+ * 値の大きい順に並べ、順位（同値は同順位）を付ける。値がない行は除く。
+ * 指標ページのランキングで使う。
+ */
+export function ranked<T extends ValueRow>(rows: T[]): (T & { rank: number })[] {
+  const sorted = rows.filter((r) => r.value !== null).sort((a, b) => (b.value as number) - (a.value as number));
+  let rank = 0;
+  return sorted.map((r, i) => {
+    if (i === 0 || r.value !== sorted[i - 1].value) rank = i + 1;
+    return { ...r, rank };
+  });
+}
+
+/** ランキングを上位・中間・下位に分ける（件数が少なければ全部を上位に入れる） */
+export function splitRanking<T>(rows: T[], size = 100): { top: T[]; middle: T[]; bottom: T[] } {
+  if (rows.length <= size * 2) return { top: rows, middle: [], bottom: [] };
+  return { top: rows.slice(0, size), middle: rows.slice(size, -size), bottom: rows.slice(-size) };
+}

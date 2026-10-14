@@ -1,8 +1,9 @@
 ---
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
-import { loadAreas, loadIndicators, loadSources, loadValues } from "../../lib/data";
-import { formatValue, STATUS_LABEL } from "../../lib/format";
+import RankingTable, { type RankingRow } from "../../components/RankingTable.astro";
+import { loadAreas, loadIndicators, loadSmallAreaRows, loadSmallAreas, loadSources, loadValues } from "../../lib/data";
+import { formatValue, ranked, splitRanking, STATUS_LABEL } from "../../lib/format";
 import type { Indicator } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -16,9 +17,40 @@ const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
 const prefNames = new Map(areas.prefectures.map((p) => [p.code, p.name]));
 const coverage = ind.prefectures ?? [];
 const partial = areas.prefectures.length > 1 && coverage.length > 0 && coverage.length < areas.prefectures.length;
-const rows = (loadValues(ind.id, period.period, "municipalities")?.rows ?? [])
-  .filter((r) => munis.has(r.entity_id))
-  .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
+const nationwide = areas.prefectures.length > 1;
+// ランキングは上位・下位それぞれ100位まで出す。市区町村はその間を畳んで出し、町丁・字等は出さない
+const RANKING_SIZE = 100;
+const muniValues = (loadValues(ind.id, period.period, "municipalities")?.rows ?? []).filter((r) => munis.has(r.entity_id));
+const muniRow = (r: typeof muniValues[number] & { rank: number | null }): RankingRow => {
+  const m = munis.get(r.entity_id)!;
+  return { ...r, name: m.name, href: `/areas/${r.entity_id}/`, extra: nationwide ? [prefNames.get(m.prefecture) ?? ""] : [] };
+};
+const muniRanking = splitRanking(ranked(muniValues).map(muniRow), RANKING_SIZE);
+const muniMissing = muniValues.filter((r) => r.value === null).map((r) => muniRow({ ...r, rank: null }));
+const muniCount = muniValues.length - muniMissing.length;
+
+// 町丁・字等のランキング（値のある都道府県のファイルをすべて読む）。値が0の地域が100を超えるときは、
+// 下位はほとんど0が並ぶだけなので出さない
+const smallAreaRanked = period.levels.includes("small_area")
+  ? ranked(loadSmallAreaRows(ind.id, period.period, coverage.length ? coverage : areas.prefectures.map((p) => p.code)))
+  : [];
+const zeroCount = smallAreaRanked.filter((r) => r.value === 0).length;
+const smallAreaName = (id: string) => {
+  const code = id.slice(5, 10);
+  return loadSmallAreas(code)?.areas.find((a) => a.id === id)?.name ?? id;
+};
+const smallAreaRow = (r: typeof smallAreaRanked[number]): RankingRow => {
+  const m = munis.get(`muni-${r.entity_id.slice(5, 10)}`);
+  return {
+    ...r, name: smallAreaName(r.entity_id), href: `/map/?i=${ind.id}&p=${period.period}&a=${r.entity_id}`,
+    extra: [...(nationwide ? [prefNames.get(r.entity_id.slice(5, 7)) ?? ""] : []), m?.name ?? ""],
+  };
+};
+const smallAreaTop = smallAreaRanked.slice(0, Math.min(RANKING_SIZE, smallAreaRanked.length)).map(smallAreaRow);
+const smallAreaBottom = smallAreaRanked.length > RANKING_SIZE && zeroCount <= RANKING_SIZE
+  ? smallAreaRanked.slice(Math.max(RANKING_SIZE, smallAreaRanked.length - RANKING_SIZE)).map(smallAreaRow)
+  : [];
+const smallAreaExtra = [...(nationwide ? ["都道府県"] : []), "市区町村"];
 const levelLabel = { prefecture: "都道府県", municipality: "市区町村", small_area: "町丁・字等" } as const;
 const levelOrder = ["prefecture", "municipality", "small_area"] as const;
 // 全国の公開版では、都道府県別の値（市区町村の分子・分母の合計など）も表にする
@@ -88,22 +120,44 @@ const prefRows = areas.prefectures.length > 1 && period.levels.includes("prefect
       </div>
     </>
   )}
-  <h2>市区町村別の値（{period.label}）</h2>
-  <div class="table-scroll">
-    <table>
-      <thead><tr><th>市区町村</th>{areas.prefectures.length > 1 && <th>都道府県</th>}<th class="num">{ind.name}</th><th>備考</th></tr></thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr>
-            <td><a href={`/areas/${r.entity_id}/`}>{munis.get(r.entity_id)!.name}</a></td>
-            {areas.prefectures.length > 1 && <td>{prefNames.get(munis.get(r.entity_id)!.prefecture)}</td>}
-            <td class="num">{formatValue(r, ind)}</td>
-            <td class="muted">{r.value === null ? "" : STATUS_LABEL[r.status]}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
+  <h2>市区町村のランキング（{period.label}）</h2>
+  <p class="muted">値の大きい順です（同じ値は同じ順位）。大きいほど良い・悪いという意味ではありません。
+    {muniCount > RANKING_SIZE * 2 && `${muniCount.toLocaleString("ja-JP")}市区町村のうち、上位と下位の${RANKING_SIZE}位までを出し、その間は畳んでいます。`}</p>
+  <RankingTable ind={ind} rows={muniRanking.top} areaLabel="市区町村" extraLabels={nationwide ? ["都道府県"] : []}
+    caption={muniRanking.middle.length ? `上位${RANKING_SIZE}位` : undefined} />
+  {muniRanking.middle.length > 0 && (
+    <>
+      <details class="ranking-more">
+        <summary>{`${muniRanking.middle[0].rank!.toLocaleString("ja-JP")}位〜${muniRanking.middle.at(-1)!.rank!.toLocaleString("ja-JP")}位（${muniRanking.middle.length.toLocaleString("ja-JP")}市区町村）を表示`}</summary>
+        <RankingTable ind={ind} rows={muniRanking.middle} areaLabel="市区町村" extraLabels={nationwide ? ["都道府県"] : []} />
+      </details>
+      <RankingTable ind={ind} rows={muniRanking.bottom} areaLabel="市区町村" extraLabels={nationwide ? ["都道府県"] : []}
+        caption={`下位${RANKING_SIZE}位`} />
+    </>
+  )}
+  {muniMissing.length > 0 && (
+    <details class="ranking-more">
+      <summary>{`値のない市区町村（${muniMissing.length.toLocaleString("ja-JP")}）`}</summary>
+      <RankingTable ind={ind} rows={muniMissing} areaLabel="市区町村" extraLabels={nationwide ? ["都道府県"] : []} />
+    </details>
+  )}
+
+  {smallAreaTop.length > 0 && (
+    <>
+      <h2>町丁・字等のランキング（{period.label}）</h2>
+      <p class="muted">{`${smallAreaRanked.length.toLocaleString("ja-JP")}地域のうち、`}
+        {smallAreaBottom.length ? `上位と下位の${RANKING_SIZE}位まで` : smallAreaRanked.length > RANKING_SIZE ? `上位${RANKING_SIZE}位まで` : "すべて"}を出しています。
+        {smallAreaRanked.length > RANKING_SIZE && !smallAreaBottom.length &&
+          `値が0の地域が${zeroCount.toLocaleString("ja-JP")}あり、下位は0が並ぶだけなので出していません。`}
+        地域名を押すと地図で開きます。</p>
+      <RankingTable ind={ind} rows={smallAreaTop} areaLabel="町丁・字等" extraLabels={smallAreaExtra} note={false}
+        caption={smallAreaRanked.length > RANKING_SIZE ? `上位${RANKING_SIZE}位` : undefined} />
+      {smallAreaBottom.length > 0 && (
+        <RankingTable ind={ind} rows={smallAreaBottom} areaLabel="町丁・字等" extraLabels={smallAreaExtra} note={false}
+          caption={`下位${smallAreaBottom.length}位`} />
+      )}
+    </>
+  )}
   <p class="muted">定義の版: {ind.definition_version}</p>
   </section>
   <AdSlot name="page" />
