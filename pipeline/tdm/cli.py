@@ -28,10 +28,11 @@ from .derive import derive_change, derive_density, derive_multi_year_sum, derive
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
 from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
-                     estat_economic_census, estat_school_basic, jma_normals,
-                     estat_small_area, mhlw_vital,
+                     estat_commerce, estat_economic_census, estat_school_basic, estat_school_municipal,
+                     jma_normals,
+                     estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
                      keishicho_crime, mext_school_aid,
-                     mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
+                     mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, mlit_transport, nier_gakuryoku,
                      npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_furusato, soumu_tax,
                      tokyo_childcare,
                      tokyo_election,
@@ -200,17 +201,22 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
     nursery_files: list[tuple] = []
     gazetteers: dict = {}
     traffic_indexes: dict = {}   # 交通事故の年ごとのファイルで境界の索引を使い回す
+    airport_tables: list[tuple] = []   # 空港・港は位置の出典と合わせて、すべての年を読んでから取り込む
+    port_tables: list[tuple] = []
+    transport_locations: dict = {}
     for key, cfg in sources.items():
         kind = cfg.get("kind")
         if kind not in ("keishicho_crime", "mlit_stations", "tokyo_schools",
                         "isj_gazetteer", "tokyo_foreign", "npa_traffic", "mlit_landprice",
                         "soumu_tax", "tokyo_childcare", "tokyo_street_trees", "tokyo_election",
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
-                        "nier_gakuryoku", "estat_school_basic", "mlit_schools", "mlit_nurseries",
+                        "nier_gakuryoku", "estat_school_basic", "estat_school_classes", "estat_school_progress", "mlit_schools", "mlit_nurseries",
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
-                        "police_crime_opendata", "mext_school_aid", "soumu_election"):
+                        "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
+                        "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
+                        "gsi_ports", "soumu_election"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -222,7 +228,15 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             continue
         src = register_source(conn, key, cfg, files, overrides)
         progress(f"取込: {key}")
-        if kind == "tokyo_schools":
+        if kind == "mlit_airports":
+            airport_tables.append((int(cfg["year"]), files[0], src))
+        elif kind == "mlit_ports":
+            port_tables.append((int(cfg["year"]), files, src))
+        elif kind == "mlit_airport_locations":
+            transport_locations["airport"] = (files, src)
+        elif kind in ("wikidata_ports", "gsi_ports"):
+            transport_locations.setdefault("port", []).extend((f, src, kind) for f in files)
+        elif kind == "tokyo_schools":
             school_tables += tokyo_schools.tables_of(files, cfg, src)
         elif kind == "isj_gazetteer":
             gazetteers[cfg.get("level", "block")] = (files[0], src)
@@ -273,6 +287,12 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                                                        cfg.get("no_incident", []), points)
         elif kind == "estat_census_history":
             result[key] = estat_census_history.ingest(conn, files[0], src, catalog)
+        elif kind == "maff_agri_output":
+            result[key] = maff_agri_output.ingest(conn, files[0], src, catalog)
+        elif kind == "meti_manufacturing":
+            result[key] = meti_manufacturing.ingest(conn, files[0], src, catalog)
+        elif kind == "estat_commerce":
+            result[key] = estat_commerce.ingest(conn, files, src, catalog, int(cfg["year"]))
         elif kind == "mhlw_tfr":
             # ベイズ推定の合計特殊出生率は5年分の出生をまとめた1つの値。multi_year（年計の合計）とは違い、
             # スライドバーの時点として並べたいので年の時点として扱い、表示名は period_labels で付ける
@@ -307,6 +327,12 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "estat_school_basic":
             result[key] = estat_school_basic.ingest(conn, files, src, catalog,
                                                     (cfg["period"], cfg["period"], "point"), prefs)
+        elif kind == "estat_school_classes":
+            result[key] = estat_school_municipal.ingest_classes(
+                conn, files, src, catalog, (cfg["period"], cfg["period"], "point"), prefs, cfg["school"])
+        elif kind == "estat_school_progress":
+            result[key] = estat_school_municipal.ingest_progress(
+                conn, files, src, catalog, (cfg["period"], cfg["period"], "point"), prefs)
         elif kind == "mext_school_aid":
             result[key] = mext_school_aid.ingest(conn, files, src, catalog, int(cfg["fiscal_year"]))
         elif kind == "soumu_tax":
@@ -335,6 +361,12 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                     result[f"{key} {indicator_id}"] = mlit_stations.ingest(
                         conn, files[0], src, indicator_id, d, boundary_version, source_prefectures(cfg, prefs))
     traffic_indexes.clear()   # 全国の町丁目の形は数GBあるので、使い終わったらすぐ手放す
+    if airport_tables:
+        result["mlit_airports"] = mlit_transport.ingest_airports(
+            conn, airport_tables, transport_locations.get("airport"), catalog, boundary_version, prefs)
+    if port_tables:
+        result["mlit_ports"] = mlit_transport.ingest_ports(
+            conn, port_tables, transport_locations.get("port"), catalog, boundary_version, prefs)
     if tree_files:
         period = (tree_files[0][3], tree_files[0][3], "point")
         result["tokyo_street_trees"] = tokyo_street_trees.ingest(

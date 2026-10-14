@@ -349,6 +349,8 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
             files += cached
         return files
     if cfg.get("download_files"):
+        if cfg.get("lenient"):   # 一部のファイルが取れなくても止めない出典（港の地名検索など）
+            return _fetch_files_lenient(key, cfg["download_files"], dest, downloader)
         return _fetch_files(key, cfg["download_files"], dest, downloader)
     url = cfg.get("download_url")
     if url and cfg.get("cache") and (cached := _already_fetched(dest, url)):

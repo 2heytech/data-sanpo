@@ -158,10 +158,12 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_gakuryoku(directory))
     out.update(_write_school_aid(directory))
     out.update(_write_school_basic(directory))
+    out.update(_write_school_municipal(directory))
     out.update(_write_housing(directory))
     out.update(_write_vital(directory))
     out["census_history"] = _write_census_history(directory)
     out.update(_write_economic_census(directory))
+    out.update(_write_industry_tables(directory))
     out["land_survey"] = _write_land_survey(directory, random.Random(f"{seed}-land-survey"))
     out.update(_write_npa_crime_stats(directory))
     out.update(_write_police_crime_opendata(directory))
@@ -232,6 +234,7 @@ def _write_police_crime_opendata(directory: Path) -> dict[str, Path]:
                     wr.writerow(["窃盗", tech, "見本警察署", "見本交番", code, PREF_NAMES[pref], muni, town, f"{year}0105"])
             out[f"{key}_{name}"] = path
     out.update(_write_weather(directory))
+    out.update(_write_transport(directory))
     return out
 
 
@@ -251,17 +254,97 @@ ECONOMIC_CENSUS_ROWS = [   # (KEY_CODE の市区町村, 市区町村名, 町丁�
 
 def _write_economic_census(directory: Path) -> dict[str, Path]:
     out = {}
-    head = "KEY_CODE,CITY_NAME,AZA_CODE,AZA_NAME,T001167001,T001167002,T001167019,T001167020"
-    labels = ",,,,AR_全産業（S_公務を除く）,AB_農林漁業,AR_全産業（S_公務を除く）,AB_農林漁業"
+    head = "KEY_CODE,CITY_NAME,AZA_CODE,AZA_NAME,T001167001,T001167002,T001167019,T001167020,T001167023,T001167027"
+    labels = ",,,,AR_全産業（S_公務を除く）,AB_農林漁業,AR_全産業（S_公務を除く）,AB_農林漁業,E_製造業,I_卸売業，小売業"
     for pref in ("13", "14"):
         lines = [head, labels]
         for i, (city5, city, town, n, emp) in enumerate(r for r in ECONOMIC_CENSUS_ROWS if r[0][:2] == pref):
             aza = f"{i + 1:04d}00000{i + 1:03d}"
-            lines.append(f"{city5}{aza},{city},{aza},{town},{n},-,{emp},-")
+            # 業種別の従業者（農林漁業・製造業・卸売業，小売業）は全産業の一部。「-」は該当なし
+            agri, manu, comm = ("-", "-", "-") if emp == "-" else (str(int(emp) // 10 or "-"), str(int(emp) // 4), str(int(emp) // 3))
+            lines.append(f"{city5}{aza},{city},{aza},{town},{n},-,{emp},{agri},{manu},{comm}")
         path = directory / "economic_census2021_small_area" / pref / f"tblT001167C{pref}.txt"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(("\r\n".join(lines) + "\r\n").encode("cp932"))
         out[f"economic_census_{pref}"] = path
+    return out
+
+
+# 市町村別農業産出額（農林水産省）。1行に1市町村×1品目、値は千万円か「-」「x」「…」。都道府県コードは文字列と数値が混ざる。
+# 東京23区は「特別区」（100）、政令指定都市は市全体（みほん市 14100）の行だけ。サンプル区（13199）の行はない
+AGRI_ROWS = {   # (都道府県コード, 市町村コード, 市町村名) → 品目 → 値
+    ("13", 100.0, "特別区"): {"農業産出額": 30.0, "米": 0.0, "野菜計": 20.0, "果実計": 2.0, "畜産計": 3.0},
+    ("13", 299.0, "ためし市"): {"農業産出額": 12.0, "米": "x", "野菜計": 8.0, "果実計": "-", "畜産計": 1.0},
+    ("13", 499.0, "かりの村"): {"農業産出額": 5.0, "米": "-", "野菜計": 3.0, "果実計": 1.0, "畜産計": "…"},
+    (14.0, 100.0, "みほん市"): {"農業産出額": 40.0, "米": 2.0, "野菜計": 25.0, "果実計": 4.0, "畜産計": 6.0},
+}
+AGRI_FILES = {2023: "index-22.xlsx", 2024: "index-25.xlsx"}
+
+# 経済構造実態調査（製造業事業所調査）の参考表（市区町村別）。(コード, 名前, 製造品出荷額等（万円）, 粗付加価値額（万円）)
+MANUFACTURING_ROWS = [("00", "全国計", 9_000_000.0, 3_000_000.0), ("13", "東京都", 500_000.0, 200_000.0),
+                      ("13100", "東京特別区", 300_000.0, 120_000.0), ("13199", "サンプル区", 250_000.0, 100_000.0),
+                      ("13299", "ためし市", "X", "X"), ("13499", "かりの村", "***", "***"),
+                      ("14", "神奈川県", 800_000.0, 250_000.0), ("14100", "みほん市", 600_000.0, 200_000.0),
+                      ("14199", "みほん市中区", 120_000.0, 40_000.0)]
+
+# 経済センサス 卸売業，小売業（市区町村表）。第1表は市区、第2表は町村。値は (卸売の販売額, 小売の販売額)（百万円）
+COMMERCE_ROWS = {
+    "f3_001.xlsx": [("a", "00000_全国", 90000.0, 50000.0), ("a", "13000_東京都", 30000.0, 9000.0),
+                    ("b", "0009A_区部", 25000.0, 7000.0), ("0", "13199_サンプル区", 25000.0, 7000.0),
+                    ("2", "13299_ためし市", 4000.0, 1500.0), ("a", "14000_神奈川県", 9000.0, 6000.0),
+                    ("1", "14100_みほん市", 5000.0, 3000.0), ("0", "14199_みほん市中区", 1200.0, 800.0)],
+    "f3_002.xlsx": [("a", "00000_全国", 90000.0, 50000.0), ("a", "13000_東京都", 30000.0, 9000.0),
+                    ("1", "13100_特別区部", 25000.0, 7000.0), ("3", "13499_かりの村", "x", 12.0)],
+}
+
+
+def _write_industry_tables(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheet
+    out = {}
+    for year, name in AGRI_FILES.items():
+        rows = [["年次", "都道府県コード", "市町村コード", "全国農業地域", "都道府県", "市町村", "種別", "部門", "品目",
+                 "産出額（千万円）", "全国順位", "県内順位"]]
+        for (pref, muni, mname), items in AGRI_ROWS.items():
+            for item, v in items.items():
+                v = v + (year - 2024) if isinstance(v, float) and v else v
+                rows.append([float(year), pref, muni, "関東・東山", PREF_NAMES[str(int(float(pref)))], mname,
+                             "耕種", item, item, v, 1.0, 1.0])
+            rows.append([float(year), pref, muni, "関東・東山", "", mname, "耕種", "米", "もち米", 1.0, 1.0, 1.0])
+        path = directory / f"maff_agri_output_{year}" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_sheet(path, rows, f"R{year - 2018}")
+        out[f"maff_agri_output_{year}"] = path
+    rows = [[None, "2025年経済構造実態調査　製造業事業所調査（地域別統計表データ）"], [], [None, "参考．市区町村別統計表"],
+            [], [], [], [],
+            [None] * 7 + ["事業所数", "事業所数", "事業所数", "従業者数", "人件費", "原材料・燃料・電力の使用額等",
+                          "製造品出荷額等", "粗付加価値額"],
+            [None] * 7 + ["合計", "従業者30人～299人", "従業者300人以上"],
+            [None, "時間軸コード", "年次", "市区町村コード", "市区町村名", "産業中分類コード", "産業中分類名", None, None,
+             None, "人", "万円", "万円", "万円", "万円"]]
+    for code, mname, ship, va in MANUFACTURING_ROWS:
+        rows.append([None, "2024000000", "2024", code, mname, "00", "製造業計", 10.0, "***", "***", 100.0, 1.0, 1.0,
+                     ship, va])
+        rows.append([None, "2024000000", "2024", code, mname, "09", "食料品製造業", 1.0, "***", "***", 9.0, 1.0, 1.0,
+                     1.0, 1.0])
+    path = directory / "meti_manufacturing_2024" / "meti_manufacturing_2024.xlsx"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_sheet(path, rows, "参考表")
+    out["meti_manufacturing_2024"] = path
+    for name, data in COMMERCE_ROWS.items():
+        rows = [["令和３年経済センサス‐活動調査"], ["第１表"], [], ["1) 注"], ["2) 注"], ["3) 注"],
+                [None, None] + ["産業小分類"] * 10,
+                [None, None] + ["I_合計"] * 3 + ["I1_卸売業計"] * 3 + ["I2_小売業計"] * 4,
+                [None, None] + ["事業所数", "従業者数_合計", "年間商品販売額"] * 2
+                + ["事業所数", "従業者数_合計", "年間商品販売額", "売場面積"],
+                [None, None] + ["事業所", "人", "百万円"] * 2 + ["事業所", "人", "百万円", "m2"],
+                ["地域識別コード", "地域区分", " "]]
+        for level, label, whole, retail in data:
+            total = whole + retail if isinstance(whole, float) else "x"
+            rows.append([level, label, 10.0, 100.0, total, 3.0, 30.0, whole, 7.0, 70.0, retail, "-"])
+        path = directory / "estat_commerce_2021" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_sheet(path, rows, name.split(".")[0])
+        out[f"estat_commerce_{name}"] = path
     return out
 
 
@@ -621,6 +704,61 @@ def _write_school_basic(directory: Path) -> dict[str, Path]:
         path = d / f"{t}.xlsx"
         write_sheets(path, sheets)
         out[f"school_basic_{t}"] = path
+    return out
+
+
+# 学校基本調査 市町村別集計の学級（編制方式別学級数・学級編制方式別児童数）と高校の卒業後の状況の形式。
+# (都道府県, 区市町村コード3桁) → 値。学級: (学級数 計, 特別支援学級数, 児童数 計, 特別支援学級の児童数)
+SCHOOL_CLASSES = {("13", "199"): (40.0, 4.0, 1000.0, 20.0), ("13", "299"): (60.0, 6.0, 1500.0, 30.0),
+                  ("13", "499"): (0.0, 0.0, 0.0, 0.0), ("14", "199"): (30.0, 0.0, 600.0, 5.0)}
+# 高校: (卒業者数, 大学等進学者, 専修学校（専門課程）進学者, 就職者等)。かりの村は高校なし（0）
+SCHOOL_PROGRESS = {("13", "199"): (500.0, 300.0, 100.0, 50.0), ("13", "299"): (8.0, 4.0, 2.0, 1.0),
+                   ("13", "499"): (0.0, 0.0, 0.0, 0.0), ("14", "199"): (200.0, 80.0, 40.0, 60.0)}
+
+
+def _write_school_municipal(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheets
+    names = {"13": {c[2:]: n for c, n, *_ in MUNICIPALITIES}, "14": {c[2:]: n for c, n, *_ in OTHER_MUNICIPALITIES}}
+    tables = {
+        "classes": ("小学校　市町村別編制方式別学級数　計", ["計", "単式学級", "複式学級", "特別支援学級"],
+                    lambda v: [v[0], v[0] - v[1], 0.0, v[1]], SCHOOL_CLASSES),
+        "pupils": ("小学校　市町村別学級編制方式別児童数　計", ["計", "単式学級", "複式学級", "特別支援学級"],
+                   lambda v: [v[2], v[2] - v[3], 0.0, v[3]], SCHOOL_CLASSES),
+        # 実際の表の列（令和7年度）。就職者は E の自営業主等・無期雇用・有期雇用のうち1年以上フルタイム相当と、
+        # A〜D のうち就職している者の合計。臨時労働者（2）は就職者に数えない
+        "progress": ("高等学校（全日制・定時制）　市町村別状況別卒業者数　計　計",
+                     ["計", "A大学等進学者", "B専修学校（専門課程）進学者", "C専修学校（一般課程）等入学者",
+                      "E就職者等/自営業主等", "E就職者等/常用労働者/無期雇用労働者",
+                      "E就職者等/常用労働者/有期雇用労働者", "E就職者等/臨時労働者", "F左記以外の者",
+                      "A、B、C、Dのうち就職している者/自営業主等無期雇用労働者",
+                      "A、B、C、Dのうち就職している者/雇用契約期間が一年以上、かつフルタイム勤務相当の者",
+                      "左記E有期雇用労働者のうち雇用契約期間が一年以上、かつフルタイム勤務相当の者",
+                      "大学等進学率", "専修学校（専門課程）進学率", "卒業者に占める就職者の割合"],
+                     lambda v: [v[0], v[1], v[2], 0.0, 5.0 if v[3] else 0.0, v[3] - 10.0 if v[3] else 0.0,
+                                4.0 if v[3] else 0.0, 2.0 if v[3] else 0.0, v[0] - v[1] - v[2] - v[3] - 2.0 if v[0] else 0.0,
+                                2.0 if v[3] else 0.0, 0.0, 3.0 if v[3] else 0.0,
+                                *(round(x / v[0] * 100, 1) if v[0] else "-" for x in (v[1], v[2], v[3]))],
+                     SCHOOL_PROGRESS),
+    }
+    out = {}
+    for name, (title, head, cells, data) in tables.items():
+        sheets = {"全国": [[title], ["全国"]]}
+        for pref, pname in PREF_NAMES.items():
+            mine = {code: cells(v) for (p, code), v in data.items() if p == pref}
+            total = [sum(r[i] for r in mine.values()) if not str(head[i]).endswith(("率", "割合")) else "-"
+                     for i in range(len(head))]
+            parts = [h.split("/") for h in head]
+            depth = max(len(x) for x in parts)
+            rows = [[title], [pname], *[[None, None, *(x[i] if i < len(x) else None for x in parts)] for i in range(depth)],
+                    ["計", "計", *total]]
+            rows += [[code, names[pref][code], *r] for code, r in mine.items()]
+            rows.append(["999", f"{pname}外", *[0.0] * len(head)])
+            sheets[pname] = rows
+        key = "estat_school_progress_2025" if name == "progress" else "estat_school_classes_elementary_2025"
+        path = directory / key / f"{name}.xlsx"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_sheets(path, sheets)
+        out[f"school_{name}"] = path
     return out
 
 
@@ -2121,3 +2259,103 @@ def _write_weather(directory: Path) -> dict[str, Path]:
                     rows.append(f"21,{n},{el},{years:2d},{start},2020," + ",".join(f"{x:6d},8" for x in vals))
             z.writestr(f"monthly/area{n[:2]}/nml_amd_m_{n}.csv", ("\r\n".join(rows) + "\r\n").encode("cp932"))
     return {"weather_index": index, "weather_monthly": monthly}
+
+
+# 空港管理状況調書（1シートに空港ごとの欄。「空港名:」の行、見出し3行、1〜12月の行）と国土数値情報 C28 の空港、
+# 港湾統計の船舶乗降人員表（1行に左右2つの欄）と Wikidata の港。いずれも実ファイルの形に合わせた架空の値。
+# 「遠く」は地図の範囲外、「ない」は位置がなく、取り込まない。2025年の「かりの」は12月が空で年の値なし
+AIRPORTS = {   # 名前 → (国際線の月の乗客, 国内線の月の乗客)。降客は乗客と同じ、通過客は国際線の1割
+    "見本": (1000, 5000), "かりの": (0, 300), "遠く": (0, 100), "ない": (0, 50),
+}
+
+
+def _airport_sheet(year: int) -> list[list]:
+    rows: list[list] = [[None, None, f"{year}年 空港管理状況調書"]]
+    for name, (intl, dom) in AIRPORTS.items():
+        rows += [[None, None, "空港名:", f"{name}{'国際' if name == '見本' else ''}(国管理)"],
+                 [None, None, "項目", None, "着陸回数(回)", None, "乗降客数(人)"] + [None] * 7 + ["航空燃料供給量(KL)"],
+                 [None, None, None, "国際線", "国内線", "計", None, "国際線", None, None, None, "国内線", None, "合計"],
+                 [None, None, "月別", None, None, None, "乗客", "降客", "通過客", "小計", "乗客", "降客", "小計"],
+                 [None] * 3]
+        for m in range(1, 13):
+            if year == 2025 and name == "かりの" and m == 12:
+                rows.append([None, None, f"{m}月"])
+                continue
+            i = intl * (1 + year - 2024)
+            t = i // 10
+            rows.append([None, None, f"{m}月", 1, 2, 3, float(i), float(i), float(t), float(2 * i + t),
+                         float(dom), float(dom), float(2 * dom), float(2 * i + t + 2 * dom), 10.0])
+    return rows
+
+
+def _write_transport(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheets
+    out: dict[str, Path] = {}
+    for year in (2024, 2025):
+        d = directory / f"mlit_airports_{year}"
+        d.mkdir(parents=True, exist_ok=True)
+        out[f"airports_{year}"] = d / f"airports_{year}.xlsx"
+        write_sheets(out[f"airports_{year}"], {"空港管理状況調書": _airport_sheet(year)})
+    d = directory / "mlit_c28_2021" / "UTF-8"
+    d.mkdir(parents=True, exist_ok=True)
+    places = {"見本国際空港": (139.73, 35.69), "かりの空港": (139.39, 34.73), "遠く空港": (141.0, 43.0)}
+    areas, refs = [], []
+    for k, (name, (x, y)) in enumerate(places.items(), 1):
+        ring = [[x - 0.005, y - 0.005], [x + 0.005, y - 0.005], [x + 0.005, y + 0.005], [x - 0.005, y + 0.005], [x - 0.005, y - 0.005]]
+        areas.append({"type": "Feature", "properties": {"C28_005": name, "C28_101": f"#cf03_{k:05d}"},
+                      "geometry": {"type": "Polygon", "coordinates": [ring]}})
+        refs.append({"type": "Feature", "properties": {"C28_000": f"cf03_{k:05d}"},
+                     "geometry": {"type": "Point", "coordinates": [x + 0.001, y]}})
+    for name, feats in (("C28-21_Airport.geojson", areas), ("C28-21_AirportReferencePoint.geojson", refs)):
+        (d / name).write_text(json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False),
+                              encoding="utf-8")
+    out["c28"] = d / "C28-21_Airport.geojson"
+
+    head = [[None] * 5 + ["船舶乗降人員表"], [],
+            ["都道府県", "港湾", None, None, "種別", "計", "乗込人員", "上陸人員", None] * 2, []]
+
+    def block(pref, mark, name, rows):   # rows: [(種別, 計, 乗込, 上陸)]
+        return [[pref if k == 0 else None, mark if k == 0 else None, name if k == 0 else None, None, *r]
+                for k, r in enumerate(rows)]
+
+    left = (block("総計", None, None, [("計", 2400.0, 1200.0, 1200.0), ("外", 100.0, 50.0, 50.0), ("内", 2300.0, 1150.0, 1150.0)])
+            + [[None] * 8]
+            + block("神奈川", None, "合計", [("内", 300.0, 150.0, 150.0)])
+            + block(None, "◎", "みほん", [("内", 300.0, 150.0, 150.0)])
+            + block(None, "○", "貨物", [("内", "-", "-", "-")]))
+    for year in (2023, 2024):
+        # 2023年は東京港の外国航路がない（「内」の行だけ）
+        tokyo = ([("計", 1500.0, 750.0, 750.0), ("外", 100.0, 50.0, 50.0), ("内", 1400.0, 700.0, 700.0)] if year == 2024
+                 else [("内", 1200.0, 600.0, 600.0)])
+        right = (block("東京", None, "合計", [("計", 2100.0, 1050.0, 1050.0), ("外", 100.0, 50.0, 50.0), ("内", 2000.0, 1000.0, 1000.0)])
+                 + block(None, "☆", "東京", tokyo)
+                 + block(None, None, "見本", [("内", 500.0, 250.0, 250.0)])
+                 + block(None, None, "ない", [("内", 100.0, 50.0, 50.0)]))
+        n = max(len(left), len(right))
+        pad = [[None] * 8]
+        rows = head + [list(x) + [None] + list(y) for x, y in zip(left + pad * (n - len(left)), right + pad * (n - len(right)))]
+        d = directory / f"mlit_ports_{year}"
+        d.mkdir(parents=True, exist_ok=True)
+        out[f"ports_{year}"] = d / f"ports_{year}_kou.xlsx"
+        write_sheets(out[f"ports_{year}"], {"タイトル2-2": [["第2表"]], "2-2": rows})
+    d = directory / "wikidata_ports"
+    d.mkdir(parents=True, exist_ok=True)
+
+    def item(q, label, pref, x, y):
+        return {"item": {"value": f"http://www.wikidata.org/entity/{q}"}, "label": {"value": label},
+                "prefLabel": {"value": pref}, "coord": {"value": f"Point({x} {y})"}}
+    out["wikidata_ports"] = d / "ports.json"
+    out["wikidata_ports"].write_text(json.dumps({"results": {"bindings": [
+        item("Q100", "東京港", "東京都", 139.75, 35.70), item("Q101", "見本港", "東京都", 139.66, 35.68),
+        item("Q102", "みほん港", "神奈川県", 139.62, 35.47), item("Q99", "東京港", "大阪府", 135.4, 34.6),
+    ]}}, ensure_ascii=False), encoding="utf-8")
+    # 国土地理院の地名検索（Wikidata にない港）。ほかの都道府県の同じ名前の地名と、名前の違う地名は使わない
+    d = directory / "gsi_port_names"
+    d.mkdir(parents=True, exist_ok=True)
+
+    def place(title, x, y):
+        return {"type": "Feature", "geometry": {"type": "Point", "coordinates": [x, y]}, "properties": {"title": title}}
+    out["gsi_ports"] = d / "13_ない.json"
+    out["gsi_ports"].write_text(json.dumps([place("ない港", 135.4, 34.6), place("ないの浜", 139.70, 35.70),
+                                            place("ない港", 139.67, 35.69)], ensure_ascii=False), encoding="utf-8")
+    return out

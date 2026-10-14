@@ -1481,6 +1481,61 @@ def test_jhs_students(built):
     assert p["denominator"] == 3000
 
 
+def test_school_municipal(built):
+    def rows(ind, period, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/{period}/{level}.json")["rows"]}
+    size = rows("elem_class_size", "2025-05-01", "municipalities")
+    # 通常の学級（特別支援学級を除く）: (1000 − 20) ÷ (40 − 4)
+    assert abs(size["muni-13199"]["value"] - 980 / 36) < 0.001
+    assert size["muni-13199"]["numerator"] == 980 and size["muni-13199"]["denominator"] == 36
+    assert size["muni-13499"]["value"] is None and size["muni-13499"]["status"] == "not_applicable"   # 学校なし
+    special = rows("elem_special_class_share", "2025-05-01", "municipalities")
+    assert special["muni-13299"]["value"] == 2.0
+    # 都道府県は「計」の行（区市町村の合計と同じ作り）
+    pref = rows("elem_special_class_share", "2025-05-01", "prefectures")["pref-13"]
+    assert pref["numerator"] == 50 and pref["denominator"] == 2500
+    uni = rows("hs_grad_university_rate", "2025-03-31", "municipalities")
+    assert uni["muni-13199"]["value"] == 60.0
+    assert uni["muni-13299"]["status"] == "withheld"   # 卒業者が10人未満
+    assert rows("hs_grad_vocational_rate", "2025-03-31", "municipalities")["muni-13199"]["value"] == 20.0
+    assert rows("hs_grad_employment_rate", "2025-03-31", "municipalities")["muni-14199"]["value"] == 30.0
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert by["hs_grad_university_rate"]["periods"][-1]["label"] == "2025年3月卒業"
+    assert by["elem_class_size"]["category"] == "教育"
+
+
+def test_preschool_shares(built):
+    rows = {r["entity_id"]: r for r in
+            load(built, "values/preschool_kindergarten_share/2020-10-01/municipalities.json")["rows"]}
+    r = rows["muni-13199"]
+    assert r["value"] is None or abs(r["value"] - r["numerator"] / r["denominator"] * 100) < 0.01
+    ids = {i["id"] for i in load(built, "indicators.json")["indicators"]}
+    assert {"preschool_kindergarten_share", "preschool_nursery_share", "preschool_kodomoen_share"} <= ids
+
+
+def test_prefecture_rows_include_withheld():
+    # 分母が小さくて値を出さない市区町村も、都道府県の分子・分母の合計には入れる（#109）
+    from collections import defaultdict
+    from tdm.export import _add_prefecture_rows
+    rows = defaultdict(list)
+    rows[("municipality", "municipalities")] = [
+        {"entity_id": "muni-13101", "value": 50.0, "status": "derived", "numerator": 50.0, "denominator": 100.0},
+        {"entity_id": "muni-13362", "value": None, "status": "withheld", "_parts": (3.0, 10.0)},
+        {"entity_id": "muni-13999", "value": None, "status": "not_applicable", "_parts": (0.0, 0.0)}]
+    munis = {"13": [{"entity_id": e} for e in ("muni-13101", "muni-13362", "muni-13999")]}
+    _add_prefecture_rows(rows, {"scale": 100, "digits": 1, "kind": "ratio",
+                                "legend": {"method": "quantile"}}, munis)
+    pref = rows[("prefecture", "prefectures")][0]
+    assert pref["numerator"] == 53 and pref["denominator"] == 110
+    # 秘匿などで分子・分母もない市区町村があれば、これまでどおり都道府県の値は出さない
+    rows[("municipality", "municipalities")][1] = {"entity_id": "muni-13362", "value": None, "status": "suppressed"}
+    rows[("prefecture", "prefectures")] = []
+    _add_prefecture_rows(rows, {"scale": 100, "digits": 1, "kind": "ratio",
+                                "legend": {"method": "quantile"}}, munis)
+    assert rows[("prefecture", "prefectures")][0]["value"] is None
+
+
+
 def test_zero_prefectures(built):
     # 県内の市区町村がすべて0の都道府県は凡例に記し、地図で色を付けない（#75）
     found = 0
@@ -1585,6 +1640,68 @@ def test_economic_census_matches_town_names(built):
     from tdm.ingest.estat_economic_census import town_key
     assert town_key("北三条東１５丁目") == town_key("北3条東15丁目")
     assert town_key("浅香山町１丁") == town_key("浅香山町一丁") and town_key("海澤") == town_key("海沢")
+
+
+def test_economic_census_industries(built):
+    """業種別（農林漁業・製造業・卸売業，小売業）の従業者数と、全産業に占める割合。"""
+    def rows(ind, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/2021-06-01/{level}.json")["rows"]}
+    manu = rows("employees_manufacturing", "municipalities")
+    assert manu["muni-13199"]["value"] == 3400 // 4 + 40 // 4 + 12 // 4
+    share = rows("employees_manufacturing_share", "13199")
+    assert share["area-13199001001"]["value"] == 25.0   # 850 ÷ 3400
+    assert share["area-13199001002"]["value"] is None   # 従業者0人の町丁目は割合を出さない
+    comm = rows("employees_commerce_share", "municipalities")
+    assert round(comm["muni-13199"]["value"], 3) == round((1133 + 13 + 4) / 3452 * 100, 3)
+    agri = rows("employees_agriculture", "13199")
+    assert agri["area-13199001001"]["value"] == 340
+    inds = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert inds["employees_manufacturing"]["family"] == inds["employees_manufacturing_share"]["family"]
+    assert inds["employees_commerce"]["category"] == "商業"
+
+
+def test_agri_output(built):
+    """農業産出額: 千万円→億円、「-」は0、「x」「…」は値なし、23区・政令指定都市の区には値を入れない。"""
+    def rows(ind, year, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/{year}-01-01/{level}.json")["rows"]}
+    m = rows("agri_output", 2024, "municipalities")
+    assert m["muni-13299"]["value"] == 1.2 and m["muni-13499"]["value"] == 0.5
+    assert "muni-13199" not in m or m["muni-13199"]["value"] is None   # 23区は「特別区」全体の値だけ
+    assert "muni-14199" not in m or m["muni-14199"]["value"] is None   # 政令指定都市の区
+    assert rows("agri_output", 2023, "municipalities")["muni-13299"]["value"] == 1.1
+    rice = rows("agri_output_rice", 2024, "municipalities")
+    assert rice["muni-13299"]["value"] is None and rice["muni-13499"]["value"] == 0   # x は値なし、- は0
+    assert rows("agri_output_livestock", 2024, "municipalities")["muni-13499"]["value"] is None   # …
+    p = rows("agri_output", 2024, "prefectures")
+    assert p["pref-13"]["value"] == 4.7   # 特別区・ためし市・かりの村の合計
+    assert p["pref-14"]["value"] == 4.0
+    assert rows("agri_output_rice", 2024, "prefectures")["pref-13"]["value"] is None   # 県内に秘匿があれば合計しない
+
+
+def test_manufacturing_shipments(built):
+    def rows(level):
+        return {r["entity_id"]: r for r in load(built, f"values/manufacturing_shipments/2024-01-01/{level}.json")["rows"]}
+    m = rows("municipalities")
+    assert m["muni-13199"]["value"] == 25.0   # 万円→億円
+    assert m["muni-13299"]["value"] is None   # X（秘匿）は0にしない
+    assert m["muni-13499"]["value"] == 0      # ***（事業所なし）は0
+    assert m["muni-14199"]["value"] == 12.0   # 政令指定都市は区の行を使う
+    p = rows("prefectures")
+    assert p["pref-13"]["value"] == 50.0 and p["pref-14"]["value"] == 80.0   # 都道府県の行
+
+
+def test_commerce_sales(built):
+    def rows(ind, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/2020-01-01/{level}.json")["rows"]}
+    r = rows("retail_sales", "municipalities")
+    assert r["muni-13199"]["value"] == 70.0 and r["muni-13499"]["value"] == 0.12 and r["muni-14199"]["value"] == 8.0
+    w = rows("wholesale_sales", "municipalities")
+    assert w["muni-13499"]["value"] is None and w["muni-13299"]["value"] == 40.0
+    assert rows("retail_sales", "prefectures")["pref-13"]["value"] == 90.0
+    pc = rows("retail_sales_per_capita", "municipalities")["muni-13199"]
+    assert pc["value"] is not None and pc["value"] > 0
+    inds = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert inds["retail_sales"]["category"] == "商業" and inds["agri_output"]["category"] == "農業"
 
 
 def test_land_survey_points(built):
@@ -1768,3 +1885,38 @@ def test_school_aid_rate(built):
     # 凡例は区分ごとに1色（全時点の最大の区分まで5%ごと）
     legend = load(built, "values/school_aid_rate/2024-04-01/legend.json")
     assert legend["levels"]["municipality"]["breaks"] == [5, 10, 15, 20]
+
+
+def test_airports_and_ports(built):
+    import hashlib
+    h = lambda s: hashlib.sha1(s.encode()).hexdigest()[:8]
+    air = load(built, "places/airport_passengers.json")
+    assert [p["label"] for p in air["periods"]] == ["2024年", "2025年"]
+    pts = {p["name"]: p for p in air["points"]}
+    assert set(pts) == {"見本国際", "かりの"}   # 地図の範囲外（遠く）と位置のない空港（ない）は出さない
+    a = pts["見本国際"]
+    assert a["id"] == f"airport-{h('見本')}" and a["municipality_id"] == "muni-13199"
+    assert a["coord"] == [139.731, 35.69]   # 国土数値情報の空港標点
+    # 12か月の合計。国際線は乗客・降客・通過客の小計
+    assert a["values"] == [145200, 170400] and a["domestic"] == [120000, 120000] and a["international"] == [25200, 50400]
+    # 月の値が欠けた年は値なし（0 にしない）
+    assert pts["かりの"]["values"] == [7200, None] and pts["かりの"]["international"] == [0, None]
+    assert any(s.startswith("mlit_c28_2021@") for s in air["source_ids"])
+
+    port = load(built, "places/port_passengers.json")
+    assert [p["label"] for p in port["periods"]] == ["2023年", "2024年"]
+    pp = {p["name"]: p for p in port["points"]}
+    # どの年も乗降のない港は出さない。港名と同じ名前の都道府県（東京）も港として読む
+    assert set(pp) == {"東京", "見本", "みほん", "ない"}
+    # Wikidata にない港は国土地理院の地名から。ほかの都道府県の同じ名前の地名は使わない
+    assert pp["ない"]["coord"] == [139.67, 35.69] and any(s.startswith("gsi_port_names@") for s in port["source_ids"])
+    t = pp["東京"]
+    assert t["id"] == f"port-13-{h('東京')}" and t["coord"] == [139.75, 35.7]   # 大阪府の同名の港と取り違えない
+    assert t["values"] == [1200, 1500] and t["domestic"] == [1200, 1400]
+    assert t["international"] == [None, 100]   # 外国航路の行がない年は値なし
+    assert pp["みほん"]["municipality_id"] == "muni-14199"
+    assert any(s.startswith("wikidata_ports@") for s in port["source_ids"])
+    assert not any(s.startswith("mlit_airports") for s in port["source_ids"])
+    # 空港・港の値は地域に割り振らない
+    ids = {i["id"] for i in load(built, "indicators.json")["indicators"]}
+    assert not ids & {"airport_passengers", "port_passengers"}

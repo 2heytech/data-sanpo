@@ -43,10 +43,14 @@ const shots = [
   ["39-map-street-crime-japan", "/map/?i=street_crime_total&p=2025-01-01", { width: 1280, height: 900 }],
   ["40-map-street-crime-osaka", "/map/?i=street_crime_total&a=muni-27127", { width: 1280, height: 900 }],
   ["41-map-street-crime-nagoya", "/map/?i=street_crime_bicycle&a=muni-23106", { width: 1280, height: 900 }],
+  // 空港の乗降客数・港の船舶乗降人員（点）。全国と、羽田空港を選んだところ
+  ["42-map-airports-ports", "/map/?i=population_total&show=airports,ports", { width: 1280, height: 900 }],
+  ["43-map-airport-haneda", "/map/?i=population_total&show=airports,ports&ap=airport-681ee300", { width: 1280, height: 900 }],
+  ["44-map-port-okata", "/map/?i=population_total&show=airports,ports&pt=port-13-7c5c475d", { width: 1280, height: 900 }],
   // 全国の国政選挙（総務省の結果調）。比例代表の得票率は市区町村・都道府県、投票率は都道府県
-  ["42-map-vote-ldp-japan", "/map/?i=vote_share_ldp&p=2024-10-27", { width: 1280, height: 900 }],
-  ["43-map-vote-sanseito-osaka", "/map/?i=vote_share_sanseito&p=2025-07-20&a=muni-27127", { width: 1280, height: 900 }],
-  ["44-map-turnout-japan", "/map/?i=voter_turnout&p=2026-02-08", { width: 1280, height: 900 }],
+  ["45-map-vote-ldp-japan", "/map/?i=vote_share_ldp&p=2024-10-27", { width: 1280, height: 900 }],
+  ["46-map-vote-sanseito-osaka", "/map/?i=vote_share_sanseito&p=2025-07-20&a=muni-27127", { width: 1280, height: 900 }],
+  ["47-map-turnout-japan", "/map/?i=voter_turnout&p=2026-02-08", { width: 1280, height: 900 }],
   ["90-about", "/about/", { width: 1280, height: 900 }],
 ];
 

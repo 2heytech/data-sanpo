@@ -348,3 +348,32 @@ export interface WeatherFile {
   source_ids: string[];
   stations: WeatherStation[];
 }
+
+/** 空港・港の1か所（places/airport_passengers.json・port_passengers.json の points）。値は periods の順 */
+export interface TransportPoint {
+  id: string;
+  name: string;
+  municipality_id: string;
+  coord: [number, number];
+  /** 合計（乗降客数・船舶乗降人員） */
+  values: (number | null)[];
+  /** 国内線・国内航路 */
+  domestic: (number | null)[];
+  /** 国際線・外国航路 */
+  international: (number | null)[];
+}
+
+/** places/airport_passengers.json・port_passengers.json（全国で数百か所なので都道府県に分けない） */
+export interface TransportFile {
+  schema_version: string;
+  release_id: string;
+  indicator_id: string;
+  name: string;
+  unit: string;
+  description: string;
+  method: string;
+  caveats: string[];
+  periods: { period: string; period_end: string; period_kind: string; label: string }[];
+  source_ids: string[];
+  points: TransportPoint[];
+}

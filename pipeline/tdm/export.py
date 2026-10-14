@@ -372,6 +372,9 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
             elif o["value"] is not None and o["numerator"] is not None:
                 row["numerator"] = round(o["numerator"], 4)
                 row["denominator"] = round(o["denominator"], 4)
+            elif o["status"] in ("withheld", "not_applicable") and o["numerator"] is not None:
+                # 分母が小さくて出さない値も、都道府県の分子・分母の合計には入れる（公開ファイルには書かない）
+                row["_parts"] = (o["numerator"], o["denominator"])
             if note:
                 row["note"] = note
             # 町丁・字等の値は都道府県ごとに1ファイル（区市町村ごとだと全国でファイル数が多すぎる。#52）
@@ -450,7 +453,8 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
                     "schema_version": SCHEMA_VERSION, "release_id": release_id,
                     "indicator_id": indicator_id, "period": pid, "level": level,
                     "unit": d["unit"], "boundary_version": boundary_version,
-                    "rows": sorted(rows, key=lambda r: r["entity_id"])})
+                    "rows": [{k: v for k, v in r.items() if k != "_parts"}
+                             for r in sorted(rows, key=lambda r: r["entity_id"])]})
             _write(out, f"{vdir}/legend.json", {
                 "indicator_id": indicator_id, "period": pid, "method": method,
                 "scheme": d["legend"]["scheme"], "zero_blank": zero_blank,
@@ -483,6 +487,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
     used_sources |= export_land_prices(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_nurseries(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_weather(conn, catalog, out, release_id, ok_sources)
+    used_sources |= export_transport(conn, catalog, out, release_id, ok_sources)
 
     used_sources |= {r["source_id"] for r in muni_rows} | {r["source_id"] for r in area_rows}
     src = conn.execute(
@@ -769,6 +774,58 @@ def export_weather(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
     return used
 
 
+TRANSPORT_LEVELS = ("airport", "port")
+
+
+def export_transport(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
+                     release_id: str, ok_sources: set[str]) -> set[str]:
+    """空港・港の点（places/<指標>.json）。全国で空港は約100、港は数百と少ないので都道府県に分けず1ファイルにし、
+    年ごとの合計・国内・国際の値を periods の順に並べる。"""
+    used: set[str] = set()
+    for indicator_id, d in catalog.items():
+        level = next((lv for lv in TRANSPORT_LEVELS if lv in d.get("levels", [])), None)
+        if level is None:
+            continue
+        rows = [r for r in conn.execute(
+            """SELECT o.entity_id, o.period_start, o.period_end, o.period_kind, o.dimension_key, o.value, o.source_id
+               FROM observations o JOIN entities e ON e.entity_id = o.entity_id
+               WHERE e.entity_type = ? AND o.indicator_id = ? AND o.definition_version = ?""",
+            (level, indicator_id, d["definition_version"])).fetchall() if r["source_id"] in ok_sources]
+        if not rows:
+            continue
+        periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
+        index = {p[0]: i for i, p in enumerate(periods)}
+        info = {r["entity_id"]: r for r in conn.execute(
+            """SELECT e.entity_id, e.name, e.parent_id, l.lon, l.lat, l.source_id AS loc_source
+               FROM entities e JOIN locations l ON l.entity_id = e.entity_id AND l.role = 'main'
+               WHERE e.entity_type = ?""", (level,))}
+        points: dict[str, dict] = {}
+        srcs: set[str] = set()
+        for r in rows:
+            e = info.get(r["entity_id"])
+            if e is None or e["loc_source"] not in ok_sources:
+                continue
+            pt = points.setdefault(r["entity_id"], {
+                "id": r["entity_id"], "name": e["name"], "municipality_id": e["parent_id"],
+                "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)],
+                "values": [None] * len(periods), "domestic": [None] * len(periods),
+                "international": [None] * len(periods)})
+            key = {"all": "values"}.get(r["dimension_key"], r["dimension_key"])
+            if key in pt and r["value"] is not None:
+                pt[key][index[r["period_start"]]] = round(r["value"])
+            srcs |= {r["source_id"], e["loc_source"]}
+        _write(out, f"places/{indicator_id}.json", {
+            "schema_version": SCHEMA_VERSION, "release_id": release_id,
+            "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
+            "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
+            "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
+                         "label": _period_label(*p)} for p in periods],
+            "source_ids": sorted(srcs),
+            "points": sorted(points.values(), key=lambda p: p["id"])})
+        used |= srcs
+    return used
+
+
 def export_nurseries(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
                      release_id: str, ok_sources: set[str]) -> set[str]:
     """認可保育所の点（places/<指標>.json）。位置のない施設も一覧には含め、coord を null にする。"""
@@ -884,20 +941,22 @@ def _add_prefecture_rows(rows: dict, d: dict, munis_by_pref: dict[str, list]) ->
         got = [munis.get(m["entity_id"]) for m in members]
         if not any(r and r["value"] is not None for r in got):
             continue  # この指標の値がない都道府県（東京都だけの指標など）
-        if any(r is None or r["value"] is None for r in got):
+        # 分母が小さくて値を出さない市区町村（_parts に分子・分母がある）も、合計には入れる
+        if any(r is None or (r["value"] is None and "_parts" not in r) for r in got):
             out.append({"entity_id": pid, "value": None, "status": "missing",
                         "note": "値のない市区町村があるため、都道府県の値は出していません"})
             continue
-        if all("numerator" in r for r in got):
-            num = sum(r["numerator"] for r in got)
-            den = sum(r["denominator"] for r in got)
+        parts = [(r["numerator"], r["denominator"]) if "numerator" in r else r.get("_parts") for r in got]
+        if all(parts):
+            num = sum(n for n, _ in parts)
+            den = sum(x for _, x in parts)
             if not den:
                 out.append({"entity_id": pid, "value": None, "status": "missing"})
                 continue
             out.append({"entity_id": pid, "value": round(num / den * scale, d["digits"] + 2),
                         "status": "derived", "numerator": round(num, 4), "denominator": round(den, 4),
                         "note": "市区町村の分子・分母を合計して計算"})
-        elif d["kind"] == "count":
+        elif d["kind"] == "count" and all(r["value"] is not None for r in got):
             out.append({"entity_id": pid, "value": round(sum(r["value"] for r in got), d["digits"] + 2),
                         "status": "derived", "note": "市区町村の値の合計"})
     if out:
