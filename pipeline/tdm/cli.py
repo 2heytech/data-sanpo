@@ -33,7 +33,8 @@ from .ingest import (estat_boundary, estat_census_history, estat_census_municipa
                      estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
                      keishicho_crime, mext_school_aid,
                      mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, mlit_transport, nier_gakuryoku,
-                     npa_crime_stats, npa_traffic, police_crime_opendata, soumu_furusato, soumu_tax, tokyo_childcare,
+                     npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_furusato, soumu_tax,
+                     tokyo_childcare,
                      tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
 from .regions import selected_prefectures
@@ -215,7 +216,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
-                        "gsi_ports"):
+                        "gsi_ports", "soumu_election"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -310,6 +311,9 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = tokyo_childcare.ingest(conn, files[0], src, catalog, cfg["years"])
         elif kind == "tokyo_election":
             result[key] = tokyo_election.ingest(conn, files[0], src, catalog, cfg)
+        elif kind == "soumu_election":
+            # 全国の国政選挙。比例代表の得票数はブロック・都道府県ごとの複数のファイル
+            result[key] = soumu_election.ingest(conn, files, src, catalog, cfg, prefs)
         elif kind == "tokyo_jhs_progress":
             result[key] = tokyo_jhs_progress.ingest(conn, files[0], src, catalog,
                                                     (cfg["period"], cfg["period"], "point"))

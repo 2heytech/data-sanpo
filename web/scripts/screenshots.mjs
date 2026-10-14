@@ -47,6 +47,10 @@ const shots = [
   ["42-map-airports-ports", "/map/?i=population_total&show=airports,ports", { width: 1280, height: 900 }],
   ["43-map-airport-haneda", "/map/?i=population_total&show=airports,ports&ap=airport-681ee300", { width: 1280, height: 900 }],
   ["44-map-port-okata", "/map/?i=population_total&show=airports,ports&pt=port-13-7c5c475d", { width: 1280, height: 900 }],
+  // 全国の国政選挙（総務省の結果調）。比例代表の得票率は市区町村・都道府県、投票率は都道府県
+  ["45-map-vote-ldp-japan", "/map/?i=vote_share_ldp&p=2024-10-27", { width: 1280, height: 900 }],
+  ["46-map-vote-sanseito-osaka", "/map/?i=vote_share_sanseito&p=2025-07-20&a=muni-27127", { width: 1280, height: 900 }],
+  ["47-map-turnout-japan", "/map/?i=voter_turnout&p=2026-02-08", { width: 1280, height: 900 }],
   ["90-about", "/about/", { width: 1280, height: 900 }],
 ];
 

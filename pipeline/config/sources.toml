@@ -4055,7 +4055,7 @@ modification_note = "街路樹の位置を町丁目・区市町村の境界に�
 redistributable = true
 
 # 選挙結果（東京都選挙管理委員会、開票区別）。東京都オープンデータカタログ（CC BY 4.0）に載っている選挙だけを使う
-# （都知事 R6・衆院 R6.10・都議 R7・参院 R7）。都議 R7・参院 R7 はカタログのデータセット番号を作業環境から確かめられて
+# （都知事 R6・衆院 R6.10・都議 R7・参院 R7）。区市町村の投票率に使う（比例代表の得票率は全国の総務省の表 soumu_election_*）。都議 R7・参院 R7 はカタログのデータセット番号を作業環境から確かめられて
 # いないので、url はカタログの検索結果にしている。形式は pipeline/tdm/ingest/tokyo_election.py を参照。
 [tokyo_election_2024_tochiji_touhyou]
 kind = "tokyo_election"
@@ -4085,23 +4085,6 @@ url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000023d2000000064"
 download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r6_syuugiin_hirei_touhyou"
 download_filename = "r6_syuugiin_hirei_touhyou.csv"
 files = ["r6_syuugiin_hirei_touhyou.csv"]
-license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
-license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
-attribution = "出典：東京都選挙管理委員会「選挙結果」"
-modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
-redistributable = true
-
-[tokyo_election_2024_shugiin_hirei]
-kind = "tokyo_election"
-period = "2024-10-27"
-layout = "shugiin_hirei"
-encoding = "utf-8-sig"
-title = "令和6年10月27日執行 衆議院（比例代表選出）議員選挙 届出政党等別得票数"
-provider = "東京都選挙管理委員会"
-url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000023d2000000064"
-download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r6_syuugiin_hirei_kaihyou2"
-download_filename = "r6_syuugiin_hirei_kaihyou2.csv"
-files = ["r6_syuugiin_hirei_kaihyou2.csv"]
 license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
 license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都選挙管理委員会「選挙結果」"
@@ -4142,21 +4125,214 @@ attribution = "出典：東京都選挙管理委員会「選挙結果」"
 modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
 redistributable = true
 
-[tokyo_election_2025_sangiin_hirei]
-kind = "tokyo_election"
+# 国政選挙の結果（総務省「選挙関連資料」の結果調、全国）。比例代表の得票数は市区町村別（衆院選はブロックごと、参院選は
+# 都道府県ごとのファイル）と都道府県別の表、投票率は都道府県別の表（市区町村別の有権者数は公表されていない）。
+# 衆院選 R6.10（第50回）・参院選 R7（第27回）・衆院選 R8.2（第51回）。形式は pipeline/tdm/ingest/soumu_election.py を参照。
+[soumu_election_2024_shugiin_hirei]
+kind = "soumu_election"
+period = "2024-10-27"
+layout = "party"
+title = "第50回衆議院議員総選挙 候補者別市区町村別得票数（比例代表、名簿届出政党別市区町村別得票数）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/senkyo/senkyo_s/data/shugiin50/shikuchouson.html"
+files = ["*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「第50回衆議院議員総選挙・最高裁判所裁判官国民審査結果調」"
+modification_note = "市区町村別の政党の得票数から得票率を算出して作成"
+redistributable = true
+
+[soumu_election_2024_shugiin_hirei.download_files]
+"hokkaido.xlsx" = "https://www.soumu.go.jp/main_content/000979620.xlsx"
+"tohoku.xlsx" = "https://www.soumu.go.jp/main_content/000979621.xlsx"
+"kitakanto.xlsx" = "https://www.soumu.go.jp/main_content/000979622.xlsx"
+"minamikanto.xlsx" = "https://www.soumu.go.jp/main_content/000979623.xlsx"
+"tokyo.xlsx" = "https://www.soumu.go.jp/main_content/000979624.xlsx"
+"hokurikushinetsu.xlsx" = "https://www.soumu.go.jp/main_content/000979626.xlsx"
+"tokai.xlsx" = "https://www.soumu.go.jp/main_content/000979627.xlsx"
+"kinki.xlsx" = "https://www.soumu.go.jp/main_content/000979628.xlsx"
+"chugoku.xlsx" = "https://www.soumu.go.jp/main_content/000979629.xlsx"
+"shikoku.xlsx" = "https://www.soumu.go.jp/main_content/000979630.xlsx"
+"kyushu.xlsx" = "https://www.soumu.go.jp/main_content/000987139.xlsx"
+
+[soumu_election_2024_shugiin_hirei_pref]
+kind = "soumu_election"
+period = "2024-10-27"
+layout = "party_prefecture"
+title = "第50回衆議院議員総選挙 比例代表選挙区別都道府県別党派別得票数"
+provider = "総務省"
+url = "https://www.soumu.go.jp/senkyo/senkyo_s/data/shugiin50/index.html"
+download_url = "https://www.soumu.go.jp/main_content/000979128.xls"
+files = ["*.xls"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「第50回衆議院議員総選挙・最高裁判所裁判官国民審査結果調」"
+modification_note = "都道府県別の政党の得票数から得票率を算出して作成"
+redistributable = true
+
+[soumu_election_2024_shugiin_turnout]
+kind = "soumu_election"
+period = "2024-10-27"
+layout = "turnout"
+title = "第50回衆議院議員総選挙 都道府県別有権者数、投票者数（比例代表）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/senkyo/senkyo_s/data/shugiin50/index.html"
+download_url = "https://www.soumu.go.jp/main_content/000979120.xls"
+files = ["*.xls"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「第50回衆議院議員総選挙・最高裁判所裁判官国民審査結果調」"
+modification_note = "都道府県別の有権者数・投票者数から投票率を算出して作成"
+redistributable = true
+
+[soumu_election_2025_sangiin_hirei]
+kind = "soumu_election"
 period = "2025-07-20"
-layout = "sangiin_hirei"
-encoding = "utf-8-sig"
-title = "令和7年7月20日執行 参議院（比例代表選出）議員選挙 政党等別得票総数 開票区別一覧"
-provider = "東京都選挙管理委員会"
-url = "https://catalog.data.metro.tokyo.lg.jp/dataset?q=%E5%8F%82%E8%AD%B0%E9%99%A2%E8%AD%B0%E5%93%A1%E9%81%B8%E6%8C%99%20%E4%BB%A4%E5%92%8C7%E5%B9%B4"
-download_url = "https://www.senkyo.metro.tokyo.lg.jp/documents/d/senkyo/r7_sangiin_hirei_kaihyou0724"
-download_filename = "r7_sangiin_hirei_kaihyou0724.csv"
-files = ["r7_sangiin_hirei_kaihyou0724.csv"]
-license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
-license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
-attribution = "出典：東京都選挙管理委員会「選挙結果」"
-modification_note = "開票区別の結果から区市町村の行を抜き出し、投票率・得票率を算出して作成"
+layout = "party"
+title = "第27回参議院議員通常選挙 候補者別市区町村別得票数（比例代表、政党別）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/senkyo/senkyo_s/data/sangiin27/sangiin27_8.html"
+files = ["*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「第27回参議院議員通常選挙結果調」"
+modification_note = "市区町村別の政党の得票数から得票率を算出して作成"
+redistributable = true
+
+[soumu_election_2025_sangiin_hirei.download_files]
+"01.xlsx" = "https://www.soumu.go.jp/main_content/001086326.xlsx"
+"02.xlsx" = "https://www.soumu.go.jp/main_content/001086329.xlsx"
+"03.xlsx" = "https://www.soumu.go.jp/main_content/001086332.xlsx"
+"04.xlsx" = "https://www.soumu.go.jp/main_content/001086335.xlsx"
+"05.xlsx" = "https://www.soumu.go.jp/main_content/001086338.xlsx"
+"06.xlsx" = "https://www.soumu.go.jp/main_content/001086341.xlsx"
+"07.xlsx" = "https://www.soumu.go.jp/main_content/001086344.xlsx"
+"08.xlsx" = "https://www.soumu.go.jp/main_content/001086347.xlsx"
+"09.xlsx" = "https://www.soumu.go.jp/main_content/001086350.xlsx"
+"10.xlsx" = "https://www.soumu.go.jp/main_content/001086353.xlsx"
+"11.xlsx" = "https://www.soumu.go.jp/main_content/001086356.xlsx"
+"12.xlsx" = "https://www.soumu.go.jp/main_content/001086359.xlsx"
+"13.xlsx" = "https://www.soumu.go.jp/main_content/001086362.xlsx"
+"14.xlsx" = "https://www.soumu.go.jp/main_content/001086365.xlsx"
+"15.xlsx" = "https://www.soumu.go.jp/main_content/001086368.xlsx"
+"16.xlsx" = "https://www.soumu.go.jp/main_content/001086371.xlsx"
+"17.xlsx" = "https://www.soumu.go.jp/main_content/001086374.xlsx"
+"18.xlsx" = "https://www.soumu.go.jp/main_content/001086377.xlsx"
+"19.xlsx" = "https://www.soumu.go.jp/main_content/001086380.xlsx"
+"20.xlsx" = "https://www.soumu.go.jp/main_content/001086383.xlsx"
+"21.xlsx" = "https://www.soumu.go.jp/main_content/001086386.xlsx"
+"22.xlsx" = "https://www.soumu.go.jp/main_content/001086389.xlsx"
+"23.xlsx" = "https://www.soumu.go.jp/main_content/001086392.xlsx"
+"24.xlsx" = "https://www.soumu.go.jp/main_content/001086395.xlsx"
+"25.xlsx" = "https://www.soumu.go.jp/main_content/001086398.xlsx"
+"26.xlsx" = "https://www.soumu.go.jp/main_content/001086401.xlsx"
+"27.xlsx" = "https://www.soumu.go.jp/main_content/001086404.xlsx"
+"28.xlsx" = "https://www.soumu.go.jp/main_content/001086407.xlsx"
+"29.xlsx" = "https://www.soumu.go.jp/main_content/001086410.xlsx"
+"30.xlsx" = "https://www.soumu.go.jp/main_content/001086413.xlsx"
+"31.xlsx" = "https://www.soumu.go.jp/main_content/001086416.xlsx"
+"32.xlsx" = "https://www.soumu.go.jp/main_content/001086419.xlsx"
+"33.xlsx" = "https://www.soumu.go.jp/main_content/001086422.xlsx"
+"34.xlsx" = "https://www.soumu.go.jp/main_content/001086425.xlsx"
+"35.xlsx" = "https://www.soumu.go.jp/main_content/001086428.xlsx"
+"36.xlsx" = "https://www.soumu.go.jp/main_content/001086431.xlsx"
+"37.xlsx" = "https://www.soumu.go.jp/main_content/001086434.xlsx"
+"38.xlsx" = "https://www.soumu.go.jp/main_content/001086437.xlsx"
+"39.xlsx" = "https://www.soumu.go.jp/main_content/001086440.xlsx"
+"40.xlsx" = "https://www.soumu.go.jp/main_content/001086443.xlsx"
+"41.xlsx" = "https://www.soumu.go.jp/main_content/001086446.xlsx"
+"42.xlsx" = "https://www.soumu.go.jp/main_content/001086449.xlsx"
+"43.xlsx" = "https://www.soumu.go.jp/main_content/001086452.xlsx"
+"44.xlsx" = "https://www.soumu.go.jp/main_content/001086455.xlsx"
+"45.xlsx" = "https://www.soumu.go.jp/main_content/001086458.xlsx"
+"46.xlsx" = "https://www.soumu.go.jp/main_content/001086461.xlsx"
+"47.xlsx" = "https://www.soumu.go.jp/main_content/001086464.xlsx"
+
+[soumu_election_2025_sangiin_hirei_pref]
+kind = "soumu_election"
+period = "2025-07-20"
+layout = "party_prefecture"
+title = "第27回参議院議員通常選挙 都道府県別党派別得票数（比例代表）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/senkyo/senkyo_s/data/sangiin27/index.html"
+download_url = "https://www.soumu.go.jp/main_content/001027818.xlsx"
+files = ["*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「第27回参議院議員通常選挙結果調」"
+modification_note = "都道府県別の政党の得票数から得票率を算出して作成"
+redistributable = true
+
+[soumu_election_2025_sangiin_turnout]
+kind = "soumu_election"
+period = "2025-07-20"
+layout = "turnout"
+title = "第27回参議院議員通常選挙 都道府県別有権者数、投票者数、投票率（比例代表）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/senkyo/senkyo_s/data/sangiin27/index.html"
+download_url = "https://www.soumu.go.jp/main_content/001027809.xlsx"
+files = ["*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「第27回参議院議員通常選挙結果調」"
+modification_note = "都道府県別の有権者数・投票者数から投票率を算出して作成"
+redistributable = true
+
+[soumu_election_2026_shugiin_hirei]
+kind = "soumu_election"
+period = "2026-02-08"
+layout = "party"
+title = "第51回衆議院議員総選挙 候補者別市区町村別得票数（比例代表、党派別開票区別得票数）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/senkyo/senkyo_s/data/shugiin51/shikuchouson.html"
+files = ["*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「第51回衆議院議員総選挙・最高裁判所裁判官国民審査結果調」"
+modification_note = "市区町村別の政党の得票数から得票率を算出して作成"
+redistributable = true
+
+[soumu_election_2026_shugiin_hirei.download_files]
+"hokkaido.xlsx" = "https://www.soumu.go.jp/main_content/001062189.xlsx"
+"tohoku.xlsx" = "https://www.soumu.go.jp/main_content/001062190.xlsx"
+"kitakanto.xlsx" = "https://www.soumu.go.jp/main_content/001062191.xlsx"
+"minamikanto.xlsx" = "https://www.soumu.go.jp/main_content/001062192.xlsx"
+"tokyo.xlsx" = "https://www.soumu.go.jp/main_content/001062193.xlsx"
+"hokurikushinetsu.xlsx" = "https://www.soumu.go.jp/main_content/001062198.xlsx"
+"tokai.xlsx" = "https://www.soumu.go.jp/main_content/001062199.xlsx"
+"kinki.xlsx" = "https://www.soumu.go.jp/main_content/001062200.xlsx"
+"chugoku.xlsx" = "https://www.soumu.go.jp/main_content/001062201.xlsx"
+"shikoku.xlsx" = "https://www.soumu.go.jp/main_content/001062202.xlsx"
+"kyushu.xlsx" = "https://www.soumu.go.jp/main_content/001062203.xlsx"
+
+[soumu_election_2026_shugiin_hirei_pref]
+kind = "soumu_election"
+period = "2026-02-08"
+layout = "party_prefecture"
+title = "第51回衆議院議員総選挙 比例代表選挙区別都道府県別党派別得票数"
+provider = "総務省"
+url = "https://www.soumu.go.jp/senkyo/senkyo_s/data/shugiin51/index.html"
+download_url = "https://www.soumu.go.jp/main_content/001061481.xlsx"
+files = ["*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「第51回衆議院議員総選挙・最高裁判所裁判官国民審査結果調」"
+modification_note = "都道府県別の政党の得票数から得票率を算出して作成"
+redistributable = true
+
+[soumu_election_2026_shugiin_turnout]
+kind = "soumu_election"
+period = "2026-02-08"
+layout = "turnout"
+title = "第51回衆議院議員総選挙 都道府県別有権者数、投票者数（比例代表）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/senkyo/senkyo_s/data/shugiin51/index.html"
+download_url = "https://www.soumu.go.jp/main_content/001061473.xlsx"
+files = ["*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「第51回衆議院議員総選挙・最高裁判所裁判官国民審査結果調」"
+modification_note = "都道府県別の有権者数・投票者数から投票率を算出して作成"
 redistributable = true
 
 # 認可保育所の一覧（東京都福祉局「社会福祉施設等一覧」、令和7年10月1日時点）。東京都オープンデータカタログ
