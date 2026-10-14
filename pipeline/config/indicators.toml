@@ -3249,6 +3249,55 @@ tax_value = "taxable_income"
 facets = { type = "課税対象所得", basis = "納税者1人あたり" }
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
+[income_levy_taxpayer_share]
+name = "住民税の所得割を納める人の割合"
+category = "所得・税"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "住民基本台帳に記録されている人（子ども・高齢者を含む全員）のうち、住民税の所得割を納めている人の割合。所得割は前の年の所得が一定以上の人にかかるので、働いて所得のある人の多さの目安になる。"
+method = "所得割の納税義務者数（市区町村民税） ÷ その年の1月1日の住民基本台帳の人口 × 100。総務省「市町村税課税状況等の調」第11表と「住民基本台帳に基づく人口、人口動態及び世帯数」。"
+caveats = ["年度の課税は前の年の所得にもとづきます（例: 2025年度は2024年の所得）。納税義務者はその年度の1月1日に住んでいる人です。", "分母は子ども・高齢者を含む住民全員です。子どもや年金暮らしの人が多い地域は低くなります。", "所得が少なく所得割がかからない人や、扶養されている人は含みません。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。都道府県の値は、市区町村の納税義務者数と人口を合計して計算しています。", "住民基本台帳の人口が50人未満の地域は値を表示しません。"]
+numerator_indicator = "income_levy_taxpayers"
+denominator_indicator = "juki_population"
+denominator_period = "same_year"
+denominator_label = "1月1日の住民基本台帳の人口"
+fraction_units = ["人", "人"]
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[income_levy_taxpayers]
+name = "住民税の所得割の納税義務者数"
+category = "所得・税"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+publish = false
+description = "住民税の所得割を納める人の数（市区町村民税）。住民税の所得割を納める人の割合の分子。"
+method = "総務省「市町村税課税状況等の調」〔市町村別内訳〕第11表の「所得割の納税義務者数」（市町村民税の行）。"
+source_kind = "soumu_tax"
+tax_value = "taxpayers"
+
+[school_aid_rate]
+name = "就学援助率"
+category = "所得・税"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 100
+levels = ["municipality"]
+description = "公立の小学校・中学校の児童生徒のうち、就学援助（学用品・給食費・修学旅行費などの援助）を受けた子どもの割合。経済的に苦しい家庭の子どもの多さの目安。"
+method = "文部科学省「就学援助実施状況等調査」の市町村別実施状況に載っている、市区町村ごとの就学援助率（要保護・準要保護の児童生徒数 ÷ 公立小中学校の児童生徒数）。公表は5%刻みの区分です。"
+caveats = ["市区町村の値は「5%以上10%未満」のような5%刻みの区分でしか公表されていません。地図の色も区分ごとです。", "援助を受けた子どもがいない市区町村は0%です。", "援助を受けられる所得の基準は市区町村ごとに違うため、同じ割合でも家庭の暮らし向きが同じとは限りません。", "年度は援助をした年度です（例: 2024年度の値は令和7年度の調査で公表）。", "政令指定都市は市全体の区分しか公表されていないため、区の値はありません。都道府県の値はありません（区分から平均は計算できないため）。"]
+source_kind = "mext_school_aid"
+legend = { method = "bands", band = 5, classes = 12, scheme = "oranges" }
+
 [waiting_children]
 name = "保育所等の待機児童数"
 category = "子育て"
@@ -3827,7 +3876,7 @@ legend = { method = "nice", classes = 12, scheme = "blues" }
 
 
 [household_income_under300_share]
-name = "世帯年収（300万円未満の世帯の割合）"
+name = "世帯年収300万円未満の割合"
 category = "所得・税"
 unit = "%"
 kind = "ratio"
@@ -3841,13 +3890,11 @@ caveats = ["市・区と人口1万5千人以上の町村だけの値です（そ
 source_kind = "estat_housing_income"
 income_max = 300
 fraction_units = ["世帯", "世帯"]
-family = "household_income"
-facets = { type = "300万円未満", basis = "世帯の割合" }
 period_labels = { "2018-10-01" = "2018年10月1日現在", "2023-10-01" = "2023年10月1日現在" }
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
 [household_income_1000plus_share]
-name = "世帯年収（1000万円以上の世帯の割合）"
+name = "世帯年収1000万円以上の割合"
 category = "所得・税"
 unit = "%"
 kind = "ratio"
@@ -3861,8 +3908,6 @@ caveats = ["市・区と人口1万5千人以上の町村だけの値です（そ
 source_kind = "estat_housing_income"
 income_min = 1000
 fraction_units = ["世帯", "世帯"]
-family = "household_income"
-facets = { type = "1000万円以上", basis = "世帯の割合" }
 period_labels = { "2018-10-01" = "2018年10月1日現在", "2023-10-01" = "2023年10月1日現在" }
 legend = { method = "nice", classes = 12, scheme = "purples" }
 

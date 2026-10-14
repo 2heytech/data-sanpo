@@ -156,6 +156,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out["jhs_progress"] = _write_jhs_progress(directory)
     out["inbound"] = _write_inbound(directory)
     out.update(_write_gakuryoku(directory))
+    out.update(_write_school_aid(directory))
     out.update(_write_school_basic(directory))
     out.update(_write_housing(directory))
     out.update(_write_vital(directory))
@@ -534,6 +535,40 @@ GAKURYOKU = {   # (都道府県, 校種) → {教科: (児童生徒数, 平均�
 }
 
 
+# 就学援助率（文部科学省の都道府県ごとの PDF を pdftotext -layout にした形のテキスト）。年度 → 市区町村 → 区分
+# （None は区分の欄が空）。見本では PDF ではなくテキストを置く
+SCHOOL_AID = {
+    2021: {"サンプル区": "15%未満", "ためし市": None, "かりの村": "0%未満"},
+    2022: {"サンプル区": "15%未満", "ためし市": "5%未満", "かりの村": "0%未満"},
+    2023: {"サンプル区": "20%未満", "ためし市": "5%未満", "かりの村": "10%未満"},
+    2024: {"サンプル区": "20%未満", "ためし市": "10%未満", "かりの村": "0%未満"},
+}
+REIWA_DIGITS = str.maketrans("0123456789", "０１２３４５６７８９")
+
+
+def _write_school_aid(directory: Path) -> dict[str, Path]:
+    out = {}
+    for year, rates in SCHOOL_AID.items():
+        label = f"令和{str(year - 2018).translate(REIWA_DIGITS)}年度"
+        for pref, rows in (("13", rates), ("14", {"みほん市": "25%未満"})):   # 政令指定都市は市全体の行だけ
+            name = PREF_NAMES[pref]
+            # 前のページ（援助の単価など）にも市区町村の行がある。就学援助率の欄のあるページだけを読む
+            pages = ["\n".join(f"  {name} {m}        ○    ○     23,760     30%未満の説明" for m in rows)]
+            head = ("                         ３．就学援助制度の根拠規定・認定基準について                 ４．就学援助率\n"
+                    f"   都道府県 市区町村名        （５）補足事項                                 {label}\n"
+                    "    62    62    52\n")
+            body = "\n\n".join(f"{name}   {m}       ○    ○    ○     1.3     特別の事情\n"
+                                 f"  {name} {m}    ○    ○    ○    ○    1.3" + (f"        {r}" if r else "")
+                                 for m, r in rows.items())
+            pages.append(head + body)
+            d = directory / f"mext_school_aid_{year}" / pref
+            d.mkdir(parents=True, exist_ok=True)
+            path = d / f"{pref}.txt"
+            path.write_text("\f".join(pages) + "\f", encoding="utf-8")
+            out[f"school_aid_{year}_{pref}"] = path
+    return out
+
+
 def _write_gakuryoku(directory: Path) -> dict[str, Path]:
     from .xlsx import write_sheets
     out = {}
@@ -753,7 +788,8 @@ def _write_tax(directory: Path, year: int, rnd: random.Random) -> Path:
             [str(year), "141909", "神奈川県", "みほん市", "市町村民税", 30000, 1, 0, 150000000, 1, 9000000],
             [str(year), "141909", "神奈川県", "みほん市", "道府県民税", 30000, 1, 0, 150000000, 1, 6000000]]
     for city5, city_name, *_ in MUNICIPALITIES:
-        payers = rnd.randint(2000, 90000)
+        # 住民税の所得割を納める人の割合（住民基本台帳の人口あたり、#106）が35〜55%になるようにする
+        payers = max(1, round(juki_total_values(year)[city5] * rnd.uniform(0.35, 0.55)))
         income = round(payers * rnd.uniform(3500, 9000))     # 千円
         levy = round(income * 0.06)
         for side, share in (("市町村民税", 1.0), ("道府県民税", 0.4 / 0.6)):
