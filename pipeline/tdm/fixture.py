@@ -671,11 +671,7 @@ def _write_childcare(directory: Path, year: int, years: tuple[int, int], rnd: ra
 
 
 # 都選管の選挙結果（CSV、UTF-8 BOM つき）。開票区名は全角空白で字下げし、都計には★、区部計などには☆がつく。
-# サンプル区は小選挙区で分かれる区の形（「…計」と「…4区」の行）にする
-ELECTION_PARTIES = {"2024_shugiin_hirei": ["日本共産党", "立憲民主党", "公明党", "自由民主党", "みんなでつくる党"],
-                    "2025_sangiin_hirei": ["日本共産党", "参政党", "自由民主党", "日本誠真会"]}
-
-
+# サンプル区は小選挙区で分かれる区の形（「…計」と「…4区」の行）にする。区市町村の投票率だけに使う
 def _write_elections(directory: Path, rnd: random.Random) -> dict[str, Path]:
     import csv
     out = {}
@@ -707,33 +703,149 @@ def _write_elections(directory: Path, rnd: random.Random) -> dict[str, Path]:
             rows.append(["", n, f"{m:,}", f"{w:,}", f"{m + w:,}", f"{vm} ", f"{vw} ", f"{vm + vw} ",
                          m - vm, w - vw, m + w - vm - vw, "", "", "", "-"])
         write(key, name, rows)
+    out.update(_write_soumu_elections(directory, rnd))
+    return out
 
-    parties = ELECTION_PARTIES["2024_shugiin_hirei"]
-    rows = [["令和6年10月27日 執行"], [], [], ["令和6年10月28日 11時55分 確定"],
-            ["開  票  区  名", "", *range(1, len(parties) + 1)], ["", "", *parties],
-            ["", "", *[""] * len(parties), "合計", "残票数", "開票率"], []]
-    for n in names(True):
-        votes = [round(rnd.uniform(100, 9000), 3) for _ in parties]
-        rows.append([n, "確", *[f"{v:,.3f} " for v in votes], f"{sum(votes):,.3f} ", "", "100.00 "])
-    write("2024_shugiin_hirei", "r6_syuugiin_hirei_kaihyou2.csv", rows)
 
-    parties = ELECTION_PARTIES["2025_sangiin_hirei"]
-    head1, head2 = ["開\u3000票\u3000区\u3000名", "", "", ""], ["", "全党派計", "", ""]
-    for k, p in enumerate(parties, 1):
-        head1 += [str(k), "", ""]
-        head2 += [p, "", ""]
-    rows = [["令和7年7月20日 執行"], ["", "参議院（比例代表選出）議員選挙　政党等別得票総数　開票区別一覧"], [],
-            ["令和7年7月21日 15時0分 現在 確定"], head1, head2, [],
-            ["", "得票総数", "政党等の", "名簿登載者"] + ["得票総数", "政党等の", "名簿登載者"] * len(parties),
-            ["", "", "得票総数", "（特定枠を除く）\nの得票総数"] + ["", "得票総数", "（特定枠を除く）\nの得票総数"] * len(parties)]
-    for n in names(False):
-        blocks = []
-        for _ in parties:
-            party, cand = rnd.randint(100, 9000), round(rnd.uniform(10, 2000), 3)
-            blocks.append((party + cand, party, cand))
-        tot = [sum(b[i] for b in blocks) for i in range(3)]
-        rows.append([n, *[f"{v:.3f} " for v in tot], *[f"{v:.3f} " for b in blocks for v in b]])
-    write("2025_sangiin_hirei", "r7_sangiin_hirei_kaihyou0724.csv", rows)
+# 総務省の国政選挙の結果調（全国、Excel）。形式は pipeline/tdm/ingest/soumu_election.py を参照。
+# 令和6年衆院選: ブロックごとのファイルで都道府県ごとのシート。サンプル区は小選挙区で分かれた行（「…第４区」「…第２６区」）だけ
+# 令和7年参院選: 都道府県ごとのファイル。政党ごとに3列。かりの村は空欄の行（総務省の表に実際にある形）
+# 令和8年衆院選: 「党派名」の次の行に政党名。みほん市（政令指定都市）の市全体の行と区の行、サンプル区は区全体の行と「…第１」の行
+ELECTION_PARTIES = {"2024-10-27": ["日本共産党", "立憲民主党", "公明党", "自由民主党", "みんなでつくる党"],
+                    "2025-07-20": ["日本共産党", "参政党", "自由民主党", "日本誠真会"],
+                    "2026-02-08": ["自由民主党", "中道改革連合", "チームみらい"]}
+
+
+def election_votes(period: str, name: str) -> list[float]:
+    """見本の得票数（政党の順）。小数は按分の票。"""
+    seed = sum(ord(c) for c in name) + int(period[:4])
+    return [round(100 + (seed * (k + 3)) % 9000 + (0.25 if k == 1 else 0), 3)
+            for k in range(len(ELECTION_PARTIES[period]))]
+
+
+def election_prefecture_votes(period: str, pref: str) -> list[float]:
+    """都道府県別の表の得票数（市区町村の合計とは別の値。都道府県の値はこちらから作ることを確かめる）。"""
+    return [round(50000 + int(pref) * 1000 + k * 3000, 3) for k in range(len(ELECTION_PARTIES[period]))]
+
+
+def election_turnout(period: str, pref: str) -> tuple[int, int]:
+    """都道府県の (投票者数, 有権者数)。"""
+    electorate = 1_000_000 + int(pref) * 10_000 + int(period[:4])
+    return round(electorate * (0.5 + int(pref) / 1000)), electorate
+
+
+def _write_soumu_elections(directory: Path, rnd: random.Random) -> dict[str, Path]:
+    from .xlsx import write_sheets
+    out = {}
+    tokyo = [n for _, n, *_ in MUNICIPALITIES]
+
+    def save(key: str, name: str, sheets: dict) -> None:
+        d = directory / f"soumu_election_{key}"
+        d.mkdir(parents=True, exist_ok=True)
+        write_sheets(d / name, sheets)
+        out[f"soumu_election_{key}"] = d
+
+    def fmt(v: float) -> str:   # 「6,170.858」「53,072       」の形
+        return f"{v:,.3f}" if v != int(v) else f"{int(v):,}       "
+
+    # 令和6年衆院選（第50回）
+    period, parties = "2024-10-27", ELECTION_PARTIES["2024-10-27"]
+
+    def sheet50(pref_name: str, munis: list[str]) -> list[list]:
+        rows = [["令和６年１０月２７日執行"], ["衆議院議員総選挙（比例代表）\u3000名簿届出政党別市区町村別得票数"],
+                [pref_name, "（ブロック）"], ["市区町村名＼政党名", *parties, "得票数計"]]
+        total = [0.0] * len(parties)
+        for n in munis:
+            parts = [f"{n}第４区", f"{n}第２６区"] if n == "サンプル区" else [n]
+            for part in parts:
+                v = [x / len(parts) for x in election_votes(period, n)]
+                rows.append([part, *v, sum(v)])
+                total = [a + b for a, b in zip(total, v)]
+        rows.append([f"{pref_name} 合計", *total, sum(total)])
+        return rows
+    save("2024_shugiin_hirei", "tokyo.xlsx", {"東京都": sheet50("東京都", tokyo)})
+    save("2024_shugiin_hirei", "minamikanto.xlsx", {"神奈川県": sheet50("神奈川県", ["みほん市中区"]),
+                                                     "リスト": [["No", "都道府県名"], [14, "神奈川県"]]})
+
+    def pref_table(period: str, head: list[str]) -> list[list]:
+        rows = [["（７）比例代表選挙区別都道府県別党派別得票数"], [], [], [*head, *ELECTION_PARTIES[period]], []]
+        rows.append(["東京都", "東京都", *map(fmt, election_prefecture_votes(period, "13"))])
+        rows.append(["南関東", "神奈川県", *map(fmt, election_prefecture_votes(period, "14"))])
+        rows.append(["", "計", *map(fmt, election_prefecture_votes(period, "14"))])
+        return rows
+
+    def turnout_table(period: str) -> list[list]:
+        rows = [["（２）都道府県別有権者数、投票者数（比例代表）"], ["選挙区", "都道府県"],
+                ["", "", "", "選挙当日の有権者数", "", "", "投票者数"], [],
+                ["", "", "男", "女", "計", "男", "女", "計", "男", "女", "計"]]
+        for block, pref, name in [("東京都", "13", "東京都"), ("南関東", "14", "神奈川県")]:
+            voters, electorate = election_turnout(period, pref)
+            rows.append([block, name, electorate // 2, electorate - electorate // 2, electorate,
+                         voters // 2, voters - voters // 2, voters, 0, 0, electorate - voters])
+        return rows
+    # 旧形式の Excel（.xls）の表だが、見本は .xlsx の中身で作る（取込は中身で読み分ける）
+    save("2024_shugiin_hirei_pref", "000979128.xls", {"5210": pref_table(period, ["比例代表区", "区分"])})
+    save("2024_shugiin_turnout", "000979120.xls", {"Sheet1": turnout_table(period)})
+
+    # 令和7年参院選（第27回）
+    period, parties = "2025-07-20", ELECTION_PARTIES["2025-07-20"]
+
+    def sheet27(pref_name: str, munis: list[str]) -> list[list]:
+        head = [None, "党派名"]
+        sub = [None, None]
+        for p in parties:
+            head += [p, None, None]
+            sub += ["得票総数", "政党等の", "名簿登載者（特定枠"]
+        rows = [["令和７年７月２０日執行", None, None, "参議院比例代表選出議員選挙\u3000開票結果（党派別開票区別得票数）"],
+                [f"{pref_name}選挙管理委員会"], [None, "届出番号", None, "1"], head, sub,
+                ["開票区名", None, None, "得票総数", "を除く）の得票総数"]]
+        for n in munis:
+            if n == "かりの村":
+                rows.append([n, None, *[""] * (3 * len(parties))])
+                continue
+            r = [n, None]
+            for v in election_votes(period, n):
+                r += [fmt(v), fmt(round(v * 0.9)), fmt(v - round(v * 0.9))]
+            rows.append(r)
+        rows += [["指定都市計", None], ["その他の市計", None, "1"], ["県計", None, "1"]]
+        return rows
+    save("2025_sangiin_hirei", "13.xlsx", {"開票区別": sheet27("東京都", tokyo),
+                                            "開票区別（別紙）": [[None, None, "内訳"], ["党派名", None, parties[0]],
+                                                                ["サンプル区", None, "1"]]})
+    save("2025_sangiin_hirei", "14.xlsx", {"開票区別": sheet27("神奈川県", ["みほん市中区"])})
+    rows = [["（６）都道府県別党派別得票数（比例代表）"], [" "], ["政党等の名称"]]
+    for start in range(0, len(parties), 2):   # 政党が2党ずつ縦に並ぶ
+        chunk = parties[start:start + 2]
+        rows.append([None, *[c for p in chunk for c in (p, None, None, None)]])
+        rows.append(["都道府県", *[c for _ in chunk for c in ("得票総数", None, "政党等の", "名簿登載者（特定枠")]])
+        rows.append([None, *[c for _ in chunk for c in (None, "得票率（％）", "得票総数", "を除く）の得票総数")]])
+        for pref, name in [("13", "東京都"), ("14", "神奈川県")]:
+            v = election_prefecture_votes(period, pref)[start:start + 2]
+            rows.append([name, *[c for x in v for c in (fmt(x), "10.00", fmt(x), "0")]])
+        rows.append(["計", "1", "100.00"])
+    save("2025_sangiin_hirei_pref", "001027818.xlsx", {"都道府県別": rows})
+    rows = turnout_table(period)
+    save("2025_sangiin_turnout", "001027809.xlsx", {"Sheet1": [r[1:] for r in rows]})   # 1列目に都道府県名
+
+    # 令和8年衆院選（第51回）
+    period, parties = "2026-02-08", ELECTION_PARTIES["2026-02-08"]
+
+    def sheet51(pref_name: str, munis: list[tuple[str | None, str | None, list[float]]]) -> list[list]:
+        rows = [[], ["令和８年２月８日執行", None, "衆議院比例代表選出議員選挙\u3000開票結果（党派別開票区別得票数）"], [],
+                [f"{pref_name}選挙管理委員会"], ["届出番号", None, *range(1, len(parties) + 1)], ["党派名"],
+                [None, None, *parties], ["開票区名"]]
+        rows += [[c0, c1, *map(fmt, v)] for c0, c1, v in munis]
+        rows.append(["県計" if pref_name != "東京都" else "都計", None, "1"])
+        return rows
+    v = election_votes(period, "サンプル区")
+    tokyo51 = [("サンプル区", None, v), (None, "サンプル区第１", [x - 1 for x in v]), (None, "サンプル区第２", [1] * len(v))]
+    tokyo51 += [(n, None, election_votes(period, n)) for n in tokyo[1:]]
+    v = election_votes(period, "みほん市中区")
+    save("2026_shugiin_hirei", "tokyo.xlsx", {"東京都": sheet51("東京都", tokyo51)})
+    save("2026_shugiin_hirei", "minamikanto.xlsx",
+         {"Sheet1": sheet51("神奈川県", [("みほん市", None, [x * 3 for x in v]), (None, "みほん市中区", v)])})
+    save("2026_shugiin_hirei_pref", "001061481.xlsx", {"Sheet1": pref_table(period, ["選挙区", "都道府県"])})
+    save("2026_shugiin_turnout", "001061473.xlsx", {"Sheet1": turnout_table(period)})
     return out
 
 
