@@ -5117,3 +5117,482 @@ license_url = "https://www.jma.go.jp/jma/kishou/info/coment.html"
 attribution = "出典：気象庁ホームページ（https://www.data.jma.go.jp/stats/data/mdrr/normal/index.html） 平年値（統計期間1991〜2020年）"
 modification_note = "観測所ごとの年・月の平年値（日照時間・降水量・最深積雪・降雪量）を抜き出して作成"
 redistributable = true
+
+# 空港の乗降客数（国土交通省 航空局「空港管理状況調書」、暦年）。1年分が1つの Excel。
+# 形式は pipeline/tdm/ingest/mlit_transport.py を参照。国土交通省のサイトのコンテンツは政府標準利用規約（第2.0版）
+# （商用利用・加工可、出典の記載が必要。CC BY 4.0 と両立）。
+[mlit_airports_2025]
+kind = "mlit_airports"
+year = 2025
+title = "空港管理状況調書（令和7年・2025年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/koku/content/002016480.xlsx"
+download_filename = "airports_2025.xlsx"
+files = ["airports_2025.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2024]
+kind = "mlit_airports"
+year = 2024
+title = "空港管理状況調書（令和6年・2024年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/koku/content/001905537.xlsx"
+download_filename = "airports_2024.xlsx"
+files = ["airports_2024.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2023]
+kind = "mlit_airports"
+year = 2023
+title = "空港管理状況調書（令和5年・2023年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/koku/content/001904216.xlsx"
+download_filename = "airports_2023.xlsx"
+files = ["airports_2023.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2022]
+kind = "mlit_airports"
+year = 2022
+title = "空港管理状況調書（令和4年・2022年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/koku/content/001753894.xlsx"
+download_filename = "airports_2022.xlsx"
+files = ["airports_2022.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2021]
+kind = "mlit_airports"
+year = 2021
+title = "空港管理状況調書（令和3年・2021年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001494176.xlsx"
+download_filename = "airports_2021.xlsx"
+files = ["airports_2021.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2020]
+kind = "mlit_airports"
+year = 2020
+title = "空港管理状況調書（令和2年・2020年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001491420.xlsx"
+download_filename = "airports_2020.xlsx"
+files = ["airports_2020.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2019]
+kind = "mlit_airports"
+year = 2019
+title = "空港管理状況調書（令和元年・2019年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001491398.xlsx"
+download_filename = "airports_2019.xlsx"
+files = ["airports_2019.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2018]
+kind = "mlit_airports"
+year = 2018
+title = "空港管理状況調書（平成30年・2018年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001491408.xlsx"
+download_filename = "airports_2018.xlsx"
+files = ["airports_2018.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2017]
+kind = "mlit_airports"
+year = 2017
+title = "空港管理状況調書（平成29年・2017年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001475217.xlsx"
+download_filename = "airports_2017.xlsx"
+files = ["airports_2017.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+[mlit_airports_2016]
+kind = "mlit_airports"
+year = 2016
+title = "空港管理状況調書（平成28年・2016年）"
+provider = "国土交通省 航空局"
+url = "https://www.mlit.go.jp/koku/15_bf_000185.html"
+download_url = "https://www.mlit.go.jp/common/001475271.xlsx"
+download_filename = "airports_2016.xlsx"
+files = ["airports_2016.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「空港管理状況調書」"
+modification_note = "空港ごとの乗降客数（国際線・国内線）を抜き出して作成"
+redistributable = true
+
+# 空港の位置（国土数値情報 C28 空港、2021年）。空港管理状況調書には位置がないので、空港の名前で対応付ける。
+[mlit_c28_2021]
+kind = "mlit_airport_locations"
+title = "国土数値情報 空港データ（令和3年）"
+provider = "国土交通省"
+url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-C28-2021.html"
+download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/C28/C28-21/C28-21_GML.zip"
+files = ["*.geojson"]
+cache = true
+license = "国土数値情報 利用約款（商用可）"
+license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
+attribution = "出典：国土交通省 国土数値情報（空港データ）"
+modification_note = "空港の位置を空港管理状況調書の空港に対応付けて作成"
+redistributable = true
+
+# 港の船舶乗降人員（国土交通省「港湾統計（年報）」第2表 船舶乗降人員表、e-Stat の Excel 閲覧用）。
+# 甲種港湾（第2部）と乙種港湾（第3部）の2ファイル。e-Stat の利用規約は政府標準利用規約準拠（商用可）。
+[mlit_ports_2024]
+kind = "mlit_ports"
+year = 2024
+title = "港湾調査 港湾統計（年報）2024年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2024_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040392430&fileKind=4", "ports_2024_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040392456&fileKind=4" }
+files = ["ports_2024_kou.xlsx", "ports_2024_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+[mlit_ports_2023]
+kind = "mlit_ports"
+year = 2023
+title = "港湾調査 港湾統計（年報）2023年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2023_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040237669&fileKind=4", "ports_2023_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040237695&fileKind=4" }
+files = ["ports_2023_kou.xlsx", "ports_2023_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+[mlit_ports_2022]
+kind = "mlit_ports"
+year = 2022
+title = "港湾調査 港湾統計（年報）2022年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2022_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040133010&fileKind=4", "ports_2022_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040133036&fileKind=4" }
+files = ["ports_2022_kou.xlsx", "ports_2022_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+[mlit_ports_2021]
+kind = "mlit_ports"
+year = 2021
+title = "港湾調査 港湾統計（年報）2021年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2021_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032274467&fileKind=4", "ports_2021_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032274506&fileKind=4" }
+files = ["ports_2021_kou.xlsx", "ports_2021_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+[mlit_ports_2020]
+kind = "mlit_ports"
+year = 2020
+title = "港湾調査 港湾統計（年報）2020年 第2表 船舶乗降人員表（甲種港湾・乙種港湾）"
+provider = "国土交通省"
+url = "https://www.e-stat.go.jp/stat-search/database?tstat=000001018967"
+download_files = { "ports_2020_kou.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032160058&fileKind=4", "ports_2020_otsu.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032160077&fileKind=4" }
+files = ["ports_2020_kou.xlsx", "ports_2020_otsu.xlsx"]
+cache = true
+license = "政府統計の総合窓口（e-Stat）利用規約（政府標準利用規約準拠）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：国土交通省「港湾調査」（e-Stat）"
+modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
+redistributable = true
+
+# 港の位置（Wikidata、CC0）。港湾統計には位置がなく、国土数値情報の港湾（C02）は非商用のため使わない。
+# 港の名前と都道府県で対応付け、対応付かない港は pipeline/config/port_locations.toml で補う。
+[wikidata_ports]
+kind = "wikidata_ports"
+title = "Wikidata 日本の港の位置"
+provider = "Wikidata"
+url = "https://www.wikidata.org/"
+download_url = "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fitem%20%3Flabel%20%3Fpref%20%3FprefLabel%20%3Fcoord%20WHERE%20%7B%20%7B%20%3Fitem%20wdt%3AP31/wdt%3AP279%2A%20wd%3AQ44782%20%7D%20UNION%20%7B%20%3Fitem%20wdt%3AP31/wdt%3AP279%2A%20wd%3AQ283202%20%7D%20%3Fitem%20wdt%3AP17%20wd%3AQ17%20%3B%20wdt%3AP625%20%3Fcoord%20%3B%20rdfs%3Alabel%20%3Flabel%20.%20FILTER%28LANG%28%3Flabel%29%20%3D%20%22ja%22%29%20OPTIONAL%20%7B%20%3Fitem%20wdt%3AP131%2B%20%3Fpref%20.%20%3Fpref%20wdt%3AP31%20wd%3AQ50337%20.%20%3Fpref%20rdfs%3Alabel%20%3FprefLabel%20.%20FILTER%28LANG%28%3FprefLabel%29%20%3D%20%22ja%22%29%20%7D%20%7D"
+download_filename = "ports.json"
+files = ["ports.json"]
+cache = true
+license = "CC0 1.0"
+license_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+attribution = "港の位置：Wikidata（CC0）"
+modification_note = "港の位置を港湾統計の港に対応付けて作成"
+redistributable = true
+
+# 港の位置（Wikidata、CC0）の続き。上の問い合わせ（港の種類の項目）で対応付かなかった港を、
+# 種類を問わず名前（ラベル・別名が「港名＋港」）で引く（2026-10-14 の取り込みで位置の分からなかった港）。
+# 同じ名前の項目がほかの都道府県にもあるので、位置が港湾統計の都道府県の中にあるものだけを使う（取込処理で確かめる）。
+[wikidata_port_names]
+kind = "wikidata_ports"
+title = "Wikidata 日本の港の位置（名前から）"
+provider = "Wikidata"
+url = "https://www.wikidata.org/"
+download_files = { "labels_1.json" = "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fitem%20%3Flabel%20%3FprefLabel%20%3Fcoord%20WHERE%20%7B%20VALUES%20%3Flabel%20%7B%20%22%E4%B8%89%E6%9C%AC%E6%9D%BE%E6%B8%AF%22%40ja%20%22%E4%B8%89%E6%B1%A0%E6%B8%AF%22%40ja%20%22%E4%B8%8A%E5%9C%B0%E6%B8%AF%22%40ja%20%22%E4%B8%8A%E5%A4%A9%E8%8D%89%E6%B8%AF%22%40ja%20%22%E4%B8%8E%E8%B7%AF%E6%B8%AF%22%40ja%20%22%E4%B8%AD%E5%9F%8E%E6%B9%BE%E6%B8%AF%22%40ja%20%22%E4%B8%AD%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E4%B9%85%E8%B3%80%E6%B8%AF%22%40ja%20%22%E4%BA%80%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E4%BA%8C%E8%A6%8B%E6%B8%AF%22%40ja%20%22%E4%BB%81%E4%BD%8D%E6%B8%AF%22%40ja%20%22%E4%BB%B2%E7%94%B0%E6%B8%AF%22%40ja%20%22%E4%BC%8A%E5%BB%B6%E6%B8%AF%22%40ja%20%22%E4%BC%8A%E6%B1%9F%E6%B8%AF%22%40ja%20%22%E4%BC%8A%E7%8E%8B%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E4%BC%8F%E6%9C%A8%E5%AF%8C%E5%B1%B1%E6%B8%AF%22%40ja%20%22%E4%BC%91%E5%B1%8B%E6%B8%AF%22%40ja%20%22%E4%BD%90%E6%95%B7%E6%B8%AF%22%40ja%20%22%E4%BD%90%E6%9C%A8%E6%B8%AF%22%40ja%20%22%E4%BD%90%E6%9F%B3%E6%B8%AF%22%40ja%20%22%E4%BD%90%E9%A0%88%E5%A5%88%E6%B8%AF%22%40ja%20%22%E5%85%90%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%85%AB%E9%87%8D%E6%A0%B9%E6%B8%AF%22%40ja%20%22%E5%85%BC%E5%9F%8E%E6%B8%AF%22%40ja%20%22%E5%86%85%E6%B5%B7%E6%B8%AF%22%40ja%20%22%E5%86%85%E8%8A%B1%E6%B8%AF%22%40ja%20%22%E5%88%A5%E5%BA%9C%E6%B8%AF%22%40ja%20%22%E5%88%A9%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%89%8D%E6%B3%8A%E6%B8%AF%22%40ja%20%22%E5%89%8D%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E5%8A%A0%E5%A4%AA%E6%B8%AF%22%40ja%20%22%E5%8B%9D%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E5%8C%97%E6%9C%A8%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%8C%97%E6%9D%A1%E6%B8%AF%22%40ja%20%22%E5%8C%97%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E5%8D%83%E5%B9%B4%E6%B8%AF%22%40ja%20%22%E5%8D%97%E4%B9%8B%E6%B5%9C%E6%B8%AF%22%40ja%20%22%E5%8E%B3%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%8F%A3%E3%83%8E%E6%B4%A5%E6%B8%AF%22%40ja%20%22%E5%8F%A4%E4%BB%81%E5%B1%8B%E6%B8%AF%22%40ja%20%7D%20%7B%20%3Fitem%20rdfs%3Alabel%20%3Flabel%20%7D%20UNION%20%7B%20%3Fitem%20skos%3AaltLabel%20%3Flabel%20%7D%20%3Fitem%20wdt%3AP17%20wd%3AQ17%3B%20wdt%3AP625%20%3Fcoord.%20OPTIONAL%20%7B%20%3Fitem%20wdt%3AP131%2B%20%3Fpref.%20%3Fpref%20wdt%3AP31%20wd%3AQ50337.%20%3Fpref%20rdfs%3Alabel%20%3FprefLabel.%20FILTER%28LANG%28%3FprefLabel%29%3D%22ja%22%29%20%7D%20%7D", "labels_2.json" = "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fitem%20%3Flabel%20%3FprefLabel%20%3Fcoord%20WHERE%20%7B%20VALUES%20%3Flabel%20%7B%20%22%E5%90%89%E6%B5%B7%E6%B8%AF%22%40ja%20%22%E5%92%8C%E5%80%89%E6%B8%AF%22%40ja%20%22%E5%9B%9B%E5%9D%82%E6%B8%AF%22%40ja%20%22%E5%9B%BD%E8%B3%80%E6%B8%AF%22%40ja%20%22%E5%9C%9F%E5%BA%84%E6%9D%B1%E6%B8%AF%22%40ja%20%22%E5%A4%9A%E8%89%AF%E9%96%93%E6%B8%AF%22%40ja%20%22%E5%A4%A7%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%A4%A7%E6%9D%91%E6%B8%AF%22%40ja%20%22%E5%A4%A7%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E5%A4%A7%E7%AB%B9%E6%B8%AF%22%40ja%20%22%E5%A4%A7%E9%87%8C%E6%B8%AF%22%40ja%20%22%E5%A4%A9%E8%8D%89%E6%B8%AF%22%40ja%20%22%E5%A5%B3%E6%9C%A8%E6%B8%AF%22%40ja%20%22%E5%AD%90%E3%83%8E%E5%8F%A3%E6%B8%AF%22%40ja%20%22%E5%AE%87%E5%87%BA%E6%B4%A5%E6%B8%AF%22%40ja%20%22%E5%AE%87%E5%92%8C%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%AE%87%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%AE%A4%E6%B4%A5%E6%B8%AF%22%40ja%20%22%E5%AE%AE%E5%B4%8E%E6%B8%AF%22%40ja%20%22%E5%AE%B6%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E5%AF%8C%E5%B2%A1%E6%B8%AF%22%40ja%20%22%E5%AF%8C%E6%B1%9F%E6%B8%AF%22%40ja%20%22%E5%AF%BA%E6%B3%8A%E6%B8%AF%22%40ja%20%22%E5%B0%8F%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E5%B0%8F%E8%B1%8A%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%B0%8F%E9%A3%9B%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%B0%BB%E6%B5%9C%E6%B8%AF%22%40ja%20%22%E5%B1%8F%E9%A2%A8%E6%B8%AF%22%40ja%20%22%E5%B2%90%E5%AE%BF%E6%B8%AF%22%40ja%20%22%E5%B2%A1%E5%B1%B1%E6%B8%AF%22%40ja%20%22%E5%B2%A1%E7%94%B0%E6%B8%AF%22%40ja%20%22%E5%B4%8E%E6%88%B8%E6%B8%AF%22%40ja%20%22%E5%B7%9D%E5%86%85%E6%B8%AF%22%40ja%20%22%E5%B8%B8%E6%BB%91%E6%B8%AF%22%40ja%20%22%E5%B9%B3%E5%9C%9F%E9%87%8E%E6%B8%AF%22%40ja%20%22%E5%BA%B5%E6%B2%BB%E6%B8%AF%22%40ja%20%22%E5%BE%A1%E8%94%B5%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E5%BE%B3%E4%BB%81%E6%B8%AF%22%40ja%20%22%E5%BF%97%E5%B8%83%E5%BF%97%E6%B8%AF%22%40ja%20%22%E6%89%8B%E5%B3%B6%E6%B8%AF%22%40ja%20%7D%20%7B%20%3Fitem%20rdfs%3Alabel%20%3Flabel%20%7D%20UNION%20%7B%20%3Fitem%20skos%3AaltLabel%20%3Flabel%20%7D%20%3Fitem%20wdt%3AP17%20wd%3AQ17%3B%20wdt%3AP625%20%3Fcoord.%20OPTIONAL%20%7B%20%3Fitem%20wdt%3AP131%2B%20%3Fpref.%20%3Fpref%20wdt%3AP31%20wd%3AQ50337.%20%3Fpref%20rdfs%3Alabel%20%3FprefLabel.%20FILTER%28LANG%28%3FprefLabel%29%3D%22ja%22%29%20%7D%20%7D", "labels_3.json" = "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fitem%20%3Flabel%20%3FprefLabel%20%3Fcoord%20WHERE%20%7B%20VALUES%20%3Flabel%20%7B%20%22%E6%96%B0%E5%9C%A8%E5%AE%B6%E6%B8%AF%22%40ja%20%22%E6%96%B0%E5%AE%AE%E6%B8%AF%22%40ja%20%22%E6%96%B0%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E6%97%A5%E9%AB%98%E6%B8%AF%22%40ja%20%22%E6%99%82%E6%B4%A5%E6%B8%AF%22%40ja%20%22%E6%9C%AC%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E6%9D%B1%E5%82%99%E6%B8%AF%22%40ja%20%22%E6%9D%BE%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E6%9D%BE%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E6%9E%9D%E8%B6%8A%E6%B8%AF%22%40ja%20%22%E6%9F%B1%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E6%B0%B4%E7%B4%8D%E6%B8%AF%22%40ja%20%22%E6%B1%9F%E3%81%AE%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E6%B1%9F%E8%BF%8E%E6%B8%AF%22%40ja%20%22%E6%B1%A0%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E6%B2%B3%E5%92%8C%E6%B8%AF%22%40ja%20%22%E6%B3%89%E5%B7%9E%E6%B8%AF%22%40ja%20%22%E6%B4%A5%E4%B9%85%E8%A6%8B%E6%B8%AF%22%40ja%20%22%E6%B4%A5%E6%9D%BE%E9%98%AA%E6%B8%AF%22%40ja%20%22%E6%B5%9C%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E6%B5%9C%E7%94%B0%E6%B8%AF%22%40ja%20%22%E6%B9%8A%E6%B8%AF%22%40ja%20%22%E6%B9%96%E5%8D%97%E6%B8%AF%22%40ja%20%22%E6%B9%98%E5%8D%97%E6%B8%AF%22%40ja%20%22%E6%B9%BE%E6%B8%AF%22%40ja%20%22%E7%80%AC%E5%B7%9D%E6%B8%AF%22%40ja%20%22%E7%80%AC%E6%88%B8%E6%B8%AF%22%40ja%20%22%E7%80%AC%E6%88%B8%E7%94%B0%E6%B8%AF%22%40ja%20%22%E7%89%87%E5%81%B4%E6%B8%AF%22%40ja%20%22%E7%89%87%E6%B3%8A%E6%B8%AF%22%40ja%20%22%E7%89%9F%E7%A4%BC%E6%B8%AF%22%40ja%20%22%E7%8A%AC%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E7%8D%85%E5%AD%90%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E7%94%9F%E3%83%8E%E6%B5%9C%E6%B8%AF%22%40ja%20%22%E7%94%9F%E5%8F%A3%E6%B8%AF%22%40ja%20%22%E7%94%B7%E6%9C%A8%E6%B8%AF%22%40ja%20%22%E7%9B%B8%E3%81%AE%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E7%9C%9F%E9%B6%B4%E6%B8%AF%22%40ja%20%22%E7%A1%AB%E9%BB%84%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E7%A5%9E%E3%83%8E%E6%B5%A6%E6%B8%AF%22%40ja%20%7D%20%7B%20%3Fitem%20rdfs%3Alabel%20%3Flabel%20%7D%20UNION%20%7B%20%3Fitem%20skos%3AaltLabel%20%3Flabel%20%7D%20%3Fitem%20wdt%3AP17%20wd%3AQ17%3B%20wdt%3AP625%20%3Fcoord.%20OPTIONAL%20%7B%20%3Fitem%20wdt%3AP131%2B%20%3Fpref.%20%3Fpref%20wdt%3AP31%20wd%3AQ50337.%20%3Fpref%20rdfs%3Alabel%20%3FprefLabel.%20FILTER%28LANG%28%3FprefLabel%29%3D%22ja%22%29%20%7D%20%7D", "labels_4.json" = "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fitem%20%3Flabel%20%3FprefLabel%20%3Fcoord%20WHERE%20%7B%20VALUES%20%3Flabel%20%7B%20%22%E7%A5%9E%E6%B4%A5%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E7%A5%9E%E6%B9%8A%E6%B8%AF%22%40ja%20%22%E7%A6%8F%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E7%A6%8F%E7%94%B0%E6%B8%AF%22%40ja%20%22%E7%AB%B9%E5%AF%8C%E6%9D%B1%E6%B8%AF%22%40ja%20%22%E7%AB%B9%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E7%AB%B9%E6%95%B7%E6%B8%AF%22%40ja%20%22%E7%AB%B9%E7%94%9F%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E7%AC%A0%E5%B2%A1%E6%B8%AF%22%40ja%20%22%E7%AF%A0%E5%B7%9D%E6%B8%AF%22%40ja%20%22%E7%B2%9F%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E7%BE%8E%E7%94%B0%E6%B8%AF%22%40ja%20%22%E8%82%A5%E5%89%8D%E5%A4%A7%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E8%8B%A5%E6%9D%BE%E6%B8%AF%22%40ja%20%22%E8%8C%82%E6%9C%A8%E6%B8%AF%22%40ja%20%22%E8%92%B2%E5%88%88%E6%B8%AF%22%40ja%20%22%E8%A5%BF%E4%B8%AD%E6%B8%AF%22%40ja%20%22%E8%A5%BF%E9%83%B7%E6%B8%AF%22%40ja%20%22%E8%A6%B3%E9%9F%B3%E5%AF%BA%E6%B8%AF%22%40ja%20%22%E8%AB%8B%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E8%AB%8F%E8%A8%AA%E6%B8%AF%22%40ja%20%22%E8%B1%8A%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E8%B3%A2%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E9%83%B7%E3%83%8E%E9%A6%96%E6%B8%AF%22%40ja%20%22%E9%87%8C%E6%B5%A6%E6%B8%AF%22%40ja%20%22%E9%87%8D%E4%BA%95%E6%B8%AF%22%40ja%20%22%E9%87%8D%E6%A0%96%E6%B8%AF%22%40ja%20%22%E9%87%8E%E7%94%AB%E6%B8%AF%22%40ja%20%22%E9%87%91%E8%8F%AF%E5%B1%B1%E6%B8%AF%22%40ja%20%22%E9%95%B7%E4%B8%8E%E6%B8%AF%22%40ja%20%22%E9%95%B7%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E9%95%B7%E6%B5%9C%E6%B8%AF%22%40ja%20%22%E9%9D%92%E3%83%B6%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E9%9D%92%E6%96%B9%E6%B8%AF%22%40ja%20%22%E9%9D%92%E6%9C%A8%E6%B8%AF%22%40ja%20%22%E9%9D%A2%E9%AB%98%E6%B8%AF%22%40ja%20%22%E9%A0%88%E5%B7%9D%E6%B8%AF%22%40ja%20%22%E9%A2%A8%E6%88%B8%E6%B8%AF%22%40ja%20%22%E9%AB%98%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E9%AB%98%E8%A6%8B%E6%B8%AF%22%40ja%20%7D%20%7B%20%3Fitem%20rdfs%3Alabel%20%3Flabel%20%7D%20UNION%20%7B%20%3Fitem%20skos%3AaltLabel%20%3Flabel%20%7D%20%3Fitem%20wdt%3AP17%20wd%3AQ17%3B%20wdt%3AP625%20%3Fcoord.%20OPTIONAL%20%7B%20%3Fitem%20wdt%3AP131%2B%20%3Fpref.%20%3Fpref%20wdt%3AP31%20wd%3AQ50337.%20%3Fpref%20rdfs%3Alabel%20%3FprefLabel.%20FILTER%28LANG%28%3FprefLabel%29%3D%22ja%22%29%20%7D%20%7D", "labels_5.json" = "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fitem%20%3Flabel%20%3FprefLabel%20%3Fcoord%20WHERE%20%7B%20VALUES%20%3Flabel%20%7B%20%22%E9%AE%B4%E5%B4%8E%E6%B8%AF%22%40ja%20%22%E9%B3%A9%E9%96%93%E6%B8%AF%22%40ja%20%22%E9%B4%BB%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E9%B9%BF%E5%B1%8B%E6%B8%AF%22%40ja%20%22%E9%BB%84%E5%B3%B6%E6%B8%AF%22%40ja%20%22%E9%BB%92%E5%B3%B6%E6%B8%AF%22%40ja%20%7D%20%7B%20%3Fitem%20rdfs%3Alabel%20%3Flabel%20%7D%20UNION%20%7B%20%3Fitem%20skos%3AaltLabel%20%3Flabel%20%7D%20%3Fitem%20wdt%3AP17%20wd%3AQ17%3B%20wdt%3AP625%20%3Fcoord.%20OPTIONAL%20%7B%20%3Fitem%20wdt%3AP131%2B%20%3Fpref.%20%3Fpref%20wdt%3AP31%20wd%3AQ50337.%20%3Fpref%20rdfs%3Alabel%20%3FprefLabel.%20FILTER%28LANG%28%3FprefLabel%29%3D%22ja%22%29%20%7D%20%7D" }
+files = ["labels_*.json"]
+cache = true
+license = "CC0 1.0"
+license_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+attribution = "港の位置：Wikidata（CC0）"
+modification_note = "港の位置を港湾統計の港に対応付けて作成"
+redistributable = true
+
+# 港の位置の続き。Wikidata で見つからなかった港を、国土地理院の地名検索（電子国土基本図の地名など）で「港名＋港」と引く
+# （2026-10-14 の取り込みで位置の分からなかった港）。同じ名前の地名がほかの都道府県にもあるので、
+# 位置が港湾統計の都道府県の中にあるものだけを使う（取込処理で確かめる）。ファイル名は「都道府県コード_港名.json」。
+[gsi_port_names]
+kind = "gsi_ports"
+title = "国土地理院 地名検索（港の位置）"
+provider = "国土地理院"
+url = "https://maps.gsi.go.jp/"
+lenient = true
+files = ["[0-9][0-9]_*.json"]
+cache = true
+license = "国土地理院コンテンツ利用規約"
+license_url = "https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html"
+attribution = "港の位置：国土地理院（地名検索）"
+modification_note = "地名の位置を港湾統計の港に対応付けて作成"
+redistributable = true
+
+[gsi_port_names.download_files]
+  "02_休屋.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BC%91%E5%B1%8B%E6%B8%AF"
+  "02_子ノ口.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AD%90%E3%83%8E%E5%8F%A3%E6%B8%AF"
+  "04_金華山.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%87%91%E8%8F%AF%E5%B1%B1%E6%B8%AF"
+  "07_湖南.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B9%96%E5%8D%97%E6%B8%AF"
+  "13_三池.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%89%E6%B1%A0%E6%B8%AF"
+  "13_八重根.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%85%AB%E9%87%8D%E6%A0%B9%E6%B8%AF"
+  "13_利島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%88%A9%E5%B3%B6%E6%B8%AF"
+  "13_岡田.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B2%A1%E7%94%B0%E6%B8%AF"
+  "13_御蔵島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%BE%A1%E8%94%B5%E5%B3%B6%E6%B8%AF"
+  "13_新島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%96%B0%E5%B3%B6%E6%B8%AF"
+  "13_神津島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%A5%9E%E6%B4%A5%E5%B3%B6%E6%B8%AF"
+  "13_神湊.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%A5%9E%E6%B9%8A%E6%B8%AF"
+  "13_青ヶ島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%9D%92%E3%83%B6%E5%B3%B6%E6%B8%AF"
+  "14_湘南.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B9%98%E5%8D%97%E6%B8%AF"
+  "14_真鶴.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%9C%9F%E9%B6%B4%E6%B8%AF"
+  "15_二見.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BA%8C%E8%A6%8B%E6%B8%AF"
+  "15_寺泊.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AF%BA%E6%B3%8A%E6%B8%AF"
+  "16_伏木富山.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BC%8F%E6%9C%A8%E5%AF%8C%E5%B1%B1%E6%B8%AF"
+  "17_和倉.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%92%8C%E5%80%89%E6%B8%AF"
+  "17_宇出津.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AE%87%E5%87%BA%E6%B4%A5%E6%B8%AF"
+  "23_常滑.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B8%B8%E6%BB%91%E6%B8%AF"
+  "23_河和.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B2%B3%E5%92%8C%E6%B8%AF"
+  "24_津松阪.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B4%A5%E6%9D%BE%E9%98%AA%E6%B8%AF"
+  "24_賢島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%B3%A2%E5%B3%B6%E6%B8%AF"
+  "24_長島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%95%B7%E5%B3%B6%E6%B8%AF"
+  "25_竹生島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%AB%B9%E7%94%9F%E5%B3%B6%E6%B8%AF"
+  "27_泉州.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B3%89%E5%B7%9E%E6%B8%AF"
+  "28_淡路交流の翼.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B7%A1%E8%B7%AF%E4%BA%A4%E6%B5%81%E3%81%AE%E7%BF%BC%E6%B8%AF"
+  "28_湊.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B9%8A%E6%B8%AF"
+  "30_加太.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8A%A0%E5%A4%AA%E6%B8%AF"
+  "30_勝浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8B%9D%E6%B5%A6%E6%B8%AF"
+  "30_新宮.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%96%B0%E5%AE%AE%E6%B8%AF"
+  "30_日高.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%97%A5%E9%AB%98%E6%B8%AF"
+  "32_国賀.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%9B%BD%E8%B3%80%E6%B8%AF"
+  "32_浜田.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B5%9C%E7%94%B0%E6%B8%AF"
+  "32_美田.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%BE%8E%E7%94%B0%E6%B8%AF"
+  "32_西郷.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%A5%BF%E9%83%B7%E6%B8%AF"
+  "32_諏訪.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%AB%8F%E8%A8%AA%E6%B8%AF"
+  "32_重栖.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%87%8D%E6%A0%96%E6%B8%AF"
+  "33_児島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%85%90%E5%B3%B6%E6%B8%AF"
+  "33_前浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%89%8D%E6%B5%A6%E6%B8%AF"
+  "33_北木島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8C%97%E6%9C%A8%E5%B3%B6%E6%B8%AF"
+  "33_大浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A7%E6%B5%A6%E6%B8%AF"
+  "33_小飛島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B0%8F%E9%A3%9B%E5%B3%B6%E6%B8%AF"
+  "33_岡山.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B2%A1%E5%B1%B1%E6%B8%AF"
+  "33_東備.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%9D%B1%E5%82%99%E6%B8%AF"
+  "33_犬島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%8A%AC%E5%B3%B6%E6%B8%AF"
+  "33_笠岡.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%AC%A0%E5%B2%A1%E6%B8%AF"
+  "33_豊浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%B1%8A%E6%B5%A6%E6%B8%AF"
+  "33_鴻島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%B4%BB%E5%B3%B6%E6%B8%AF"
+  "33_黄島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%BB%84%E5%B3%B6%E6%B8%AF"
+  "34_佐木.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BD%90%E6%9C%A8%E6%B8%AF"
+  "34_千年.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8D%83%E5%B9%B4%E6%B8%AF"
+  "34_厳島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8E%B3%E5%B3%B6%E6%B8%AF"
+  "34_大竹.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A7%E7%AB%B9%E6%B8%AF"
+  "34_瀬戸田.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%80%AC%E6%88%B8%E7%94%B0%E6%B8%AF"
+  "34_生口.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%94%9F%E5%8F%A3%E6%B8%AF"
+  "34_福田.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%A6%8F%E7%94%B0%E6%B8%AF"
+  "34_蒲刈.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%92%B2%E5%88%88%E6%B8%AF"
+  "34_重井.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%87%8D%E4%BA%95%E6%B8%AF"
+  "34_鮴崎.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%AE%B4%E5%B4%8E%E6%B8%AF"
+  "35_久賀.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B9%85%E8%B3%80%E6%B8%AF"
+  "35_室津.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AE%A4%E6%B4%A5%E6%B8%AF"
+  "35_柱島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%9F%B1%E5%B3%B6%E6%B8%AF"
+  "36_亀浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BA%80%E6%B5%A6%E6%B8%AF"
+  "37_三本松.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%89%E6%9C%AC%E6%9D%BE%E6%B8%AF"
+  "37_佐柳.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BD%90%E6%9F%B3%E6%B8%AF"
+  "37_内海.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%86%85%E6%B5%B7%E6%B8%AF"
+  "37_土庄東.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%9C%9F%E5%BA%84%E6%9D%B1%E6%B8%AF"
+  "37_大島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A7%E5%B3%B6%E6%B8%AF"
+  "37_大浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A7%E6%B5%A6%E6%B8%AF"
+  "37_女木.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A5%B3%E6%9C%A8%E6%B8%AF"
+  "37_家浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AE%B6%E6%B5%A6%E6%B8%AF"
+  "37_小浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B0%8F%E6%B5%A6%E6%B8%AF"
+  "37_小豊島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B0%8F%E8%B1%8A%E5%B3%B6%E6%B8%AF"
+  "37_尻浜.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B0%BB%E6%B5%9C%E6%B8%AF"
+  "37_屏風.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B1%8F%E9%A2%A8%E6%B8%AF"
+  "37_庵治.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%BA%B5%E6%B2%BB%E6%B8%AF"
+  "37_手島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%89%8B%E5%B3%B6%E6%B8%AF"
+  "37_新在家.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%96%B0%E5%9C%A8%E5%AE%B6%E6%B8%AF"
+  "37_本島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%9C%AC%E5%B3%B6%E6%B8%AF"
+  "37_江の浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B1%9F%E3%81%AE%E6%B5%A6%E6%B8%AF"
+  "37_牟礼.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%89%9F%E7%A4%BC%E6%B8%AF"
+  "37_生ノ浜.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%94%9F%E3%83%8E%E6%B5%9C%E6%B8%AF"
+  "37_男木.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%94%B7%E6%9C%A8%E6%B8%AF"
+  "37_直島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%9B%B4%E5%B3%B6%E6%B8%AF"
+  "37_粟島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%B2%9F%E5%B3%B6%E6%B8%AF"
+  "37_観音寺.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%A6%B3%E9%9F%B3%E5%AF%BA%E6%B8%AF"
+  "37_里浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%87%8C%E6%B5%A6%E6%B8%AF"
+  "37_青木.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%9D%92%E6%9C%A8%E6%B8%AF"
+  "37_風戸.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%A2%A8%E6%88%B8%E6%B8%AF"
+  "37_高見.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%AB%98%E8%A6%8B%E6%B8%AF"
+  "38_中島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%AD%E5%B3%B6%E6%B8%AF"
+  "38_北条.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8C%97%E6%9D%A1%E6%B8%AF"
+  "38_北浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8C%97%E6%B5%A6%E6%B8%AF"
+  "38_吉海.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%90%89%E6%B5%B7%E6%B8%AF"
+  "38_四坂.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%9B%9B%E5%9D%82%E6%B8%AF"
+  "38_宇和島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AE%87%E5%92%8C%E5%B3%B6%E6%B8%AF"
+  "38_枝越.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%9E%9D%E8%B6%8A%E6%B8%AF"
+  "38_西中.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%A5%BF%E4%B8%AD%E6%B8%AF"
+  "38_長浜.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%95%B7%E6%B5%9C%E6%B8%AF"
+  "40_宇島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AE%87%E5%B3%B6%E6%B8%AF"
+  "42_仁位.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BB%81%E4%BD%8D%E6%B8%AF"
+  "42_伊王島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BC%8A%E7%8E%8B%E5%B3%B6%E6%B8%AF"
+  "42_佐須奈.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BD%90%E9%A0%88%E5%A5%88%E6%B8%AF"
+  "42_口ノ津.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8F%A3%E3%83%8E%E6%B4%A5%E6%B8%AF"
+  "42_大島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A7%E5%B3%B6%E6%B8%AF"
+  "42_大村.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A7%E6%9D%91%E6%B8%AF"
+  "42_富江.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AF%8C%E6%B1%9F%E6%B8%AF"
+  "42_岐宿.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B2%90%E5%AE%BF%E6%B8%AF"
+  "42_崎戸.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B4%8E%E6%88%B8%E6%B8%AF"
+  "42_時津.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%99%82%E6%B4%A5%E6%B8%AF"
+  "42_松島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%9D%BE%E5%B3%B6%E6%B8%AF"
+  "42_松浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%9D%BE%E6%B5%A6%E6%B8%AF"
+  "42_江迎.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B1%9F%E8%BF%8E%E6%B8%AF"
+  "42_池島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B1%A0%E5%B3%B6%E6%B8%AF"
+  "42_瀬川.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%80%AC%E5%B7%9D%E6%B8%AF"
+  "42_瀬戸.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%80%AC%E6%88%B8%E6%B8%AF"
+  "42_相の浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%9B%B8%E3%81%AE%E6%B5%A6%E6%B8%AF"
+  "42_神ノ浦.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%A5%9E%E3%83%8E%E6%B5%A6%E6%B8%AF"
+  "42_福島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%A6%8F%E5%B3%B6%E6%B8%AF"
+  "42_竹敷.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%AB%B9%E6%95%B7%E6%B8%AF"
+  "42_肥前大島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%82%A5%E5%89%8D%E5%A4%A7%E5%B3%B6%E6%B8%AF"
+  "42_若松.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%8B%A5%E6%9D%BE%E6%B8%AF"
+  "42_茂木.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%8C%82%E6%9C%A8%E6%B8%AF"
+  "42_郷ノ首.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%83%B7%E3%83%8E%E9%A6%96%E6%B8%AF"
+  "42_長与.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%95%B7%E4%B8%8E%E6%B8%AF"
+  "42_青方.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%9D%92%E6%96%B9%E6%B8%AF"
+  "42_面高.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%9D%A2%E9%AB%98%E6%B8%AF"
+  "42_須川.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%A0%88%E5%B7%9D%E6%B8%AF"
+  "42_高島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%AB%98%E5%B3%B6%E6%B8%AF"
+  "43_上天草.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%8A%E5%A4%A9%E8%8D%89%E6%B8%AF"
+  "43_佐敷.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BD%90%E6%95%B7%E6%B8%AF"
+  "43_天草.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A9%E8%8D%89%E6%B8%AF"
+  "43_富岡.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AF%8C%E5%B2%A1%E6%B8%AF"
+  "44_別府.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%88%A5%E5%BA%9C%E6%B8%AF"
+  "44_津久見.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B4%A5%E4%B9%85%E8%A6%8B%E6%B8%AF"
+  "45_大島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A7%E5%B3%B6%E6%B8%AF"
+  "45_宮崎.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%AE%AE%E5%B4%8E%E6%B8%AF"
+  "46_与路.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%8E%E8%B7%AF%E6%B8%AF"
+  "46_伊延.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BC%8A%E5%BB%B6%E6%B8%AF"
+  "46_南之浜.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8D%97%E4%B9%8B%E6%B5%9C%E6%B8%AF"
+  "46_古仁屋.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%8F%A4%E4%BB%81%E5%B1%8B%E6%B8%AF"
+  "46_大里.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%A7%E9%87%8C%E6%B8%AF"
+  "46_川内.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B7%9D%E5%86%85%E6%B8%AF"
+  "46_平土野.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%B9%B3%E5%9C%9F%E9%87%8E%E6%B8%AF"
+  "46_志布志.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%BF%97%E5%B8%83%E5%BF%97%E6%B8%AF"
+  "46_湾.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B9%BE%E6%B8%AF"
+  "46_片側.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%89%87%E5%81%B4%E6%B8%AF"
+  "46_片泊.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%89%87%E6%B3%8A%E6%B8%AF"
+  "46_獅子島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%8D%85%E5%AD%90%E5%B3%B6%E6%B8%AF"
+  "46_硫黄島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%A1%AB%E9%BB%84%E5%B3%B6%E6%B8%AF"
+  "46_竹島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%AB%B9%E5%B3%B6%E6%B8%AF"
+  "46_篠川.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%AF%A0%E5%B7%9D%E6%B8%AF"
+  "46_請島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E8%AB%8B%E5%B3%B6%E6%B8%AF"
+  "46_長浜.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%95%B7%E6%B5%9C%E6%B8%AF"
+  "46_鹿屋.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%B9%BF%E5%B1%8B%E6%B8%AF"
+  "47_上地.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%8A%E5%9C%B0%E6%B8%AF"
+  "47_中城湾.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%AD%E5%9F%8E%E6%B9%BE%E6%B8%AF"
+  "47_仲田.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BB%B2%E7%94%B0%E6%B8%AF"
+  "47_伊江.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%BC%8A%E6%B1%9F%E6%B8%AF"
+  "47_兼城.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%85%BC%E5%9F%8E%E6%B8%AF"
+  "47_内花.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%86%85%E8%8A%B1%E6%B8%AF"
+  "47_前泊.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%89%8D%E6%B3%8A%E6%B8%AF"
+  "47_多良間.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%9A%E8%89%AF%E9%96%93%E6%B8%AF"
+  "47_徳仁.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%BE%B3%E4%BB%81%E6%B8%AF"
+  "47_水納.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B0%B4%E7%B4%8D%E6%B8%AF"
+  "47_竹富東.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E7%AB%B9%E5%AF%8C%E6%9D%B1%E6%B8%AF"
+  "47_野甫.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%87%8E%E7%94%AB%E6%B8%AF"
+  "47_鳩間.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%B3%A9%E9%96%93%E6%B8%AF"
+  "47_黒島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%BB%92%E5%B3%B6%E6%B8%AF"

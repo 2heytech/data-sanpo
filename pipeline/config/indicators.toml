@@ -2330,6 +2330,35 @@ caveats = ["各事業者が独自に算出した値で、統一的な基準に�
 source_kind = "mlit_stations"
 legend = { method = "quantile", classes = 10, scheme = "blues" }
 
+# 空港・港は1か所ずつの値なので点で出し、市区町村・都道府県には割り振らない（pipeline/tdm/ingest/mlit_transport.py）
+[airport_passengers]
+name = "空港の乗降客数"
+category = "交通"
+unit = "人/年"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["airport"]
+description = "空港で飛行機に乗った人と降りた人を合わせた1年間の人数（暦年）。国際線と国内線の内訳もあります。"
+method = "国土交通省「空港管理状況調書」の空港ごとの乗降客数。位置は国土数値情報「空港データ」（令和3年）の空港に名前で対応付けています。"
+caveats = ["乗り継ぎの人も、その空港で乗り降りした人として数えています。", "自衛隊や米軍の飛行場のうち民間の定期便がないところは載っていません。", "位置の分からない空港は地図に出していません。"]
+source_kind = "mlit_airports"
+legend = { method = "quantile", classes = 10, scheme = "blues" }
+
+[port_passengers]
+name = "港の船舶乗降人員"
+category = "交通"
+unit = "人/年"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["port"]
+description = "港で船に乗った人と船から降りた人を合わせた1年間の人数（暦年）。フェリー・高速船・旅客船・観光船などすべての船の合計で、外国航路と国内航路の内訳もあります。"
+method = "国土交通省「港湾統計（年報）」第2表 船舶乗降人員表（甲種港湾・乙種港湾）の港ごとの乗込人員と上陸人員の合計。港の位置は Wikidata の港に名前と都道府県で対応付け、Wikidata にない港は国土地理院の地名（「港名＋港」）の位置です。"
+caveats = ["フェリーだけを取り出すことはできません（港に出入りするすべての船の合計です）。", "港の位置は港の代表的な地点で、旅客ターミナルの位置とは限りません。", "港湾統計の対象外の港（漁港など）は載っていません。", "どの年も乗降人員のない港と、位置の分からない港は地図に出していません。"]
+source_kind = "mlit_ports"
+legend = { method = "quantile", classes = 10, scheme = "blues" }
+
 [crime_total_per_100_residents]
 name = "犯罪の認知件数（住民100人当たり）"
 category = "犯罪"

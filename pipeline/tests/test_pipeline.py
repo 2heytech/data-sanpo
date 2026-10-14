@@ -1852,3 +1852,38 @@ def test_school_aid_rate(built):
     # 凡例は区分ごとに1色（全時点の最大の区分まで5%ごと）
     legend = load(built, "values/school_aid_rate/2024-04-01/legend.json")
     assert legend["levels"]["municipality"]["breaks"] == [5, 10, 15, 20]
+
+
+def test_airports_and_ports(built):
+    import hashlib
+    h = lambda s: hashlib.sha1(s.encode()).hexdigest()[:8]
+    air = load(built, "places/airport_passengers.json")
+    assert [p["label"] for p in air["periods"]] == ["2024年", "2025年"]
+    pts = {p["name"]: p for p in air["points"]}
+    assert set(pts) == {"見本国際", "かりの"}   # 地図の範囲外（遠く）と位置のない空港（ない）は出さない
+    a = pts["見本国際"]
+    assert a["id"] == f"airport-{h('見本')}" and a["municipality_id"] == "muni-13199"
+    assert a["coord"] == [139.731, 35.69]   # 国土数値情報の空港標点
+    # 12か月の合計。国際線は乗客・降客・通過客の小計
+    assert a["values"] == [145200, 170400] and a["domestic"] == [120000, 120000] and a["international"] == [25200, 50400]
+    # 月の値が欠けた年は値なし（0 にしない）
+    assert pts["かりの"]["values"] == [7200, None] and pts["かりの"]["international"] == [0, None]
+    assert any(s.startswith("mlit_c28_2021@") for s in air["source_ids"])
+
+    port = load(built, "places/port_passengers.json")
+    assert [p["label"] for p in port["periods"]] == ["2023年", "2024年"]
+    pp = {p["name"]: p for p in port["points"]}
+    # どの年も乗降のない港は出さない。港名と同じ名前の都道府県（東京）も港として読む
+    assert set(pp) == {"東京", "見本", "みほん", "ない"}
+    # Wikidata にない港は国土地理院の地名から。ほかの都道府県の同じ名前の地名は使わない
+    assert pp["ない"]["coord"] == [139.67, 35.69] and any(s.startswith("gsi_port_names@") for s in port["source_ids"])
+    t = pp["東京"]
+    assert t["id"] == f"port-13-{h('東京')}" and t["coord"] == [139.75, 35.7]   # 大阪府の同名の港と取り違えない
+    assert t["values"] == [1200, 1500] and t["domestic"] == [1200, 1400]
+    assert t["international"] == [None, 100]   # 外国航路の行がない年は値なし
+    assert pp["みほん"]["municipality_id"] == "muni-14199"
+    assert any(s.startswith("wikidata_ports@") for s in port["source_ids"])
+    assert not any(s.startswith("mlit_airports") for s in port["source_ids"])
+    # 空港・港の値は地域に割り振らない
+    ids = {i["id"] for i in load(built, "indicators.json")["indicators"]}
+    assert not ids & {"airport_passengers", "port_passengers"}

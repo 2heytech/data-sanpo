@@ -234,6 +234,7 @@ def _write_police_crime_opendata(directory: Path) -> dict[str, Path]:
                     wr.writerow(["窃盗", tech, "見本警察署", "見本交番", code, PREF_NAMES[pref], muni, town, f"{year}0105"])
             out[f"{key}_{name}"] = path
     out.update(_write_weather(directory))
+    out.update(_write_transport(directory))
     return out
 
 
@@ -2141,3 +2142,103 @@ def _write_weather(directory: Path) -> dict[str, Path]:
                     rows.append(f"21,{n},{el},{years:2d},{start},2020," + ",".join(f"{x:6d},8" for x in vals))
             z.writestr(f"monthly/area{n[:2]}/nml_amd_m_{n}.csv", ("\r\n".join(rows) + "\r\n").encode("cp932"))
     return {"weather_index": index, "weather_monthly": monthly}
+
+
+# 空港管理状況調書（1シートに空港ごとの欄。「空港名:」の行、見出し3行、1〜12月の行）と国土数値情報 C28 の空港、
+# 港湾統計の船舶乗降人員表（1行に左右2つの欄）と Wikidata の港。いずれも実ファイルの形に合わせた架空の値。
+# 「遠く」は地図の範囲外、「ない」は位置がなく、取り込まない。2025年の「かりの」は12月が空で年の値なし
+AIRPORTS = {   # 名前 → (国際線の月の乗客, 国内線の月の乗客)。降客は乗客と同じ、通過客は国際線の1割
+    "見本": (1000, 5000), "かりの": (0, 300), "遠く": (0, 100), "ない": (0, 50),
+}
+
+
+def _airport_sheet(year: int) -> list[list]:
+    rows: list[list] = [[None, None, f"{year}年 空港管理状況調書"]]
+    for name, (intl, dom) in AIRPORTS.items():
+        rows += [[None, None, "空港名:", f"{name}{'国際' if name == '見本' else ''}(国管理)"],
+                 [None, None, "項目", None, "着陸回数(回)", None, "乗降客数(人)"] + [None] * 7 + ["航空燃料供給量(KL)"],
+                 [None, None, None, "国際線", "国内線", "計", None, "国際線", None, None, None, "国内線", None, "合計"],
+                 [None, None, "月別", None, None, None, "乗客", "降客", "通過客", "小計", "乗客", "降客", "小計"],
+                 [None] * 3]
+        for m in range(1, 13):
+            if year == 2025 and name == "かりの" and m == 12:
+                rows.append([None, None, f"{m}月"])
+                continue
+            i = intl * (1 + year - 2024)
+            t = i // 10
+            rows.append([None, None, f"{m}月", 1, 2, 3, float(i), float(i), float(t), float(2 * i + t),
+                         float(dom), float(dom), float(2 * dom), float(2 * i + t + 2 * dom), 10.0])
+    return rows
+
+
+def _write_transport(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheets
+    out: dict[str, Path] = {}
+    for year in (2024, 2025):
+        d = directory / f"mlit_airports_{year}"
+        d.mkdir(parents=True, exist_ok=True)
+        out[f"airports_{year}"] = d / f"airports_{year}.xlsx"
+        write_sheets(out[f"airports_{year}"], {"空港管理状況調書": _airport_sheet(year)})
+    d = directory / "mlit_c28_2021" / "UTF-8"
+    d.mkdir(parents=True, exist_ok=True)
+    places = {"見本国際空港": (139.73, 35.69), "かりの空港": (139.39, 34.73), "遠く空港": (141.0, 43.0)}
+    areas, refs = [], []
+    for k, (name, (x, y)) in enumerate(places.items(), 1):
+        ring = [[x - 0.005, y - 0.005], [x + 0.005, y - 0.005], [x + 0.005, y + 0.005], [x - 0.005, y + 0.005], [x - 0.005, y - 0.005]]
+        areas.append({"type": "Feature", "properties": {"C28_005": name, "C28_101": f"#cf03_{k:05d}"},
+                      "geometry": {"type": "Polygon", "coordinates": [ring]}})
+        refs.append({"type": "Feature", "properties": {"C28_000": f"cf03_{k:05d}"},
+                     "geometry": {"type": "Point", "coordinates": [x + 0.001, y]}})
+    for name, feats in (("C28-21_Airport.geojson", areas), ("C28-21_AirportReferencePoint.geojson", refs)):
+        (d / name).write_text(json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False),
+                              encoding="utf-8")
+    out["c28"] = d / "C28-21_Airport.geojson"
+
+    head = [[None] * 5 + ["船舶乗降人員表"], [],
+            ["都道府県", "港湾", None, None, "種別", "計", "乗込人員", "上陸人員", None] * 2, []]
+
+    def block(pref, mark, name, rows):   # rows: [(種別, 計, 乗込, 上陸)]
+        return [[pref if k == 0 else None, mark if k == 0 else None, name if k == 0 else None, None, *r]
+                for k, r in enumerate(rows)]
+
+    left = (block("総計", None, None, [("計", 2400.0, 1200.0, 1200.0), ("外", 100.0, 50.0, 50.0), ("内", 2300.0, 1150.0, 1150.0)])
+            + [[None] * 8]
+            + block("神奈川", None, "合計", [("内", 300.0, 150.0, 150.0)])
+            + block(None, "◎", "みほん", [("内", 300.0, 150.0, 150.0)])
+            + block(None, "○", "貨物", [("内", "-", "-", "-")]))
+    for year in (2023, 2024):
+        # 2023年は東京港の外国航路がない（「内」の行だけ）
+        tokyo = ([("計", 1500.0, 750.0, 750.0), ("外", 100.0, 50.0, 50.0), ("内", 1400.0, 700.0, 700.0)] if year == 2024
+                 else [("内", 1200.0, 600.0, 600.0)])
+        right = (block("東京", None, "合計", [("計", 2100.0, 1050.0, 1050.0), ("外", 100.0, 50.0, 50.0), ("内", 2000.0, 1000.0, 1000.0)])
+                 + block(None, "☆", "東京", tokyo)
+                 + block(None, None, "見本", [("内", 500.0, 250.0, 250.0)])
+                 + block(None, None, "ない", [("内", 100.0, 50.0, 50.0)]))
+        n = max(len(left), len(right))
+        pad = [[None] * 8]
+        rows = head + [list(x) + [None] + list(y) for x, y in zip(left + pad * (n - len(left)), right + pad * (n - len(right)))]
+        d = directory / f"mlit_ports_{year}"
+        d.mkdir(parents=True, exist_ok=True)
+        out[f"ports_{year}"] = d / f"ports_{year}_kou.xlsx"
+        write_sheets(out[f"ports_{year}"], {"タイトル2-2": [["第2表"]], "2-2": rows})
+    d = directory / "wikidata_ports"
+    d.mkdir(parents=True, exist_ok=True)
+
+    def item(q, label, pref, x, y):
+        return {"item": {"value": f"http://www.wikidata.org/entity/{q}"}, "label": {"value": label},
+                "prefLabel": {"value": pref}, "coord": {"value": f"Point({x} {y})"}}
+    out["wikidata_ports"] = d / "ports.json"
+    out["wikidata_ports"].write_text(json.dumps({"results": {"bindings": [
+        item("Q100", "東京港", "東京都", 139.75, 35.70), item("Q101", "見本港", "東京都", 139.66, 35.68),
+        item("Q102", "みほん港", "神奈川県", 139.62, 35.47), item("Q99", "東京港", "大阪府", 135.4, 34.6),
+    ]}}, ensure_ascii=False), encoding="utf-8")
+    # 国土地理院の地名検索（Wikidata にない港）。ほかの都道府県の同じ名前の地名と、名前の違う地名は使わない
+    d = directory / "gsi_port_names"
+    d.mkdir(parents=True, exist_ok=True)
+
+    def place(title, x, y):
+        return {"type": "Feature", "geometry": {"type": "Point", "coordinates": [x, y]}, "properties": {"title": title}}
+    out["gsi_ports"] = d / "13_ない.json"
+    out["gsi_ports"].write_text(json.dumps([place("ない港", 135.4, 34.6), place("ないの浜", 139.70, 35.70),
+                                            place("ない港", 139.67, 35.69)], ensure_ascii=False), encoding="utf-8")
+    return out
