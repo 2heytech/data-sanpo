@@ -158,6 +158,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_gakuryoku(directory))
     out.update(_write_school_aid(directory))
     out.update(_write_school_basic(directory))
+    out.update(_write_school_municipal(directory))
     out.update(_write_housing(directory))
     out.update(_write_vital(directory))
     out["census_history"] = _write_census_history(directory)
@@ -703,6 +704,61 @@ def _write_school_basic(directory: Path) -> dict[str, Path]:
         path = d / f"{t}.xlsx"
         write_sheets(path, sheets)
         out[f"school_basic_{t}"] = path
+    return out
+
+
+# 学校基本調査 市町村別集計の学級（編制方式別学級数・学級編制方式別児童数）と高校の卒業後の状況の形式。
+# (都道府県, 区市町村コード3桁) → 値。学級: (学級数 計, 特別支援学級数, 児童数 計, 特別支援学級の児童数)
+SCHOOL_CLASSES = {("13", "199"): (40.0, 4.0, 1000.0, 20.0), ("13", "299"): (60.0, 6.0, 1500.0, 30.0),
+                  ("13", "499"): (0.0, 0.0, 0.0, 0.0), ("14", "199"): (30.0, 0.0, 600.0, 5.0)}
+# 高校: (卒業者数, 大学等進学者, 専修学校（専門課程）進学者, 就職者等)。かりの村は高校なし（0）
+SCHOOL_PROGRESS = {("13", "199"): (500.0, 300.0, 100.0, 50.0), ("13", "299"): (8.0, 4.0, 2.0, 1.0),
+                   ("13", "499"): (0.0, 0.0, 0.0, 0.0), ("14", "199"): (200.0, 80.0, 40.0, 60.0)}
+
+
+def _write_school_municipal(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheets
+    names = {"13": {c[2:]: n for c, n, *_ in MUNICIPALITIES}, "14": {c[2:]: n for c, n, *_ in OTHER_MUNICIPALITIES}}
+    tables = {
+        "classes": ("小学校　市町村別編制方式別学級数　計", ["計", "単式学級", "複式学級", "特別支援学級"],
+                    lambda v: [v[0], v[0] - v[1], 0.0, v[1]], SCHOOL_CLASSES),
+        "pupils": ("小学校　市町村別学級編制方式別児童数　計", ["計", "単式学級", "複式学級", "特別支援学級"],
+                   lambda v: [v[2], v[2] - v[3], 0.0, v[3]], SCHOOL_CLASSES),
+        # 実際の表の列（令和7年度）。就職者は E の自営業主等・無期雇用・有期雇用のうち1年以上フルタイム相当と、
+        # A〜D のうち就職している者の合計。臨時労働者（2）は就職者に数えない
+        "progress": ("高等学校（全日制・定時制）　市町村別状況別卒業者数　計　計",
+                     ["計", "A大学等進学者", "B専修学校（専門課程）進学者", "C専修学校（一般課程）等入学者",
+                      "E就職者等/自営業主等", "E就職者等/常用労働者/無期雇用労働者",
+                      "E就職者等/常用労働者/有期雇用労働者", "E就職者等/臨時労働者", "F左記以外の者",
+                      "A、B、C、Dのうち就職している者/自営業主等無期雇用労働者",
+                      "A、B、C、Dのうち就職している者/雇用契約期間が一年以上、かつフルタイム勤務相当の者",
+                      "左記E有期雇用労働者のうち雇用契約期間が一年以上、かつフルタイム勤務相当の者",
+                      "大学等進学率", "専修学校（専門課程）進学率", "卒業者に占める就職者の割合"],
+                     lambda v: [v[0], v[1], v[2], 0.0, 5.0 if v[3] else 0.0, v[3] - 10.0 if v[3] else 0.0,
+                                4.0 if v[3] else 0.0, 2.0 if v[3] else 0.0, v[0] - v[1] - v[2] - v[3] - 2.0 if v[0] else 0.0,
+                                2.0 if v[3] else 0.0, 0.0, 3.0 if v[3] else 0.0,
+                                *(round(x / v[0] * 100, 1) if v[0] else "-" for x in (v[1], v[2], v[3]))],
+                     SCHOOL_PROGRESS),
+    }
+    out = {}
+    for name, (title, head, cells, data) in tables.items():
+        sheets = {"全国": [[title], ["全国"]]}
+        for pref, pname in PREF_NAMES.items():
+            mine = {code: cells(v) for (p, code), v in data.items() if p == pref}
+            total = [sum(r[i] for r in mine.values()) if not str(head[i]).endswith(("率", "割合")) else "-"
+                     for i in range(len(head))]
+            parts = [h.split("/") for h in head]
+            depth = max(len(x) for x in parts)
+            rows = [[title], [pname], *[[None, None, *(x[i] if i < len(x) else None for x in parts)] for i in range(depth)],
+                    ["計", "計", *total]]
+            rows += [[code, names[pref][code], *r] for code, r in mine.items()]
+            rows.append(["999", f"{pname}外", *[0.0] * len(head)])
+            sheets[pname] = rows
+        key = "estat_school_progress_2025" if name == "progress" else "estat_school_classes_elementary_2025"
+        path = directory / key / f"{name}.xlsx"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_sheets(path, sheets)
+        out[f"school_{name}"] = path
     return out
 
 

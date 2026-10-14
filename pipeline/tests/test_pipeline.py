@@ -1448,6 +1448,61 @@ def test_jhs_students(built):
     assert p["denominator"] == 3000
 
 
+def test_school_municipal(built):
+    def rows(ind, period, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/{period}/{level}.json")["rows"]}
+    size = rows("elem_class_size", "2025-05-01", "municipalities")
+    # 通常の学級（特別支援学級を除く）: (1000 − 20) ÷ (40 − 4)
+    assert abs(size["muni-13199"]["value"] - 980 / 36) < 0.001
+    assert size["muni-13199"]["numerator"] == 980 and size["muni-13199"]["denominator"] == 36
+    assert size["muni-13499"]["value"] is None and size["muni-13499"]["status"] == "not_applicable"   # 学校なし
+    special = rows("elem_special_class_share", "2025-05-01", "municipalities")
+    assert special["muni-13299"]["value"] == 2.0
+    # 都道府県は「計」の行（区市町村の合計と同じ作り）
+    pref = rows("elem_special_class_share", "2025-05-01", "prefectures")["pref-13"]
+    assert pref["numerator"] == 50 and pref["denominator"] == 2500
+    uni = rows("hs_grad_university_rate", "2025-03-31", "municipalities")
+    assert uni["muni-13199"]["value"] == 60.0
+    assert uni["muni-13299"]["status"] == "withheld"   # 卒業者が10人未満
+    assert rows("hs_grad_vocational_rate", "2025-03-31", "municipalities")["muni-13199"]["value"] == 20.0
+    assert rows("hs_grad_employment_rate", "2025-03-31", "municipalities")["muni-14199"]["value"] == 30.0
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert by["hs_grad_university_rate"]["periods"][-1]["label"] == "2025年3月卒業"
+    assert by["elem_class_size"]["category"] == "教育"
+
+
+def test_preschool_shares(built):
+    rows = {r["entity_id"]: r for r in
+            load(built, "values/preschool_kindergarten_share/2020-10-01/municipalities.json")["rows"]}
+    r = rows["muni-13199"]
+    assert r["value"] is None or abs(r["value"] - r["numerator"] / r["denominator"] * 100) < 0.01
+    ids = {i["id"] for i in load(built, "indicators.json")["indicators"]}
+    assert {"preschool_kindergarten_share", "preschool_nursery_share", "preschool_kodomoen_share"} <= ids
+
+
+def test_prefecture_rows_include_withheld():
+    # 分母が小さくて値を出さない市区町村も、都道府県の分子・分母の合計には入れる（#109）
+    from collections import defaultdict
+    from tdm.export import _add_prefecture_rows
+    rows = defaultdict(list)
+    rows[("municipality", "municipalities")] = [
+        {"entity_id": "muni-13101", "value": 50.0, "status": "derived", "numerator": 50.0, "denominator": 100.0},
+        {"entity_id": "muni-13362", "value": None, "status": "withheld", "_parts": (3.0, 10.0)},
+        {"entity_id": "muni-13999", "value": None, "status": "not_applicable", "_parts": (0.0, 0.0)}]
+    munis = {"13": [{"entity_id": e} for e in ("muni-13101", "muni-13362", "muni-13999")]}
+    _add_prefecture_rows(rows, {"scale": 100, "digits": 1, "kind": "ratio",
+                                "legend": {"method": "quantile"}}, munis)
+    pref = rows[("prefecture", "prefectures")][0]
+    assert pref["numerator"] == 53 and pref["denominator"] == 110
+    # 秘匿などで分子・分母もない市区町村があれば、これまでどおり都道府県の値は出さない
+    rows[("municipality", "municipalities")][1] = {"entity_id": "muni-13362", "value": None, "status": "suppressed"}
+    rows[("prefecture", "prefectures")] = []
+    _add_prefecture_rows(rows, {"scale": 100, "digits": 1, "kind": "ratio",
+                                "legend": {"method": "quantile"}}, munis)
+    assert rows[("prefecture", "prefectures")][0]["value"] is None
+
+
+
 def test_zero_prefectures(built):
     # 県内の市区町村がすべて0の都道府県は凡例に記し、地図で色を付けない（#75）
     found = 0

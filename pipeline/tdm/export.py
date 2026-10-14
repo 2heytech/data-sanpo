@@ -372,6 +372,9 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
             elif o["value"] is not None and o["numerator"] is not None:
                 row["numerator"] = round(o["numerator"], 4)
                 row["denominator"] = round(o["denominator"], 4)
+            elif o["status"] in ("withheld", "not_applicable") and o["numerator"] is not None:
+                # 分母が小さくて出さない値も、都道府県の分子・分母の合計には入れる（公開ファイルには書かない）
+                row["_parts"] = (o["numerator"], o["denominator"])
             if note:
                 row["note"] = note
             # 町丁・字等の値は都道府県ごとに1ファイル（区市町村ごとだと全国でファイル数が多すぎる。#52）
@@ -450,7 +453,8 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
                     "schema_version": SCHEMA_VERSION, "release_id": release_id,
                     "indicator_id": indicator_id, "period": pid, "level": level,
                     "unit": d["unit"], "boundary_version": boundary_version,
-                    "rows": sorted(rows, key=lambda r: r["entity_id"])})
+                    "rows": [{k: v for k, v in r.items() if k != "_parts"}
+                             for r in sorted(rows, key=lambda r: r["entity_id"])]})
             _write(out, f"{vdir}/legend.json", {
                 "indicator_id": indicator_id, "period": pid, "method": method,
                 "scheme": d["legend"]["scheme"], "zero_blank": zero_blank,
@@ -937,20 +941,22 @@ def _add_prefecture_rows(rows: dict, d: dict, munis_by_pref: dict[str, list]) ->
         got = [munis.get(m["entity_id"]) for m in members]
         if not any(r and r["value"] is not None for r in got):
             continue  # この指標の値がない都道府県（東京都だけの指標など）
-        if any(r is None or r["value"] is None for r in got):
+        # 分母が小さくて値を出さない市区町村（_parts に分子・分母がある）も、合計には入れる
+        if any(r is None or (r["value"] is None and "_parts" not in r) for r in got):
             out.append({"entity_id": pid, "value": None, "status": "missing",
                         "note": "値のない市区町村があるため、都道府県の値は出していません"})
             continue
-        if all("numerator" in r for r in got):
-            num = sum(r["numerator"] for r in got)
-            den = sum(r["denominator"] for r in got)
+        parts = [(r["numerator"], r["denominator"]) if "numerator" in r else r.get("_parts") for r in got]
+        if all(parts):
+            num = sum(n for n, _ in parts)
+            den = sum(x for _, x in parts)
             if not den:
                 out.append({"entity_id": pid, "value": None, "status": "missing"})
                 continue
             out.append({"entity_id": pid, "value": round(num / den * scale, d["digits"] + 2),
                         "status": "derived", "numerator": round(num, 4), "denominator": round(den, 4),
                         "note": "市区町村の分子・分母を合計して計算"})
-        elif d["kind"] == "count":
+        elif d["kind"] == "count" and all(r["value"] is not None for r in got):
             out.append({"entity_id": pid, "value": round(sum(r["value"] for r in got), d["digits"] + 2),
                         "status": "derived", "note": "市区町村の値の合計"})
     if out:
