@@ -29,11 +29,4 @@ def leaves(year, url):
 
 
 
-t = get(f"{B}&tstat=000001039448&tclass1=000001049567")
-for k, (u, n) in links(t, 2).items():
-    print("2010 L2", k, n[:50], flush=True)
-    if "北海道" in n or "東京" in n:
-        sub = links(get(f"{B}&tstat=000001039448&tclass1=000001049567&tclass2={k}"), 3)
-        for k3, (u3, n3) in sub.items(): print("   L3", k3, n3[:60], flush=True)
-        if not sub:
-            leaves("2010 " + n[:6], f"{B}&tstat=000001039448&tclass1=000001049567&tclass2={k}&tclass3val=0")
+leaves("2010 tokyo", f"{B}&tstat=000001039448&tclass1=000001049567&tclass2=000001051130&tclass3=000001051143&tclass4val=0")
