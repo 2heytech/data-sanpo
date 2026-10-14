@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BLANK_COLOR, classIndex, colorsFor, fillColorExpression, NO_DATA_COLOR } from "../src/lib/classify";
-import { compactNumber, formatBasis, formatFraction, formatValue, rankIfVaried, rankOf } from "../src/lib/format";
+import { compactNumber, formatBasis, formatFraction, formatValue, rankIfVaried, rankOf, ranked, splitRanking } from "../src/lib/format";
 import { AreaSearch, normalize } from "../src/lib/search";
 import type { Indicator, SearchIndex } from "../src/lib/types";
 import { municipalityCodeOf, parseState, serializeState } from "../src/lib/urlstate";
@@ -218,5 +218,24 @@ describe("labels", () => {
     expect(expr.slice(0, 3)).toEqual(["interpolate", ["linear"], ["zoom"]]);
     expect(expr.filter((x) => typeof x === "number")).toEqual([8, 9, 10]);
     expect(JSON.stringify(expr[6])).toBe(JSON.stringify(["max", 11, ["min", 17, ["*", ["get", "fit"], 512]]]));
+  });
+});
+
+describe("ranked・splitRanking", () => {
+  it("値の大きい順に並べ、同値は同順位、値なしは除く", () => {
+    const rows = [
+      { entity_id: "a", value: 10, status: "observed" as const },
+      { entity_id: "b", value: 30, status: "observed" as const },
+      { entity_id: "c", value: 30, status: "observed" as const },
+      { entity_id: "d", value: null, status: "suppressed" as const },
+    ];
+    expect(ranked(rows).map((r) => [r.entity_id, r.rank])).toEqual([["b", 1], ["c", 1], ["a", 3]]);
+  });
+  it("上位・下位に分け、少なければ全部を上位に入れる", () => {
+    const xs = Array.from({ length: 250 }, (_, i) => i);
+    const { top, middle, bottom } = splitRanking(xs, 100);
+    expect([top.length, middle.length, bottom.length]).toEqual([100, 50, 100]);
+    expect(bottom[0]).toBe(150);
+    expect(splitRanking(xs.slice(0, 200), 100)).toEqual({ top: xs.slice(0, 200), middle: [], bottom: [] });
   });
 });

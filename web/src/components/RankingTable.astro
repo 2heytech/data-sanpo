@@ -1,0 +1,43 @@
+---
+// 指標ページのランキングの表（順位・地域・値）。地域の列は呼び出し側で決める。
+import { formatValue, STATUS_LABEL } from "../lib/format";
+import type { Indicator, ValueRow } from "../lib/types";
+
+export interface RankingRow extends ValueRow {
+  rank: number | null;
+  name: string;
+  href: string;
+  /** 地域名のあとの列（都道府県・市区町村など） */
+  extra: string[];
+}
+interface Props {
+  ind: Indicator;
+  rows: RankingRow[];
+  areaLabel: string;
+  extraLabels: string[];
+  note?: boolean;
+  caption?: string;
+}
+const { ind, rows, areaLabel, extraLabels, note = true, caption } = Astro.props;
+---
+<div class="table-scroll">
+  <table class="ranking">
+    {caption && <caption>{caption}</caption>}
+    <thead><tr>
+      <th class="num col-rank">順位</th><th>{areaLabel}</th>{extraLabels.map((l) => <th class="col-extra">{l}</th>)}
+      <th class="num col-value">{ind.name}</th>{note && <th class="col-note">備考</th>}
+    </tr></thead>
+    <tbody>
+      {rows.map((r) => (
+        <tr>
+          <td class="num">{r.rank === null ? "—" : `${r.rank.toLocaleString("ja-JP")}位`}</td>
+          <td><a href={r.href}>{r.name}</a>
+            {r.extra.length > 0 && <div class="muted ranking-place">{r.extra.filter(Boolean).join("・")}</div>}</td>
+          {r.extra.map((e) => <td class="col-extra">{e}</td>)}
+          <td class="num">{formatValue(r, ind)}</td>
+          {note && <td class="muted col-note">{r.value === null ? "" : STATUS_LABEL[r.status]}</td>}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>

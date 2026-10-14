@@ -90,6 +90,26 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .table-scroll table { border: 0; }
 .table-scroll tbody tr:last-child td { border-bottom: 0; }
 .compare th, .compare td { white-space: nowrap; }
+.table-scroll + .table-scroll, .table-scroll + .ranking-more, .ranking-more + .table-scroll, .ranking-more + .ranking-more { margin-top: 12px; }
+.ranking { table-layout: fixed; min-width: 600px; }  /* 上位・下位などの表で列の幅をそろえる */
+.ranking .col-rank { width: 6.5em; }
+.ranking .col-extra { width: 9em; }
+.ranking .col-value { width: 11em; }
+.ranking .col-note { width: 9em; }
+.ranking td { overflow-wrap: anywhere; }
+.ranking .ranking-place { display: none; font-size: 0.8rem; }
+/* スマホでは都道府県・市区町村の列と備考を地域名の下にまとめ、横にはみ出さないようにする */
+@media (max-width: 640px) {
+  .ranking { min-width: 0; }
+  .ranking .col-rank { width: 4.2em; }
+  .ranking .col-value { width: 7.5em; }
+  .ranking .col-extra, .ranking .col-note { display: none; }
+  .ranking .ranking-place { display: block; }
+}
+.ranking caption { text-align: left; font-weight: 700; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.ranking-more > summary { cursor: pointer; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: 10px;
+  color: var(--accent); font-weight: 600; }
+.ranking-more[open] > summary { margin-bottom: 8px; }
 
 /* --- 部品 --- */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; padding: 0; list-style: none; }

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import release from "../generated/release.json";
 import type {
-  AreasFile, IndicatorCatalog, LegendFile, ReleaseInfo, Source, ValuesFile,
+  AreasFile, IndicatorCatalog, LegendFile, ReleaseInfo, SmallAreasFile, Source, ValueRow, ValuesFile,
 } from "./types";
 
 export const RELEASE = release as ReleaseInfo;
@@ -39,6 +39,36 @@ export function loadValues(indicatorId: string, period: string, chunk: string): 
   } catch {
     return null;
   }
+}
+
+/** 町丁・字等の名前（区市町村ごとのファイル）。ないときは null */
+export function loadSmallAreas(municipalityCode: string): SmallAreasFile | null {
+  try {
+    return read<SmallAreasFile>(`areas/${municipalityCode}.json`);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 町丁・字等の値のある行を、指定した都道府県のファイルからまとめて読む（指標ページのランキング用）。
+ * 全国では大きいので、ほかと違ってとっておかずに読むたびに捨てる。
+ */
+export function loadSmallAreaRows(indicatorId: string, period: string, prefectures: string[]): ValueRow[] {
+  const out: ValueRow[] = [];
+  for (const pref of prefectures) {
+    let file: ValuesFile;
+    try {
+      file = JSON.parse(readFileSync(
+        join(process.cwd(), "public", DATA_BASE, `values/${indicatorId}/${period}/${pref}.json`), "utf8"));
+    } catch {
+      continue;
+    }
+    for (const r of file.rows) {
+      if (r.value !== null) out.push({ entity_id: r.entity_id, value: r.value, status: r.status });
+    }
+  }
+  return out;
 }
 
 export const loadLegend = (indicatorId: string, period: string) =>
