@@ -11,9 +11,12 @@ for sid in sys.argv[1:]:
         wb = openpyxl.load_workbook(io.BytesIO(b), read_only=True)
         for ws in wb.worksheets[:1]:
             for i, row in enumerate(ws.iter_rows(values_only=True)):
-                if i < 22 or (i < 400 and row and any(str(c or "").startswith(("13101", "01100", "13000")) for c in row[:12])):
+                if i < 14:
                     print(i, [c for c in row[:40]], flush=True)
-                if i > 400: break
+                elif any(str(c or "").startswith("0_") for c in row[2:5]) and any(str(c or "").startswith("00_") for c in row[3:6]):
+                    n = globals().setdefault("n", 0); globals()["n"] = n + 1
+                    if n < 6 or str(row[2] or "").startswith(("13101", "13")) and n < 60: print(i, row[:30], flush=True)
+            print("rows", i)
     else:
         for enc in ("cp932", "utf-8"):
             try: t = b.decode(enc); break
