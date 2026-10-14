@@ -1003,7 +1003,7 @@ def test_traffic_accidents(built):
         built, f"values/traffic_accidents/{y}-01-01/municipalities.json")["rows"]} for y in range(2021, 2026)]
     assert five["muni-13199"]["value"] == sum(y["muni-13199"]["value"] for y in yearly)
     # 住民100人当たり・昼間人口100人当たり（犯罪と同じ組み立て、#46）
-    # 種別ごとに別の組（指標の一覧で4つから選ぶ。#103）。組の中は件数・住民100人当たり・昼間人口100人当たり
+    # 種別ごとに別の組（指標の一覧で4つから選ぶ。#105）。組の中は件数・住民100人当たり・昼間人口100人当たり
     for family, name in (("traffic", "交通事故の件数"), ("traffic_pedestrian", "歩行者が関係する交通事故の件数"),
                          ("traffic_bicycle", "自転車が関係する交通事故の件数"), ("traffic_fatal", "死亡事故の件数")):
         members = [i for i in by.values() if i.get("family") == family]
