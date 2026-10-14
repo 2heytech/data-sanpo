@@ -27,16 +27,17 @@ def leaves(year, url):
         if new == 0: break
     print("-- leaves", year, len(seen), flush=True)
 
-def walk(year, base, depth):
-    t = get(f"{base}&tclass{depth+1}val=0") if False else get(base)
+
+import sys
+def tree(year, base, depth, maxd):
+    t = get(base)
     sub = links(t, depth + 1)
-    if not sub or depth >= 4:
-        leaves(year, f"{base}&tclass{depth+1}val=0"); return
     for k, (u, n) in sub.items():
-        print(year, "  " * depth, depth + 1, k, n[:60], flush=True)
-        walk(year, f"{base}&tclass{depth+1}={k}", depth + 1)
-for year, tstat, l1s in (("2015", "000001080615", ["000001101935", "000001104835", "000001104855"]),
-                         ("2010", "000001039448", ["000001049567", "000001051859", "000001048107"])):
+        print(year, "  " * depth, depth + 1, k, n[:70], flush=True)
+        if depth + 1 < maxd:
+            tree(year, f"{base}&tclass{depth+1}={k}", depth + 1, maxd)
+for year, tstat, l1s in (("2015", "000001080615", ["000001089055", "000001095955", "000001104835", "000001104855", "000001101935", "000001104875", "000001093875", "000001103715"]),
+                         ("2010", "000001039448", ["000001045009", "000001047544", "000001051859", "000001059198", "000001049567", "000001057366", "000001062588", "000001048107", "000001051632", "000001058685"])):
     for k in l1s:
         print(year, "L1", k, flush=True)
-        walk(year, f"{B}&tstat={tstat}&tclass1={k}", 1)
+        tree(year, f"{B}&tstat={tstat}&tclass1={k}", 1, 2)
