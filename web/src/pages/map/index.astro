@@ -76,7 +76,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
       <div id="indicator-scope" class="scope small" aria-live="polite"></div>
       <!-- 犯罪など、種別と基準（件数・人口当たり）を切り替える指標 -->
       <div id="facets" class="field facets" hidden>
-        <label class="inline">種別 <select id="facet-type"></select></label>
+        <label id="facet-type-wrap" class="inline">種別 <select id="facet-type"></select></label>
         <label id="facet-basis-wrap" class="inline">基準 <select id="facet-basis"></select></label>
       </div>
       <div class="field period">
