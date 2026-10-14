@@ -1524,6 +1524,68 @@ def test_economic_census_matches_town_names(built):
     assert town_key("浅香山町１丁") == town_key("浅香山町一丁") and town_key("海澤") == town_key("海沢")
 
 
+def test_economic_census_industries(built):
+    """業種別（農林漁業・製造業・卸売業，小売業）の従業者数と、全産業に占める割合。"""
+    def rows(ind, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/2021-06-01/{level}.json")["rows"]}
+    manu = rows("employees_manufacturing", "municipalities")
+    assert manu["muni-13199"]["value"] == 3400 // 4 + 40 // 4 + 12 // 4
+    share = rows("employees_manufacturing_share", "13199")
+    assert share["area-13199001001"]["value"] == 25.0   # 850 ÷ 3400
+    assert share["area-13199001002"]["value"] is None   # 従業者0人の町丁目は割合を出さない
+    comm = rows("employees_commerce_share", "municipalities")
+    assert round(comm["muni-13199"]["value"], 3) == round((1133 + 13 + 4) / 3452 * 100, 3)
+    agri = rows("employees_agriculture", "13199")
+    assert agri["area-13199001001"]["value"] == 340
+    inds = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert inds["employees_manufacturing"]["family"] == inds["employees_manufacturing_share"]["family"]
+    assert inds["employees_commerce"]["category"] == "商業"
+
+
+def test_agri_output(built):
+    """農業産出額: 千万円→億円、「-」は0、「x」「…」は値なし、23区・政令指定都市の区には値を入れない。"""
+    def rows(ind, year, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/{year}-01-01/{level}.json")["rows"]}
+    m = rows("agri_output", 2024, "municipalities")
+    assert m["muni-13299"]["value"] == 1.2 and m["muni-13499"]["value"] == 0.5
+    assert "muni-13199" not in m or m["muni-13199"]["value"] is None   # 23区は「特別区」全体の値だけ
+    assert "muni-14199" not in m or m["muni-14199"]["value"] is None   # 政令指定都市の区
+    assert rows("agri_output", 2023, "municipalities")["muni-13299"]["value"] == 1.1
+    rice = rows("agri_output_rice", 2024, "municipalities")
+    assert rice["muni-13299"]["value"] is None and rice["muni-13499"]["value"] == 0   # x は値なし、- は0
+    assert rows("agri_output_livestock", 2024, "municipalities")["muni-13499"]["value"] is None   # …
+    p = rows("agri_output", 2024, "prefectures")
+    assert p["pref-13"]["value"] == 4.7   # 特別区・ためし市・かりの村の合計
+    assert p["pref-14"]["value"] == 4.0
+    assert rows("agri_output_rice", 2024, "prefectures")["pref-13"]["value"] is None   # 県内に秘匿があれば合計しない
+
+
+def test_manufacturing_shipments(built):
+    def rows(level):
+        return {r["entity_id"]: r for r in load(built, f"values/manufacturing_shipments/2024-01-01/{level}.json")["rows"]}
+    m = rows("municipalities")
+    assert m["muni-13199"]["value"] == 25.0   # 万円→億円
+    assert m["muni-13299"]["value"] is None   # X（秘匿）は0にしない
+    assert m["muni-13499"]["value"] == 0      # ***（事業所なし）は0
+    assert m["muni-14199"]["value"] == 12.0   # 政令指定都市は区の行を使う
+    p = rows("prefectures")
+    assert p["pref-13"]["value"] == 50.0 and p["pref-14"]["value"] == 80.0   # 都道府県の行
+
+
+def test_commerce_sales(built):
+    def rows(ind, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/2020-01-01/{level}.json")["rows"]}
+    r = rows("retail_sales", "municipalities")
+    assert r["muni-13199"]["value"] == 70.0 and r["muni-13499"]["value"] == 0.12 and r["muni-14199"]["value"] == 8.0
+    w = rows("wholesale_sales", "municipalities")
+    assert w["muni-13499"]["value"] is None and w["muni-13299"]["value"] == 40.0
+    assert rows("retail_sales", "prefectures")["pref-13"]["value"] == 90.0
+    pc = rows("retail_sales_per_capita", "municipalities")["muni-13199"]
+    assert pc["value"] is not None and pc["value"] > 0
+    inds = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert inds["retail_sales"]["category"] == "商業" and inds["agri_output"]["category"] == "農業"
+
+
 def test_land_survey_points(built):
     data = load(built, "places/land_survey_price.json")
     pts = {p["id"]: p for p in data["points"]}
