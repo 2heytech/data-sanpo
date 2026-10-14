@@ -4494,6 +4494,231 @@ redistributable = true
 "public.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393500"
 "private.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393501"
 
+# 小学校・中学校の学級数と児童・生徒数（文部科学省「学校基本調査」市町村別集計の「市町村別編制方式別学級数 計」と
+# 「市町村別学級編制方式別児童（生徒）数 計」、各年度5月1日現在、e-Stat）。編制方式（単式・複式・特別支援学級）別。
+# 学校の所在地で数える。形式は pipeline/tdm/ingest/estat_school_municipal.py を参照。
+[estat_school_classes_elementary_2022]
+kind = "estat_school_classes"
+school = "elementary"
+period = "2022-05-01"
+title = "学校基本調査 令和4年度 小学校 市町村別編制方式別学級数・市町村別学級編制方式別児童数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の小学校の学級数・児童数（編制方式別）から、1学級あたりの人数と特別支援学級の児童の割合を算出して作成"
+files = ["classes.xlsx", "pupils.xlsx"]
+
+[estat_school_classes_elementary_2022.download_files]
+"classes.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040042239"
+"pupils.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040042247"
+
+[estat_school_classes_elementary_2023]
+kind = "estat_school_classes"
+school = "elementary"
+period = "2023-05-01"
+title = "学校基本調査 令和5年度 小学校 市町村別編制方式別学級数・市町村別学級編制方式別児童数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の小学校の学級数・児童数（編制方式別）から、1学級あたりの人数と特別支援学級の児童の割合を算出して作成"
+files = ["classes.xlsx", "pupils.xlsx"]
+
+[estat_school_classes_elementary_2023.download_files]
+"classes.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040127889"
+"pupils.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040127897"
+
+[estat_school_classes_elementary_2024]
+kind = "estat_school_classes"
+school = "elementary"
+period = "2024-05-01"
+title = "学校基本調査 令和6年度 小学校 市町村別編制方式別学級数・市町村別学級編制方式別児童数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の小学校の学級数・児童数（編制方式別）から、1学級あたりの人数と特別支援学級の児童の割合を算出して作成"
+files = ["classes.xlsx", "pupils.xlsx"]
+
+[estat_school_classes_elementary_2024.download_files]
+"classes.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040231128"
+"pupils.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040231136"
+
+[estat_school_classes_elementary_2025]
+kind = "estat_school_classes"
+school = "elementary"
+period = "2025-05-01"
+title = "学校基本調査 令和7年度 小学校 市町村別編制方式別学級数・市町村別学級編制方式別児童数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の小学校の学級数・児童数（編制方式別）から、1学級あたりの人数と特別支援学級の児童の割合を算出して作成"
+files = ["classes.xlsx", "pupils.xlsx"]
+
+[estat_school_classes_elementary_2025.download_files]
+"classes.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393455"
+"pupils.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393445"
+
+[estat_school_classes_junior_high_2022]
+kind = "estat_school_classes"
+school = "junior_high"
+period = "2022-05-01"
+title = "学校基本調査 令和4年度 中学校 市町村別編制方式別学級数・市町村別学級編制方式別生徒数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の中学校の学級数・生徒数（編制方式別）から、1学級あたりの人数と特別支援学級の生徒の割合を算出して作成"
+files = ["classes.xlsx", "pupils.xlsx"]
+
+[estat_school_classes_junior_high_2022.download_files]
+"classes.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040042268"
+"pupils.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040042276"
+
+[estat_school_classes_junior_high_2023]
+kind = "estat_school_classes"
+school = "junior_high"
+period = "2023-05-01"
+title = "学校基本調査 令和5年度 中学校 市町村別編制方式別学級数・市町村別学級編制方式別生徒数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の中学校の学級数・生徒数（編制方式別）から、1学級あたりの人数と特別支援学級の生徒の割合を算出して作成"
+files = ["classes.xlsx", "pupils.xlsx"]
+
+[estat_school_classes_junior_high_2023.download_files]
+"classes.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040127986"
+"pupils.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040127994"
+
+[estat_school_classes_junior_high_2024]
+kind = "estat_school_classes"
+school = "junior_high"
+period = "2024-05-01"
+title = "学校基本調査 令和6年度 中学校 市町村別編制方式別学級数・市町村別学級編制方式別生徒数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の中学校の学級数・生徒数（編制方式別）から、1学級あたりの人数と特別支援学級の生徒の割合を算出して作成"
+files = ["classes.xlsx", "pupils.xlsx"]
+
+[estat_school_classes_junior_high_2024.download_files]
+"classes.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040231157"
+"pupils.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040231165"
+
+[estat_school_classes_junior_high_2025]
+kind = "estat_school_classes"
+school = "junior_high"
+period = "2025-05-01"
+title = "学校基本調査 令和7年度 中学校 市町村別編制方式別学級数・市町村別学級編制方式別生徒数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の中学校の学級数・生徒数（編制方式別）から、1学級あたりの人数と特別支援学級の生徒の割合を算出して作成"
+files = ["classes.xlsx", "pupils.xlsx"]
+
+[estat_school_classes_junior_high_2025.download_files]
+"classes.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393484"
+"pupils.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393474"
+
+# 高等学校（全日制・定時制）の卒業後の状況（文部科学省「学校基本調査」市町村別集計「市町村別状況別卒業者数 計 計」）。
+# 各年度の調査は、その年の3月の卒業者。学校の所在地で数える。
+[estat_school_progress_2022]
+kind = "estat_school_progress"
+period = "2022-03-31"
+title = "学校基本調査 令和4年度 卒業後の状況調査（高等学校 全日制・定時制） 市町村別状況別卒業者数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の高等学校の卒業者数と、大学等進学者・専修学校（専門課程）進学者・就職者等から割合を算出して作成"
+files = ["progress.xlsx"]
+
+[estat_school_progress_2022.download_files]
+"progress.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040042436"
+
+[estat_school_progress_2023]
+kind = "estat_school_progress"
+period = "2023-03-31"
+title = "学校基本調査 令和5年度 卒業後の状況調査（高等学校 全日制・定時制） 市町村別状況別卒業者数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の高等学校の卒業者数と、大学等進学者・専修学校（専門課程）進学者・就職者等から割合を算出して作成"
+files = ["progress.xlsx"]
+
+[estat_school_progress_2023.download_files]
+"progress.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040128579"
+
+[estat_school_progress_2024]
+kind = "estat_school_progress"
+period = "2024-03-31"
+title = "学校基本調査 令和6年度 卒業後の状況調査（高等学校 全日制・定時制） 市町村別状況別卒業者数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の高等学校の卒業者数と、大学等進学者・専修学校（専門課程）進学者・就職者等から割合を算出して作成"
+files = ["progress.xlsx"]
+
+[estat_school_progress_2024.download_files]
+"progress.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040231325"
+
+[estat_school_progress_2025]
+kind = "estat_school_progress"
+period = "2025-03-31"
+title = "学校基本調査 令和7年度 卒業後の状況調査（高等学校 全日制・定時制） 市町村別状況別卒業者数（計）"
+provider = "文部科学省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00400001&tstat=000001011528"
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 文部科学省「学校基本調査」"
+redistributable = true
+modification_note = "区市町村別の高等学校の卒業者数と、大学等進学者・専修学校（専門課程）進学者・就職者等から割合を算出して作成"
+files = ["progress.xlsx"]
+
+[estat_school_progress_2025.download_files]
+"progress.xlsx" = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040393642"
+
 # 住宅・土地統計調査（総務省統計局、各回10月1日現在）の市区町村別。市・区と人口1万5千人以上の町村だけ。
 # 形式は pipeline/tdm/ingest/estat_housing.py を参照（2026-10-10 に GitHub Actions から取得して確認）。
 [housing_income_2023]

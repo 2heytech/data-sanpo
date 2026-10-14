@@ -28,7 +28,8 @@ from .derive import derive_change, derive_density, derive_multi_year_sum, derive
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
 from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
-                     estat_commerce, estat_economic_census, estat_school_basic, jma_normals,
+                     estat_commerce, estat_economic_census, estat_school_basic, estat_school_municipal,
+                     jma_normals,
                      estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
                      keishicho_crime, mext_school_aid,
                      mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, nier_gakuryoku,
@@ -205,7 +206,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "isj_gazetteer", "tokyo_foreign", "npa_traffic", "mlit_landprice",
                         "soumu_tax", "tokyo_childcare", "tokyo_street_trees", "tokyo_election",
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
-                        "nier_gakuryoku", "estat_school_basic", "mlit_schools", "mlit_nurseries",
+                        "nier_gakuryoku", "estat_school_basic", "estat_school_classes", "estat_school_progress", "mlit_schools", "mlit_nurseries",
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
@@ -310,6 +311,12 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "estat_school_basic":
             result[key] = estat_school_basic.ingest(conn, files, src, catalog,
                                                     (cfg["period"], cfg["period"], "point"), prefs)
+        elif kind == "estat_school_classes":
+            result[key] = estat_school_municipal.ingest_classes(
+                conn, files, src, catalog, (cfg["period"], cfg["period"], "point"), prefs, cfg["school"])
+        elif kind == "estat_school_progress":
+            result[key] = estat_school_municipal.ingest_progress(
+                conn, files, src, catalog, (cfg["period"], cfg["period"], "point"), prefs)
         elif kind == "mext_school_aid":
             result[key] = mext_school_aid.ingest(conn, files, src, catalog, int(cfg["fiscal_year"]))
         elif kind == "soumu_tax":
