@@ -1,31 +1,37 @@
-import urllib.request, sys, csv, io, re
-sys.path.insert(0, "pipeline")
-from tdm.xlsx import read_sheet
+import urllib.request, re, html
 UA = {"User-Agent": "Mozilla/5.0"}
 def get(u):
     try:
-        return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=120).read()
+        return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=60).read().decode("utf-8", "replace")
     except Exception as e:
-        print("ERR", u, e); return b""
-for year, sid in (("2025", "000040506619"), ("2020", "000032142708"), ("2015", "000031473275"), ("2010", "000012460729")):
-    for kind in ("0", "1"):
-        b = get(f"https://www.e-stat.go.jp/stat-search/file-download?statInfId={sid}&fileKind={kind}")
-        print("==", year, sid, kind, len(b), b[:8], flush=True)
-        if not b: continue
-        if b[:2] == b"PK":
-            open("/tmp/x.xlsx", "wb").write(b)
-            rows = [[("" if c is None else str(c)) for c in r] for r in read_sheet("/tmp/x.xlsx")]
-        elif b[:4] == b"\xd0\xcf\x11\xe0":
-            print("xls (old)"); continue
-        else:
-            t = b.decode("cp932", "replace")
-            rows = list(csv.reader(io.StringIO(t)))
-        print("rows", len(rows), "maxcols", max(len(r) for r in rows))
-        for i, r in enumerate(rows[:16]):
-            print(i, [c[:22] for c in r[:40]])
-        n = 0
-        for r in rows:
-            j = " ".join(r[:12])
-            if re.search(r"13101|千代田区|20304|川上村|13000|東京都", j) and n < 14:
-                print("R", [c[:22] for c in r[:40]]); n += 1
-        print("LAST", [c[:22] for c in rows[-1][:20]])
+        print("ERR", u, e); return ""
+def text(s):
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", s))).strip()
+B = "https://www.e-stat.go.jp/stat-search/files?toukei=00200521&layout=datalist&cycle=0"
+def crawl(year, q):
+    seen = set()
+    for page in range(1, 40):
+        t = get(f"{B}&{q}&page={page}")
+        new = 0
+        for m in re.finditer(r"statInfId=(\d+)&(?:amp;)?fileKind=(\d)", t):
+            sid = m[1]
+            if sid in seen: continue
+            seen.add(sid); new += 1
+            before = text(t[max(0, m.start() - 1500):m.start()])[-200:].split("表番号")[-1]
+            if "昼間人口" in before or "昼夜間" in before:
+                print(year, q[-40:], page, sid, m[2], "|", before[:170], flush=True)
+        if new == 0: break
+    print("--", year, q, len(seen), flush=True)
+crawl("2020", "tstat=000001136464&tclass1=000001136469&tclass2val=0")
+for c in ("000001089055", "000001095955", "000001104835", "000001104855", "000001101935", "000001104875", "000001093875", "000001103715"):
+    top = get(f"{B}&tstat=000001080615&tclass1={c}&tclass2val=0")
+    subs = dict(re.findall(r'tclass2=(\d+)[^>]*>(.*?)</a>', top, re.S))
+    sub = next((k for k, v in subs.items() if "全国" in text(v)), None)
+    if sub: crawl("2015", f"tstat=000001080615&tclass1={c}&tclass2={sub}&tclass3val=0")
+    else: crawl("2015", f"tstat=000001080615&tclass1={c}&tclass2val=0")
+for c in ("000001045009", "000001047544", "000001051859", "000001059198", "000001049567", "000001057366", "000001062588", "000001048107", "000001051632", "000001058685"):
+    top = get(f"{B}&tstat=000001039448&tclass1={c}&tclass2val=0")
+    subs = dict(re.findall(r'tclass2=(\d+)[^>]*>(.*?)</a>', top, re.S))
+    sub = next((k for k, v in subs.items() if "全国" in text(v)), None)
+    if sub: crawl("2010", f"tstat=000001039448&tclass1={c}&tclass2={sub}&tclass3val=0")
+    else: crawl("2010", f"tstat=000001039448&tclass1={c}&tclass2val=0")
