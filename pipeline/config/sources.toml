@@ -5605,6 +5605,9 @@ redistributable = true
 "47_前泊@前泊.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%89%8D%E6%B3%8A"
 "47_多良間@多良間.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E5%A4%9A%E8%89%AF%E9%96%93"
 "47_水納(本部町)@水納港.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B0%B4%E7%B4%8D%E6%B8%AF"
+"13_青ヶ島@青ヶ島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%9D%92%E3%83%B6%E5%B3%B6"
+"13_神湊@三根.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E4%B8%89%E6%A0%B9"
+"47_水納(本部町)@水納島.json" = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E6%B0%B4%E7%B4%8D%E5%B3%B6"
 
 # 空港の位置の続き。国土数値情報 C28 にない空港（公共用ヘリポートなど）を国土地理院の地名検索で引く。
 # ファイル名は「<空港管理状況調書の空港名>@<地名>.json」で、名前がその地名で終わる地名の位置を使う。

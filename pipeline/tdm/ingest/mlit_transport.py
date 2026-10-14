@@ -416,6 +416,11 @@ def ingest_airports(conn: sqlite3.Connection, tables: list[tuple[int, Path, str]
     return result
 
 
+def _entity_name(conn, entity_id: str) -> str:
+    row = conn.execute("SELECT name FROM entities WHERE entity_id = ?", (entity_id,)).fetchone()
+    return row[0] if row else ""
+
+
 def _port_municipality(point: Point, pref: str, ids, geoms, tree) -> str | None:
     """港の位置の市区町村。港の位置は海の上のこともあるので、同じ都道府県の約5km以内の市区町村まで探す。"""
     hits = [i for i in tree.query(point, predicate="intersects") if ids[i].startswith(f"muni-{pref}")]
@@ -476,9 +481,14 @@ def ingest_ports(conn: sqlite3.Connection, tables: list[tuple[int, list[Path], s
         if pref not in prefs:
             result["outside"] += 1
             continue
-        # 候補のうち、位置が港湾統計の都道府県の中（か近く）にある最初のもの
-        hit = next(((lon, lat, qid, loc_src, muni) for lon, lat, qid, loc_src in options
-                    if (muni := _port_municipality(Point(lon, lat), pref, *munis)) is not None), None)
+        # 候補のうち、位置が港湾統計の都道府県の中（か近く）にある最初のもの。
+        # 港名に市町村名の括弧書きがあれば（「水納(本部町)」）、その市町村にある候補だけ
+        in_pref = [(lon, lat, qid, loc_src, muni) for lon, lat, qid, loc_src in options
+                   if (muni := _port_municipality(Point(lon, lat), pref, *munis)) is not None]
+        town = re.search(r"[(（](.+?[市町村区])[)）]", name)
+        if town:
+            in_pref = [h for h in in_pref if _entity_name(conn, h[4]) == town.group(1)]
+        hit = in_pref[0] if in_pref else None
         if hit is None:   # 位置が都道府県から離れている（同じ名前の別の港など）
             lon, lat, qid, _ = options[0]
             wrong.append(f"{PREFECTURES[pref]}/{name}（{qid or '位置'} {lon:.3f},{lat:.3f}）")
