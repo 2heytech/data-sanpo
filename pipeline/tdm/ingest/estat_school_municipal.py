@@ -8,7 +8,9 @@
   児童（生徒）数 計」。列は 計・単式学級・複式学級・特別支援学級 などの区分。
   指標: 通常の学級（特別支援学級を除く）1学級あたりの人数、特別支援学級の児童・生徒の割合。
 - 卒業後の状況（kind = estat_school_progress）: 高等学校（全日制・定時制）の「市町村別状況別卒業者数 計 計」。
-  列は 卒業者数（計）・大学等進学者・専修学校（専門課程）進学者・就職者等 など。指標: 卒業者に占める割合。
+  列は 計（卒業者数）・A大学等進学者・B専修学校（専門課程）進学者・…・E就職者等（自営業主等・無期雇用労働者・
+  有期雇用労働者・臨時労働者）・…・A〜Dのうち就職している者、と表に載っている率（大学等進学率など）。
+  指標: 卒業者に占める割合（令和7年度の表を 2026-10-14 に GitHub Actions から取得して確認）。
 どちらも学校の所在地で数える（住んでいる市区町村ではない）。都道府県の値はシートの「計」の行から出す。
 """
 from __future__ import annotations
@@ -27,27 +29,34 @@ def _clean(v) -> str:
     return re.sub(r"\s+", "", str(v)) if v is not None else ""
 
 
-def read_table(path: Path, pref: str) -> tuple[list[str], dict[str, list]]:
-    """(列の見出し, 地域ID → 行)。見出しは「計」の行より上の行を列ごとにつないだ文字（例: 特別支援学級/計）。"""
+def read_table(path: Path, pref: str, expect: str = "") -> tuple[list[str], dict[str, list]]:
+    """(列の見出し, 地域ID → 行)。見出しは「計」の行より上の行を列ごとにつないだ文字（例: 特別支援学級/計）。
+    expect: 1行目の表題に含むはずの語（取り違えたファイルを読まないため）。"""
     name = PREFECTURES[pref]
     if name not in sheet_names(path):
         return [], {}
     rows = read_sheet(path, name)
+    title = "".join(_clean(v) for v in (rows[0] if rows else []))
+    if expect and expect not in title:
+        raise ValueError(f"{path.name} の表題が「{expect}」の表ではありません: {title}")
     start = next((i for i, r in enumerate(rows) if r and _clean(r[0]) == "計"), None)
     if start is None:
         return [], {}
     width = max(len(r) for r in rows)
-    labels = [[] for _ in range(width)]
+    # 見出しの空のセルは、左の列と上の段まで同じ区分にいるときだけ左の値を引き継ぐ（横に結合したセル）。
+    # 縦に結合したセルの下の空欄は引き継がない
+    paths: list[list[str | None]] = [[] for _ in range(width)]
     for r in rows[2:start]:   # 1〜2行目は表題と都道府県名
-        last = ""
         for c in range(2, width):
             v = _clean(r[c]) if c < len(r) else ""
-            if v:
-                last = v
-            elif not last:
-                continue
-            if not labels[c] or labels[c][-1] != (v or last):
-                labels[c].append(v or last)
+            if not v and c > 2 and paths[c - 1][:-1] == paths[c][:len(paths[c - 1]) - 1]:
+                v = paths[c - 1][-1] or ""
+            paths[c].append(v or None)
+    labels = [[] for _ in range(width)]
+    for c, path in enumerate(paths):
+        for v in path:
+            if v and (not labels[c] or labels[c][-1] != v):
+                labels[c].append(v)
     heads = ["/".join(parts) for parts in labels]
     out: dict[str, list] = {}
     for r in rows[start:]:
@@ -110,8 +119,8 @@ def ingest_classes(conn: sqlite3.Connection, files: list[Path], source_id: str, 
     result = {"municipalities": 0, "prefectures": 0, "unmatched": []}
     shown = False
     for pref in prefs:
-        c_heads, classes = read_table(by["classes"], pref)
-        p_heads, pupils = read_table(by["pupils"], pref)
+        c_heads, classes = read_table(by["classes"], pref, "学級数")
+        p_heads, pupils = read_table(by["pupils"], pref, "学級編制方式別")
         if not classes or not pupils:
             continue
         if not shown:
@@ -141,12 +150,19 @@ def ingest_classes(conn: sqlite3.Connection, files: list[Path], source_id: str, 
     return result
 
 
-# 卒業後の状況の列（見出しに含む語）。就職者は「大学等進学者のうち就職している者」などの再掲の列を除く
+# 卒業後の状況の列（見出しに含む語の組）。値は列の合計。就職者は国の「卒業者に占める就職者の割合」と同じく、
+# E 就職者等のうち自営業主等・無期雇用労働者・有期雇用のうち雇用契約期間が1年以上かつフルタイム勤務相当の者と、
+# A〜D（進学者など）のうち就職している者の同じ区分の合計（臨時労働者と短い有期雇用は含まない）
 PROGRESS_COLUMNS = {
-    "university": (("大学等進学者",), ("うち",)),
-    "vocational": (("専修学校", "専門課程"), ("うち",)),
-    "employment": (("就職者",), ("うち", "進学者")),
+    "university": [(("大学等進学者",), ("うち", "率"))],
+    "vocational": [(("専修学校", "専門課程", "進学者"), ("率",))],
+    "employment": [(("就職者等", "自営業主等"), ()), (("就職者等", "無期雇用"), ()),
+                   (("有期雇用労働者のうち", "一年以上"), ()),
+                   (("のうち就職している者", "自営業主等"), ()), (("のうち就職している者", "一年以上"), ())],
 }
+# 表に載っている率（%）。計算した値と照らして、列の取り違えがないかを確かめる
+PUBLISHED_RATES = {"university": ("大学等進学率",), "vocational": ("専修学校（専門課程）進学率",),
+                   "employment": ("卒業者に占める就職者の割合",)}
 
 
 def ingest_progress(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog: dict,
@@ -154,25 +170,33 @@ def ingest_progress(conn: sqlite3.Connection, files: list[Path], source_id: str,
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "estat_school_progress"}
     known = {r[0] for r in conn.execute(
         "SELECT entity_id FROM entities WHERE entity_type IN ('prefecture', 'municipality')")}
-    result = {"municipalities": 0, "prefectures": 0, "unmatched": []}
+    result = {"municipalities": 0, "prefectures": 0, "unmatched": [], "rate_mismatch": []}
     shown = False
     for pref in prefs:
-        heads, table = read_table(files[0], pref)
+        heads, table = read_table(files[0], pref, "卒業者数")
         if not table:
             continue
         if not shown:
-            progress(f"  卒業後の状況の見出し: {[(i, h) for i, h in enumerate(heads) if h][:20]}")
+            progress(f"  卒業後の状況の見出し: {[(i, h) for i, h in enumerate(heads) if h]}")
             shown = True
         total = find_column(heads, "計")
-        cols = {k: find_column(heads, *words, exclude=ex) for k, (words, ex) in PROGRESS_COLUMNS.items()}
+        cols = {k: [find_column(heads, *words, exclude=ex) for words, ex in specs]
+                for k, specs in PROGRESS_COLUMNS.items()}
+        rates = {k: find_column(heads, *words) for k, words in PUBLISHED_RATES.items()}
         for entity_id, row in table.items():
             if entity_id not in known:
                 result["unmatched"].append(entity_id)
                 continue
             den = _num(row, total)
             for indicator_id, d in targets.items():
-                _put(conn, d, indicator_id, entity_id, _num(row, cols[d["progress_value"]]), den,
-                     period, source_id, "卒業者")
+                key = d["progress_value"]
+                parts = [_num(row, c) for c in cols[key]]
+                num = None if any(v is None for v in parts) else sum(parts)
+                published = _num(row, rates[key])
+                if num is not None and den and published is not None and abs(num / den * 100 - published) > 0.15:
+                    result["rate_mismatch"].append((entity_id, key, round(num / den * 100, 2), published))
+                _put(conn, d, indicator_id, entity_id, num, den, period, source_id, "卒業者")
             result["prefectures" if entity_id.startswith("pref-") else "municipalities"] += 1
     result["unmatched"] = result["unmatched"][:30]
+    result["rate_mismatch"] = result["rate_mismatch"][:30]
     return result
