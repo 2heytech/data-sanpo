@@ -1,6 +1,6 @@
 // 空港・港の点レイヤー。円の面積を最新の年の乗降客数（空港）・船舶乗降人員（港）に対応させる。
 // 空港は全国で約100、港は数百と少ないので、places/<指標>.json の1ファイルに全件をまとめ、全国を見ているときから表示する。
-// 空港・港1か所の値なので地域には割り振らない（docs/design-changes.md #108）。選ぶと国内・国際の内訳と年ごとの推移を出す。
+// 空港・港1か所の値なので地域には割り振らない（docs/design-changes.md #109）。選ぶと国内・国際の内訳と年ごとの推移を出す。
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PointLayer } from "./points";
 import { formatNumber } from "../lib/format";

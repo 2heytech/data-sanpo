@@ -73,7 +73,7 @@ def validate(conn: sqlite3.Connection, catalog: dict[str, dict]) -> Report:
                 (indicator_id, scale)).fetchall()
             for r in out:
                 rep.errors.append(f"{indicator_id}: 割合が範囲外 {r[0]}={r[1]}")
-        if d["kind"] != "change":  # 増減率は減少で負になる
+        if d["kind"] != "change" and not d.get("allow_negative"):  # 増減率は減少で負になる。付加価値額も負がありうる
             neg = conn.execute(
                 "SELECT entity_id FROM observations WHERE indicator_id = ? AND value < 0",
                 (indicator_id,)).fetchall()

@@ -162,6 +162,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_vital(directory))
     out["census_history"] = _write_census_history(directory)
     out.update(_write_economic_census(directory))
+    out.update(_write_industry_tables(directory))
     out["land_survey"] = _write_land_survey(directory, random.Random(f"{seed}-land-survey"))
     out.update(_write_npa_crime_stats(directory))
     out.update(_write_police_crime_opendata(directory))
@@ -252,17 +253,97 @@ ECONOMIC_CENSUS_ROWS = [   # (KEY_CODE の市区町村, 市区町村名, 町丁�
 
 def _write_economic_census(directory: Path) -> dict[str, Path]:
     out = {}
-    head = "KEY_CODE,CITY_NAME,AZA_CODE,AZA_NAME,T001167001,T001167002,T001167019,T001167020"
-    labels = ",,,,AR_全産業（S_公務を除く）,AB_農林漁業,AR_全産業（S_公務を除く）,AB_農林漁業"
+    head = "KEY_CODE,CITY_NAME,AZA_CODE,AZA_NAME,T001167001,T001167002,T001167019,T001167020,T001167023,T001167027"
+    labels = ",,,,AR_全産業（S_公務を除く）,AB_農林漁業,AR_全産業（S_公務を除く）,AB_農林漁業,E_製造業,I_卸売業，小売業"
     for pref in ("13", "14"):
         lines = [head, labels]
         for i, (city5, city, town, n, emp) in enumerate(r for r in ECONOMIC_CENSUS_ROWS if r[0][:2] == pref):
             aza = f"{i + 1:04d}00000{i + 1:03d}"
-            lines.append(f"{city5}{aza},{city},{aza},{town},{n},-,{emp},-")
+            # 業種別の従業者（農林漁業・製造業・卸売業，小売業）は全産業の一部。「-」は該当なし
+            agri, manu, comm = ("-", "-", "-") if emp == "-" else (str(int(emp) // 10 or "-"), str(int(emp) // 4), str(int(emp) // 3))
+            lines.append(f"{city5}{aza},{city},{aza},{town},{n},-,{emp},{agri},{manu},{comm}")
         path = directory / "economic_census2021_small_area" / pref / f"tblT001167C{pref}.txt"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(("\r\n".join(lines) + "\r\n").encode("cp932"))
         out[f"economic_census_{pref}"] = path
+    return out
+
+
+# 市町村別農業産出額（農林水産省）。1行に1市町村×1品目、値は千万円か「-」「x」「…」。都道府県コードは文字列と数値が混ざる。
+# 東京23区は「特別区」（100）、政令指定都市は市全体（みほん市 14100）の行だけ。サンプル区（13199）の行はない
+AGRI_ROWS = {   # (都道府県コード, 市町村コード, 市町村名) → 品目 → 値
+    ("13", 100.0, "特別区"): {"農業産出額": 30.0, "米": 0.0, "野菜計": 20.0, "果実計": 2.0, "畜産計": 3.0},
+    ("13", 299.0, "ためし市"): {"農業産出額": 12.0, "米": "x", "野菜計": 8.0, "果実計": "-", "畜産計": 1.0},
+    ("13", 499.0, "かりの村"): {"農業産出額": 5.0, "米": "-", "野菜計": 3.0, "果実計": 1.0, "畜産計": "…"},
+    (14.0, 100.0, "みほん市"): {"農業産出額": 40.0, "米": 2.0, "野菜計": 25.0, "果実計": 4.0, "畜産計": 6.0},
+}
+AGRI_FILES = {2023: "index-22.xlsx", 2024: "index-25.xlsx"}
+
+# 経済構造実態調査（製造業事業所調査）の参考表（市区町村別）。(コード, 名前, 製造品出荷額等（万円）, 粗付加価値額（万円）)
+MANUFACTURING_ROWS = [("00", "全国計", 9_000_000.0, 3_000_000.0), ("13", "東京都", 500_000.0, 200_000.0),
+                      ("13100", "東京特別区", 300_000.0, 120_000.0), ("13199", "サンプル区", 250_000.0, 100_000.0),
+                      ("13299", "ためし市", "X", "X"), ("13499", "かりの村", "***", "***"),
+                      ("14", "神奈川県", 800_000.0, 250_000.0), ("14100", "みほん市", 600_000.0, 200_000.0),
+                      ("14199", "みほん市中区", 120_000.0, 40_000.0)]
+
+# 経済センサス 卸売業，小売業（市区町村表）。第1表は市区、第2表は町村。値は (卸売の販売額, 小売の販売額)（百万円）
+COMMERCE_ROWS = {
+    "f3_001.xlsx": [("a", "00000_全国", 90000.0, 50000.0), ("a", "13000_東京都", 30000.0, 9000.0),
+                    ("b", "0009A_区部", 25000.0, 7000.0), ("0", "13199_サンプル区", 25000.0, 7000.0),
+                    ("2", "13299_ためし市", 4000.0, 1500.0), ("a", "14000_神奈川県", 9000.0, 6000.0),
+                    ("1", "14100_みほん市", 5000.0, 3000.0), ("0", "14199_みほん市中区", 1200.0, 800.0)],
+    "f3_002.xlsx": [("a", "00000_全国", 90000.0, 50000.0), ("a", "13000_東京都", 30000.0, 9000.0),
+                    ("1", "13100_特別区部", 25000.0, 7000.0), ("3", "13499_かりの村", "x", 12.0)],
+}
+
+
+def _write_industry_tables(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheet
+    out = {}
+    for year, name in AGRI_FILES.items():
+        rows = [["年次", "都道府県コード", "市町村コード", "全国農業地域", "都道府県", "市町村", "種別", "部門", "品目",
+                 "産出額（千万円）", "全国順位", "県内順位"]]
+        for (pref, muni, mname), items in AGRI_ROWS.items():
+            for item, v in items.items():
+                v = v + (year - 2024) if isinstance(v, float) and v else v
+                rows.append([float(year), pref, muni, "関東・東山", PREF_NAMES[str(int(float(pref)))], mname,
+                             "耕種", item, item, v, 1.0, 1.0])
+            rows.append([float(year), pref, muni, "関東・東山", "", mname, "耕種", "米", "もち米", 1.0, 1.0, 1.0])
+        path = directory / f"maff_agri_output_{year}" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_sheet(path, rows, f"R{year - 2018}")
+        out[f"maff_agri_output_{year}"] = path
+    rows = [[None, "2025年経済構造実態調査　製造業事業所調査（地域別統計表データ）"], [], [None, "参考．市区町村別統計表"],
+            [], [], [], [],
+            [None] * 7 + ["事業所数", "事業所数", "事業所数", "従業者数", "人件費", "原材料・燃料・電力の使用額等",
+                          "製造品出荷額等", "粗付加価値額"],
+            [None] * 7 + ["合計", "従業者30人～299人", "従業者300人以上"],
+            [None, "時間軸コード", "年次", "市区町村コード", "市区町村名", "産業中分類コード", "産業中分類名", None, None,
+             None, "人", "万円", "万円", "万円", "万円"]]
+    for code, mname, ship, va in MANUFACTURING_ROWS:
+        rows.append([None, "2024000000", "2024", code, mname, "00", "製造業計", 10.0, "***", "***", 100.0, 1.0, 1.0,
+                     ship, va])
+        rows.append([None, "2024000000", "2024", code, mname, "09", "食料品製造業", 1.0, "***", "***", 9.0, 1.0, 1.0,
+                     1.0, 1.0])
+    path = directory / "meti_manufacturing_2024" / "meti_manufacturing_2024.xlsx"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_sheet(path, rows, "参考表")
+    out["meti_manufacturing_2024"] = path
+    for name, data in COMMERCE_ROWS.items():
+        rows = [["令和３年経済センサス‐活動調査"], ["第１表"], [], ["1) 注"], ["2) 注"], ["3) 注"],
+                [None, None] + ["産業小分類"] * 10,
+                [None, None] + ["I_合計"] * 3 + ["I1_卸売業計"] * 3 + ["I2_小売業計"] * 4,
+                [None, None] + ["事業所数", "従業者数_合計", "年間商品販売額"] * 2
+                + ["事業所数", "従業者数_合計", "年間商品販売額", "売場面積"],
+                [None, None] + ["事業所", "人", "百万円"] * 2 + ["事業所", "人", "百万円", "m2"],
+                ["地域識別コード", "地域区分", " "]]
+        for level, label, whole, retail in data:
+            total = whole + retail if isinstance(whole, float) else "x"
+            rows.append([level, label, 10.0, 100.0, total, 3.0, 30.0, whole, 7.0, 70.0, retail, "-"])
+        path = directory / "estat_commerce_2021" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_sheet(path, rows, name.split(".")[0])
+        out[f"estat_commerce_{name}"] = path
     return out
 
 
