@@ -40,24 +40,30 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
 <Base title="地図" preload={maplibreUrl} description="全国の都道府県・市区町村・町丁目の人口や年齢構成などを色分けした地図。地域名で検索し、指標と時点を切り替えて比べられます。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl}>
     <aside class="panel panel-conditions" aria-label="表示する条件">
-      <div class="field region">
-        <label for="region-jump">範囲</label>
-        <div class="region-row">
-          <select id="region-jump">
-            <!-- 公開版の都道府県から地図の処理で作る（都道府県コードの順） -->
-            <option value="mainland">東京都（区部・多摩）</option>
-          </select>
-          <button type="button" id="locate" class="locate" aria-label="現在地へ移動" title="現在地へ移動">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22"/></svg>
-          </button>
+      <!-- 範囲と地域の検索はあまり使わないので、最初は畳んでおく（開いた状態は覚えない、#103） -->
+      <details class="move-tools">
+        <summary>範囲・地域を検索</summary>
+        <div class="move-tools-body">
+          <div class="field region">
+            <label for="region-jump">範囲</label>
+            <div class="region-row">
+              <select id="region-jump">
+                <!-- 公開版の都道府県から地図の処理で作る（都道府県コードの順） -->
+                <option value="mainland">東京都（区部・多摩）</option>
+              </select>
+              <button type="button" id="locate" class="locate" aria-label="現在地へ移動" title="現在地へ移動">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="search">
+            <label for="search-input">地域を検索</label>
+            <input id="search-input" type="search" placeholder="例: 新宿区、本町一丁目" autocomplete="off"
+                   role="combobox" aria-expanded="false" aria-controls="search-results" />
+            <ul id="search-results" role="listbox" hidden></ul>
+          </div>
         </div>
-      </div>
-      <div class="search">
-        <label for="search-input">地域を検索</label>
-        <input id="search-input" type="search" placeholder="例: 新宿区、本町一丁目" autocomplete="off"
-               role="combobox" aria-expanded="false" aria-controls="search-results" />
-        <ul id="search-results" role="listbox" hidden></ul>
-      </div>
+      </details>
       <div class="field">
         <label for="indicator-open">指標</label>
         <!-- 押すと指標の選択画面を開く。選んだ指標は下の select に入れる（select は状態の保持用） -->
@@ -315,6 +321,18 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .period.aggregate #period-range, .period.aggregate .period-ticks, .period.aggregate #period-play { opacity: 0.4; }
   .view-options { border: 0; border-top: 1px solid var(--line); padding: 12px 0 0; margin: 0; display: grid; gap: 6px; }
   /* 範囲と現在地ボタン */
+  /* 範囲・地域を検索（畳める） */
+  .move-tools summary {
+    display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none;
+    font-weight: 700; font-size: 0.82rem; color: #3a4757; letter-spacing: .02em;
+  }
+  .move-tools summary::-webkit-details-marker { display: none; }
+  .move-tools summary::before {
+    content: ""; width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg); transition: transform .15s; margin: 0 2px;
+  }
+  .move-tools[open] summary::before { transform: rotate(45deg); }
+  .move-tools-body { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
   .region-row { display: flex; gap: 6px; align-items: stretch; }
   .region-row select { flex: 1; min-width: 0; }
   .locate {
