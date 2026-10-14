@@ -502,55 +502,75 @@ attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat
 modification_note = "居住期間別人口から割合を算出して作成"
 redistributable = true
 
-# 昼間人口（区市町村）。犯罪の昼間人口当たり件数の分母（docs/design-changes.md #14・#28）。
-# 東京都の統計「東京都の昼間人口（令和2年国勢調査）」表1。2026-10-03 に GitHub Actions から取得して確認。
-[tokyo_daytime_2020]
-kind = "tokyo_daytime"
+# 昼間人口（全国の市区町村・都道府県）。昼夜間人口比率と、犯罪・交通事故の昼間人口当たり件数の分母（docs/design-changes.md #14・#28・#42・#106）。
+# 国勢調査 従業地・通学地集計の e-Stat「ファイル」の表。2026-10-14 に GitHub Actions から取得して列名を確認した。
+# 2020年の Excel は値の列の上に表章項目（人口）と項目名（1_従業地・通学地による人口（昼間人口） …）が並び、
+# 「男女」「年齢」の分類の列がある（総数の行を使う）。地域識別コード a 全国・都道府県、1 政令指定都市の市全体、0 区・市町村。
+[census2020_municipal_daytime]
+kind = "census_municipal"
 period = "2020-10-01"
-title = "東京都の昼間人口（従業地・通学地による人口）令和2年 表1 地域、昼間・常住、男女別人口"
-provider = "東京都総務局統計部"
-url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2020/tj-20index.htm"
-download_url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2020/tj20zv0100.csv"
-download_filename = "tj20zv0100.csv"
-files = ["*.csv"]
-encoding = "utf-8-sig"
-license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
-license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
-attribution = "出典：東京都総務局統計部「東京都の昼間人口（令和2年国勢調査）」"
-modification_note = "区市町村別の昼間人口を地域IDに対応付けて作成"
+label = "2020年"
+table = "census_daytime"
+title = "令和2年国勢調査 従業地・通学地による人口・就業状態等集計 表1-1 男女，年齢（5歳階級），常住地又は従業地・通学地別人口及び昼夜間人口比率－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001136464&cycle=0&tclass1=000001136469&tclass2val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032214141&fileKind=0"
+download_filename = "001-1.xlsx"
+files = ["001-1.xlsx"]
+cache = true
+columns = { "昼間人口" = "人口/1_従業地・通学地による人口（昼間人口）" }
+filters = { "男女" = "0_総数", "年齢" = "00_総数" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 従業地・通学地による人口・就業状態等集計"
+modification_note = "市区町村・都道府県別の昼間人口（男女・年齢の総数）を抜き出して作成"
 redistributable = true
 
-# 平成27年・平成22年の昼間人口（昼夜間人口比率の時系列用、docs/design-changes.md #42）。2026-10-03 に GitHub Actions から取得して確認。
-[tokyo_daytime_2015]
-kind = "tokyo_daytime"
+# 平成27年の第1表は CSV（cp932）。列名の末尾に注の番号・記号がつく（「総数（昼間人口） 2)3) (k)」）。
+[census2015_municipal_daytime]
+kind = "census_municipal"
 period = "2015-10-01"
-title = "東京都の昼間人口（従業地・通学地による人口）平成27年 表1 地域、昼間・常住、男女別人口"
-provider = "東京都総務局統計部"
-url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2015/tj-15index.htm"
-download_url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2015/tj15zv0100.csv"
-download_filename = "tj15zv0100.csv"
-files = ["*.csv"]
-encoding = "utf-8-sig"
-license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
-license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
-attribution = "出典：東京都総務局統計部「東京都の昼間人口（平成27年国勢調査）」"
-modification_note = "区市町村別の昼間人口を地域IDに対応付けて作成"
+label = "2015年"
+table = "census_daytime"
+title = "平成27年国勢調査 従業地・通学地による人口・就業状態等集計 第1表 常住地又は従業地・通学地(27区分)による人口，就業者数及び通学者数－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001080615&cycle=0&tclass1=000001101935&tclass2=000001101936&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031586670&fileKind=1"
+download_filename = "001.csv"
+files = ["001.csv"]
+cache = true
+encoding = "cp932"
+columns = { "昼間人口" = "総数（昼間人口）" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 従業地・通学地による人口・就業状態等集計"
+modification_note = "市区町村・都道府県別の昼間人口を抜き出して作成"
 redistributable = true
 
-[tokyo_daytime_2010]
-kind = "tokyo_daytime"
+# 平成22年は全国の市区町村をまとめた表がなく、都道府県ごとの第1表（CSV、cp932）を使う。statInfId は
+# 2026-10-14 に e-Stat の都道府県ごとの一覧から表番号で調べた。男女・年齢の分類は列名のない列の符号で選ぶ。
+[census2010_municipal_daytime]
+kind = "census_municipal"
 period = "2010-10-01"
-title = "東京都の昼間人口（従業地・通学地による人口）平成22年 表1 地域、昼間・夜間、男女別人口"
-provider = "東京都総務局統計部"
-url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2010/tj-10index.htm"
-download_url = "https://www.toukei.metro.tokyo.lg.jp/tyukanj/2010/tj10zv0100.csv"
-download_filename = "tj10zv0100.csv"
+label = "2010年"
+table = "census_daytime"
+per_prefecture = true
+estat_lookup = { tstat = "000001039448", tclass1 = "000001049567", table = "第1表" }
+known_ids = { "01" = "000013172854", "02" = "000013172873", "03" = "000013172891", "04" = "000013172909", "05" = "000013172928", "06" = "000013172946", "07" = "000013172964", "08" = "000013172982", "09" = "000013173000", "10" = "000013173018", "11" = "000013173036", "12" = "000013173055", "13" = "000013173074", "14" = "000013173093", "15" = "000013173112", "16" = "000013173131", "17" = "000013173149", "18" = "000013173167", "19" = "000013173185", "20" = "000013173203", "21" = "000013173221", "22" = "000013173239", "23" = "000013173258", "24" = "000013173277", "25" = "000013173295", "26" = "000013173313", "27" = "000013173332", "28" = "000013173351", "29" = "000013173370", "30" = "000013173388", "31" = "000013173406", "32" = "000013173424", "33" = "000013173442", "34" = "000013173461", "35" = "000013173480", "36" = "000013173498", "37" = "000013173516", "38" = "000013173534", "39" = "000013173552", "40" = "000013173570", "41" = "000013173589", "42" = "000013173607", "43" = "000013173625", "44" = "000013173643", "45" = "000013173661", "46" = "000013173679", "47" = "000013173697" }
+title = "平成22年国勢調査 従業地・通学地による人口・産業等集計 第1表 常住地又は従業地・通学地による年齢(5歳階級)，男女別人口及び就業者数－都道府県，市町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001039448&cycle=0&tclass1=000001049567&tclass2=000001051130"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId={id}&fileKind=1"
+download_filename = "{pref}.csv"
 files = ["*.csv"]
-encoding = "utf-8-sig"
-license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
-license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
-attribution = "出典：東京都総務局統計部「東京都の昼間人口（平成22年国勢調査）」"
-modification_note = "区市町村別の昼間人口を地域IDに対応付けて作成"
+cache = true
+encoding = "cp932"
+columns = { "昼間人口" = "総数（昼間人口）" }
+row_codes = ["danjo.0000", "nen5EX.0000"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 従業地・通学地による人口・産業等集計"
+modification_note = "市区町村・都道府県別の昼間人口（男女・年齢の総数）を抜き出して作成"
 redistributable = true
 
 # 外国人人口（区市町村、国籍・地域別、各年1月1日現在）。東京都の統計「外国人人口」表3（docs/design-changes.md #41）。

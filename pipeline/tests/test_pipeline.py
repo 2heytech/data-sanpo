@@ -557,9 +557,25 @@ def test_daytime_night_ratio_uses_same_year_population(built):
             built, f"values/population_total/{period}/municipalities.json")["rows"]}["muni-13199"]
         assert ratio["numerator"] == day["value"] and ratio["denominator"] == pop["value"]
         assert ratio["value"] > 100   # 架空のサンプル区は昼間に人が集まる
-    # 区部（13100）などの行は取り込まない
-    rows = load(built, "values/daytime_population/2010-10-01/municipalities.json")["rows"]
-    assert {r["entity_id"] for r in rows} <= {"muni-13199", "muni-13299", "muni-13499"}
+    assert ind["periods"][-1]["levels"] == ["municipality", "prefecture"]
+
+
+def test_daytime_population_is_national(built):
+    """国勢調査 従業地・通学地集計の昼間人口（全国の市区町村・都道府県、2010・2015・2020年。#106）。"""
+    base = fixture._base_values(__import__("random").Random(42))
+    for year in (2010, 2015, 2020):
+        vals = fixture.census_daytime_values(year, base)
+        munis = {r["entity_id"]: r["value"] for r in load(
+            built, f"values/daytime_population/{year}-10-01/municipalities.json")["rows"]}
+        # 男女・年齢の総数の行（2010年は都道府県ごとのファイル）。政令指定都市の市全体（14100）・消えた村は使わない
+        assert munis == {f"muni-{c}": vals[c] for c in ("13199", "13299", "13499", "14199")}
+        prefs = {r["entity_id"]: r["value"] for r in load(
+            built, f"values/daytime_population/{year}-10-01/prefectures.json")["rows"]}
+        assert prefs == {"pref-13": vals["13000"], "pref-14": vals["14000"]}   # 公表の都道府県の行
+    # 東京都以外でも、交通事故の昼間人口当たりの分母になる
+    rows = {r["entity_id"]: r for r in load(
+        built, "values/traffic_accidents_per_100_daytime/2025-01-01/municipalities.json")["rows"]}
+    assert rows["muni-14199"]["denominator"] == fixture.census_daytime_values(2020, base)["14199"]
 
 
 def test_crime_town_names_are_normalized():
