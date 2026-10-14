@@ -26,26 +26,17 @@ def leaves(year, url):
                 print(year, page, m[1], m[2], "|", before[:190], flush=True)
         if new == 0: break
     print("-- leaves", year, len(seen), flush=True)
-for year, tstat in (("2015", "000001080615"), ("2010", "000001039448")):
-    top = get(f"{B}&tstat={tstat}")
-    l1 = links(top, 1)
-    for k, (u, name) in l1.items():
-        print(year, "L1", k, name, flush=True)
-    for k, (u, name) in l1.items():
-        if "従業" not in name: continue
-        t = get(f"{B}&tstat={tstat}&tclass1={k}")
-        l2 = links(t, 2)
-        for k2, (u2, n2) in l2.items():
-            print(year, " L2", k2, n2, flush=True)
-        for k2, (u2, n2) in l2.items():
-            if "全国" not in n2 and "都道府県" not in n2: continue
-            t3 = get(f"{B}&tstat={tstat}&tclass1={k}&tclass2={k2}")
-            l3 = links(t3, 3)
-            for k3, (u3, n3) in l3.items():
-                print(year, "  L3", k3, n3, flush=True)
-            if l3:
-                for k3, (u3, n3) in l3.items():
-                    if "全国" in n3:
-                        leaves(year, f"{B}&tstat={tstat}&tclass1={k}&tclass2={k2}&tclass3={k3}&tclass4val=0")
-            else:
-                leaves(year, f"{B}&tstat={tstat}&tclass1={k}&tclass2={k2}&tclass3val=0")
+
+def walk(year, base, depth):
+    t = get(f"{base}&tclass{depth+1}val=0") if False else get(base)
+    sub = links(t, depth + 1)
+    if not sub or depth >= 4:
+        leaves(year, f"{base}&tclass{depth+1}val=0"); return
+    for k, (u, n) in sub.items():
+        print(year, "  " * depth, depth + 1, k, n[:60], flush=True)
+        walk(year, f"{base}&tclass{depth+1}={k}", depth + 1)
+for year, tstat, l1s in (("2015", "000001080615", ["000001101935", "000001104835", "000001104855"]),
+                         ("2010", "000001039448", ["000001049567", "000001051859", "000001048107"])):
+    for k in l1s:
+        print(year, "L1", k, flush=True)
+        walk(year, f"{B}&tstat={tstat}&tclass1={k}", 1)
