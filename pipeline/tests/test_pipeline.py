@@ -648,6 +648,10 @@ def test_crime_towns_match_current_map_only(tmp_path):
     for eid in ("area-13101000004", "area-13101000005", "area-13101000006", "area-13101000007"):
         assert got[eid] == (None, "missing")              # 同じ名前が2つ・地図のほうが細かい
     assert got["area-13101000009"] == (0, "observed")     # 表にない町丁目（計と一致）
+    # 列名が変わったら0件で書かずに止める
+    path.write_text("市区町丁,総数\n千代田区計,1\n", encoding="cp932")
+    with pytest.raises(ValueError, match="列"):
+        keishicho_crime.ingest(conn, path, "s", catalog, ("2025-01-01", "2025-12-31", "calendar_year"), "v")
 
 
 def test_crime_counts_by_municipality_and_town(built):
@@ -1498,6 +1502,10 @@ def test_traffic_accident_in_enclave_counts_for_its_own_municipality(tmp_path):
     npa_traffic.ingest(conn, csv_path, "s", catalog, ("2025-01-01", "2025-12-31", "calendar_year"), "v")
     got = dict(conn.execute("SELECT entity_id, value FROM observations").fetchall())
     assert got == {"muni-13101": 0, "muni-13102": 1, "area-13101001001": 0, "area-13102001001": 1}
+    # 列名が変わったら0件で書かずに止める
+    csv_path.write_text("都道府県コード,事故内容\n30,2\n", encoding="cp932")
+    with pytest.raises(ValueError, match="列"):
+        npa_traffic.read_accidents(csv_path)
 
 
 def test_town_total_row_is_not_put_on_unsplit_remainder(tmp_path):
@@ -1713,6 +1721,31 @@ def test_economic_census_matches_town_names(built):
     from tdm.ingest.estat_economic_census import town_key
     assert town_key("北三条東１５丁目") == town_key("北3条東15丁目")
     assert town_key("浅香山町１丁") == town_key("浅香山町一丁") and town_key("海澤") == town_key("海沢")
+
+
+def test_school_table_marks():
+    # 学校基本調査の「-」は該当なし（0）、「…」は計数不明なので値なし
+    from tdm.ingest.estat_school_municipal import _num
+    assert _num(["-", "…", "1,234", 5], 0) == 0.0
+    assert _num(["-", "…", "1,234", 5], 1) is None
+    assert _num(["-", "…", "1,234", 5], 2) == 1234.0 and _num(["-", "…", "1,234", 5], 3) == 5.0
+
+
+def test_economic_census_stops_on_suppressed_cells(tmp_path):
+    # 秘匿（X）・空欄のセルを0として数えない（2021年の表にはないはずなので、あれば止める）
+    from tdm.ingest import estat_economic_census
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES ('muni-13101', 'municipality', '千代田区')")
+    catalog = {k: d for k, d in load_indicators().items() if d.get("source_kind") == estat_economic_census.KIND}
+    cols = sorted({d["column"] for d in catalog.values()})
+    head = "KEY_CODE,CITY_NAME,AZA_CODE,AZA_NAME," + ",".join(cols) + "\n"
+    path = tmp_path / "tblT001167C13.txt"
+    path.write_text(head + head + "13101000000000001,千代田区,1,丸の内,X" + ",-" * (len(cols) - 1) + "\n",
+                    encoding="cp932")
+    with pytest.raises(ValueError, match="秘匿"):
+        estat_economic_census.ingest(conn, [path], "s", catalog, ("2021-06-01", "2021-06-01", "point"), "v")
 
 
 def test_economic_census_industries(built):

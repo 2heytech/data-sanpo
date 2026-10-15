@@ -122,6 +122,10 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
         areas[r["parent_id"]][town_key(r["name"])].append(r["entity_id"])
     table = read_table(path, list(munis), encoding)
     indicators = {k: d for k, d in catalog.items() if d.get("source_kind") == "keishicho_crime"}
+    missing = [d["column"] for d in indicators.values() if d["column"] not in table.labels]
+    if missing:
+        # 列名が変わると全域が0件になってしまうので止める
+        raise ValueError(f"{path.name}: 警視庁の表に列 {missing} がありません。見出し: {table.labels}")
     total_column = next(d["column"] for d in indicators.values() if d.get("total"))
     result = {"municipalities": 0, "areas": 0, "finer_rows": 0, "unmatched": [], "incomplete": []}
     for muni_name, muni_id in munis.items():
