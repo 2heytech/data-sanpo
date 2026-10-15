@@ -1,5 +1,5 @@
 import { formatNumber, formatValue } from "./format";
-import { nationalityTemplate, RANK_TEMPLATES, type RankTemplate } from "./rankInsights";
+import { nationalityTemplate, RANK_TEMPLATES, type RankTemplate, type Tone } from "./rankInsights";
 import type { Indicator, ValueRow } from "./types";
 
 /**
@@ -8,6 +8,8 @@ import type { Indicator, ValueRow } from "./types";
  * 新しい推計はしない。値がない指標は使わない（0 として扱わない）。
  * 全国で目立つ特徴（強い考察）を先に、どの地域にも当てはまる一般的な考察（昼夜間人口・年齢構成など）を後に並べ、
  * どの市区町村にも少なくとも1つは出るようにする。
+ * 課題に当たる文（人口減少・高齢化・空き家など）が半分以上になるときは、その地域の良いところを1つ入れ、
+ * ネガティブな文だけのページにしない。住む人の国籍と犯罪など、並べると偏見につながる組み合わせは作らない。
  */
 export interface InsightData {
   indicator(id: string): Indicator | undefined;
@@ -31,6 +33,8 @@ interface Stat {
   total: number;
 }
 
+/** 良いところを探す範囲（全国の上位・下位それぞれ全体のこの割合まで） */
+const BRIGHT_SHARE = 0.25;
 /** 考察の数の上限（多すぎると読まれないため） */
 const MAX_INSIGHTS = 6;
 /** 全国順位で目立つとみなす範囲（上位・下位それぞれ全体のこの割合まで）と、その考察の数の上限 */
@@ -66,7 +70,7 @@ function countBelow(values: number[], v: number): { lt: number; le: number } {
   return { lt: search(true), le: search(false) };
 }
 
-type Line = { text: string; strong: boolean };
+type Line = { text: string; strong: boolean; tone?: Tone };
 
 export function areaInsights(muniId: string, data: InsightData): string[] {
   const stat = (id: string, period?: string): Stat | null => {
@@ -91,20 +95,53 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   // 型の絞り込みはしない（false のときに null と見なされるため）。真のときは値があるので ! で読む
   const isTop = (s: Stat | null, share: number): boolean => !!s && s.top !== null && s.top <= share;
   const isBottom = (s: Stat | null, share: number): boolean => !!s && s.bottom !== null && s.bottom <= share;
-  const strong = (text: string): Line => ({ text, strong: true });
-  const general = (text: string): Line => ({ text, strong: false });
+  const strong = (text: string, tone?: Tone): Line => ({ text, strong: true, tone });
+  const general = (text: string, tone?: Tone): Line => ({ text, strong: false, tone });
 
   const gap = foreignGap();
+  const ranked = rankCandidates();
   const lines = [gap, ...rankNotables(), gap ? null : foreignShare(), daytime(), populationChange(), ageStructure(), households(), housing(),
     commute(), industry(), shopping(), furusato(), income(), vacancy(), education()]
     .filter((l): l is Line => !!l);
   // 強い考察を先に（並びは上の順のまま）、一般的な考察で埋める
-  return [...lines.filter((l) => l.strong), ...lines.filter((l) => !l.strong)].slice(0, MAX_INSIGHTS).map((l) => l.text);
+  const picked = [...lines.filter((l) => l.strong), ...lines.filter((l) => !l.strong)].slice(0, MAX_INSIGHTS);
+  return balance(picked).map((l) => l.text);
+
+  /** 課題に当たる文が半分以上なら、良いところの文を1つ入れる（最後の課題の文と入れ替える） */
+  function balance(list: Line[]): Line[] {
+    const negatives = list.filter((l) => l.tone === "neg");
+    if (negatives.length * 2 < list.length || list.some((l) => l.tone === "pos")) return list;
+    const used = new Set(list.map((l) => l.text));
+    const bright = [...lines, ...brightSide()].find((l) => l.tone === "pos" && !used.has(l.text))
+      ?? lines.find((l) => l.tone !== "neg" && !used.has(l.text));
+    if (!bright) return list;
+    if (list.length < MAX_INSIGHTS) return [...list, bright];
+    const last = list.lastIndexOf(negatives[negatives.length - 1]);
+    return list.map((l, i) => (i === last ? bright : l));
+  }
+
+  /**
+   * 全国の中で比較的よい位置にある、良いところに当たる指標を1つ。上位・下位25%までは考察の文も付け、
+   * それより下（半分まで）は考察を言い過ぎにならないよう、順位と「半分に入る」ことだけを書く
+   */
+  function brightSide(): Line[] {
+    const best = ranked.find((f) => f.tone === "pos");
+    if (!best) return [];
+    if (best.pos <= BRIGHT_SHARE) return [strong(best.text, best.tone)];
+    return [general(`${best.fact}全国の中では${best.high ? "大きい" : "小さい"}方の半分に入ります。`, best.tone)];
+  }
 
   /** 全国の市区町村の中で順位が特に高い・低い指標（上位・下位2%）に、指標ごとの考察を付ける。目立つ順に3つまで */
   function rankNotables(): Line[] {
+    const sorted = ranked.filter((f) => f.pos <= RANK_SHARE_FALLBACK);
+    const within = sorted.filter((f) => f.pos <= RANK_SHARE);
+    return (within.length ? within.slice(0, MAX_RANK_INSIGHTS) : sorted.slice(0, 1)).map((f) => strong(f.text, f.tone));
+  }
+
+  /** 考察の文がある指標を、全国の中で目立つ順に（同じ系統の指標は1つだけ） */
+  function rankCandidates(): { pos: number; group: string; text: string; fact: string; high: boolean; tone?: Tone }[] {
     const jp = (n: number) => n.toLocaleString("ja-JP");
-    const found: { pos: number; group: string; text: string }[] = [];
+    const found: { pos: number; group: string; text: string; fact: string; high: boolean; tone?: Tone }[] = [];
     for (const ind of data.indicators()) {
       const t: RankTemplate | null = RANK_TEMPLATES[ind.id] ?? nationalityTemplate(ind.id, ind.name);
       if (!t) continue;
@@ -115,18 +152,16 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
         if (n === null || n < (t.minCount ?? 0)) continue;
       }
       const group = ind.family ?? ind.id;
-      if (t.high && s.top <= RANK_SHARE_FALLBACK && (!t.low || s.top <= s.bottom)) {
-        found.push({ pos: s.top, group,
-          text: `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村のうち${jp(s.rankTop)}位です（${s.label}）。${t.high}` });
-      } else if (t.low && s.bottom <= RANK_SHARE_FALLBACK) {
-        found.push({ pos: s.bottom, group,
-          text: `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村の中で低い方から${jp(s.rankBottom)}番目です（${s.label}）。${t.low}` });
+      if (t.high && s.top <= 0.5 && (!t.low || s.top <= s.bottom)) {
+        const fact = `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村のうち${jp(s.rankTop)}位です（${s.label}）。`;
+        found.push({ pos: s.top, group, tone: t.highTone, fact, high: true, text: fact + t.high });
+      } else if (t.low && s.bottom <= 0.5) {
+        const fact = `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村の中で低い方から${jp(s.rankBottom)}番目です（${s.label}）。`;
+        found.push({ pos: s.bottom, group, tone: t.lowTone, fact, high: false, text: fact + t.low });
       }
     }
     const seen = new Set<string>();
-    const sorted = found.sort((a, b) => a.pos - b.pos).filter((f) => !seen.has(f.group) && !!seen.add(f.group));
-    const within = sorted.filter((f) => f.pos <= RANK_SHARE);
-    return (within.length ? within.slice(0, MAX_RANK_INSIGHTS) : sorted.slice(0, 1)).map((f) => strong(f.text));
+    return found.sort((a, b) => a.pos - b.pos).filter((f) => !seen.has(f.group) && !!seen.add(f.group));
   }
 
   /** 外国人: 国勢調査（10月1日）と住民基本台帳（1月1日）の差。数え方の違いに加え、季節で住む人が入れ替わる地域で大きく開く */
@@ -178,7 +213,7 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
     if (!s) return null;
     const head = `昼間の人口は住んでいる人の`;
     if (s.value >= 130) {
-      return strong(`${head}${formatNumber(s.value / 100, 1)}倍です（${s!.label}）。周りから通勤・通学で人が集まる、職場や学校の多いまちと思われます。`);
+      return strong(`${head}${formatNumber(s.value / 100, 1)}倍です（${s!.label}）。周りから通勤・通学で人が集まる、職場や学校の多いまちと思われます。`, "pos");
     }
     if (s.value <= 85) {
       return strong(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。周りのまちへ通勤・通学する人が多い、住宅地としての性格が強いと考えられます。`);
@@ -197,36 +232,36 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
     if (!s) return null;
     const amount = s.text.replace(/^[+−-]/, "");
     if (isTop(s, 0.1) && s.value > 0) {
-      return strong(`人口は5年前から${amount}増えていて（${s!.label}）、全国の市区町村の中でも増え方が大きい方です。住宅の開発などで移り住む人が多いと考えられます。`);
+      return strong(`人口は5年前から${amount}増えていて（${s!.label}）、全国の市区町村の中でも増え方が大きい方です。住宅の開発などで移り住む人が多いと考えられます。`, "pos");
     }
     if (isBottom(s, 0.1) && s.value < 0) {
-      return strong(`人口は5年前から${amount}減っていて（${s!.label}）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。`);
+      return strong(`人口は5年前から${amount}減っていて（${s!.label}）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。`, "neg");
     }
     if (s.value > 0) {
-      return general(`人口は5年前から${amount}増えています（${s!.label}）。全国で人口が減る市区町村が多い中、人が集まっている地域のようです。`);
+      return general(`人口は5年前から${amount}増えています（${s!.label}）。全国で人口が減る市区町村が多い中、人が集まっている地域のようです。`, "pos");
     }
     if (s.value === 0) return general(`人口は5年前からほとんど変わっていません（${s!.label}）。`);
     if (isTop(s, 0.5)) {
-      return general(`人口は5年前から${amount}減っていますが（${s!.label}）、全国の市区町村の中では減り方が小さい方です。人口が比較的保たれている地域と考えられます。`);
+      return general(`人口は5年前から${amount}減っていますが（${s!.label}）、全国の市区町村の中では減り方が小さい方です。人口が比較的保たれている地域と考えられます。`, "pos");
     }
     if (isBottom(s, 0.3)) {
-      return general(`人口は5年前から${amount}減っていて（${s!.label}）、全国の市区町村の中では減り方がやや大きい方です。人口減少が進んでいる地域と考えられます。`);
+      return general(`人口は5年前から${amount}減っていて（${s!.label}）、全国の市区町村の中では減り方がやや大きい方です。人口減少が進んでいる地域と考えられます。`, "neg");
     }
-    return general(`人口は5年前から${amount}減っています（${s!.label}）。全国の多くの市区町村と同じく、少しずつ人口が減っているようです。`);
+    return general(`人口は5年前から${amount}減っています（${s!.label}）。全国の多くの市区町村と同じく、少しずつ人口が減っているようです。`, "neg");
   }
 
   function ageStructure(): Line | null {
     const aged = stat("aged_65_plus_share");
     const kids = stat("children_0_14_share");
     if (isTop(aged, 0.1) && isBottom(kids, 0.25)) {
-      return strong(`65歳以上の人が${aged!.text}、15歳未満の子どもが${kids!.text}です（${aged!.label}）。全国の中でも高齢化が進んだ地域と思われます。`);
+      return strong(`65歳以上の人が${aged!.text}、15歳未満の子どもが${kids!.text}です（${aged!.label}）。全国の中でも高齢化が進んだ地域と思われます。`, "neg");
     }
     if (isTop(kids, 0.1)) {
-      return strong(`15歳未満の子どもの割合が${kids!.text}と全国でも高い方です（${kids!.label}）。子育て中の世帯が多く住んでいると思われます。`);
+      return strong(`15歳未満の子どもの割合が${kids!.text}と全国でも高い方です（${kids!.label}）。子育て中の世帯が多く住んでいると思われます。`, "pos");
     }
     if (!aged) return null;
     if (isTop(aged, 0.3)) {
-      return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中では高めです（${aged!.label}）。高齢化が進みつつある地域と考えられます。`);
+      return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中では高めです（${aged!.label}）。高齢化が進みつつある地域と考えられます。`, "neg");
     }
     if (isBottom(aged, 0.3)) {
       return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中では低めです（${aged!.label}）。働く世代や子育て世代が比較的多いようです。`);
@@ -245,7 +280,7 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
       }
       // 高齢化が進んだ地域の一人暮らしは、働く人より高齢の人と考える方が自然
       if (isTop(stat("aged_65_plus_share"), 0.1)) {
-        return strong(`一人暮らしの世帯が${single!.text}と全国でも高い方です（${single!.label}）。高齢の人の一人暮らしが多いと思われます。`);
+        return strong(`一人暮らしの世帯が${single!.text}と全国でも高い方です（${single!.label}）。高齢の人の一人暮らしが多いと思われます。`, "neg");
       }
       return strong(`一人暮らしの世帯が${single!.text}と全国でも高い方です（${single!.label}）。単身で働く人や学生などが多く住んでいると思われます。`);
     }
@@ -259,7 +294,7 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   function housing(): Line | null {
     const owner = stat("owner_occupied_share");
     if (isTop(owner, 0.1)) {
-      return strong(`持ち家に住む世帯が${owner!.text}と全国でも多い方です（${owner!.label}）。長く住み続ける人が多い地域と考えられます。`);
+      return strong(`持ち家に住む世帯が${owner!.text}と全国でも多い方です（${owner!.label}）。長く住み続ける人が多い地域と考えられます。`, "pos");
     }
     const rented = stat("private_rented_share");
     if (isTop(rented, 0.1)) {
@@ -285,15 +320,15 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   function industry(): Line | null {
     const mfg = stat("employees_manufacturing_share");
     if (isTop(mfg, 0.1)) {
-      return strong(`まちの事業所で働く人のうち製造業が${mfg!.text}を占めていて（${mfg!.label}）、工場の多いものづくりのまちと思われます。`);
+      return strong(`まちの事業所で働く人のうち製造業が${mfg!.text}を占めていて（${mfg!.label}）、工場の多いものづくりのまちと思われます。`, "pos");
     }
     const agri = stat("employees_agriculture_share");
     if (isTop(agri, 0.1)) {
-      return strong(`まちの事業所で働く人のうち農林漁業が${agri!.text}を占めていて（${agri!.label}）、農業や漁業が暮らしを支えていると思われます。`);
+      return strong(`まちの事業所で働く人のうち農林漁業が${agri!.text}を占めていて（${agri!.label}）、農業や漁業が暮らしを支えていると思われます。`, "pos");
     }
     const commerce = stat("employees_commerce_share");
     if (isTop(commerce, 0.1)) {
-      return strong(`まちの事業所で働く人のうち卸売業・小売業が${commerce!.text}を占めていて（${commerce!.label}）、商業がまちを支える産業のようです。`);
+      return strong(`まちの事業所で働く人のうち卸売業・小売業が${commerce!.text}を占めていて（${commerce!.label}）、商業がまちを支える産業のようです。`, "pos");
     }
     // 目立つ産業がないときは、3つのうち全国の中で最も高い位置にあるものを挙げる
     const options: { s: Stat | null; name: string }[] = [{ s: mfg, name: "製造業" }, { s: agri, name: "農林漁業" }, { s: commerce, name: "卸売業・小売業" }];
@@ -301,19 +336,19 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
       .filter((x): x is { s: Stat; name: string } => !!x.s && x.s.top !== null && x.s.top <= 0.4)
       .sort((a, b) => a.s.top! - b.s.top!)[0];
     if (!best) return null;
-    return general(`まちの事業所で働く人のうち${best.name}が${best.s.text}で、全国の市区町村の中では多めです（${best.s.label}）。${best.name}がまちの主な産業の1つと考えられます。`);
+    return general(`まちの事業所で働く人のうち${best.name}が${best.s.text}で、全国の市区町村の中では多めです（${best.s.label}）。${best.name}がまちの主な産業の1つと考えられます。`, "pos");
   }
 
   function shopping(): Line | null {
     const s = stat("retail_sales_per_capita");
     if (!isTop(s, 0.05)) return null;
-    return strong(`住民1人あたりの小売業の販売額が${s!.text}と全国でも大きい方です（${s!.label}）。周りから買い物に来る人が多い、商業の中心と思われます。`);
+    return strong(`住民1人あたりの小売業の販売額が${s!.text}と全国でも大きい方です（${s!.label}）。周りから買い物に来る人が多い、商業の中心と思われます。`, "pos");
   }
 
   function furusato(): Line | null {
     const s = stat("furusato_amount_per_capita");
     if (!isTop(s, 0.03)) return null;
-    return strong(`ふるさと納税の受入額が住民1人あたり${s!.text}と全国でも多い方です（${s!.label}）。返礼品などで人気を集めているようです。`);
+    return strong(`ふるさと納税の受入額が住民1人あたり${s!.text}と全国でも多い方です（${s!.label}）。返礼品などで人気を集めているようです。`, "pos");
   }
 
   function income(): Line | null {
@@ -327,7 +362,7 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   function vacancy(): Line | null {
     const s = stat("vacant_house_rate");
     if (!isTop(s, 0.1)) return null;
-    return strong(`空き家率が${s!.text}と全国でも高い方です（${s!.label}）。住む人が減り、使われなくなった家が増えていると考えられます。`);
+    return strong(`空き家率が${s!.text}と全国でも高い方です（${s!.label}）。住む人が減り、使われなくなった家が増えていると考えられます。`, "neg");
   }
 
   function education(): Line | null {

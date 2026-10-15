@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { areaInsights, type InsightData } from "../src/lib/areaInsights";
+import { RANK_TEMPLATES } from "../src/lib/rankInsights";
 import type { Indicator, ValueRow } from "../src/lib/types";
 
 const ind = (id: string, unit: string, digits: number, periods: string[], kind: Indicator["kind"] = "ratio") => ({
@@ -19,6 +20,7 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>): In
     ["commute_bicycle_share", ind("commute_bicycle_share", "%", 1, ["2020-10-01"])],
     ["census_foreign_nepal_share", { ...ind("census_foreign_nepal_share", "%", 1, ["2020-10-01"]), name: "国勢調査の外国人の割合（ネパール）" } as Indicator],
     ["census_foreign_nepal", ind("census_foreign_nepal", "人", 0, ["2020-10-01"], "count")],
+    ["street_crime_total_per_100_residents", ind("street_crime_total_per_100_residents", "件/100人", 2, ["2020-10-01"])],
   ]);
   const ids = Array.from({ length: 200 }, (_, i) => `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`);
   return {
@@ -74,6 +76,26 @@ describe("areaInsights", () => {
     expect(lines).toEqual([
       "commute_bicycle_shareは40.0%で、全国200市区町村のうち1位です（2020年10月1日現在）。平らな土地が多く、自転車で通勤・通学しやすいまちと考えられます。",
     ]);
+  });
+  it("課題に当たる文だけのときは、良いところを1つ足す（言い過ぎないよう順位だけ）", () => {
+    // 犯罪の件数が少ない方から 61 番目（下位約3割）
+    const crime = [5, ...Array.from({ length: 199 }, (_, i) => (i < 60 ? 1 : 10))];
+    const lines = areaInsights("muni-01001", makeData({
+      population_change_rate: { "2020-10-01": fill(-12, -2) },
+      street_crime_total_per_100_residents: { "2020-10-01": crime },
+    }));
+    expect(lines).toEqual([
+      "人口は5年前から12.0%減っていて（2020年10月1日現在）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。",
+      "street_crime_total_per_100_residentsは5.00 件/100人で、全国200市区町村の中で低い方から61番目です（2020年10月1日現在）。全国の中では小さい方の半分に入ります。",
+    ]);
+  });
+  it("地域や住む人を悪く言うように読める考察は作らない", () => {
+    for (const [id, t] of Object.entries(RANK_TEMPLATES)) {
+      if (id.startsWith("street_crime_")) expect(t.high, id).toBeUndefined();
+    }
+    for (const id of ["taxable_income_per_taxpayer", "income_levy_taxpayer_share", "university_graduate_share", "life_expectancy_male", "life_expectancy_female"]) {
+      expect(RANK_TEMPLATES[id].low, id).toBeUndefined();
+    }
   });
   it("「かもしれません」は使わない", () => {
     const src = areaInsights.toString();
