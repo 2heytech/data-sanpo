@@ -97,9 +97,11 @@ export interface SmallArea {
   center: [number, number];
 }
 
+/** 区市町村ごとの町丁・字等の境界（boundaries/<版>/<区市町村コード>.geojson）。名前・範囲・代表点も持つ */
 export interface SmallAreasFile {
+  type: "FeatureCollection";
   municipality_id: string;
-  areas: SmallArea[];
+  features: { type: "Feature"; properties: SmallArea; geometry: unknown }[];
 }
 
 export interface ValueRow {

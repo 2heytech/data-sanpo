@@ -132,6 +132,17 @@ def test_water_polygons_are_excluded(built):
     assert all("999999" not in f["properties"]["id"] for f in gj["features"])
 
 
+def test_small_area_names_are_in_boundary_file(built):
+    # 町丁・字等の名前・範囲・代表点は境界ファイルに入れ、別のファイル（areas/）は作らない（ファイル数の節約）
+    gj = load(built, "boundaries/census2020/13199.geojson")
+    assert gj["municipality_id"] == "muni-13199"
+    props = gj["features"][0]["properties"]
+    assert set(props) == {"id", "name", "bbox", "center"}
+    w, s, e, n = props["bbox"]
+    assert w <= props["center"][0] <= e and s <= props["center"][1] <= n
+    assert not (built.releases / "test" / "areas").exists()
+
+
 def test_density_uses_boundary_area(built):
     rows = load(built, "values/population_density/2020-10-01/13199.json")["rows"]
     r = next(r for r in rows if r["status"] == "derived")

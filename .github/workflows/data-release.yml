@@ -338,7 +338,7 @@ jobs:
           cp -r web/dist preview/site
           for d in preview/site/data/*/; do
             find "$d"values -name '[0-9][0-9].json' ! -name '13.json' -delete 2>/dev/null || true
-            find "$d"boundaries "$d"areas -regextype posix-extended -regex '.*/[0-9]{5}\.(geo)?json' ! -regex '.*/13[0-9]{3}\.(geo)?json' -delete 2>/dev/null || true
+            find "$d"boundaries -regextype posix-extended -regex '.*/[0-9]{5}\.(geo)?json' ! -regex '.*/13[0-9]{3}\.(geo)?json' -delete 2>/dev/null || true
             find "$d"search-index -name '*.json' ! -name '13.json' -delete 2>/dev/null || true
           done
           cd preview
