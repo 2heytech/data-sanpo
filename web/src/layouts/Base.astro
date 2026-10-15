@@ -104,12 +104,16 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
       <a class="brand" href="/"><img src="/logo.svg" alt={SITE_NAME} width="164" height="34" /></a>
       <!-- 見ている都道府県。地図では地図の動きに合わせて書き換える（map/app.ts） -->
       <span class="area-chip" id="area-chip" title="見ている都道府県" hidden={!areaLabel}>{areaLabel}</span>
-      <nav aria-label="サイト内">
-        {nav.map(([href, label]) => (
-          <a href={href} aria-current={Astro.url.pathname.startsWith(href) ? "page" : undefined}>{label}</a>
-        ))}
+      <!-- パソコンではメニューの右端に「地図をひらく」を並べる。スマホではメニューを2行目に回し、
+           「地図をひらく」はロゴの行に置いて切れないようにする（global.css の 720px 以下） -->
+      <div class="header-links">
+        <nav aria-label="サイト内">
+          {nav.map(([href, label]) => (
+            <a href={href} aria-current={Astro.url.pathname.startsWith(href) ? "page" : undefined}>{label}</a>
+          ))}
+        </nav>
         <a class="nav-cta" href="/map/" aria-current={onMap ? "page" : undefined}>地図をひらく</a>
-      </nav>
+      </div>
     </header>
     {RELEASE.is_fixture && (
       <p class="fixture-banner" role="note">
