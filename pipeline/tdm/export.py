@@ -258,27 +258,30 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
     by_muni: dict[str, list] = defaultdict(list)
     for r in area_rows:
         by_muni[r["parent_id"]].append(r)
-    centers: dict[str, list[float]] = {}
+    # 町丁・字等は区市町村ごとに1ファイル。名前・範囲・代表点も各地物の properties に入れ、
+    # 地図・ページはこの1ファイルだけを読む（以前は areas/<区市町村>.json に分けていた。ファイル数の節約、#112）
+    def bbox(r):
+        return [round(r["bbox_west"], 5), round(r["bbox_south"], 5),
+                round(r["bbox_east"], 5), round(r["bbox_north"], 5)]
+
     for muni_id, rows in by_muni.items():
         geoms = {eid: load_geometry(g) for eid, g in conn.execute(
             """SELECT b.entity_id, b.geometry FROM boundaries b
                JOIN entities e ON e.entity_id = b.entity_id
                WHERE e.parent_id = ? AND e.entity_type = 'small_area' AND b.boundary_version = ?""",
             (muni_id, boundary_version))}
+        features = []
         for r in rows:
-            p = geoms[r["entity_id"]].representative_point()
-            centers[r["entity_id"]] = [round(p.x, 5), round(p.y, 5)]
+            g = geoms[r["entity_id"]]
+            p = g.representative_point()
+            features.append({"type": "Feature",
+                             "properties": {"id": r["entity_id"], "name": r["name"], "bbox": bbox(r),
+                                            "center": [round(p.x, 5), round(p.y, 5)]},
+                             "geometry": _simplified(g, AREA_TOLERANCE)})
         _write(out, f"{bdir}/{_code(muni_id)}.geojson", {
-            "type": "FeatureCollection",
-            "features": [{"type": "Feature",
-                          "properties": {"id": r["entity_id"], "name": r["name"]},
-                          "geometry": _simplified(geoms[r["entity_id"]], AREA_TOLERANCE)}
-                         for r in rows]})
+            "type": "FeatureCollection", "municipality_id": muni_id, "features": features})
 
     # --- 地域一覧・検索索引 ----------------------------------------------------
-    def bbox(r):
-        return [round(r["bbox_west"], 5), round(r["bbox_south"], 5),
-                round(r["bbox_east"], 5), round(r["bbox_north"], 5)]
 
     def pref_bbox(rows):
         return [min(r["bbox_west"] for r in rows), min(r["bbox_south"] for r in rows),
@@ -301,11 +304,6 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
             "neighbors": sorted(neighbors.get(r["entity_id"], [])),
             "small_area_count": len(by_muni.get(r["entity_id"], [])),
         } for r in muni_rows]})
-    for muni_id, rows in by_muni.items():
-        _write(out, f"areas/{_code(muni_id)}.json", {
-            "schema_version": SCHEMA_VERSION, "municipality_id": muni_id,
-            "areas": [{"id": r["entity_id"], "name": r["name"], "bbox": bbox(r),
-                       "center": centers[r["entity_id"]]} for r in rows]})
     # 検索索引: 区市町村は全国を1ファイル、町丁・字等は都道府県ごと（全国で約22万あるため）
     def muni_context(r):
         pref = pref_names.get(prefecture_entity_id(prefecture_of(r["entity_id"])), "")
@@ -986,10 +984,10 @@ def size_report(files: list[dict], boundary_version: str,
         if not rest or rest.startswith(("municipalities", "prefectures")):
             continue
         code = rest.split(".")[0]
-        # 町丁目を開くとき: その区市町村の境界・地域一覧と、都道府県の値・区市町村界（細かい版）
+        # 町丁目を開くとき: その区市町村の境界（名前・範囲を含む）と、都道府県の値・区市町村界（細かい版）
         pref = code[:2]
         values = by_path.get(f"values/{default[0]}/{default[1]}/{pref}.json", 0) if default else 0
-        per_area[code] = (b + by_path.get(f"areas/{code}.json", 0) + values
+        per_area[code] = (b + values
                           + by_path.get(f"{prefix}municipalities/{pref}.geojson", 0))
     warnings = []
     if FILE_COUNT_WARN < len(files) <= FILE_COUNT_LIMIT:

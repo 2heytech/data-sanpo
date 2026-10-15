@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import release from "../generated/release.json";
 import type {
-  AreasFile, IndicatorCatalog, LegendFile, ReleaseInfo, SmallAreasFile, Source, ValueRow, ValuesFile,
+  AreasFile, IndicatorCatalog, LegendFile, ReleaseInfo, SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
 } from "./types";
 
 export const RELEASE = release as ReleaseInfo;
@@ -41,10 +41,18 @@ export function loadValues(indicatorId: string, period: string, chunk: string): 
   }
 }
 
-/** 町丁・字等の名前（区市町村ごとのファイル）。ないときは null */
-export function loadSmallAreas(municipalityCode: string): SmallAreasFile | null {
+// 境界ファイルは形を含んで大きいので、名前などだけをとっておく
+const smallAreasCache = new Map<string, SmallArea[]>();
+
+/** 町丁・字等の名前・範囲・代表点（区市町村ごとの境界ファイルから）。ないときは null */
+export function loadSmallAreas(municipalityCode: string): SmallArea[] | null {
   try {
-    return read<SmallAreasFile>(`areas/${municipalityCode}.json`);
+    if (!smallAreasCache.has(municipalityCode)) {
+      const rel = `boundaries/${loadAreas().boundary_version}/${municipalityCode}.geojson`;
+      const gj = JSON.parse(readFileSync(join(process.cwd(), "public", DATA_BASE, rel), "utf8")) as SmallAreasFile;
+      smallAreasCache.set(municipalityCode, gj.features.map((f) => f.properties));
+    }
+    return smallAreasCache.get(municipalityCode)!;
   } catch {
     return null;
   }

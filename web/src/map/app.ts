@@ -433,11 +433,13 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (loadedChunks.has(code)) return Promise.resolve();
     if (!loadingChunks.has(code)) {
       loadingChunks.set(code, (async () => {
-        const [gj, meta] = await Promise.all([
-          fetchJSON<FeatureCollection>(`boundaries/${areas.boundary_version}/${code}.geojson`),
-          fetchJSON<SmallAreasFile>(`areas/${code}.json`),
-        ]);
-        for (const a of meta.areas) smallAreas.set(a.id, a);
+        // 名前・範囲・代表点は境界の properties に入っている。地図の地物には id と名前だけを残す
+        const gj = await fetchJSON<SmallAreasFile>(`boundaries/${areas.boundary_version}/${code}.geojson`);
+        for (const f of gj.features) {
+          const { bbox, center, ...rest } = f.properties;
+          smallAreas.set(rest.id, { ...rest, bbox, center });
+          f.properties = rest as never;
+        }
         areaFeatures.features.push(...gj.features);
         (map.getSource("areas") as GeoJSONSource).setData(areaFeatures as never);
         loadedChunks.add(code);

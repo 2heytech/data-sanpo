@@ -36,10 +36,10 @@ const stats = loadIndicators().map((ind) => {
 const usedSources = [...new Set(stats.flatMap((s) => s.period.source_ids))].map((id) => sources.get(id)).filter(Boolean);
 const pop = stats.find((s) => s.ind.id === "population_total");
 const pref = areas.prefectures.find((p) => p.code === muni.prefecture)?.name ?? "";
-// 表の数字から作る短い文章（検索エンジンにも、表だけでなくその地域の特徴が分かるようにする。設計変更記録 #112）
+// 表の数字から作る短い文章（検索エンジンにも、表だけでなくその地域の特徴が分かるようにする。設計変更記録 #113）
 const summary = areaSummary(muni.name, pref, stats.map((s) => ({ ind: s.ind, periodLabel: s.period.label, row: s.row,
   ranks: s.ranks as [typeof s.ranks[0], typeof s.ranks[1]] })));
-// 決まった条件に当てはまるときだけ出す、推測の表現の考察（設計変更記録 #112）
+// 決まった条件に当てはまるときだけ出す、推測の表現の考察（設計変更記録 #113）
 const indicatorById = new Map(loadIndicators().map((i) => [i.id, i]));
 const insights = areaInsights(muni.id, {
   indicator: (id) => indicatorById.get(id),
