@@ -15,9 +15,6 @@ PREFECTURES = {
     "43": "熊本県", "44": "大分県", "45": "宮崎県", "46": "鹿児島県", "47": "沖縄県",
 }
 TOKYO = "13"
-# 旧来の名前（東京都だけを扱っていたころの定数）。都の機関のデータの取込で使う
-PREF_CODE = TOKYO
-PREF_ENTITY = "pref-13"
 
 
 def selected_prefectures(value: str | None = None) -> list[str]:

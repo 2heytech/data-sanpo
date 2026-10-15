@@ -687,6 +687,14 @@ def test_nice_breaks():
     assert 0.0 in d and d == sorted(d) and len(d) <= 11
 
 
+def test_quantile_breaks():
+    from tdm.breaks import quantile_breaks
+    # 分位点を表示の桁に丸めたまま使い、同じ値になった区切りは1つにする
+    assert quantile_breaks([float(v) for v in range(1, 11)], 4, 0) == [3.0, 6.0, 8.0]
+    assert quantile_breaks([1.0] * 8 + [2.0, 3.0], 4, 1) == [1.0]
+    assert quantile_breaks([1.0], 4, 1) == []
+
+
 def test_stations_are_per_operator_and_keep_duplicates_apart(built):
     st = load(built, "places/station_passengers.json")
     assert st["periods"][0]["label"] == "2011年度" and st["periods"][-1]["label"] == "2024年度"
