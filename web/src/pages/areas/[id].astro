@@ -5,10 +5,10 @@ import AdSlot from "../../components/AdSlot.astro";
 import AreaShape from "../../components/AreaShape.astro";
 import CategoryIcon from "../../components/CategoryIcon.astro";
 import { genresFor } from "../../lib/genres";
-import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
+import { loadAreas, loadIndicators, loadPlacePoints, loadValues } from "../../lib/data";
 import { formatFraction, formatValue, rankIfVaried } from "../../lib/format";
 import { areaSummary } from "../../lib/areaSummary";
-import { areaInsights } from "../../lib/areaInsights";
+import { areaProfile } from "../../lib/areaInsights";
 import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -40,16 +40,20 @@ const pref = areas.prefectures.find((p) => p.code === muni.prefecture)?.name ?? 
 // 表の数字から作る短い文章（検索エンジンにも、表だけでなくその地域の特徴が分かるようにする。設計変更記録 #113）
 const summary = areaSummary(muni.name, pref, stats.map((s) => ({ ind: s.ind, periodLabel: s.period.label, row: s.row,
   ranks: s.ranks as [typeof s.ranks[0], typeof s.ranks[1]] })));
-// 決まった条件に当てはまるときだけ出す、推測の表現の考察（設計変更記録 #113）
+// 決まった条件に当てはまるときだけ出す、推測の表現の考察と、特徴を一言で表す題名（設計変更記録 #113・#115）。
+// 指標の順位に加えて、駅・空港・港・地価公示・天気の点のデータも見る
 const indicatorById = new Map(loadIndicators().map((i) => [i.id, i]));
-const insights = areaInsights(muni.id, {
+const profile = areaProfile(muni.id, {
   indicator: (id) => indicatorById.get(id),
   indicators: () => [...indicatorById.values()],
   rows: (id, period) => loadValues(id, period ?? indicatorById.get(id)?.default_period ?? "", "municipalities")?.rows ?? [],
+  places: () => loadPlacePoints(),
 });
+const insights = profile.lines;
 const place = [pref, muni.region].filter(Boolean).join("・");
 const statCount = stats.filter((s) => s.row?.value != null).length;
 const description = `${muni.name}（${place}）の人口・年齢構成など${statCount}の指標を公開データで紹介。` +
+  (profile.title ? `データで見ると「${profile.title}」。` : "") +
   (pop?.row?.value != null ? `人口は${formatValue(pop.row, pop.ind)}（${pop.period.label}）。` : "") +
   `${pref}内・全国の順位と、となりの市区町村との比較、出典つき。`;
 // 検索結果で同じ名前の市区町村（府中市・伊達市など）を見分けられるよう、題名に都道府県名を入れる
@@ -81,6 +85,7 @@ const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank
       <AreaShape muni={muni} variant="locator" prefName={pref} />
       <div>
         <h2>データで見る{muni.name}</h2>
+        {profile.title && <p class="catch">{profile.title}</p>}
         {summary.map((line) => <p>{line}</p>)}
         {insights.length > 0 && (
           <>
@@ -207,6 +212,10 @@ const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank
   .area-intro:has(> figure) { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 8px 28px; }
   .area-intro > :global(figure) { grid-column: 2; grid-row: 1; align-self: start; }
   .area-intro:has(> figure) > div { grid-column: 1; grid-row: 1; }
+  .catch {
+    margin: 0.2em 0 0.9em; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft);
+    color: var(--accent-ink); font-size: 1.12rem; font-weight: 700; line-height: 1.5;
+  }
   .insights li + li { margin-top: 0.5em; }
   .count { margin-left: 8px; padding: 1px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.8rem; vertical-align: middle; }
   .toc { position: sticky; top: calc(var(--header-h) + 4px); z-index: 2; padding: 6px 0; background: var(--surface); }
