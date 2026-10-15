@@ -23,6 +23,7 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>, pla
     ["census_foreign_nepal_share", { ...ind("census_foreign_nepal_share", "%", 1, ["2020-10-01"]), name: "国勢調査の外国人の割合（ネパール）" } as Indicator],
     ["census_foreign_nepal", ind("census_foreign_nepal", "人", 0, ["2020-10-01"], "count")],
     ["vacant_house_rate", ind("vacant_house_rate", "%", 1, ["2023-10-01"])],
+    ["vote_share_sdp", { ...ind("vote_share_sdp", "%", 1, ["2020-10-01"]), category: "選挙", family: "vote_share" } as Indicator],
     ["street_crime_total_per_100_residents", ind("street_crime_total_per_100_residents", "件/100人", 2, ["2020-10-01"])],
   ]);
   const ids = Array.from({ length: 200 }, (_, i) => `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`);
@@ -45,15 +46,21 @@ const others = (n: number) => Array.from({ length: n }, (_, i) => `muni-02${Stri
 const fill = (first: number | null, rest = 10) => [first, ...Array(199).fill(rest)];
 
 describe("areaInsights", () => {
-  it("住民基本台帳（1月）の外国人の割合が国勢調査（10月）よりかなり大きいと、季節的に働く人が多いと考えられると書く", () => {
-    const lines = areaInsights("muni-01001", makeData({
+  it("住民基本台帳（1月）の外国人の割合が国勢調査（10月）よりかなり大きいと、雪の多い地域では冬に働きに来る人が多いと考えられると書く", () => {
+    const values = {
       foreign_resident_share: { "2025-10-01": fill(21.6, 2) },
       foreign_residents_share: { "2026-01-01": fill(35.5, 2) },
       census_foreign_population: { "2025-10-01": fill(321) },
       foreign_residents: { "2026-01-01": fill(541) },
-    }));
+    };
+    const snowy = places({ weather: [{ name: "占冠", municipality_id: "muni-01001", coord: [142.4, 43.0], values: { snowfall_normal: 600 } }] });
+    const lines = areaInsights("muni-01001", makeData(values, snowy));
     expect(lines[0]).toContain("住民基本台帳（2026年1月1日現在）では35.5%、国勢調査（2025年10月1日現在）では21.6%");
-    expect(lines[0]).toContain("考えられます");
+    expect(lines[0]).toContain("冬の観光や農作業など、季節的に働きに来る外国人が多いと考えられます");
+    // 雪の少ない地域では冬と結びつけない
+    const other = areaProfile("muni-01001", makeData(values));
+    expect(other.lines[0]).not.toContain("冬");
+    expect(other.title).toBeNull();
   });
   it("外国人が少ない地域や差が小さい地域では書かない", () => {
     const few = makeData({
@@ -87,7 +94,7 @@ describe("areaInsights", () => {
       "commute_bicycle_shareは40.0%で、全国200市区町村のうち1位です（2020年10月1日現在）。平らな土地が多く、自転車で通勤・通学しやすいまちと考えられます。",
     ]);
   });
-  it("課題に当たる文だけのときは、良いところを1つ足す（言い過ぎないよう順位だけ）", () => {
+  it("課題に当たる文だけのときは、良いところを1つ足し、先に読めるようにする（言い過ぎないよう順位だけ）", () => {
     // 犯罪の件数が少ない方から 61 番目（下位約3割）
     const crime = [5, ...Array.from({ length: 199 }, (_, i) => (i < 60 ? 1 : 10))];
     const lines = areaInsights("muni-01001", makeData({
@@ -95,8 +102,8 @@ describe("areaInsights", () => {
       street_crime_total_per_100_residents: { "2020-10-01": crime },
     }));
     expect(lines).toEqual([
-      "人口は5年前から12.0%減っていて（2020年10月1日現在）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。",
       "street_crime_total_per_100_residentsは5.00 件/100人で、全国200市区町村の中で低い方から61番目です（2020年10月1日現在）。全国の中では小さい方の半分に入ります。",
+      "人口は5年前から12.0%減っていて（2020年10月1日現在）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。",
     ]);
   });
   it("空き家率が高くても人口が減っていない地域は、別荘や賃貸用の住宅が多いと書く（空き家には別荘も含むため）", () => {
@@ -184,6 +191,26 @@ describe("点のデータ（空港・天気・地価公示）の考察", () => {
     expect(areaInsights("muni-01001", makeData({}, pts))).toEqual([
       "住宅地の都道府県地価調査の価格は、まちの2地点の中央値で1㎡あたり6,500円です（2025年7月1日現在）。同じ地点で比べた2020年7月1日からの変化は-15.0%です。",
     ]);
+  });
+});
+
+describe("考察の並び", () => {
+  it("テーマごとにまとめ、題名の元になった考察のテーマを先に、選挙と課題に当たる文は後ろにする", () => {
+    const p = areaProfile("muni-01001", makeData({
+      vote_share_sdp: { "2020-10-01": fill(30, 1) },
+      population_change_rate: { "2020-10-01": fill(-12, -2) },
+      daytime_night_ratio: { "2020-10-01": fill(150, 100) },
+    }, places({
+      airportPeriods: ["2025年"],
+      airports: [{ name: "どこか", municipality_id: "muni-01001", values: [50_000] }, ...others(9).map((m) => ({ name: m, municipality_id: m, values: [1_000_000] }))],
+    })));
+    expect(p.title).toBe("空港があり、周りから人が集まるまち");
+    expect(p.groups.map((g) => g.theme)).toEqual(["交通", "仕事と産業", "住む人", "選挙"]);
+    expect(p.lines).toEqual(p.groups.flatMap((g) => g.lines));
+  });
+  it("ほかの考察が少ないときは、どの地域にも出やすい考察（昼と夜の人口がほぼ同じなど）も出す", () => {
+    const few = areaProfile("muni-01001", makeData({ daytime_night_ratio: { "2020-10-01": fill(100, 100) } }));
+    expect(few.lines.join("")).toContain("昼と夜の人口がほぼ同じ");
   });
 });
 

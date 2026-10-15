@@ -50,6 +50,8 @@ const profile = areaProfile(muni.id, {
   places: () => loadPlacePoints(),
 });
 const insights = profile.lines;
+// 考察はテーマ（気候と土地・交通・住む人など）ごとにまとめ、目立つテーマから並べる（設計変更記録 #116）
+const insightGroups = profile.groups;
 const place = [pref, muni.region].filter(Boolean).join("・");
 const statCount = stats.filter((s) => s.row?.value != null).length;
 const description = `${muni.name}（${place}）の人口・年齢構成など${statCount}の指標を公開データで紹介。` +
@@ -90,7 +92,14 @@ const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank
         {insights.length > 0 && (
           <>
             <h3>データから考えられること</h3>
-            <ul class="insights">{insights.map((line) => <li>{line}</li>)}</ul>
+            <div class="insight-groups">
+              {insightGroups.map((g) => (
+                <section class="insight-group">
+                  <h4>{g.theme}</h4>
+                  <ul class="insights">{g.lines.map((line) => <li>{line}</li>)}</ul>
+                </section>
+              ))}
+            </div>
           </>
         )}
         <p class="muted">順位は値の大きい順で、大きいほど良い・悪いという意味ではありません。
@@ -216,6 +225,13 @@ const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank
     margin: 0.2em 0 0.9em; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft);
     color: var(--accent-ink); font-size: 1.12rem; font-weight: 700; line-height: 1.5;
   }
+  .insight-groups { display: grid; gap: 14px; margin-top: 4px; }
+  .insight-group { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 4px 14px; align-items: start; }
+  .insight-group h4 {
+    margin: 2px 0 0; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink);
+    font-size: 0.8rem; font-weight: 700; text-align: center; white-space: nowrap;
+  }
+  .insights { margin: 0; padding-left: 1.2em; }
   .insights li + li { margin-top: 0.5em; }
   .count { margin-left: 8px; padding: 1px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.8rem; vertical-align: middle; }
   .toc { position: sticky; top: calc(var(--header-h) + 4px); z-index: 2; padding: 6px 0; background: var(--surface); }
@@ -261,6 +277,8 @@ const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank
     .area-intro > :global(figure) { grid-column: 1; grid-row: 1; }
     .area-intro > :global(figure) :global(svg) { max-width: 120px; max-height: 120px; }
     .area-intro:has(> figure) > div { grid-row: 2; }
+    .insight-group { grid-template-columns: 1fr; }
+    .insight-group h4 { justify-self: start; }
     .stat-head { display: none; }
     .stat-list li { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 2px; align-items: start; }
     .stat-value { font-size: 1.1rem; }

@@ -34,6 +34,11 @@ export interface MuniPlaces {
   land?: { median: number; points: number; label: string; pos: Pos; survey?: boolean; change?: { rate: number; points: number; from: string; pos: Pos } };
   /** 代表点にいちばん近い観測所の平年値（要素ごと）と標高 */
   weather?: { station: string; altitude: number | null; label: string; values: Record<string, { value: number; pos: Pos; station: string }> };
+  /**
+   * 代表点からおよそ30km以内でいちばん近い、降雪量を観測している観測所の年間の降雪量（cm）。
+   * 値としては出さず、雪の多い地域かどうかで考察の言い回しを選ぶのにだけ使う（降雪量を観測する観測所は少ないため）
+   */
+  snowNearby?: number;
 }
 
 const median = (xs: number[]) => {
@@ -167,6 +172,16 @@ export function summarizePlaces(p: PlacePoints): Map<string, MuniPlaces> {
       if (s) values[e] = { value: s.values[e] as number, pos: elementRank.get(e)!(s.values[e] as number), station: s.name };
     }
     get(muni).weather = { station: sorted[0].name, altitude: sorted[0].altitude_m ?? null, label: p.weatherLabel, values };
+  }
+  const snowStations = p.weather.filter((s) => s.values.snowfall_normal != null);
+  for (const [muni, c] of p.centers) {
+    const cos = Math.cos((c[1] * Math.PI) / 180);
+    let nearest: number | null = null, best = 0.3;
+    for (const s of snowStations) {
+      const d = Math.hypot((s.coord[0] - c[0]) * cos, s.coord[1] - c[1]);
+      if (d <= best) { best = d; nearest = s.values.snowfall_normal as number; }
+    }
+    if (nearest !== null) get(muni).snowNearby = nearest;
   }
   return out;
 }
