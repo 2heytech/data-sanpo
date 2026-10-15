@@ -28,9 +28,18 @@ from ..regions import PREFECTURES
 
 ERAS = {"平成": 1988, "令和": 2018}
 _PREF = "|".join(sorted(PREFECTURES.values(), key=len, reverse=True))
-ROW = re.compile(rf"^\s*({_PREF})\s+(\S+)\s")
+ROW = re.compile(rf"^\s*({_PREF})\s*(\S+)\s")   # 「和歌山県かつらぎ町」のように間が空かない県もある
 RATE = re.compile(r"(\d+)\s*%\s*未満\s*$")
 YEAR = re.compile(r"(平成|令和)(元|\d+)年度\s*$")
+# 市区町村名の書き方の違い（令和4〜7年度の PDF で確認）: 「岩瀬郡鏡石町」のような郡名付き、「羅臼町教育委員会」「東海村役場」、
+# 「梼原町」「諌早市」のような字体の違い
+SUFFIX = re.compile(r"(教育委員会|役場|役所)$")
+GUN = re.compile(r"^.+?郡")
+VARIANTS = str.maketrans({"梼": "檮", "諌": "諫", "ヶ": "ケ", "髙": "高", "﨑": "崎"})
+
+
+def _norm(name: str) -> str:
+    return SUFFIX.sub("", unicodedata.normalize("NFKC", name)).translate(VARIANTS)
 
 
 def pdf_text(path: Path) -> str:
@@ -41,6 +50,20 @@ def pdf_text(path: Path) -> str:
                           text=True, encoding="utf-8").stdout
 
 
+FRAGMENT = re.compile(r"^\s{1,20}([^\s○\d]{1,8})(\s|$)")
+
+
+def _fragment(lines: list[str], i: int, step: int) -> str:
+    """折り返された市区町村名の一部（すぐ上・すぐ下の空でない行の、名前の欄にある短い語）。"""
+    j = i + step
+    while 0 <= j < len(lines) and not lines[j].strip():
+        j += step
+    if not 0 <= j < len(lines) or ROW.match(lines[j]):
+        return ""
+    m = FRAGMENT.match(lines[j])
+    return m.group(1) if m else ""
+
+
 def read_rates(text: str) -> tuple[int | None, dict[tuple[str, str], int | None]]:
     """(就学援助率の年度, (都道府県名, 市区町村名) → 区分の上の端（%）。区分が読めない行は None)。"""
     year: int | None = None
@@ -48,15 +71,21 @@ def read_rates(text: str) -> tuple[int | None, dict[tuple[str, str], int | None]
     for page in text.split("\f"):
         if "援助率" not in page:
             continue
-        for line in page.splitlines():
-            line = unicodedata.normalize("NFKC", line)
+        lines = [unicodedata.normalize("NFKC", l) for l in page.splitlines()]
+        for i, line in enumerate(lines):
             if year is None and (m := YEAR.search(line)):
                 year = ERAS[m.group(1)] + (1 if m.group(2) == "元" else int(m.group(2)))
             row = ROW.match(line)
             if not row:
                 continue
             rate = RATE.search(line)
-            key = (row.group(1), row.group(2))
+            muni = row.group(2)
+            if muni.startswith("○"):
+                # 長い名前は行の上下に折り返される（「多治見」／「岐阜県 ○ ○ … 10%未満」／「市」）
+                muni = _fragment(lines, i, -1) + _fragment(lines, i, 1)
+                if not muni:
+                    continue
+            key = (row.group(1), muni)
             if rate or key not in out:
                 out[key] = int(rate.group(1)) if rate else None
     return year, out
@@ -67,8 +96,14 @@ def _entities(conn: sqlite3.Connection) -> dict[tuple[str, str], str]:
     for r in conn.execute("SELECT entity_id, name FROM entities WHERE entity_type = 'municipality'"):
         pref = PREFECTURES.get(r["entity_id"].split("-", 1)[1][:2])
         if pref:
-            out[(pref, unicodedata.normalize("NFKC", r["name"]))] = r["entity_id"]
+            out[(pref, _norm(r["name"]))] = r["entity_id"]
     return out
+
+
+def _match(entities: dict[tuple[str, str], str], pref: str, muni: str) -> str | None:
+    """名前で市区町村を探す。見つからなければ頭の郡名を外して探す（「大和郡山市」などは先にそのままの名前で見つかる）。"""
+    name = _norm(muni)
+    return entities.get((pref, name)) or entities.get((pref, GUN.sub("", name, count=1)))
 
 
 def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog: dict,
@@ -84,7 +119,7 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
             continue
         result["rows"] += len(rates)
         for (pref, muni), upper in rates.items():
-            entity_id = entities.get((pref, muni))
+            entity_id = _match(entities, pref, muni)
             if entity_id is None:
                 result["unmatched"].append(f"{pref}{muni}")   # 政令指定都市（地図の単位は区）など
                 continue
