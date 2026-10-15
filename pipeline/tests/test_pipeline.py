@@ -1964,7 +1964,9 @@ def test_school_aid_rate(built):
     """就学援助率: 文部科学省の PDF（見本はテキスト）の5%刻みの区分を、区分の上の端の値で持つ（#106）。"""
     from tdm.ingest.mext_school_aid import read_rates
     year, rates = read_rates((built.raw / "mext_school_aid_2024" / "13" / "13.txt").read_text(encoding="utf-8"))
-    assert year == 2024 and rates[("東京都", "サンプル区")] == 20 and rates[("東京都", "かりの村")] == 0
+    assert year == 2024 and rates[("東京都", "サンプル区")] == 20
+    # 上下に折り返された名前をつなぐ。郡名・「役場」付きの名前は取り込むときに市区町村と突き合わせる
+    assert rates[("東京都", "ためし市")] == 10 and rates[("東京都", "見本郡かりの村役場")] == 0
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
     aid = by["school_aid_rate"]
     assert [p["label"] for p in aid["periods"]] == ["2021年度", "2022年度", "2023年度", "2024年度"]

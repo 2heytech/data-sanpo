@@ -642,9 +642,16 @@ def _write_school_aid(directory: Path) -> dict[str, Path]:
             head = ("                         ３．就学援助制度の根拠規定・認定基準について                 ４．就学援助率\n"
                     f"   都道府県 市区町村名        （５）補足事項                                 {label}\n"
                     "    62    62    52\n")
-            body = "\n\n".join(f"{name}   {m}       ○    ○    ○     1.3     特別の事情\n"
-                                 f"  {name} {m}    ○    ○    ○    ○    1.3" + (f"        {r}" if r else "")
-                                 for m, r in rows.items())
+            def row(m: str, r: str | None) -> str:
+                rate = f"        {r}" if r else ""
+                if year == 2024 and m == "ためし市":
+                    # 長い名前は行の上下に折り返される（岐阜県などの PDF）
+                    return f"      ため\n  {name}       ○    ○    ○    ○    1.3{rate}\n       し市"
+                if year == 2024 and m == "かりの村":
+                    m = "見本郡かりの村役場"   # 郡名・「役場」付きで書く市町村もある
+                return (f"{name}   {m}       ○    ○    ○     1.3     特別の事情\n"
+                        f"  {name} {m}    ○    ○    ○    ○    1.3{rate}")
+            body = "\n\n".join(row(m, r) for m, r in rows.items())
             pages.append(head + body)
             d = directory / f"mext_school_aid_{year}" / pref
             d.mkdir(parents=True, exist_ok=True)
