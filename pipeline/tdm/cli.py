@@ -29,12 +29,12 @@ from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
 from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
                      estat_commerce, estat_economic_census, estat_school_basic, estat_school_municipal,
-                     jma_normals,
+                     gsi_area, jma_normals,
                      estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
                      keishicho_crime, mext_school_aid,
                      mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, mlit_transport, nier_gakuryoku,
-                     npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_furusato, soumu_tax,
-                     tokyo_childcare,
+                     npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_finance, soumu_furusato,
+                     soumu_tax, tokyo_childcare,
                      tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
 from .regions import selected_prefectures
@@ -216,7 +216,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
-                        "gsi_airports", "gsi_ports", "soumu_election"):
+                        "gsi_airports", "gsi_ports", "soumu_election", "soumu_fiscal_indicators",
+                        "soumu_settlement", "gsi_area"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -337,6 +338,15 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                 conn, files, src, catalog, (cfg["period"], cfg["period"], "point"), prefs)
         elif kind == "mext_school_aid":
             result[key] = mext_school_aid.ingest(conn, files, src, catalog, int(cfg["fiscal_year"]))
+        elif kind in ("soumu_fiscal_indicators", "soumu_settlement"):
+            y = int(cfg["fiscal_year"])
+            period = (f"{y}-04-01", f"{y + 1}-03-31", "fiscal_year")
+            result[key] = (soumu_finance.ingest_fiscal_indicators(conn, files[0], src, catalog, period, prefs)
+                           if kind == "soumu_fiscal_indicators" else
+                           soumu_finance.ingest_settlement(conn, files, src, catalog, period, prefs))
+        elif kind == "gsi_area":
+            result[key] = gsi_area.ingest(conn, files[0], src, catalog, cfg["column"],
+                                          (cfg["period"], cfg["period"], "point"), prefs)
         elif kind == "soumu_tax":
             y = int(cfg["fiscal_year"])
             result[key] = soumu_tax.ingest(conn, files[0], src, catalog,

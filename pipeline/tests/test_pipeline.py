@@ -7,9 +7,9 @@ import pytest
 from tdm import fixture
 from tdm.cli import cmd_build
 from tdm.config import Paths, load_censuses, load_indicators
-from tdm.db import connect, init_schema, insert_observation, upsert_indicators
+from tdm.db import connect, init_schema, insert_observation, upsert_entity, upsert_indicators
 from tdm.ingest.estat_small_area import normalize_label, parse_cell
-from tdm.regions import region_of
+from tdm.regions import designated_city_wards, region_of
 
 
 @pytest.fixture(scope="module")
@@ -952,7 +952,8 @@ def test_resident_tax(built):
     # 神奈川県も取り込むが、政令指定都市（市全体の行）の値を区に割り振らない
     assert "14190" in read_rows(next((built.raw / "soumu_tax_2025").glob("*.xlsx")), ["13", "14"])
     rows = {r["entity_id"]: r for r in load(built, f"values/resident_tax_per_taxpayer/{pid}/municipalities.json")["rows"]}
-    assert rows.get("muni-14199", {}).get("value") is None
+    assert rows["muni-14199"]["value"] is None and rows["muni-14199"]["status"] == "not_applicable"
+    assert "市全体の値だけ" in rows["muni-14199"]["note"]                      # 「データなし」に見えないよう理由を書く
     # 所得割を納める人の割合: 分母は同じ年の1月1日の住民基本台帳の人口（#106）
     share = by["income_levy_taxpayer_share"]
     assert share["unit"] == "%" and "income_levy_taxpayers" not in by    # 分子の人数は公開しない
@@ -963,6 +964,87 @@ def test_resident_tax(built):
     assert r["muni-13499"]["value"] is None                                # 人口50人未満は出さない
     pref = {r["entity_id"]: r for r in load(built, f"values/income_levy_taxpayer_share/{pid}/prefectures.json")["rows"]}
     assert 0 < pref["pref-13"]["value"] < 100
+
+
+
+def test_finance(built):
+    """財政（主要財政指標一覧・市町村別決算状況調、#119）。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    # 住民税と課税対象所得は「種別」で切り替えず、別々の指標にする
+    assert by["resident_tax_per_taxpayer"]["family"] is None and by["taxable_income_per_taxpayer"]["family"] is None
+    fs = by["fiscal_strength_index"]
+    assert fs["category"] == "財政" and fs["unit"] == ""
+    assert [p["label"] for p in fs["periods"]] == ["2023年度", "2024年度"]
+
+    def rows(indicator, level="municipalities", period="2024-04-01"):
+        return {r["entity_id"]: r for r in load(built, f"values/{indicator}/{period}/{level}.json")["rows"]}
+
+    v = fixture.fiscal_values(2024)
+    assert rows("fiscal_strength_index")["muni-13199"]["value"] == v["13199"][0]
+    assert rows("current_balance_ratio")["muni-13299"]["value"] == v["13299"][1]
+    assert rows("real_debt_service_ratio")["muni-13199"]["value"] == v["13199"][2] < 0     # マイナスもそのまま
+    burden = rows("future_burden_ratio")
+    # 「-」（将来負担なし）は0で塗り、注記を付ける。空欄は値なしのまま（0にしない）
+    assert burden["muni-13199"]["value"] == 0 and "将来負担なし" in burden["muni-13199"]["note"]
+    assert burden["muni-13499"]["value"] is None and burden["muni-13499"]["status"] == "missing"
+    assert burden["muni-13299"]["value"] == v["13299"][3]
+    # 政令指定都市は市全体の値だけなので、区には割り振らない（区には理由を書く）
+    assert burden["muni-14199"]["value"] is None and burden["muni-14199"]["status"] == "not_applicable"
+    assert "市全体の値だけ" in burden["muni-14199"]["note"]
+    # 比率は合計できないので、都道府県の値は出さない
+    pref = rows("future_burden_ratio", "prefectures")
+    assert pref["pref-13"]["value"] is None and pref["pref-13"]["status"] == "not_applicable"
+
+    s = {r[0]: r for r in fixture.SETTLEMENT_ROWS}
+    exp = rows("expenditure_per_capita")["muni-13199"]
+    assert exp["numerator"] == s["13199"][4] and exp["denominator"] == s["13199"][3]
+    assert abs(exp["value"] - s["13199"][4] * 1000 / s["13199"][3]) < 0.01           # 千円 → 円
+    # 歳入内訳の「地方税」は最初の列（内訳の表の同じ名前の列ではない）
+    assert rows("local_tax_per_capita")["muni-13299"]["numerator"] == s["13299"][5]
+    assert rows("local_debt_per_capita")["muni-13199"]["value"] == 0                   # 「-」は地方債なし
+    assert rows("reserve_fund_per_capita")["muni-13499"]["denominator"] == s["13499"][3]
+    # 都道府県の値は、政令指定都市（市全体）も含めた県内の合計 ÷ 人口の合計
+    pref = rows("expenditure_per_capita", "prefectures")
+    tokyo = [s[c] for c in ("13199", "13299", "13499")]
+    assert abs(pref["pref-13"]["value"] - sum(r[4] for r in tokyo) * 1000 / sum(r[3] for r in tokyo)) < 0.01
+    assert abs(pref["pref-14"]["value"] - s["14190"][4] * 1000 / s["14190"][3]) < 0.01
+    ward = rows("expenditure_per_capita")["muni-14199"]
+    assert ward["value"] is None and ward["status"] == "not_applicable" and "市全体の値だけ" in ward["note"]
+    assert "01100" not in {e[5:] for e in rows("expenditure_per_capita")}              # 取り込まない都道府県
+
+
+def test_designated_city_wards():
+    """政令指定都市の区を、市のすぐ後ろの区の地域区分（市の名前）で集める（#119）。"""
+    conn = connect(":memory:")
+    init_schema(conn)
+    wards = {"14131": "川崎市", "14137": "川崎市", "14151": "相模原市", "14153": "相模原市",
+             "22131": "浜松市", "22138": "浜松市", "22140": "浜松市", "14201": None, "13101": "区部"}
+    for pref in ("13", "14", "22"):
+        upsert_entity(conn, f"pref-{pref}", "prefecture", pref)
+    for code, region in wards.items():
+        upsert_entity(conn, f"muni-{code}", "municipality", code, f"pref-{code[:2]}", region)
+    assert designated_city_wards(conn, "14130") == ["muni-14131", "muni-14137"]   # 相模原市の区（14151〜）は入れない
+    assert designated_city_wards(conn, "14150") == ["muni-14151", "muni-14153"]
+    assert designated_city_wards(conn, "22130") == ["muni-22131", "muni-22138", "muni-22140"]
+    assert designated_city_wards(conn, "14200") == [] and designated_city_wards(conn, "13100") == []
+
+
+def test_area(built):
+    """面積（国土地理院の面積調、#119）。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    area = by["area"]
+    assert area["category"] == "土地" and area["unit"] == "km²"
+    assert [p["period"] for p in area["periods"]] == ["2020-10-01", "2025-10-01"]
+    for period in ("2020-10-01", "2025-10-01"):
+        munis = {r["entity_id"]: r for r in load(built, f"values/area/{period}/municipalities.json")["rows"]}
+        prefs = {r["entity_id"]: r for r in load(built, f"values/area/{period}/prefectures.json")["rows"]}
+        assert munis["muni-13299"]["value"] == fixture.area_value(period, "13299")
+        assert "参考値" in munis["muni-13199"]["note"]                                    # 境界未定
+        assert "湖の一部を除く" in munis["muni-13499"]["note"]
+        assert munis["muni-14199"]["value"] == fixture.area_value(period, "14199")        # 政令指定都市の区
+        # 都道府県は公表値（市区町村の合計ではない）
+        assert prefs["pref-13"]["value"] == fixture.area_value(period, "13000")
+        assert prefs["pref-13"]["value"] != round(sum(r["value"] for e, r in munis.items() if e.startswith("muni-13")), 2)
 
 
 def test_childcare(built):

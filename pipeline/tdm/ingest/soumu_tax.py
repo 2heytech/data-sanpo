@@ -18,10 +18,11 @@ import sqlite3
 from pathlib import Path
 
 from ..db import insert_observation
-from ..regions import TOKYO, municipality_entity_id, prefecture_entity_id
+from ..regions import TOKYO, current_code, designated_city_wards, municipality_entity_id, prefecture_entity_id
 from ..xlsx import read_sheet
 
 CITY, PREF = "市町村民税", "道府県民税"
+WARD_NOTE = "政令指定都市は市全体の値だけが公表されているため、区の値はありません"
 
 
 def read_rows(path: Path, prefs: list[str] | None = None) -> dict[str, dict[str, dict[str, float]]]:
@@ -35,7 +36,7 @@ def read_rows(path: Path, prefs: list[str] | None = None) -> dict[str, dict[str,
     for r in rows[at + 1:]:
         if len(r) <= col["表側"]:
             continue
-        code = str(r[col["団体コード"]]).strip()[:5]
+        code = current_code(str(r[col["団体コード"]]).strip()[:5])   # 市になる前の町のコードなど
         if code[:2] not in prefs:
             continue
         out.setdefault(code, {})[str(r[col["表側"]]).strip()] = {
@@ -66,6 +67,8 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
             # 政令指定都市は市全体の値しかない。区に割り振ると元データより細かくなるので、区には値を入れない
             designated = _is_designated_city(conn, code)
             result["designated_cities" if designated else "unmatched"].append(code)
+            if designated:
+                _insert_ward_notes(conn, code, targets, source_id, period)
             # 区の行も表にあるとき（東京都の特別区の計など）は二重に数えない
             if designated and not any(c[:4] == code[:4] and c != code for c in data):
                 by_pref.setdefault(code[:2], []).append(sides)
@@ -82,6 +85,18 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
         _insert(conn, prefecture_entity_id(pref), total, targets, source_id, period)
         result["prefectures"] += 1
     return result
+
+
+def _insert_ward_notes(conn: sqlite3.Connection, city_code: str, targets: dict, source_id: str,
+                       period: tuple[str, str, str]) -> None:
+    """区の行に理由を書く（地図で「データなし」と見えないように）。納税義務者数は住民に占める割合の分子なので入れない。"""
+    for ward in designated_city_wards(conn, city_code):
+        for indicator_id, d in targets.items():
+            if d["tax_value"] != "taxpayers":
+                insert_observation(conn, entity_id=ward, indicator_id=indicator_id,
+                                   definition_version=d["definition_version"], period_start=period[0],
+                                   period_end=period[1], period_kind=period[2], source_id=source_id,
+                                   value=None, status="not_applicable", method_note=WARD_NOTE)
 
 
 def _insert(conn: sqlite3.Connection, entity_id: str, sides: dict, targets: dict, source_id: str,

@@ -15,6 +15,7 @@ import hashlib
 import io
 import json
 import re
+import ssl
 import sys
 import time
 import http.cookiejar
@@ -76,13 +77,29 @@ def _is_office_file(data: bytes) -> bool:
 RETRIES = 3
 
 
+def _legacy_tls_context() -> ssl.SSLContext:
+    """古い TLS の再ネゴシエーションにしか対応していないサイト（国土地理院の www.gsi.go.jp。OpenSSL 3 の既定では
+    「unsafe legacy renegotiation disabled」で接続できない）に、証明書の検証は保ったままつなぐ設定。"""
+    ctx = ssl.create_default_context()
+    ctx.options |= getattr(ssl, "OP_LEGACY_SERVER_CONNECT", 0x4)
+    return ctx
+
+
+def _is_legacy_renegotiation(e: Exception) -> bool:
+    return "UNSAFE_LEGACY_RENEGOTIATION_DISABLED" in str(getattr(e, "reason", e))
+
+
 def download(url: str) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    context = None
     for attempt in range(RETRIES):
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+            with urllib.request.urlopen(req, timeout=TIMEOUT, context=context) as res:
                 return res.read()
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            if context is None and _is_legacy_renegotiation(e):
+                context = _legacy_tls_context()   # その接続のときだけ古い方式を許して、すぐにやり直す
+                continue
             # 404 などはやり直しても変わらない。一時的な失敗（5xx・接続断）だけ間をあけてやり直す
             if isinstance(e, urllib.error.HTTPError) and e.code < 500 or attempt == RETRIES - 1:
                 raise

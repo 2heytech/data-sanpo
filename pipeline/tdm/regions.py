@@ -32,6 +32,32 @@ def selected_prefectures(value: str | None = None) -> list[str]:
     return sorted(set(codes))
 
 
+# 町村が市になるなどして団体コードが変わった市区町村（古いコード → 地図の地域のコード）。総務省の年度ごとの表で、
+# 変わる前の年度の行を地図の市区町村に合わせる（福岡県那珂川町は2018年10月に市になった。2016〜2018年度の表は町のコード）
+CODE_CHANGES = {"40305": "40231"}
+
+
+def current_code(city_code5: str) -> str:
+    return CODE_CHANGES.get(city_code5, city_code5)
+
+
+def designated_city_wards(conn, city_code5: str) -> list[str]:
+    """政令指定都市（市全体のコード。例: 横浜市 14100）の区の地域ID。政令指定都市でなければ空。
+    区のコードは市のコードのすぐ後ろ（横浜市は 14101〜14118、浜松市 22130 は 22131〜22140）。次の政令指定都市までの
+    間隔は区の数より狭いことがある（川崎市 14130 と相模原市 14150）ので、市のすぐ後ろの区の地域区分（市の名前）で集める。"""
+    if city_code5[:2] == TOKYO:
+        return []   # 東京都の地域区分（区部・多摩・島しょ）は政令指定都市ではない
+    first = conn.execute(
+        """SELECT region FROM entities WHERE entity_type = 'municipality' AND region IS NOT NULL
+             AND entity_id > ? AND entity_id <= ? ORDER BY entity_id LIMIT 1""",
+        (municipality_entity_id(city_code5), municipality_entity_id(f"{int(city_code5) + 10:05d}"))).fetchone()
+    if first is None:
+        return []
+    return [r[0] for r in conn.execute(
+        """SELECT entity_id FROM entities WHERE entity_type = 'municipality' AND region = ? AND entity_id LIKE ?
+           ORDER BY entity_id""", (first[0], f"muni-{city_code5[:2]}%"))]
+
+
 def prefecture_entity_id(pref_code: str) -> str:
     return f"pref-{pref_code}"
 
