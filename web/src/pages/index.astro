@@ -129,7 +129,7 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
                       <td>
                         <strong>{groupName(main)}</strong>
                         <div class="small">{variants.map((v, k) => (<>{k > 0 && "・"}<a href={`/indicators/${v.id}/`}>{v.facets!.type}</a></>))}</div>
-                        <div class="small muted show-sp">{main.unit}・{yearsOf(main)}</div>
+                        <div class="small muted show-sp">{[main.unit, yearsOf(main)].filter(Boolean).join("・")}</div>
                       </td>
                       <td class="nowrap hide-sp">{main.unit}</td>
                       <td class="nowrap hide-sp">{yearsOf(main)}</td>
@@ -142,7 +142,7 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
                         {variants.length > 0 && (
                           <div class="small">{variants.map((v, k) => (<>{k > 0 && "・"}<a href={`/indicators/${v.id}/`}>{basisLabel(v)}</a></>))}</div>
                         )}
-                        <div class="small muted show-sp">{main.unit}・{yearsOf(main)}</div>
+                        <div class="small muted show-sp">{[main.unit, yearsOf(main)].filter(Boolean).join("・")}</div>
                       </td>
                       <td class="nowrap hide-sp">{main.unit}</td>
                       <td class="nowrap hide-sp">{yearsOf(main)}</td>

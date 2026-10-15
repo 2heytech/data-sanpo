@@ -32,6 +32,15 @@ def selected_prefectures(value: str | None = None) -> list[str]:
     return sorted(set(codes))
 
 
+# 町村が市になるなどして団体コードが変わった市区町村（古いコード → 地図の地域のコード）。総務省の年度ごとの表で、
+# 変わる前の年度の行を地図の市区町村に合わせる（福岡県那珂川町は2018年10月に市になった。2016〜2018年度の表は町のコード）
+CODE_CHANGES = {"40305": "40231"}
+
+
+def current_code(city_code5: str) -> str:
+    return CODE_CHANGES.get(city_code5, city_code5)
+
+
 def prefecture_entity_id(pref_code: str) -> str:
     return f"pref-{pref_code}"
 

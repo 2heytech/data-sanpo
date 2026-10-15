@@ -3833,6 +3833,112 @@ attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat
 modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（男女計）を抜き出し、割合を算出して作成"
 redistributable = true
 
+# 2016〜2022年度も同じ形式の第11表（J51-{yy}-b.xlsx）。2026-10-15 に平成28年度・令和元〜4年度の表を取得して列名を確認
+[soumu_tax_2016]
+kind = "soumu_tax"
+fiscal_year = 2016
+title = "市町村税課税状況等の調 平成28年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_16.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-16-b.xlsx"
+files = ["J51-16-b.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+[soumu_tax_2017]
+kind = "soumu_tax"
+fiscal_year = 2017
+title = "市町村税課税状況等の調 平成29年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_17.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-17-b.xlsx"
+files = ["J51-17-b.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+[soumu_tax_2018]
+kind = "soumu_tax"
+fiscal_year = 2018
+title = "市町村税課税状況等の調 平成30年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_18.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-18-b.xlsx"
+files = ["J51-18-b.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+[soumu_tax_2019]
+kind = "soumu_tax"
+fiscal_year = 2019
+title = "市町村税課税状況等の調 令和元年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_19.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-19-b.xlsx"
+files = ["J51-19-b.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+[soumu_tax_2020]
+kind = "soumu_tax"
+fiscal_year = 2020
+title = "市町村税課税状況等の調 令和2年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_20.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-20-b.xlsx"
+files = ["J51-20-b.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+[soumu_tax_2021]
+kind = "soumu_tax"
+fiscal_year = 2021
+title = "市町村税課税状況等の調 令和3年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_21.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-21-b.xlsx"
+files = ["J51-21-b.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+[soumu_tax_2022]
+kind = "soumu_tax"
+fiscal_year = 2022
+title = "市町村税課税状況等の調 令和4年度 〔市町村別内訳〕第11表 課税標準額段階別所得割額等に関する調（合計）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/ichiran09_22.html"
+download_url = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/xls/J51-22-b.xlsx"
+files = ["J51-22-b.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村税課税状況等の調」"
+modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
 [soumu_tax_2023]
 kind = "soumu_tax"
 fiscal_year = 2023
@@ -3873,6 +3979,343 @@ license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
 attribution = "出典：総務省「市町村税課税状況等の調」"
 modification_note = "区市町村の所得割額・課税対象所得・納税義務者数から納税者1人あたりの額を算出して作成"
+redistributable = true
+
+# 地方公共団体の主要財政指標一覧（総務省）の「全市町村の主要財政指標」。財政力指数・経常収支比率・実質公債費比率・
+# 将来負担比率（市区町村、政令指定都市は市全体）。ファイル名は年度ごとに違う番号なので年度ごとに書く。
+# 平成28年度以前は .xls（形式が違う）なので、決算状況調と同じ平成29年度から。形式は pipeline/tdm/ingest/soumu_finance.py
+[soumu_fiscal_2017]
+kind = "soumu_fiscal_indicators"
+fiscal_year = 2017
+title = "平成29年度 地方公共団体の主要財政指標一覧（全市町村の主要財政指標）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/H28_chiho_00001.html"
+download_url = "https://www.soumu.go.jp/main_content/000588541.xlsx"
+download_filename = "fiscal_2017.xlsx"
+files = ["fiscal_2017.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「地方公共団体の主要財政指標一覧」"
+modification_note = "市区町村の財政力指数・経常収支比率・実質公債費比率・将来負担比率を抜き出して作成"
+redistributable = true
+
+[soumu_fiscal_2018]
+kind = "soumu_fiscal_indicators"
+fiscal_year = 2018
+title = "平成30年度 地方公共団体の主要財政指標一覧（全市町村の主要財政指標）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/H30_chiho.html"
+download_url = "https://www.soumu.go.jp/main_content/000659497.xlsx"
+download_filename = "fiscal_2018.xlsx"
+files = ["fiscal_2018.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「地方公共団体の主要財政指標一覧」"
+modification_note = "市区町村の財政力指数・経常収支比率・実質公債費比率・将来負担比率を抜き出して作成"
+redistributable = true
+
+[soumu_fiscal_2019]
+kind = "soumu_fiscal_indicators"
+fiscal_year = 2019
+title = "令和元年度 地方公共団体の主要財政指標一覧（全市町村の主要財政指標）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/R01_chiho.html"
+download_url = "https://www.soumu.go.jp/main_content/000722368.xlsx"
+download_filename = "fiscal_2019.xlsx"
+files = ["fiscal_2019.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「地方公共団体の主要財政指標一覧」"
+modification_note = "市区町村の財政力指数・経常収支比率・実質公債費比率・将来負担比率を抜き出して作成"
+redistributable = true
+
+[soumu_fiscal_2020]
+kind = "soumu_fiscal_indicators"
+fiscal_year = 2020
+title = "令和2年度 地方公共団体の主要財政指標一覧（全市町村の主要財政指標）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/R02_chiho.html"
+download_url = "https://www.soumu.go.jp/main_content/000781156.xlsx"
+download_filename = "fiscal_2020.xlsx"
+files = ["fiscal_2020.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「地方公共団体の主要財政指標一覧」"
+modification_note = "市区町村の財政力指数・経常収支比率・実質公債費比率・将来負担比率を抜き出して作成"
+redistributable = true
+
+[soumu_fiscal_2021]
+kind = "soumu_fiscal_indicators"
+fiscal_year = 2021
+title = "令和3年度 地方公共団体の主要財政指標一覧（全市町村の主要財政指標）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/R03_chiho.html"
+download_url = "https://www.soumu.go.jp/main_content/000849999.xlsx"
+download_filename = "fiscal_2021.xlsx"
+files = ["fiscal_2021.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「地方公共団体の主要財政指標一覧」"
+modification_note = "市区町村の財政力指数・経常収支比率・実質公債費比率・将来負担比率を抜き出して作成"
+redistributable = true
+
+[soumu_fiscal_2022]
+kind = "soumu_fiscal_indicators"
+fiscal_year = 2022
+title = "令和4年度 地方公共団体の主要財政指標一覧（全市町村の主要財政指標）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/R04_chiho.html"
+download_url = "https://www.soumu.go.jp/main_content/000917808.xlsx"
+download_filename = "fiscal_2022.xlsx"
+files = ["fiscal_2022.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「地方公共団体の主要財政指標一覧」"
+modification_note = "市区町村の財政力指数・経常収支比率・実質公債費比率・将来負担比率を抜き出して作成"
+redistributable = true
+
+[soumu_fiscal_2023]
+kind = "soumu_fiscal_indicators"
+fiscal_year = 2023
+title = "令和5年度 地方公共団体の主要財政指標一覧（全市町村の主要財政指標）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/menu_seisaku/toukei/02zaisei07_04000131.html"
+download_url = "https://www.soumu.go.jp/main_content/000983094.xlsx"
+download_filename = "fiscal_2023.xlsx"
+files = ["fiscal_2023.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「地方公共団体の主要財政指標一覧」"
+modification_note = "市区町村の財政力指数・経常収支比率・実質公債費比率・将来負担比率を抜き出して作成"
+redistributable = true
+
+[soumu_fiscal_2024]
+kind = "soumu_fiscal_indicators"
+fiscal_year = 2024
+title = "令和6年度 地方公共団体の主要財政指標一覧（全市町村の主要財政指標）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/menu_seisaku/toukei/02zaisei07_04000135.html"
+download_url = "https://www.soumu.go.jp/main_content/001044529.xlsx"
+download_filename = "fiscal_2024.xlsx"
+files = ["fiscal_2024.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「地方公共団体の主要財政指標一覧」"
+modification_note = "市区町村の財政力指数・経常収支比率・実質公債費比率・将来負担比率を抜き出して作成"
+redistributable = true
+
+# 市町村別決算状況調（総務省）の都市別・町村別の「概況」「歳入内訳」「地方債現在高等」。住民1人あたりの歳出額・
+# 地方税・地方債現在高・積立金現在高（金額 ÷ 住民基本台帳登載人口）。保存名の末尾の番号（1・2・5）は資料の番号
+[soumu_settlement_2017]
+kind = "soumu_settlement"
+fiscal_year = 2017
+title = "平成29年度 市町村別決算状況調（概況・歳入内訳・地方債現在高等）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/h29_shichouson.html"
+files = ["city_*.xlsx", "town_*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村別決算状況調」"
+modification_note = "市区町村の歳出総額・地方税・地方債現在高・積立金現在高を住民基本台帳登載人口で割って作成"
+redistributable = true
+
+[soumu_settlement_2017.download_files]
+"city_1.xlsx" = "https://www.soumu.go.jp/main_content/000607403.xlsx"
+"city_2.xlsx" = "https://www.soumu.go.jp/main_content/000607404.xlsx"
+"city_5.xlsx" = "https://www.soumu.go.jp/main_content/000607407.xlsx"
+"town_1.xlsx" = "https://www.soumu.go.jp/main_content/000607408.xlsx"
+"town_2.xlsx" = "https://www.soumu.go.jp/main_content/000607409.xlsx"
+"town_5.xlsx" = "https://www.soumu.go.jp/main_content/000607412.xlsx"
+
+[soumu_settlement_2018]
+kind = "soumu_settlement"
+fiscal_year = 2018
+title = "平成30年度 市町村別決算状況調（概況・歳入内訳・地方債現在高等）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/h30_shichouson.html"
+files = ["city_*.xlsx", "town_*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村別決算状況調」"
+modification_note = "市区町村の歳出総額・地方税・地方債現在高・積立金現在高を住民基本台帳登載人口で割って作成"
+redistributable = true
+
+[soumu_settlement_2018.download_files]
+"city_1.xlsx" = "https://www.soumu.go.jp/main_content/000676020.xlsx"
+"city_2.xlsx" = "https://www.soumu.go.jp/main_content/000676021.xlsx"
+"city_5.xlsx" = "https://www.soumu.go.jp/main_content/000676024.xlsx"
+"town_1.xlsx" = "https://www.soumu.go.jp/main_content/000676025.xlsx"
+"town_2.xlsx" = "https://www.soumu.go.jp/main_content/000676026.xlsx"
+"town_5.xlsx" = "https://www.soumu.go.jp/main_content/000676029.xlsx"
+
+[soumu_settlement_2019]
+kind = "soumu_settlement"
+fiscal_year = 2019
+title = "令和元年度 市町村別決算状況調（概況・歳入内訳・地方債現在高等）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/r01_shichouson.html"
+files = ["city_*.xlsx", "town_*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村別決算状況調」"
+modification_note = "市区町村の歳出総額・地方税・地方債現在高・積立金現在高を住民基本台帳登載人口で割って作成"
+redistributable = true
+
+[soumu_settlement_2019.download_files]
+"city_1.xlsx" = "https://www.soumu.go.jp/main_content/000738076.xlsx"
+"city_2.xlsx" = "https://www.soumu.go.jp/main_content/000738077.xlsx"
+"city_5.xlsx" = "https://www.soumu.go.jp/main_content/000738080.xlsx"
+"town_1.xlsx" = "https://www.soumu.go.jp/main_content/000738081.xlsx"
+"town_2.xlsx" = "https://www.soumu.go.jp/main_content/000738082.xlsx"
+"town_5.xlsx" = "https://www.soumu.go.jp/main_content/000738085.xlsx"
+
+[soumu_settlement_2020]
+kind = "soumu_settlement"
+fiscal_year = 2020
+title = "令和2年度 市町村別決算状況調（概況・歳入内訳・地方債現在高等）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/r02_shichouson.html"
+files = ["city_*.xlsx", "town_*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村別決算状況調」"
+modification_note = "市区町村の歳出総額・地方税・地方債現在高・積立金現在高を住民基本台帳登載人口で割って作成"
+redistributable = true
+
+[soumu_settlement_2020.download_files]
+"city_1.xlsx" = "https://www.soumu.go.jp/main_content/000800819.xlsx"
+"city_2.xlsx" = "https://www.soumu.go.jp/main_content/000800820.xlsx"
+"city_5.xlsx" = "https://www.soumu.go.jp/main_content/000800825.xlsx"
+"town_1.xlsx" = "https://www.soumu.go.jp/main_content/000800826.xlsx"
+"town_2.xlsx" = "https://www.soumu.go.jp/main_content/000800828.xlsx"
+"town_5.xlsx" = "https://www.soumu.go.jp/main_content/000800834.xlsx"
+
+[soumu_settlement_2021]
+kind = "soumu_settlement"
+fiscal_year = 2021
+title = "令和3年度 市町村別決算状況調（概況・歳入内訳・地方債現在高等）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/r03_shichouson.html"
+files = ["city_*.xlsx", "town_*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村別決算状況調」"
+modification_note = "市区町村の歳出総額・地方税・地方債現在高・積立金現在高を住民基本台帳登載人口で割って作成"
+redistributable = true
+
+[soumu_settlement_2021.download_files]
+"city_1.xlsx" = "https://www.soumu.go.jp/main_content/000871018.xlsx"
+"city_2.xlsx" = "https://www.soumu.go.jp/main_content/000871019.xlsx"
+"city_5.xlsx" = "https://www.soumu.go.jp/main_content/000871022.xlsx"
+"town_1.xlsx" = "https://www.soumu.go.jp/main_content/000871023.xlsx"
+"town_2.xlsx" = "https://www.soumu.go.jp/main_content/000871024.xlsx"
+"town_5.xlsx" = "https://www.soumu.go.jp/main_content/000871027.xlsx"
+
+[soumu_settlement_2022]
+kind = "soumu_settlement"
+fiscal_year = 2022
+title = "令和4年度 市町村別決算状況調（概況・歳入内訳・地方債現在高等）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/r04_shichouson.html"
+files = ["city_*.xlsx", "town_*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村別決算状況調」"
+modification_note = "市区町村の歳出総額・地方税・地方債現在高・積立金現在高を住民基本台帳登載人口で割って作成"
+redistributable = true
+
+[soumu_settlement_2022.download_files]
+"city_1.xlsx" = "https://www.soumu.go.jp/main_content/000937287.xlsx"
+"city_2.xlsx" = "https://www.soumu.go.jp/main_content/000937288.xlsx"
+"city_5.xlsx" = "https://www.soumu.go.jp/main_content/000937291.xlsx"
+"town_1.xlsx" = "https://www.soumu.go.jp/main_content/000937292.xlsx"
+"town_2.xlsx" = "https://www.soumu.go.jp/main_content/000937293.xlsx"
+"town_5.xlsx" = "https://www.soumu.go.jp/main_content/000937296.xlsx"
+
+[soumu_settlement_2023]
+kind = "soumu_settlement"
+fiscal_year = 2023
+title = "令和5年度 市町村別決算状況調（概況・歳入内訳・地方債現在高等）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/r05_shichouson.html"
+files = ["city_*.xlsx", "town_*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村別決算状況調」"
+modification_note = "市区町村の歳出総額・地方税・地方債現在高・積立金現在高を住民基本台帳登載人口で割って作成"
+redistributable = true
+
+[soumu_settlement_2023.download_files]
+"city_1.xlsx" = "https://www.soumu.go.jp/main_content/000999900.xlsx"
+"city_2.xlsx" = "https://www.soumu.go.jp/main_content/000999901.xlsx"
+"city_5.xlsx" = "https://www.soumu.go.jp/main_content/000999904.xlsx"
+"town_1.xlsx" = "https://www.soumu.go.jp/main_content/000999905.xlsx"
+"town_2.xlsx" = "https://www.soumu.go.jp/main_content/000999906.xlsx"
+"town_5.xlsx" = "https://www.soumu.go.jp/main_content/000999911.xlsx"
+
+[soumu_settlement_2024]
+kind = "soumu_settlement"
+fiscal_year = 2024
+title = "令和6年度 市町村別決算状況調（概況・歳入内訳・地方債現在高等）"
+provider = "総務省"
+url = "https://www.soumu.go.jp/iken/zaisei/r06_shichouson.html"
+files = ["city_*.xlsx", "town_*.xlsx"]
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html"
+attribution = "出典：総務省「市町村別決算状況調」"
+modification_note = "市区町村の歳出総額・地方税・地方債現在高・積立金現在高を住民基本台帳登載人口で割って作成"
+redistributable = true
+
+[soumu_settlement_2024.download_files]
+"city_1.xlsx" = "https://www.soumu.go.jp/main_content/001061669.xlsx"
+"city_2.xlsx" = "https://www.soumu.go.jp/main_content/001061670.xlsx"
+"city_5.xlsx" = "https://www.soumu.go.jp/main_content/001061673.xlsx"
+"town_1.xlsx" = "https://www.soumu.go.jp/main_content/001061674.xlsx"
+"town_2.xlsx" = "https://www.soumu.go.jp/main_content/001061675.xlsx"
+"town_5.xlsx" = "https://www.soumu.go.jp/main_content/001061678.xlsx"
+
+# 全国都道府県市区町村別面積調（国土地理院）。時点ごとに面積と備考の列がある CSV。2020年10月1日（令和元年〜令和5年の CSV、
+# 浜松市の再編前の区がある）と2025年10月1日（令和6年4月以降の CSV、再編後の区）。令和6年4月以降の CSV は四半期ごとに
+# 新しい時点の列が足され、ファイル名も変わるので、取得済みのファイルを使う（cache）。www.gsi.go.jp は古い TLS の
+# 再ネゴシエーションが必要（fetch.py の download が自動で切り替える）
+[gsi_area_2020]
+kind = "gsi_area"
+period = "2020-10-01"
+column = "令和2年10月1日"
+title = "全国都道府県市区町村別面積調（令和元年〜令和5年）"
+provider = "国土地理院"
+url = "https://www.gsi.go.jp/KOKUJYOHO/OLD-MENCHO-title.htm"
+download_url = "https://www.gsi.go.jp/KOKUJYOHO/MENCHO/backnumber/R1_R5_mencho.csv"
+files = ["R1_R5_mencho.csv"]
+cache = true
+license = "国土地理院コンテンツ利用規約（公共データ利用規約（第1.0版）（PDL1.0））"
+license_url = "https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html"
+attribution = "出典：国土地理院「全国都道府県市区町村別面積調」"
+modification_note = "2020年10月1日時点の市区町村・都道府県の面積を抜き出して作成"
+redistributable = true
+
+[gsi_area_2025]
+kind = "gsi_area"
+period = "2025-10-01"
+column = "令和7年10月1日"
+title = "全国都道府県市区町村別面積調（令和6年4月以降）"
+provider = "国土地理院"
+url = "https://www.gsi.go.jp/KOKUJYOHO/OLD-MENCHO-title.htm"
+download_url = "https://www.gsi.go.jp/KOKUJYOHO/MENCHO/backnumber/R8_07_mencho.csv"
+files = ["R8_07_mencho.csv"]
+cache = true
+license = "国土地理院コンテンツ利用規約（公共データ利用規約（第1.0版）（PDL1.0））"
+license_url = "https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html"
+attribution = "出典：国土地理院「全国都道府県市区町村別面積調」"
+modification_note = "2025年10月1日時点の市区町村・都道府県の面積を抜き出して作成"
 redistributable = true
 
 # 就学援助実施状況等調査（文部科学省）の市町村別実施状況。都道府県ごとの PDF の「就学援助率」の欄（前の年度の値、

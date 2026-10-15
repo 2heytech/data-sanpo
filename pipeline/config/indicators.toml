@@ -79,6 +79,20 @@ caveats = ["公園・河川・工場などの非居住地を含む面積で割�
 numerator = "population_total"
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
+[area]
+name = "面積"
+category = "土地"
+unit = "km²"
+kind = "count"
+definition_version = "1"
+digits = 2
+levels = ["municipality"]
+description = "市区町村・都道府県の面積。川や湖などの水面も含む。"
+method = "国土地理院「全国都道府県市区町村別面積調」の10月1日時点の面積。都道府県の値は国土地理院の公表値（市区町村の合計ではありません）。"
+caveats = ["境界の一部が決まっていない市区町村（全国で約160）の面積は、国土地理院が便宜上概算した参考値です。", "都道府県の面積は国土地理院の公表値です。北海道は北方領土の6村を含み、境界の決まっていない湖などの分を含む県もあるため、地図の市区町村の合計とは一致しないことがあります。", "人口密度の計算に使っている面積（国勢調査の境界データの面積）とは、少し違うことがあります。", "浜松市は2024年1月に区を再編したため、2025年は地図の区（再編前の7区）の値がありません。"]
+source_kind = "gsi_area"
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
 [population_change_rate]
 name = "人口増加率"
 category = "人口・世帯"
@@ -3314,9 +3328,7 @@ levels = ["municipality"]
 category = "所得・税"
 source_kind = "soumu_tax"
 fraction_units = ["千円", "人"]
-family = "tax"
 tax_value = "income_levy"
-facets = { type = "住民税（所得割）", basis = "納税者1人あたり" }
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
 [taxable_income_per_taxpayer]
@@ -3334,9 +3346,7 @@ levels = ["municipality"]
 category = "所得・税"
 source_kind = "soumu_tax"
 fraction_units = ["千円", "人"]
-family = "tax"
 tax_value = "taxable_income"
-facets = { type = "課税対象所得", basis = "納税者1人あたり" }
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
 [income_levy_taxpayer_share]
@@ -3387,6 +3397,150 @@ method = "文部科学省「就学援助実施状況等調査」の市町村別�
 caveats = ["市区町村の値は「5%以上10%未満」のような5%刻みの区分でしか公表されていません。地図の色も区分ごとです。", "援助を受けた子どもがいない市区町村は0%です。", "援助を受けられる所得の基準は市区町村ごとに違うため、同じ割合でも家庭の暮らし向きが同じとは限りません。", "年度は援助をした年度です（例: 2024年度の値は令和7年度の調査で公表）。", "政令指定都市は市全体の区分しか公表されていないため、区の値はありません。都道府県の値はありません（区分から平均は計算できないため）。"]
 source_kind = "mext_school_aid"
 legend = { method = "bands", band = 5, classes = 12, scheme = "oranges" }
+
+# 財政（総務省「地方公共団体の主要財政指標一覧」「市町村別決算状況調」、2017〜2024年度。#119）
+[fiscal_strength_index]
+name = "財政力指数"
+category = "財政"
+unit = ""
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 1
+unbounded = true
+levels = ["municipality"]
+description = "標準的な行政サービスに必要な費用（基準財政需要額）を、税収など自前の収入（基準財政収入額）でどれだけまかなえるかの目安。1に近いほど、また1を超えるほど財政に余裕があるとされ、1を超えると国から普通交付税を受け取らないことが多い。"
+method = "総務省「地方公共団体の主要財政指標一覧」の財政力指数（基準財政収入額 ÷ 基準財政需要額 の直近3年度の平均）。"
+caveats = ["3年度の平均です（例: 2024年度の値は2022〜2024年度の平均）。", "東京都の特別区は普通交付税ではなく都と区の財政調整の仕組みの対象で、市町村別決算状況調には財政力指数が載っていません。この一覧に載っている値を使っています。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "都道府県の値はありません（市区町村の比率は合計できず、都道府県庁の財政の指標とも意味が違うため）。"]
+source_kind = "soumu_fiscal_indicators"
+fiscal_column = "財政力指数"
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
+[current_balance_ratio]
+name = "経常収支比率"
+category = "財政"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+unbounded = true
+levels = ["municipality"]
+description = "人件費・扶助費（福祉の給付）・借金の返済など毎年決まって出ていく経費に、税や普通交付税など毎年入ってくる使い道の自由なお金がどれだけ使われているかの割合。高いほど、新しい事業などに回せるお金が少ないとされる。"
+method = "総務省「地方公共団体の主要財政指標一覧」の経常収支比率（経常経費充当一般財源 ÷（経常一般財源 ＋ 減収補塡債特例分 ＋ 臨時財政対策債）× 100）。"
+caveats = ["100%を超えることがあります。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "都道府県の値はありません（市区町村の比率は合計できず、都道府県庁の財政の指標とも意味が違うため）。"]
+source_kind = "soumu_fiscal_indicators"
+fiscal_column = "経常収支比率"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[real_debt_service_ratio]
+name = "実質公債費比率"
+category = "財政"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+unbounded = true
+allow_negative = true
+levels = ["municipality"]
+description = "借金（地方債）の返済とそれに準じる支出が、標準的な収入（標準財政規模）に対してどれくらいの重さかを示す割合。18%以上になると地方債を発行するのに許可が必要になり、25%以上は財政の早期健全化が必要な水準とされる。"
+method = "総務省「地方公共団体の主要財政指標一覧」の実質公債費比率（3年度の平均）。地方公共団体の財政の健全化に関する法律の健全化判断比率の1つ。"
+caveats = ["3年度の平均です（例: 2024年度の値は2022〜2024年度の平均）。", "返済のために国から普通交付税で補われる分などを差し引くので、マイナスになることがあります。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "都道府県の値はありません（市区町村の比率は合計できず、都道府県庁の財政の指標とも意味が違うため）。"]
+source_kind = "soumu_fiscal_indicators"
+fiscal_column = "実質公債費比率"
+legend = { method = "nice", classes = 12, scheme = "ylorbr" }
+
+[future_burden_ratio]
+name = "将来負担比率"
+category = "財政"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+unbounded = true
+levels = ["municipality"]
+description = "借金（地方債）の残高や将来払う退職手当など、これから負担する見込みの額から、そのために使える基金（貯金）などを差し引いた額が、標準的な収入（標準財政規模）の何%にあたるか。高いほど将来の負担が重いとされる（市区町村は350%以上で早期健全化が必要な水準）。"
+method = "総務省「地方公共団体の主要財政指標一覧」の将来負担比率。地方公共団体の財政の健全化に関する法律の健全化判断比率の1つ。"
+caveats = ["将来の負担より使える財源の方が多い市区町村は、比率がマイナスになり「－」と公表されます。地図では0%として塗り、「将来負担なし」と注記しています。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "都道府県の値はありません（市区町村の比率は合計できず、都道府県庁の財政の指標とも意味が違うため）。"]
+source_kind = "soumu_fiscal_indicators"
+fiscal_column = "将来負担比率"
+dash_value = 0
+dash_note = "将来負担なし（将来の負担より使える財源の方が多いため「－」と公表）"
+legend = { method = "nice", classes = 12, scheme = "ylorbr" }
+
+[expenditure_per_capita]
+name = "住民1人あたりの歳出額"
+category = "財政"
+unit = "円"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 1000
+unbounded = true
+levels = ["municipality"]
+description = "市区町村の1年間の支出（歳出の決算額）を住民の数で割った額。"
+method = "総務省「市町村別決算状況調」の歳出総額 ÷ 住民基本台帳登載人口。"
+caveats = ["普通会計（一般会計など）の決算です。水道・下水道・病院などの公営企業の会計は含みません。", "住民の数は、年度末に近い1月1日の住民基本台帳の人口です（例: 2024年度は2025年1月1日）。", "人口の少ない町村や離島、面積の広い市町村は、1人あたりの額が大きくなりやすいです。", "災害の復旧や大きな建設事業があった年は、その年だけ大きくなることがあります。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "都道府県の値は、県内の市区町村（政令指定都市は市全体）の額の合計を、人口の合計で割った値です。都道府県庁の決算は含みません。"]
+source_kind = "soumu_settlement"
+settlement_column = "歳出総額"
+fraction_units = ["千円", "人"]
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[local_tax_per_capita]
+name = "住民1人あたりの市区町村税の収入"
+category = "財政"
+unit = "円"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 1000
+unbounded = true
+levels = ["municipality"]
+description = "市区町村に入る税（個人・法人の住民税、固定資産税、都市計画税など）の1年間の決算額を、住民の数で割った額。"
+method = "総務省「市町村別決算状況調」の歳入の地方税 ÷ 住民基本台帳登載人口。"
+caveats = ["会社・工場・大きな商業施設などの多い市区町村は、法人の住民税や固定資産税で大きくなります。", "東京都の特別区の税は特別区税です。特別区では固定資産税や法人の住民税を都が集めるため、その分は含みません。", "住民の数は、年度末に近い1月1日の住民基本台帳の人口です（例: 2024年度は2025年1月1日）。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "都道府県の値は、県内の市区町村（政令指定都市は市全体）の額の合計を、人口の合計で割った値です。都道府県庁の決算は含みません。"]
+source_kind = "soumu_settlement"
+settlement_column = "地方税"
+fraction_units = ["千円", "人"]
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
+[local_debt_per_capita]
+name = "住民1人あたりの地方債の残高"
+category = "財政"
+unit = "円"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 1000
+unbounded = true
+levels = ["municipality"]
+description = "市区町村の借金にあたる地方債の、年度末の残高を住民の数で割った額。"
+method = "総務省「市町村別決算状況調」の地方債現在高 ÷ 住民基本台帳登載人口。"
+caveats = ["普通会計（一般会計など）の決算です。水道・下水道・病院などの公営企業の会計は含みません。", "国が後から普通交付税で返済を補う地方債（臨時財政対策債など）も含みます。返済の重さは実質公債費比率・将来負担比率も見てください。", "地方債のない市区町村は0円です。", "住民の数は、年度末に近い1月1日の住民基本台帳の人口です（例: 2024年度は2025年1月1日）。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "都道府県の値は、県内の市区町村（政令指定都市は市全体）の額の合計を、人口の合計で割った値です。都道府県庁の決算は含みません。"]
+source_kind = "soumu_settlement"
+settlement_column = "地方債現在高"
+fraction_units = ["千円", "人"]
+legend = { method = "nice", classes = 12, scheme = "ylorbr" }
+
+[reserve_fund_per_capita]
+name = "住民1人あたりの積立金の残高"
+category = "財政"
+unit = "円"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 1000
+unbounded = true
+levels = ["municipality"]
+description = "市区町村の貯金にあたる積立金（財政調整基金・減債基金・使い道を決めた基金）の、年度末の残高を住民の数で割った額。"
+method = "総務省「市町村別決算状況調」の積立金現在高 ÷ 住民基本台帳登載人口。"
+caveats = ["普通会計（一般会計など）の決算です。水道・下水道・病院などの公営企業の会計は含みません。", "使い道の決まった基金（施設の建て替えや特定の事業のためのもの）も含みます。", "住民の数は、年度末に近い1月1日の住民基本台帳の人口です（例: 2024年度は2025年1月1日）。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "都道府県の値は、県内の市区町村（政令指定都市は市全体）の額の合計を、人口の合計で割った値です。都道府県庁の決算は含みません。"]
+source_kind = "soumu_settlement"
+settlement_column = "積立金現在高"
+fraction_units = ["千円", "人"]
+legend = { method = "nice", classes = 12, scheme = "bugn" }
 
 [waiting_children]
 name = "保育所等の待機児童数"

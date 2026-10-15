@@ -18,7 +18,7 @@ import sqlite3
 from pathlib import Path
 
 from ..db import insert_observation
-from ..regions import TOKYO, municipality_entity_id, prefecture_entity_id
+from ..regions import TOKYO, current_code, municipality_entity_id, prefecture_entity_id
 from ..xlsx import read_sheet
 
 CITY, PREF = "市町村民税", "道府県民税"
@@ -35,7 +35,7 @@ def read_rows(path: Path, prefs: list[str] | None = None) -> dict[str, dict[str,
     for r in rows[at + 1:]:
         if len(r) <= col["表側"]:
             continue
-        code = str(r[col["団体コード"]]).strip()[:5]
+        code = current_code(str(r[col["団体コード"]]).strip()[:5])   # 市になる前の町のコードなど
         if code[:2] not in prefs:
             continue
         out.setdefault(code, {})[str(r[col["表側"]]).strip()] = {
