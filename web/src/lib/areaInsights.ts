@@ -145,7 +145,7 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
 }
 
 export function areaProfile(muniId: string, data: InsightData): AreaProfile {
-  // period を省くと、国勢調査の新しい回（2025年）を先に使い、その市区町村に値がなければ既定の時点を使う（設計変更記録 #117）。
+  // period を省くと、国勢調査の新しい回（2025年）を先に使い、その市区町村に値がなければ既定の時点を使う（設計変更記録 #118）。
   // 順位・全国の位置は、使った時点の市区町村の中で数える
   const stat = (id: string, period?: string): Stat | null => {
     const ind = data.indicator(id);

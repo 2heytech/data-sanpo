@@ -26,7 +26,7 @@ const spansPrefectures = (rows: ValueRow[]) =>
   new Set(rows.filter((r) => r.value !== null).map((r) => r.entity_id.slice(5, 7))).size > 1;
 const stats = loadIndicators().map((ind) => {
   // 国勢調査の新しい回（2025年）が市区町村の値で出ている指標は、それで値と順位を出す。
-  // その市区町村に値がないとき（区を再編した浜松市の旧区など）は既定の時点で出す（設計変更記録 #117）
+  // その市区町村に値がないとき（区を再編した浜松市の旧区など）は既定の時点で出す（設計変更記録 #118）
   const candidates = municipalityPeriods(ind).map((p) => ({
     period: ind.periods.find((x) => x.period === p)!,
     rows: loadValues(ind.id, p, "municipalities")?.rows ?? [],
