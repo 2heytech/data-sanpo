@@ -51,6 +51,13 @@ const shots = [
   ["45-map-vote-ldp-japan", "/map/?i=vote_share_ldp&p=2024-10-27", { width: 1280, height: 900 }],
   ["46-map-vote-sanseito-osaka", "/map/?i=vote_share_sanseito&p=2025-07-20&a=muni-27127", { width: 1280, height: 900 }],
   ["47-map-turnout-japan", "/map/?i=voter_turnout&p=2026-02-08", { width: 1280, height: 900 }],
+  // 面積と財政（design-changes #119）。将来負担比率の「－」（0%と注記）、政令市の区（値なし）、2016年度の課税対象所得
+  ["48-map-area", "/map/?i=area&a=muni-13101", { width: 1280, height: 900 }],
+  ["49-map-fiscal-strength", "/map/?i=fiscal_strength_index&a=muni-13101", { width: 1280, height: 900 }],
+  ["50-map-future-burden", "/map/?i=future_burden_ratio&a=muni-13101", { width: 1280, height: 900 }],
+  ["51-map-debt-yokohama", "/map/?i=local_debt_per_capita&a=muni-14104", { width: 1280, height: 900 }],
+  ["52-map-income-2016", "/map/?i=taxable_income_per_taxpayer&p=2016-04-01&a=muni-13112", { width: 1280, height: 900 }],
+  ["53-indicator-fiscal-strength", "/indicators/fiscal_strength_index/", { width: 1280, height: 1200 }],
   ["90-about", "/about/", { width: 1280, height: 900 }],
 ];
 

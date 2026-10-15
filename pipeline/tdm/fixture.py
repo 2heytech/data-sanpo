@@ -152,6 +152,8 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
         out[f"childcare_{year}"] = _write_childcare(directory, year, years, random.Random(f"{seed}-childcare-{year}"))
     for year in TAX_YEARS:
         out[f"tax_{year}"] = _write_tax(directory, year, random.Random(f"{seed}-tax-{year}"))
+    out.update(_write_finance(directory))
+    out.update(_write_gsi_area(directory))
     out.update(_write_elections(directory, random.Random(f"{seed}-elections")))
     out["nurseries"] = _write_nurseries(directory)
     out["furusato"] = _write_furusato(directory, random.Random(f"{seed}-furusato"))
@@ -1062,6 +1064,134 @@ def _write_tax(directory: Path, year: int, rnd: random.Random) -> Path:
     path = d / f"J51-{year - 2000}-b.xlsx"
     write_sheet(path, rows, f"令和{year - 2018}年度_第11表市町村別データ")
     return d
+
+
+# 地方公共団体の主要財政指標一覧（総務省の Excel 形式）。1行目が題名、2行目が列名。団体コードは6桁（末尾は検査数字）。
+# (地域コード5桁, 団体名, 財政力指数, 経常収支比率, 実質公債費比率, 将来負担比率)
+FISCAL_YEARS = (2023, 2024)
+FISCAL_ROWS = [
+    ("01100", "札幌市", 0.70, 98.0, 3.2, 22.2),      # 取り込まない都道府県
+    ("13199", "サンプル区", 0.85, 77.6, -0.9, "-"),  # 実質公債費比率のマイナス・将来負担比率の「-」（将来負担なし）
+    ("13299", "ためし市", 0.92, 91.4, 2.1, 15.3),
+    ("13499", "かりの村", 0.11, 89.2, 6.5, None),     # 空欄は値なし
+    ("14190", "みほん市", 0.95, 99.1, 7.2, 60.4),     # 政令指定都市（市全体の値。区には割り振らない）
+]
+
+
+def fiscal_values(year: int) -> dict[str, tuple]:
+    """見本の財政指標（年度で少しずらす）。"""
+    shift = (year - 2024) * 0.5
+    return {code: (fs, round(cb + shift, 1), round(rd + shift, 1),
+                   fb if not isinstance(fb, float) else round(fb + shift, 1))
+            for code, _, fs, cb, rd, fb in FISCAL_ROWS}
+
+
+# 市町村別決算状況調（都市別・町村別 × 概況・歳入内訳・地方債現在高等）。O列（15列目）が団体コード、列名は数行にわたる。
+# 金額は千円。(地域コード5桁, 団体名, 都市別か, 住民基本台帳登載人口, 歳出総額, 地方税, 地方債現在高, 積立金現在高)
+SETTLEMENT_YEAR = 2024
+SETTLEMENT_ROWS = [
+    ("01100", "札幌市", True, 1955678, 1229157420, 400000000, 900000000, 100000000),
+    ("13199", "サンプル区", True, 120000, 60000000, 30000000, "-", 12000000),   # 地方債のない区（「-」＝0）
+    ("13299", "ためし市", True, 80000, 32000000, 12000000, 15000000, 4000000),
+    ("13499", "かりの村", False, 28, 900000, 20000, 300000, 500000),
+    ("14190", "みほん市", True, 300000, 150000000, 50000000, 120000000, 9000000),
+]
+
+
+def _settlement_sheet(title: str, heads: list[tuple[int, str, str]], rows: list[list]) -> list[list]:
+    """決算状況調の1ファイル。heads は (列の位置, 1段目の見出し, 2段目の見出し)。団体コードは O列（14）。"""
+    width = max(c for c, _, _ in heads) + 1
+    top, sub = [None] * width, [None] * width
+    top[14], top[15] = "団体\nコード", "団体名"
+    for c, a, b in heads:
+        top[c], sub[c] = a or None, b or None
+    blank = [None] * width
+    title_row = [None] * 14 + [title]
+    return [blank] * 7 + [title_row, blank, top, sub, blank, blank, blank] + rows
+
+
+def _write_finance(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheet
+    out = {}
+    for year in FISCAL_YEARS:
+        d = directory / f"soumu_fiscal_{year}"
+        d.mkdir(parents=True, exist_ok=True)
+        rows = [[f"全市町村の主要財政指標（令和{year - 2018}年度）"],
+                ["団体コード", "都道府県名", "団体名", "財政力指数", "経常収支比率", "実質公債費比率", "将来負担比率",
+                 "ラスパイレス指数"]]
+        for code, name, *_ in FISCAL_ROWS:
+            fs, cb, rd, fb = fiscal_values(year)[code]
+            rows.append([f"{code}0", PREF_NAMES.get(code[:2], "北海道"), name, fs, cb, rd, fb, 99.0])
+        rows.append(["全国市町村平均", None, None, 0.49, 93.8, 5.6, 6.2, "－"])
+        write_sheet(d / f"fiscal_{year}.xlsx", rows)
+        out[f"soumu_fiscal_{year}"] = d
+    d = directory / f"soumu_settlement_{SETTLEMENT_YEAR}"
+    d.mkdir(parents=True, exist_ok=True)
+    for side, is_city in (("city", True), ("town", False)):
+        members = [r for r in SETTLEMENT_ROWS if r[2] == is_city]
+        pref_head = [[None] * 14 + ["", "東　京　都"]]
+        # 概況: 住民基本台帳登載人口（16）・財政力指数（34、特別区は「-」）・歳出総額（40）
+        overview = [[None] * 14 + [f"{code}0", name, pop, pop] + [None] * 16 + ["-" if code[:3] == "131" else 0.8]
+                    + [None] * 4 + [exp * 1.02, exp]
+                    for code, name, _, pop, exp, *_ in members]
+        write_sheet(d / f"{side}_1.xlsx", _settlement_sheet("ア概況", [
+            (16, "住民基本台帳\n登載人口", ""), (17, "", "うち日本人"), (34, "財政力\n指数", ""),
+            (39, "歳入総額", ""), (40, "歳出総額", "")], pref_head + overview))
+        # 歳入内訳: 地方税（16、2段目）。内訳の表にも同じ名前の列（20）があるが、最初の列を使う
+        revenue = [[None] * 14 + [f"{code}0", name, tax, tax * 0.5, None, None, 1.0]
+                   for code, name, _, _, _, tax, *_ in members]
+        write_sheet(d / f"{side}_2.xlsx", _settlement_sheet("イ歳入内訳", [
+            (16, "一", "地方税"), (17, "地方税内訳", "うち\n市町村民税\n個人分"), (20, "二十六", "地方税")],
+            pref_head + revenue))
+        debt = [[None] * 14 + [f"{code}0", name, bond, fund] for code, name, *_, bond, fund in members]
+        write_sheet(d / f"{side}_5.xlsx", _settlement_sheet("オ地方債現在高等", [
+            (16, "地方債\n現在高", ""), (17, "積立金\n現在高", "")], pref_head + debt))
+    out[f"soumu_settlement_{SETTLEMENT_YEAR}"] = d
+    return out
+
+
+# 全国都道府県市区町村別面積調（国土地理院の CSV 形式）。説明の行のあと5行目が列名で、時点ごとに面積と備考の2列。
+# 2020年（令和元年〜令和5年の CSV）は Shift_JIS、2025年（令和6年4月以降の CSV）は BOM 付き UTF-8
+# (標準地域コード, 都道府県, 郡など, 市区町村, 面積, 備考)
+AREA_ROWS = [
+    ("1000", "北海道", "", "", 83422.27, ""),
+    ("1100", "北海道", "石狩振興局", "札幌市", 1121.26, ""),        # 取り込まない都道府県
+    ("13000", "東京都", "", "", 2199.94, ""),
+    ("", "東京都(市部)", "", "", 844.3, ""),                     # コードのない行
+    ("13199", "東京都", "", "サンプル区", 11.66, "（参考値）"),
+    ("13299", "東京都", "", "ためし市", 15.5, ""),
+    ("", "東京都", "かりの郡", "", 4.0, ""),                      # 郡の小計（市区町村名が空）
+    ("13499", "東京都", "かりの郡", "かりの村", 4.0, "（参考値）湖の一部を除く。"),
+    ("14000", "神奈川県", "", "", 2416.55, ""),
+    ("14190", "神奈川県", "", "みほん市", 438.23, ""),           # 政令指定都市の市全体（地図の単位は区）
+    ("14199", "神奈川県", "", "(みほん市)中区", 21.74, ""),
+]
+AREA_FILES = {"2020-10-01": ("gsi_area_2020", "R1_R5_mencho.csv", "令和2年10月1日", "cp932"),
+              "2025-10-01": ("gsi_area_2025", "R8_07_mencho.csv", "令和7年10月1日", "utf-8-sig")}
+
+
+def area_value(period: str, code: str) -> float | None:
+    base = next((r[4] for r in AREA_ROWS if r[0] == code), None)
+    return None if base is None else round(base + (0.01 if period == "2025-10-01" else 0), 2)
+
+
+def _write_gsi_area(directory: Path) -> dict[str, Path]:
+    out = {}
+    for period, (key, name, label, encoding) in AREA_FILES.items():
+        lines = ["全国都道府県市区町村別面積調" + "," * 7,
+                 ",【本データに関する説明事項】" + "," * 6,
+                 ",①公表単位ごとに小数第三位を四捨五入している。" + "," * 6,
+                 ",②境界未定部を有する市区町村の面積は、備考欄に「（参考値）」と表示する。" + "," * 6,
+                 f"標準地域コード,都道府県,郡･支庁･振興局等,市区町村,{label}(k㎡),{label}備考,令和元年10月1日面積(k㎡),令和元年10月1日備考",
+                 "全国面積,,,,377973.68,,377974.0,"]
+        for code, pref, gun, city, _, remark in AREA_ROWS:
+            value = area_value(period, code) if code else 1.0
+            lines.append(f"{code},{pref},{gun},{city},{value},{remark},1.0,")
+        d = directory / key
+        d.mkdir(parents=True, exist_ok=True)
+        (d / name).write_bytes(("\r\n".join(lines) + "\r\n").encode(encoding))
+        out[key] = d
+    return out
 
 
 # 地価公示（国土数値情報 L01 の GeoJSON 形式）。L01_062〜L01_105 が 1983〜2026年の価格（標準地でない年は 0）。

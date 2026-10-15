@@ -26,9 +26,14 @@ export function compactNumber(value: number, digits: number): string {
   return new Intl.NumberFormat("ja-JP", { maximumFractionDigits: Math.abs(x) < 10 ? 1 : 0 }).format(x) + unit;
 }
 
+/** 値の後ろに付ける単位（「%」は詰め、ほかは間をあける。財政力指数のように単位のない指標は何も付けない）。 */
+export function unitSuffix(unit: string): string {
+  return unit === "%" || !unit ? unit : ` ${unit}`;
+}
+
 /** 区分で公表された値の表記。値は区分の上の端（15 →「10%以上15%未満」、5 →「5%未満」、0 →「0%」）。 */
 export function bandLabel(value: number, band: number, unit: string): string {
-  const u = unit === "%" ? "%" : ` ${unit}`;
+  const u = unitSuffix(unit);
   if (value <= 0) return `0${u}`;
   const lo = value - band;
   return lo <= 0 ? `${formatNumber(value, 0)}${u}未満` : `${formatNumber(lo, 0)}${u}以上${formatNumber(value, 0)}${u}未満`;
@@ -41,7 +46,7 @@ export function formatValue(row: Pick<ValueRow, "value" | "status"> | undefined,
   if (ind.legend?.band) return bandLabel(row.value, ind.legend.band, ind.unit);
   // 増減率は増加に「+」を付ける（減少は「−」が付く）
   const sign = ind.kind === "change" && row.value > 0 ? "+" : "";
-  return `${sign}${formatNumber(row.value, ind.digits)}${ind.unit === "%" ? "%" : ` ${ind.unit}`}`;
+  return `${sign}${formatNumber(row.value, ind.digits)}${unitSuffix(ind.unit)}`;
 }
 
 /** 率の内訳（例: 1,234 / 5,678）。 */
