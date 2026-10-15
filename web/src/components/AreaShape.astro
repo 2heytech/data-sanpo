@@ -1,0 +1,69 @@
+---
+// 市区町村の形（マーク）と、都道府県の中の位置図。境界データから作り、SVG をページに直接書く（画像ファイルは増やさない）。
+// 市章・町章は自治体ごとに使用条件が違うので使わず、公開している境界の形で表す（設計変更記録 #114）。
+import { loadBoundaries } from "../lib/data";
+import { frameFor, pathFor, project } from "../lib/shape";
+import type { Municipality } from "../lib/types";
+
+interface Props { muni: Municipality; variant: "mark" | "locator"; prefName?: string }
+const { muni, variant, prefName = "" } = Astro.props;
+const muniGeom = loadBoundaries(`municipalities/${muni.prefecture}`)?.features.find((f) => f.properties.id === muni.id)?.geometry;
+let svg: { w: number; h: number; muni: string; pref?: string; ring?: [number, number] } | null = null;
+if (muniGeom && variant === "mark") {
+  // 小さな島は枠を決めるのに使わない（本土が小さくなりすぎるため）。島が遠く離れた村（小笠原村など）は、いちばん大きな島で表す
+  let f = frameFor([muniGeom], 100, 0.05);
+  if (f.mainShare < 0.3) f = frameFor([muniGeom], 100, 1);
+  svg = { w: f.width, h: f.height, muni: pathFor(muniGeom, f, 0.5, 1.2) };
+} else if (muniGeom && variant === "locator") {
+  const prefGeom = loadBoundaries("prefectures")?.features.find((f) => f.properties.id === `pref-${muni.prefecture}`)?.geometry;
+  if (prefGeom) {
+    // 都道府県の小さな島は枠を決めるのに使わない（東京都の島しょなど）
+    let f = frameFor([prefGeom], 200, 0.1);
+    const [x0, y0, x1, y1] = muni.bbox;
+    const [px0, py1] = project(f, x0, y0), [px1, py0] = project(f, x1, y1);
+    const inside = (x: number, y: number) => x >= -1 && x <= f.width + 1 && y >= -1 && y <= f.height + 1;
+    // 離島の市町村（小笠原村など）は本土だけの枠から外れるので、島も含めた枠にする
+    if (!inside(px0, py0) || !inside(px1, py1)) f = frameFor([prefGeom], 200, 0);
+    const [a0, b1] = project(f, x0, y0), [a1, b0] = project(f, x1, y1);
+    svg = { w: f.width, h: f.height, pref: pathFor(prefGeom, f, 0.6, 1.5), muni: pathFor(muniGeom, f, 0.3, 0),
+      // 小さくて見えにくい市区町村は、まわりに円を描いて場所を示す
+      ring: Math.max(a1 - a0, b1 - b0) < 8 ? [(a0 + a1) / 2, (b0 + b1) / 2] : undefined };
+  }
+}
+const pad = variant === "mark" ? 4 : 6;
+---
+{svg && (
+  variant === "mark" ? (
+    <span class="area-mark" aria-hidden="true">
+      <svg viewBox={`${-pad} ${-pad} ${svg.w + pad * 2} ${svg.h + pad * 2}`}><path d={svg.muni} /></svg>
+    </span>
+  ) : (
+    <figure class="area-locator">
+      <svg viewBox={`${-pad} ${-pad} ${svg.w + pad * 2} ${svg.h + pad * 2}`} role="img" aria-label={`${prefName}の中の${muni.name}の位置`}>
+        <path class="pref" d={svg.pref} />
+        <path class="muni" d={svg.muni} />
+        {svg.ring && <circle class="ring" cx={svg.ring[0].toFixed(1)} cy={svg.ring[1].toFixed(1)} r="7" />}
+      </svg>
+      <figcaption>{prefName}の中の位置</figcaption>
+    </figure>
+  )
+)}
+
+<style>
+  .area-mark {
+    flex: none; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 16px;
+    background: var(--accent-soft); border: 1px solid #c9dcf1;
+  }
+  .area-mark svg { width: 48px; height: 48px; }
+  .area-mark path { fill: var(--accent); stroke: var(--accent-ink); stroke-width: 1; stroke-linejoin: round; }
+  .area-locator { margin: 0; text-align: center; }
+  .area-locator svg { display: block; width: 100%; max-width: 180px; max-height: 180px; margin: 0 auto; }
+  .area-locator .pref { fill: #e9eef4; stroke: #b7c3d0; stroke-width: 0.8; stroke-linejoin: round; }
+  .area-locator .muni { fill: var(--accent); stroke: var(--accent-ink); stroke-width: 0.8; stroke-linejoin: round; }
+  .area-locator .ring { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .area-locator figcaption { color: var(--muted); font-size: 0.8rem; }
+  @media (max-width: 640px) {
+    .area-mark { width: 52px; height: 52px; border-radius: 13px; }
+    .area-mark svg { width: 38px; height: 38px; }
+  }
+</style>

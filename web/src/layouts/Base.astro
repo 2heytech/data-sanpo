@@ -29,6 +29,7 @@ const { prefectures } = loadAreas();
 const areaLabel = prefecture ?? (prefectures.length === 1 ? prefectures[0].name : "");
 const nav = [
   ["/#indicators", "指標"],
+  ["/areas/", "市区町村"],
   ["/sources/", "出典"],
   ["/about/", "このサイトについて"],
 ];
@@ -128,7 +129,7 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
             <ul>
               <li><a href="/map/">地図</a></li>
               <li><a href="/#indicators">指標の一覧</a></li>
-              <li><a href="/#areas">地域から探す</a></li>
+              <li><a href="/areas/">市区町村の一覧</a></li>
             </ul>
           </div>
           <div>

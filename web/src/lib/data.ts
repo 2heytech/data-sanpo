@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import release from "../generated/release.json";
+import type { Geometry } from "./shape";
 import type {
   AreasFile, IndicatorCatalog, LegendFile, ReleaseInfo, SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
 } from "./types";
@@ -81,3 +82,12 @@ export function loadSmallAreaRows(indicatorId: string, period: string, prefectur
 
 export const loadLegend = (indicatorId: string, period: string) =>
   read<LegendFile>(`values/${indicatorId}/${period}/legend.json`);
+
+/** 境界（GeoJSON）。name は boundaries/<版>/ の下のパス（"prefectures"・"municipalities/13" など）。ないときは null */
+export function loadBoundaries(name: string): { features: { properties: { id: string }; geometry: Geometry }[] } | null {
+  try {
+    return read(`boundaries/${loadAreas().boundary_version}/${name}.geojson`);
+  } catch {
+    return null;
+  }
+}

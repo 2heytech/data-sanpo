@@ -2,7 +2,10 @@
 // 地域ページ。初期は市区町村のみ生成し、町丁目は内容が整ったものから追加する（設計書 第12章）。
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
-import { loadAreas, loadIndicators, loadSources, loadValues } from "../../lib/data";
+import AreaShape from "../../components/AreaShape.astro";
+import CategoryIcon from "../../components/CategoryIcon.astro";
+import { genresFor } from "../../lib/genres";
+import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
 import { formatFraction, formatValue, rankIfVaried } from "../../lib/format";
 import { areaSummary } from "../../lib/areaSummary";
 import { areaInsights } from "../../lib/areaInsights";
@@ -16,7 +19,6 @@ const { muni } = Astro.props as { muni: Municipality };
 const areas = loadAreas();
 const byId = new Map(areas.municipalities.map((m) => [m.id, m]));
 const neighbors = muni.neighbors.map((id) => byId.get(id)!).filter(Boolean);
-const sources = new Map(loadSources().map((s) => [s.source_id, s]));
 
 // 値が1つの都道府県だけにある指標（東京都だけの指標など）は、全国の順位は都道府県内と同じなので出さない
 const spansPrefectures = (rows: ValueRow[]) =>
@@ -33,7 +35,6 @@ const stats = loadIndicators().map((ind) => {
     neighborRows: neighbors.map((n) => ({ n, row: rows.find((r) => r.entity_id === n.id) })),
   };
 });
-const usedSources = [...new Set(stats.flatMap((s) => s.period.source_ids))].map((id) => sources.get(id)).filter(Boolean);
 const pop = stats.find((s) => s.ind.id === "population_total");
 const pref = areas.prefectures.find((p) => p.code === muni.prefecture)?.name ?? "";
 // 表の数字から作る短い文章（検索エンジンにも、表だけでなくその地域の特徴が分かるようにする。設計変更記録 #113）
@@ -53,99 +54,213 @@ const description = `${muni.name}（${place}）の人口・年齢構成など${s
   `${pref}内・全国の順位と、となりの市区町村との比較、出典つき。`;
 // 検索結果で同じ名前の市区町村（府中市・伊達市など）を見分けられるよう、題名に都道府県名を入れる
 const pageTitle = pref ? `${muni.name}（${pref}）の人口・統計データと順位` : `${muni.name}の人口・統計データと順位`;
+// 表に出すのは値のある指標だけ（データなしの行は出さない）。ジャンル・カテゴリごとにまとめる
+const shown = stats.filter((s) => s.row?.value != null);
+const groups = genresFor(shown.map((s) => s.ind.category)).map((g, i) => ({
+  id: `g${i + 1}`, title: g.title,
+  categories: g.categories.map((c) => ({ name: c, stats: shown.filter((s) => s.ind.category === c) })),
+}));
+const rankText = (r: { rank: number; total: number }) => `${r.rank.toLocaleString("ja-JP")}位／${r.total.toLocaleString("ja-JP")}`;
+const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank - 1) / (r.total - 1)) * 100 : 50);
 ---
 <Base title={pageTitle} description={description} prefecture={pref || undefined}>
-  <header class="page-head">
-    <p class="eyebrow">{place}</p>
-    <h1>{muni.name}のデータ</h1>
-    <div class="actions"><a class="button" href={`/map/?a=${muni.id}`}>地図で{muni.name}を見る</a></div>
+  <header class="page-head area-head">
+    <AreaShape muni={muni} variant="mark" />
+    <div>
+      <p class="eyebrow">{place}</p>
+      <h1>{muni.name}のデータ</h1>
+    </div>
+    <div class="actions">
+      <a class="button" href={`/map/?a=${muni.id}`}>地図で{muni.name}を見る</a>
+      <a class="button secondary" href="/areas/">市区町村の一覧</a>
+    </div>
   </header>
 
   {(summary.length > 0 || insights.length > 0) && (
-    <section class="sheet">
-    <h2>データで見る{muni.name}</h2>
-    {summary.map((line) => <p>{line}</p>)}
-    {insights.length > 0 && (
-      <>
-        <h3>データから考えられること</h3>
-        <ul>{insights.map((line) => <li>{line}</li>)}</ul>
-      </>
-    )}
-    <p class="muted">順位は値の大きい順で、大きいほど良い・悪いという意味ではありません。
-      {insights.length > 0 && "「考えられること」はデータの組み合わせから推測したもので、実際の理由を確かめたものではありません。"}</p>
+    <section class="sheet area-intro">
+      <AreaShape muni={muni} variant="locator" prefName={pref} />
+      <div>
+        <h2>データで見る{muni.name}</h2>
+        {summary.map((line) => <p>{line}</p>)}
+        {insights.length > 0 && (
+          <>
+            <h3>データから考えられること</h3>
+            <ul class="insights">{insights.map((line) => <li>{line}</li>)}</ul>
+          </>
+        )}
+        <p class="muted">順位は値の大きい順で、大きいほど良い・悪いという意味ではありません。
+          {insights.length > 0 && "「考えられること」はデータの組み合わせから推測したもので、実際の理由を確かめたものではありません。"}</p>
+      </div>
+    </section>
+  )}
+
+  <section class="sheet" id="stats">
+    <h2>主な指標<span class="count">{shown.length}</span></h2>
+    {groups.length > 1 && <nav class="toc" aria-label="指標の分類">{groups.map((g) => <a href={`#${g.id}`}>{g.title}</a>)}</nav>}
+    <p class="muted">順位は値の大きい順です（バーは左が1位）。大きいほど良い・悪いという意味ではありません。指標名を押すと、意味・注意点・出典と全国のランキングを見られます。</p>
+    <div class="stat-head" aria-hidden="true"><span>指標</span><span>値</span><span>{pref}内の順位</span><span>全国の順位</span></div>
+    {groups.map((g, gi) => (
+      <section class="stat-genre" id={g.id}>
+        <h3>{g.title}</h3>
+        {g.categories.map((c, ci) => (
+          <details class="stat-cat" open={gi === 0 && ci < 2}>
+            <summary><h4><CategoryIcon category={c.name} />{c.name}</h4><span class="count">{c.stats.length}</span></summary>
+            <ul class="stat-list">
+              {c.stats.map(({ ind, period, row, ranks }) => (
+                <li>
+                  <div class="stat-name">
+                    <a href={`/indicators/${ind.id}/`}>{ind.name}</a>
+                    <span class="muted">{period.label}{formatFraction(row, ind) && `・${formatFraction(row, ind)}`}</span>
+                  </div>
+                  <div class="stat-value">{formatValue(row, ind)}</div>
+                  <div class="stat-ranks">
+                  {ranks.map((rank, i) => (
+                    <div class="stat-rank">
+                      <span class="rank-label">{i === 0 ? `${pref}内` : "全国"}</span>
+                      {rank ? (
+                        <>
+                          <span class="rank-text">{rankText(rank)}</span>
+                          <span class="rank-bar" role="img" aria-label={`${rank.total} のうち ${rank.rank}位`}>
+                            <span class="rank-mark" style={`left:${markLeft(rank)}%`}></span>
+                          </span>
+                        </>
+                      ) : <span class="rank-text muted">—</span>}
+                    </div>
+                  ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </section>
+    ))}
+  </section>
+
+  {neighbors.length > 0 && (
+    <section class="sheet" data-compare>
+      <h2>となりの市区町村と比べる</h2>
+      <div class="compare-pick" role="group" aria-label="比べる市区町村">
+        {neighbors.map((n, i) => <button type="button" data-col={String(i)} aria-pressed="false">{n.name}</button>)}
+        {neighbors.length > 1 && <button type="button" data-col="all" aria-pressed="true">すべて</button>}
+      </div>
+      {groups.flatMap((g, gi) => g.categories.map((c, ci) => (
+        <details class="stat-cat" open={gi === 0 && ci === 0}>
+          <summary><h4><CategoryIcon category={c.name} />{c.name}</h4><span class="count">{c.stats.length}</span></summary>
+          <div class="table-scroll">
+            <table class="compare">
+              <thead>
+                <tr><th>指標</th><th class="num">{muni.name}</th>
+                  {neighbors.map((n, i) => <th class="num" data-col={String(i)}><a href={`/areas/${n.id}/`}>{n.name}</a></th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {c.stats.map(({ ind, row, neighborRows }) => (
+                  <tr>
+                    <td>{ind.name}</td>
+                    <td class="num"><strong>{formatValue(row, ind)}</strong></td>
+                    {neighborRows.map(({ row: r }, i) => <td class="num" data-col={String(i)}>{formatValue(r, ind)}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )))}
     </section>
   )}
 
   <section class="sheet">
-  <h2>主な指標</h2>
-  <div class="table-scroll">
-    <table>
-      <thead><tr><th>指標</th><th class="num">値</th><th class="num">{pref}内の順位</th><th class="num">全国の順位</th><th>時点</th></tr></thead>
-      <tbody>
-        {stats.map(({ ind, period, row, ranks }) => (
-          <tr>
-            <td><a href={`/indicators/${ind.id}/`}>{ind.name}</a>
-              {formatFraction(row, ind) && <div class="muted">{formatFraction(row, ind)}</div>}
-            </td>
-            <td class="num">{formatValue(row, ind)}</td>
-            {ranks.map((rank) => (
-              <td class="num">{rank ? (
-                <>
-                  {`${rank.rank.toLocaleString("ja-JP")}位／${rank.total.toLocaleString("ja-JP")}`}
-                  <span class="rank-bar" role="img" aria-label={`${rank.total} のうち ${rank.rank}位`}>
-                    <span class="rank-mark" style={`left:${rank.total > 1 ? ((rank.rank - 1) / (rank.total - 1)) * 100 : 50}%`}></span>
-                  </span>
-                </>
-              ) : "—"}</td>
-            ))}
-            <td>{period.label}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-  <p class="muted">順位は値の大きい順です（横のバーは左が1位）。大きいほど良い・悪いという意味ではありません。</p>
-
-  {neighbors.length > 0 && (
-    <>
-      <h2>となりの市区町村と比べる</h2>
-      <div class="table-scroll">
-        <table class="compare">
-          <thead>
-            <tr><th>指標</th><th class="num">{muni.name}</th>
-              {neighbors.map((n) => <th class="num"><a href={`/areas/${n.id}/`}>{n.name}</a></th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {stats.map(({ ind, row, neighborRows }) => (
-              <tr>
-                <td>{ind.name}</td>
-                <td class="num"><strong>{formatValue(row, ind)}</strong></td>
-                {neighborRows.map(({ row: r }) => <td class="num">{formatValue(r, ind)}</td>)}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
-  )}
-
-  </section>
-
-  <section class="sheet">
-  <h2>データの読み方</h2>
-  <ul>
-    {stats.flatMap(({ ind }) => ind.caveats.slice(0, 1).map((c) => <li>{ind.name}: {c}</li>))}
-    <li>町丁目ごとの値は<a href={`/map/?a=${muni.id}`}>地図</a>で拡大すると確認できます（{muni.small_area_count}地域）。</li>
-  </ul>
-
-  <h2>出典</h2>
-  <ul>
-    {usedSources.map((s) => (
-      <li>{s!.attribution}{s!.modification_note && `（${s!.modification_note}）`}
-        <span class="muted">取得日 {s!.retrieved_at.slice(0, 10)}</span></li>
-    ))}
-  </ul>
+    <h2>データについて</h2>
+    <p>各指標の意味・計算方法・注意点・出典は、指標名から開く<strong>指標のページ</strong>にまとめています。サイト全体の出典と利用条件は<a href="/sources/">出典と利用条件</a>をご覧ください。</p>
+    <p>町丁目ごとの値は<a href={`/map/?a=${muni.id}`}>地図</a>で拡大すると確認できます（{muni.small_area_count.toLocaleString("ja-JP")}地域）。</p>
   </section>
   <AdSlot name="page" />
 </Base>
+
+<script>
+  // となりの市区町村の比較: 比べる市区町村を選ぶ（スマホでは最初は1つだけ、広い画面ではすべて）
+  for (const root of document.querySelectorAll<HTMLElement>("[data-compare]")) {
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>("button[data-col]")];
+    const cells = [...root.querySelectorAll<HTMLElement>("table [data-col]")];
+    const show = (col: string) => {
+      for (const c of cells) c.hidden = col !== "all" && c.dataset.col !== col;
+      for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.col === col));
+    };
+    for (const b of buttons) b.addEventListener("click", () => show(b.dataset.col!));
+    show(buttons.length > 1 && !matchMedia("(max-width: 640px)").matches ? "all" : "0");
+  }
+  // 分類の目次から開くときは、閉じている分類を開く
+  const openTarget = () => {
+    const el = location.hash ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
+    const d = el?.querySelector("details");
+    if (d) d.open = true;
+  };
+  addEventListener("hashchange", openTarget);
+  openTarget();
+</script>
+
+<style>
+  .area-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+  .area-head h1 { margin: 0; }
+  .area-head .actions { flex-basis: 100%; }
+  .area-intro:has(> figure) { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 8px 28px; }
+  .area-intro > :global(figure) { grid-column: 2; grid-row: 1; align-self: start; }
+  .area-intro:has(> figure) > div { grid-column: 1; grid-row: 1; }
+  .insights li + li { margin-top: 0.5em; }
+  .count { margin-left: 8px; padding: 1px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.8rem; vertical-align: middle; }
+  .toc { position: sticky; top: calc(var(--header-h) + 4px); z-index: 2; padding: 6px 0; background: var(--surface); }
+  .area-intro h2:first-child { margin-top: 0; }
+  .stat-genre { scroll-margin-top: 130px; }
+  .stat-genre h3 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.4em; }
+  .stat-cat > summary {
+    display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 8px 4px; border-bottom: 1px solid var(--line);
+  }
+  .stat-cat > summary::-webkit-details-marker { display: none; }
+  .stat-cat > summary::after {
+    content: ""; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+    transform: translateY(-2px) rotate(45deg); transition: transform .15s;
+  }
+  .stat-cat[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+  .stat-cat > summary:hover { background: #fafcfe; }
+  .stat-cat h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.98rem; }
+  .stat-cat .count { margin-left: 0; }
+  .stat-cat .table-scroll { margin: 10px 0 12px; }
+  .stat-ranks { display: contents; }
+  .stat-head, .stat-list li { display: grid; grid-template-columns: minmax(0, 1fr) 9.5em 10em 10em; gap: 4px 16px; align-items: center; }
+  .stat-head { margin-top: 12px; padding: 6px 10px; background: var(--panel); border-radius: 8px; font-size: 0.82rem; font-weight: 700; color: #33414f; }
+  .stat-head span:not(:first-child) { text-align: right; }
+  .stat-list { list-style: none; margin: 0; padding: 0; }
+  .stat-list li { padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  .stat-name a { font-weight: 600; }
+  .stat-name .muted { display: block; font-size: 0.8rem; line-height: 1.4; }
+  .stat-value { text-align: right; font-size: 1.08rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stat-rank { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.9rem; }
+  .stat-rank .rank-label { display: none; }
+  .stat-rank .rank-bar { width: 96px; margin: 4px 0 2px auto; height: 6px; }
+  .stat-rank .rank-mark { width: 11px; height: 11px; border-width: 2px; }
+  .compare-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .compare-pick button {
+    font: inherit; font-size: 0.9rem; padding: 4px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg);
+  }
+  .compare-pick button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .compare [hidden] { display: none; }
+  .compare td:first-child { white-space: normal; min-width: 10em; }
+  @media (max-width: 640px) {
+    .area-intro:has(> figure) { grid-template-columns: 1fr; }
+    .area-intro > :global(figure) { grid-column: 1; grid-row: 1; }
+    .area-intro > :global(figure) :global(svg) { max-width: 120px; max-height: 120px; }
+    .area-intro:has(> figure) > div { grid-row: 2; }
+    .stat-head { display: none; }
+    .stat-list li { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 2px; align-items: start; }
+    .stat-value { font-size: 1.1rem; }
+    .stat-ranks { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    .stat-rank { text-align: left; font-size: 0.85rem; }
+    .stat-rank .rank-label { display: inline; color: var(--muted); margin-right: 6px; }
+    .stat-rank .rank-bar { width: 100%; margin: 4px 0 0; }
+    .compare th, .compare td { padding: 8px 6px; }
+    .compare td:first-child { min-width: 0; width: 50%; }
+    .toc { position: static; }
+  }
+</style>

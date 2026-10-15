@@ -184,6 +184,7 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
 
   <section class="sheet">
     <h2 id="areas">地域から探す</h2>
+    <p><a class="button secondary" href="/areas/">市区町村の一覧（名前で探す）</a></p>
     {areas.prefectures.map((pref) => {
       const inPref = areas.municipalities.filter((m) => m.prefecture === pref.code);
       // 東京都は区部・多摩・島しょに分け、ほかの道府県は政令指定都市の区をまとめずに並べる

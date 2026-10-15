@@ -180,3 +180,5 @@ h2[id], h3[id] { scroll-margin-top: 100px; }
   background: #fff; border: 3px solid var(--accent); transform: translate(-50%, -50%); box-sizing: border-box; }
 td .rank-bar { width: 96px; margin: 6px 0 2px auto; height: 6px; }
 td .rank-mark { width: 11px; height: 11px; border-width: 2px; }
+/* 長い URL などで本文が画面の幅を超えないようにする（スマホで画面全体が広がり、表の横スクロールが効かなくなるため） */
+.sheet p, .sheet li, .sheet dd { overflow-wrap: break-word; }
