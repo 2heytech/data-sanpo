@@ -15,6 +15,8 @@ NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
       "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 Cell = str | float | None
+# 書き出す .xlsx（見本データ）の中のファイルの日時（固定）
+FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 # 「Strict Open XML」形式で保存されたファイルは名前空間が違う（e-Stat の一部の表。2026-10-10 確認）
 STRICT_NS = {b"http://purl.oclc.org/ooxml/spreadsheetml/main": NS["m"].encode(),
              b"http://purl.oclc.org/ooxml/officeDocument/relationships": NS["r"].encode()}
@@ -126,27 +128,31 @@ def write_sheets(path: Path, sheets: dict[str, list[list[Cell]]]) -> None:
 
     names = list(sheets)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("[Content_Types].xml",
-                   '<?xml version="1.0" encoding="UTF-8"?>'
-                   '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-                   '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-                   '<Default Extension="xml" ContentType="application/xml"/>'
-                   '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-                   + "".join(f'<Override PartName="/xl/worksheets/sheet{k}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-                             for k in range(1, len(names) + 1)) +
-                   '</Types>')
-        z.writestr("_rels/.rels",
-                   f'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="{NS["rel"]}">'
-                   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-                   '</Relationships>')
-        z.writestr("xl/workbook.xml",
-                   f'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="{NS["m"]}" xmlns:r="{NS["r"]}"><sheets>'
-                   + "".join(f'<sheet name="{escape(n)}" sheetId="{k}" r:id="rId{k}"/>' for k, n in enumerate(names, 1))
-                   + '</sheets></workbook>')
-        z.writestr("xl/_rels/workbook.xml.rels",
-                   f'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="{NS["rel"]}">'
-                   + "".join(f'<Relationship Id="rId{k}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{k}.xml"/>'
-                             for k in range(1, len(names) + 1))
-                   + '</Relationships>')
+        def put(name: str, text: str) -> None:
+            # 日時を固定する（架空データの元ファイルの hash、つまり出典IDが、作り直すたびに変わらないように）
+            z.writestr(zipfile.ZipInfo(name, FIXED_ZIP_TIME), text, zipfile.ZIP_DEFLATED)
+
+        put("[Content_Types].xml",
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            + "".join(f'<Override PartName="/xl/worksheets/sheet{k}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                      for k in range(1, len(names) + 1)) +
+            '</Types>')
+        put("_rels/.rels",
+            f'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="{NS["rel"]}">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>')
+        put("xl/workbook.xml",
+            f'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="{NS["m"]}" xmlns:r="{NS["r"]}"><sheets>'
+            + "".join(f'<sheet name="{escape(n)}" sheetId="{k}" r:id="rId{k}"/>' for k, n in enumerate(names, 1))
+            + '</sheets></workbook>')
+        put("xl/_rels/workbook.xml.rels",
+            f'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="{NS["rel"]}">'
+            + "".join(f'<Relationship Id="rId{k}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{k}.xml"/>'
+                      for k in range(1, len(names) + 1))
+            + '</Relationships>')
         for k, n in enumerate(names, 1):
-            z.writestr(f"xl/worksheets/sheet{k}.xml", sheet_xml(sheets[n]))
+            put(f"xl/worksheets/sheet{k}.xml", sheet_xml(sheets[n]))
