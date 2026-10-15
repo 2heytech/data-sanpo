@@ -63,11 +63,8 @@ export function areaSummary(name: string, pref: string, stats: SummaryStat[]): s
         return true;
       })
       .slice(0, NOTABLE_COUNT)
-      .map(({ s, r }) => `${s.ind.name}（${formatValue(s.row, s.ind)}、${jp(r.total)}市区町村中${jp(r.rank)}位）`);
+      .map(({ s, r }) => `${s.ind.name}は${formatValue(s.row, s.ind)}で、全国の${jp(r.total)}市区町村のうち${jp(r.rank)}位と${top ? "大きい" : "小さい"}方です（${s.periodLabel}）。`);
   };
-  const high = pick(true);
-  const low = pick(false);
-  if (high.length) lines.push(`全国の市区町村の中で値が大きい方の指標: ${high.join("、")}。`);
-  if (low.length) lines.push(`全国の市区町村の中で値が小さい方の指標: ${low.join("、")}。`);
-  return lines;
+  // 全国で目立つ指標は1つずつ文にする（この地域の特色として読めるように）
+  return [...lines, ...pick(true), ...pick(false)];
 }
