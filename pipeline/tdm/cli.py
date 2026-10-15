@@ -245,7 +245,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "keishicho_crime":
             y = cfg["year"]
             period = (f"{y}-01-01", f"{y}-12-31", "calendar_year")
-            result[key] = keishicho_crime.ingest(conn, files[0], src, catalog, period,
+            result[key] = keishicho_crime.ingest(conn, files[0], src, catalog, period, boundary_version,
                                                  cfg.get("encoding", "cp932"))
         elif kind == "npa_traffic":
             y = cfg["year"]

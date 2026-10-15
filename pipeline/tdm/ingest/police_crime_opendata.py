@@ -25,6 +25,9 @@
   行のない町丁目は0件。ただし対応できない行（地図のほうが細かい町の行は除く）と町丁目が空の行が市区町村の件数の5%を超える市区町村は、行のない
   町丁目を値なしにする（0件なのか名前が合わないだけなのか決められないため）。この判断は7手口の合計で行い、
   手口別の指標にも同じ判断を使う。
+- 区を再編した政令指定都市（浜松市は2024年1月）で、地図（2020年国勢調査）にない新しい区の行がある年は、
+  その市の区を値なしにし、その年を含む5年合計の町丁目も値なしにする（新しい区の件数を古い区に分けられないため。
+  docs/design-changes.md #120）。
 """
 from __future__ import annotations
 
@@ -58,12 +61,16 @@ UNMATCHED_LIMIT = 0.05
 UNCERTAIN_NOTE = "警察の公開データの町丁目名と地図の町丁目を対応付けられない件数が多いため値なし"
 FINER_NOTE = "警察の公開データは地図より大きな単位（町・大字）で、この町丁目に割り振れないため値なし"
 NO_FILE_NOTE = "警察の公開データにこの年・この手口のファイルがないため値なし"
+REORGANIZED_NOTE = "警察の公開データがこの年は再編後の新しい区の単位で、地図の区（2020年国勢調査の区）に分けられないため値なし"
+# 政令指定都市の区（境界データの名前は「浜松市中区」のように市の名前から始まる）
+WARD = re.compile(r"^(.+?市)(.+区)$")
 ZERO_NOTE = "警察の公開データに発生の記録がないため0件"
 
 
 # 地図（国勢調査の町丁・字名）と警察の公開データで字体が違う字
 VARIANTS = str.maketrans({"濤": "涛", "檜": "桧", "籠": "篭", "舘": "館", "槇": "槙", "藪": "薮", "曾": "曽",
-                          "靱": "靭", "藏": "蔵", "螢": "蛍", "惠": "恵", "櫻": "桜", "龍": "竜", "瀧": "滝"})
+                          "靱": "靭", "藏": "蔵", "螢": "蛍", "惠": "恵", "櫻": "桜", "龍": "竜", "瀧": "滝",
+                          "鶯": "鴬"})
 # 地図の町名から省かれている旧町村名・地区名（甲賀市「水口町本町」→地図「本町」、千代田区「神田猿楽町」→地図「猿楽町」）
 OLD_PREFIX = re.compile(r"(町|村|神田)$")
 
@@ -264,6 +271,7 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
     if not munis:
         return {"municipalities": 0}
     by_name = {_norm(n): e for e, n in munis.items()}
+    ward_city = {e: m.group(1) for e, n in munis.items() if (m := WARD.match(_norm(n)))}
     areas: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
     for r in conn.execute("""SELECT e.entity_id, e.name, e.parent_id FROM entities e
                              JOIN boundaries b ON b.entity_id = e.entity_id AND b.boundary_version = ?
@@ -294,6 +302,8 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
         raw[int(y)].setdefault(t, b"")
     # counts[(年, 手口)][市区町村ID][町丁目の照合キー] = 件数
     counts: dict[tuple[int, str], dict[str, Counter]] = {}
+    # 年 → 地図にない区の行があった市（区を再編した市）
+    reorganized: dict[int, set[str]] = {}
     result = {"municipalities": len(munis), "years": {}, "skipped_rows": 0, "unmatched_rows": 0,
               "located_rows": 0, "located_by_point": 0, "blank_rows": 0, "uncertain_municipalities": 0, "areas": 0, "unmatched_examples": []}
     for year in years:
@@ -310,6 +320,9 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
                 muni = f"muni-{code}" if f"muni-{code}" in munis else by_name.get(muni_name)
                 if muni is None:
                     result["skipped_rows"] += n   # 他県・市区町村が分からない行（政令指定都市の市全体のコードなど）
+                    m = WARD.match(_norm(muni_name))
+                    if m and m.group(1) in ward_city.values():
+                        reorganized.setdefault(year, set()).add(m.group(1))
                     continue
                 per_muni[muni][town_key(town) if town else ""] += n
             counts[(year, tech)] = per_muni
@@ -341,6 +354,10 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
                     insert_observation(conn, entity_id=muni, value=None, status="missing",
                                        method_note=NO_FILE_NOTE, **base)
                     continue
+                if ward_city.get(muni) in reorganized.get(year, ()):
+                    insert_observation(conn, entity_id=muni, value=None, status="missing",
+                                       method_note=REORGANIZED_NOTE, **base)
+                    continue
                 total = sum(per_muni.get(muni, Counter()).values())
                 insert_observation(conn, entity_id=muni, value=float(total), status="observed",
                                    coverage_note=None if total else ZERO_NOTE, **base)
@@ -359,6 +376,13 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
         unmatched_names: Counter = Counter()
         uncertain_munis: list[str] = []
         for muni in munis:
+            if any(ward_city.get(muni) in reorganized.get(y, ()) for y in years):
+                # 5年のうちに古い区の件数が分からない年がある
+                for ids in areas[muni].values():
+                    for entity_id in ids:
+                        insert_observation(conn, entity_id=entity_id, value=None, status="missing",
+                                           **{**base, "method_note": REORGANIZED_NOTE})
+                continue
             c = five.get(muni, Counter())
             sums: Counter = Counter()
             uncertain: set[str] = set()
@@ -420,4 +444,6 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
             # 照合の改善に使う手がかり（件数の多い順）
             result["unmatched_examples"] = [f"{k}:{n}" for k, n in unmatched_names.most_common(30)]
             result["uncertain_examples"] = uncertain_munis[:30]
+    if reorganized:
+        result["reorganized"] = {y: sorted(c) for y, c in sorted(reorganized.items())}
     return result

@@ -596,6 +596,60 @@ def test_crime_town_names_are_normalized():
     assert normalize_name("西新宿十二丁目") == "西新宿12丁目"
 
 
+def test_crime_towns_match_current_map_only(tmp_path):
+    # 警視庁の表の町丁目の照合: 2010年の境界にしかない名前のない区市町村に島しょの行を取られない、
+    # 「神田」を省いた地図の町名・字体の違い・地図で丁目に分かれていない町に対応付け、
+    # 地図のほうが細かい町と同じ名前の町丁目には割り振らずに値なし
+    from tdm.ingest import keishicho_crime
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")   # 出典・指標の行は省く
+    catalog = {k: d for k, d in load_indicators().items() if d.get("source_kind") == "keishicho_crime"}
+    entities = [
+        ("muni-13101", "municipality", "千代田区", None, "v"), ("muni-13361", "municipality", "大島町", None, "v"),
+        ("muni-13199", "municipality", "", None, "old"),     # 2010年の所属未定地（名前がない）
+        ("area-13101000001", "small_area", "三崎町一丁目", "muni-13101", "v"),
+        ("area-13101000002", "small_area", "神田司町", "muni-13101", "v"),
+        ("area-13101000003", "small_area", "松涛一丁目", "muni-13101", "v"),
+        ("area-13101000004", "small_area", "川口町", "muni-13101", "v"),
+        ("area-13101000005", "small_area", "川口町", "muni-13101", "v"),
+        ("area-13101000006", "small_area", "大字平井本宿", "muni-13101", "v"),
+        ("area-13101000007", "small_area", "大字平井谷戸", "muni-13101", "v"),
+        ("area-13101000008", "small_area", "鴬谷町", "muni-13101", "v"),
+        ("area-13101000009", "small_area", "飯田橋一丁目", "muni-13101", "v"),
+        ("area-13101000010", "small_area", "飯田橋二丁目", "muni-13101", "old"),   # 今の地図にない
+        ("area-13361000001", "small_area", "元町", "muni-13361", "v"),
+        ("area-13361000002", "small_area", "岡田", "muni-13361", "v"),
+    ]
+    for eid, kind, name, parent, version in entities:
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name, parent_id) VALUES (?, ?, ?, ?)",
+                     (eid, kind, name, parent))
+        conn.execute("INSERT INTO boundaries (boundary_id, boundary_version, entity_id, reference_date, source_id, "
+                     "geometry, bbox_west, bbox_south, bbox_east, bbox_north) VALUES (?, ?, ?, '2020', 's', '{}', 0, 0, 0, 0)",
+                     (f"{version}:{eid}", version, eid))
+    columns = "市区町丁," + ",".join(d["column"] for d in catalog.values()) + "\n"
+    zeros = "," + ",".join("0" for _ in range(len(catalog) - 1))
+    rows = [("千代田区神田三崎町１丁目", 5), ("千代田区神田司町２丁目", 2), ("千代田区松濤１丁目", 1),
+            ("千代田区川口町", 4), ("千代田区大字平井", 6), ("千代田区鶯谷町", 3), ("千代田区計", 21),
+            ("大島町元町", 2), ("大島町計", 2), ("２３区計", 21), ("合計", 23)]
+    path = tmp_path / "R7.csv"
+    path.write_text(columns + "".join(f"{name},{n}{zeros}\n" for name, n in rows), encoding="cp932")
+    result = keishicho_crime.ingest(conn, path, "s", catalog, ("2025-01-01", "2025-12-31", "calendar_year"), "v")
+    got = {r["entity_id"]: (r["value"], r["status"]) for r in conn.execute(
+        "SELECT entity_id, value, status FROM observations WHERE indicator_id = 'crime_total'")}
+    assert result["unmatched"] == []
+    assert got["muni-13361"] == (2, "observed") and got["area-13361000001"] == (2, "observed")   # 島しょの行
+    assert got["area-13361000002"] == (0, "observed")
+    assert "muni-13199" not in got and "area-13101000010" not in got
+    assert got["area-13101000001"] == (5, "observed")     # 神田三崎町1丁目 → 三崎町一丁目
+    assert got["area-13101000002"] == (2, "observed")     # 神田司町2丁目 → 神田司町（地図は丁目に分かれていない）
+    assert got["area-13101000003"] == (1, "observed")     # 松濤 → 松涛
+    assert got["area-13101000008"] == (3, "observed")     # 鶯谷町 → 鴬谷町
+    for eid in ("area-13101000004", "area-13101000005", "area-13101000006", "area-13101000007"):
+        assert got[eid] == (None, "missing")              # 同じ名前が2つ・地図のほうが細かい
+    assert got["area-13101000009"] == (0, "observed")     # 表にない町丁目（計と一致）
+
+
 def test_crime_counts_by_municipality_and_town(built):
     def rows(period, chunk):
         return {r["entity_id"]: r for r in load(built, f"values/crime_total/{period}/{chunk}.json")["rows"]}
@@ -1816,6 +1870,41 @@ def test_police_crime_opendata_uncertain_towns(tmp_path):
     assert got["area-27999000000"][0] is None and "割り振れない" in got["area-27999000000"][1]
     assert got["area-27999000002"][0] == 150                # 「大字栄町」→ 栄町
     assert got["area-27999000003"][0] == 0                  # 名前の合わない行は5%以下
+
+
+def test_police_crime_opendata_reorganized_wards(tmp_path):
+    # 区を再編した市（浜松市は2024年1月）は、地図にない新しい区の行がある年の区と、その年を含む5年合計の町丁目を値なしにする
+    from tdm.ingest import police_crime_opendata as od
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    catalog = {k: d for k, d in load_indicators().items() if k == "street_crime_bicycle"}
+    upsert_indicators(conn, catalog)
+    for eid, kind, name, parent in [("muni-22131", "municipality", "浜松市中区", None),
+                                    ("muni-22132", "municipality", "浜松市東区", None),
+                                    ("muni-22203", "municipality", "沼津市", None),
+                                    ("area-22131000001", "small_area", "元城町", "muni-22131"),
+                                    ("area-22203000001", "small_area", "大手町", "muni-22203")]:
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name, parent_id) VALUES (?, ?, ?, ?)",
+                     (eid, kind, name, parent))
+        conn.execute("INSERT INTO boundaries (boundary_id, boundary_version, entity_id, reference_date, source_id, "
+                     "geometry, bbox_west, bbox_south, bbox_east, bbox_north) VALUES (?, 'b', ?, '2020', 's', '{}', 0, 0, 0, 0)",
+                     (f"b:{eid}", eid))
+    head = "罪名,手口,市区町村コード（発生地）,市区町村（発生地）,町丁目（発生地）\n"
+    for y in range(2021, 2026):
+        body = head + "窃盗,自転車盗,222038,沼津市,大手町\n"
+        body += ("窃盗,自転車盗,221384,浜松市中央区,元城町\n" if y >= 2024 else "窃盗,自転車盗,221317,浜松市中区,元城町\n")
+        (tmp_path / f"{y}_zitensyatou.csv").write_text(body, encoding="cp932")
+    result = od.ingest(conn, sorted(tmp_path.glob("*.csv")), "s", catalog, "22", list(range(2021, 2026)), "b")
+    assert result["reorganized"] == {2024: ["浜松市"], 2025: ["浜松市"]}
+    got = {(r["entity_id"], r["period_start"][:4], r["period_kind"]): r["value"] for r in conn.execute(
+        "SELECT entity_id, period_start, period_kind, value FROM observations")}
+    assert got[("muni-22131", "2023", "calendar_year")] == 1
+    assert got[("muni-22131", "2024", "calendar_year")] is None    # 0件にしない
+    assert got[("muni-22132", "2025", "calendar_year")] is None
+    assert got[("muni-22203", "2025", "calendar_year")] == 1       # ほかの市は変わらない
+    assert got[("area-22131000001", "2021", "multi_year")] is None
+    assert got[("area-22203000001", "2021", "multi_year")] == 5
 
 
 def test_police_crime_opendata_tab_and_old_town_names(tmp_path):
