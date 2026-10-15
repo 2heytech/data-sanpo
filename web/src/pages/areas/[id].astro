@@ -5,6 +5,7 @@ import AdSlot from "../../components/AdSlot.astro";
 import { loadAreas, loadIndicators, loadSources, loadValues } from "../../lib/data";
 import { formatFraction, formatValue, rankIfVaried } from "../../lib/format";
 import { areaSummary } from "../../lib/areaSummary";
+import { areaInsights } from "../../lib/areaInsights";
 import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -38,6 +39,12 @@ const pref = areas.prefectures.find((p) => p.code === muni.prefecture)?.name ?? 
 // 表の数字から作る短い文章（検索エンジンにも、表だけでなくその地域の特徴が分かるようにする。設計変更記録 #112）
 const summary = areaSummary(muni.name, pref, stats.map((s) => ({ ind: s.ind, periodLabel: s.period.label, row: s.row,
   ranks: s.ranks as [typeof s.ranks[0], typeof s.ranks[1]] })));
+// 決まった条件に当てはまるときだけ出す、推測の表現の考察（設計変更記録 #112）
+const indicatorById = new Map(loadIndicators().map((i) => [i.id, i]));
+const insights = areaInsights(muni.id, {
+  indicator: (id) => indicatorById.get(id),
+  rows: (id, period) => loadValues(id, period ?? indicatorById.get(id)?.default_period ?? "", "municipalities")?.rows ?? [],
+});
 const place = [pref, muni.region].filter(Boolean).join("・");
 const statCount = stats.filter((s) => s.row?.value != null).length;
 const description = `${muni.name}（${place}）の人口・年齢構成など${statCount}の指標を公開データで紹介。` +
@@ -53,11 +60,18 @@ const pageTitle = pref ? `${muni.name}（${pref}）の人口・統計データ�
     <div class="actions"><a class="button" href={`/map/?a=${muni.id}`}>地図で{muni.name}を見る</a></div>
   </header>
 
-  {summary.length > 0 && (
+  {(summary.length > 0 || insights.length > 0) && (
     <section class="sheet">
-    <h2>{muni.name}のあらまし</h2>
+    <h2>データで見る{muni.name}</h2>
     {summary.map((line) => <p>{line}</p>)}
-    <p class="muted">順位は値の大きい順です。大きいほど良い・悪いという意味ではありません。</p>
+    {insights.length > 0 && (
+      <>
+        <h3>データから考えられること</h3>
+        <ul>{insights.map((line) => <li>{line}</li>)}</ul>
+      </>
+    )}
+    <p class="muted">順位は値の大きい順で、大きいほど良い・悪いという意味ではありません。
+      {insights.length > 0 && "「考えられること」はデータの組み合わせから推測したもので、実際の理由を確かめたものではありません。"}</p>
     </section>
   )}
 
