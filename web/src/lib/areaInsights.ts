@@ -1,5 +1,6 @@
 import { formatNumber, formatValue } from "./format";
 import { approxCount, summarizePlaces, type MuniPlaces, type PlacePoints } from "./placeStats";
+import { municipalityPeriods } from "./periods";
 import { nationalityTemplate, RANK_TEMPLATES, tag, type RankTemplate, type Tag, type Tone } from "./rankInsights";
 import type { Indicator, ValueRow } from "./types";
 
@@ -24,6 +25,8 @@ export interface InsightData {
 
 interface Stat {
   ind: Indicator;
+  /** 使った時点と、その表示名 */
+  period: string;
   label: string;
   value: number;
   text: string;
@@ -142,19 +145,24 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
 }
 
 export function areaProfile(muniId: string, data: InsightData): AreaProfile {
+  // period を省くと、国勢調査の新しい回（2025年）を先に使い、その市区町村に値がなければ既定の時点を使う（設計変更記録 #117）。
+  // 順位・全国の位置は、使った時点の市区町村の中で数える
   const stat = (id: string, period?: string): Stat | null => {
     const ind = data.indicator(id);
     if (!ind) return null;
-    const p = period ?? ind.default_period;
-    const rows = data.rows(id, p);
-    const row = rows.find((r) => r.entity_id === muniId);
+    let p = "", rows: ValueRow[] = [], row: ValueRow | undefined;
+    for (const candidate of period ? [period] : municipalityPeriods(ind)) {
+      rows = data.rows(id, candidate);
+      row = rows.find((r) => r.entity_id === muniId && r.value !== null);
+      if (row) { p = candidate; break; }
+    }
     if (!row || row.value === null) return null;
     const { values, nationwide: spans } = sortedOf(rows);
     // 全国の位置は、複数の都道府県に値があり、値に違いがある指標だけで見る
     const nationwide = spans && values[0] !== values[values.length - 1];
     const { lt, le } = countBelow(values, row.value);
     return {
-      ind, value: row.value, text: formatValue(row, ind),
+      ind, period: p, value: row.value, text: formatValue(row, ind),
       label: ind.periods.find((x) => x.period === p)?.label ?? "",
       top: nationwide ? (values.length - le + 1) / values.length : null,
       bottom: nationwide ? (lt + 1) / values.length : null,
@@ -314,7 +322,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       const s = stat(ind.id);
       if (!s || s.top === null || s.bottom === null || s.total < 100) continue;
       if (t.minCountOf) {
-        const n = data.rows(t.minCountOf, ind.default_period).find((r) => r.entity_id === muniId)?.value ?? null;
+        const n = data.rows(t.minCountOf, s.period).find((r) => r.entity_id === muniId)?.value ?? null;
         if (n === null || n < (t.minCount ?? 0)) continue;
       }
       const group = ind.family ?? ind.id;
@@ -451,7 +459,11 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       const students = stat("university_student_share");
       // 学生のまちと読むのは、大学生・大学院生が人口の5%以上いるときだけ（都心の区は割合の順位だけなら上位に入る）
       if (isTop(single, 0.05) && isTop(students, 0.05) && students!.value >= 5) {
-        return strong(`一人暮らしの世帯が${single!.text}、大学生・大学院生が人口の${students!.text}で、どちらも全国で高い方です（${single!.label}）。学生の一人暮らしが多いまちと思われます。`, undefined, tag("students", "学生が多く", "学生の多い"), 0.02);
+        // 2つの時点が違うとき（一人暮らしは2025年、大学生は2020年など）は、それぞれに時点を添える
+        const same = single!.label === students!.label;
+        const each = (x: Stat) => (same ? "" : `（${x.label}）`);
+        return strong(`一人暮らしの世帯が${single!.text}${each(single!)}、大学生・大学院生が人口の${students!.text}${each(students!)}で、` +
+          `どちらも全国で高い方です${same ? `（${single!.label}）` : ""}。学生の一人暮らしが多いまちと思われます。`, undefined, tag("students", "学生が多く", "学生の多い"), 0.02);
       }
       // 高齢化が進んだ地域の一人暮らしは、働く人より高齢の人と考える方が自然
       if (isTop(stat("aged_65_plus_share"), 0.1)) {

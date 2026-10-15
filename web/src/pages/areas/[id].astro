@@ -9,6 +9,7 @@ import { loadAreas, loadIndicators, loadPlacePoints, loadValues } from "../../li
 import { formatFraction, formatValue, rankIfVaried } from "../../lib/format";
 import { areaSummary } from "../../lib/areaSummary";
 import { areaProfile } from "../../lib/areaInsights";
+import { municipalityPeriods } from "../../lib/periods";
 import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -24,8 +25,14 @@ const neighbors = muni.neighbors.map((id) => byId.get(id)!).filter(Boolean);
 const spansPrefectures = (rows: ValueRow[]) =>
   new Set(rows.filter((r) => r.value !== null).map((r) => r.entity_id.slice(5, 7))).size > 1;
 const stats = loadIndicators().map((ind) => {
-  const period = ind.periods.find((p) => p.period === ind.default_period)!;
-  const rows = loadValues(ind.id, period.period, "municipalities")?.rows ?? [];
+  // 国勢調査の新しい回（2025年）が市区町村の値で出ている指標は、それで値と順位を出す。
+  // その市区町村に値がないとき（区を再編した浜松市の旧区など）は既定の時点で出す（設計変更記録 #117）
+  const candidates = municipalityPeriods(ind).map((p) => ({
+    period: ind.periods.find((x) => x.period === p)!,
+    rows: loadValues(ind.id, p, "municipalities")?.rows ?? [],
+  }));
+  const { period, rows } = candidates.find((c) => c.rows.some((r) => r.entity_id === muni.id && r.value !== null))
+    ?? candidates[candidates.length - 1];
   const row = rows.find((r) => r.entity_id === muni.id);
   return {
     // 順位は同じ都道府県の市区町村の中と、全国の市区町村の中で数える（すべて同じ値なら出さない）
@@ -36,10 +43,14 @@ const stats = loadIndicators().map((ind) => {
   };
 });
 const pop = stats.find((s) => s.ind.id === "population_total");
+// 人口の時点に値がなく、都道府県内の順位に入らない市区町村（2025年の浜松市の旧区など。文章で母数を正しく書くため）
+const popRows = pop ? loadValues(pop.ind.id, pop.period.period, "municipalities")?.rows ?? [] : [];
+const excludedFromPrefRank = areas.municipalities.filter((m) => m.prefecture === muni.prefecture
+  && !popRows.some((r) => r.entity_id === m.id && r.value !== null));
 const pref = areas.prefectures.find((p) => p.code === muni.prefecture)?.name ?? "";
 // 表の数字から作る短い文章（検索エンジンにも、表だけでなくその地域の特徴が分かるようにする。設計変更記録 #113）
 const summary = areaSummary(muni.name, pref, stats.map((s) => ({ ind: s.ind, periodLabel: s.period.label, row: s.row,
-  ranks: s.ranks as [typeof s.ranks[0], typeof s.ranks[1]] })));
+  ranks: s.ranks as [typeof s.ranks[0], typeof s.ranks[1]] })), excludedFromPrefRank);
 // 決まった条件に当てはまるときだけ出す、推測の表現の考察と、特徴を一言で表す題名（設計変更記録 #113・#115）。
 // 指標の順位に加えて、駅・空港・港・地価公示・天気の点のデータも見る
 const indicatorById = new Map(loadIndicators().map((i) => [i.id, i]));

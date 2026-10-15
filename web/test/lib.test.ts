@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BLANK_COLOR, classIndex, colorsFor, fillColorExpression, NO_DATA_COLOR } from "../src/lib/classify";
 import { compactNumber, formatBasis, formatFraction, formatValue, rankIfVaried, rankOf, ranked, splitRanking } from "../src/lib/format";
+import { municipalityPeriods } from "../src/lib/periods";
 import { AreaSearch, normalize } from "../src/lib/search";
 import type { Indicator, SearchIndex } from "../src/lib/types";
 import { municipalityCodeOf, parseState, serializeState } from "../src/lib/urlstate";
@@ -262,5 +263,30 @@ describe("ranked・splitRanking", () => {
     expect([top.length, middle.length, bottom.length]).toEqual([100, 50, 100]);
     expect(bottom[0]).toBe(150);
     expect(splitRanking(xs.slice(0, 200), 100)).toEqual({ top: xs.slice(0, 200), middle: [], bottom: [] });
+  });
+});
+
+describe("municipalityPeriods（市区町村ページで使う時点）", () => {
+  const period = (p: string, source: string, levels: string[], aggregate = false) =>
+    ({ period: p, label: p, levels, source_ids: [`${source}@x`], aggregate });
+  it("国勢調査の新しい回が市区町村の値で出ていれば、既定の時点より先に使う", () => {
+    const pop = { default_period: "2020-10-01", periods: [
+      period("2015-10-01", "census2015_small_area_population", ["municipality", "small_area"]),
+      period("2020-10-01", "census2020_small_area_population", ["municipality", "small_area"]),
+      period("2025-10-01", "census2025_municipal_population", ["municipality", "prefecture"]),
+    ] } as unknown as Indicator;
+    expect(municipalityPeriods(pop)).toEqual(["2025-10-01", "2020-10-01"]);
+  });
+  it("国勢調査以外の新しい時点（犯罪の年ごとの値など）や、市区町村の値がない時点には切り替えない", () => {
+    const crime = { default_period: "2021-2025", periods: [
+      period("2021-2025", "police_crime_od_13", ["municipality"], true),
+      period("2025-01-01", "police_crime_od_13", ["municipality"]),
+    ] } as unknown as Indicator;
+    expect(municipalityPeriods(crime)).toEqual(["2021-2025"]);
+    const prefOnly = { default_period: "2020-10-01", periods: [
+      period("2020-10-01", "census2020_small_area_population", ["municipality"]),
+      period("2025-10-01", "census2025_prefecture", ["prefecture"]),
+    ] } as unknown as Indicator;
+    expect(municipalityPeriods(prefOnly)).toEqual(["2020-10-01"]);
   });
 });

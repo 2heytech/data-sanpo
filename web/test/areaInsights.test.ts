@@ -84,6 +84,31 @@ describe("areaInsights", () => {
       "人口は5年前から12.0%減っていて（2020年10月1日現在）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。",
     ]);
   });
+  it("国勢調査の2025年の値があればそれを使い、その市区町村に値がなければ既定の2020年の値を使う", () => {
+    const base = makeData({});
+    const change = {
+      ...ind("population_change_rate", "%", 1, ["2020-10-01", "2025-10-01"], "change"), default_period: "2020-10-01",
+      periods: [
+        { period: "2020-10-01", label: "2020年10月1日現在", levels: ["municipality", "small_area"], source_ids: ["census2020_small_area_population@x"] },
+        { period: "2025-10-01", label: "2025年10月1日現在", levels: ["municipality"], source_ids: ["census2020_small_area_population@x", "census2025_municipal_population@x"] },
+      ],
+    } as unknown as Indicator;
+    const data = (v2025: (number | null)[]): InsightData => ({
+      ...base,
+      indicator: (id) => (id === "population_change_rate" ? change : base.indicator(id)),
+      indicators: () => [change],
+      rows: (id, period) => {
+        if (id !== "population_change_rate") return [];
+        const v = period === "2025-10-01" ? v2025 : fill(-12, -2);
+        return v.map((x, i): ValueRow => ({ entity_id: `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`, value: x ?? null, status: x === null ? "missing" : "observed" }));
+      },
+    });
+    expect(areaInsights("muni-01001", data(fill(3, -2)))).toEqual([
+      "人口は5年前から3.0%増えていて（2025年10月1日現在）、全国の市区町村の中でも増え方が大きい方です。住宅の開発などで移り住む人が多いと考えられます。",
+    ]);
+    // 2025年の値がない市区町村（区を再編した浜松市の旧区など）は2020年で書く
+    expect(areaInsights("muni-01001", data(fill(null, -2)))[0]).toContain("12.0%減っていて（2020年10月1日現在）");
+  });
   it("全国順位が特に高い指標に、指標ごとの考察を付ける（人数が少ない国籍は除く）", () => {
     const lines = areaInsights("muni-01001", makeData({
       commute_bicycle_share: { "2020-10-01": fill(40, 10) },
