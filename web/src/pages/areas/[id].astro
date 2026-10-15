@@ -4,6 +4,7 @@ import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
 import { loadAreas, loadIndicators, loadSources, loadValues } from "../../lib/data";
 import { formatFraction, formatValue, rankIfVaried } from "../../lib/format";
+import { areaSummary } from "../../lib/areaSummary";
 import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -34,6 +35,9 @@ const stats = loadIndicators().map((ind) => {
 const usedSources = [...new Set(stats.flatMap((s) => s.period.source_ids))].map((id) => sources.get(id)).filter(Boolean);
 const pop = stats.find((s) => s.ind.id === "population_total");
 const pref = areas.prefectures.find((p) => p.code === muni.prefecture)?.name ?? "";
+// 表の数字から作る短い文章（検索エンジンにも、表だけでなくその地域の特徴が分かるようにする。設計変更記録 #112）
+const summary = areaSummary(muni.name, pref, stats.map((s) => ({ ind: s.ind, periodLabel: s.period.label, row: s.row,
+  ranks: s.ranks as [typeof s.ranks[0], typeof s.ranks[1]] })));
 const place = [pref, muni.region].filter(Boolean).join("・");
 const statCount = stats.filter((s) => s.row?.value != null).length;
 const description = `${muni.name}（${place}）の人口・年齢構成など${statCount}の指標を公開データで紹介。` +
@@ -48,6 +52,14 @@ const pageTitle = pref ? `${muni.name}（${pref}）の人口・統計データ�
     <h1>{muni.name}のデータ</h1>
     <div class="actions"><a class="button" href={`/map/?a=${muni.id}`}>地図で{muni.name}を見る</a></div>
   </header>
+
+  {summary.length > 0 && (
+    <section class="sheet">
+    <h2>{muni.name}のあらまし</h2>
+    {summary.map((line) => <p>{line}</p>)}
+    <p class="muted">順位は値の大きい順です。大きいほど良い・悪いという意味ではありません。</p>
+    </section>
+  )}
 
   <section class="sheet">
   <h2>主な指標</h2>
