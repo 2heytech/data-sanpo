@@ -1,0 +1,44 @@
+name: tmp explore (一時的・PR前に消す)
+on:
+  push:
+    branches: [claude/project-thread-rskee0]
+    paths: [.github/workflows/tmp-explore.yml]
+permissions:
+  contents: read
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python -m pip install -q -e pipeline
+      - run: (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils poppler-data) >/dev/null 2>&1
+      - name: show missing rows
+        working-directory: pipeline
+        run: |
+          python - <<'PY'
+          import tomllib, urllib.request, re
+          from pathlib import Path
+          from tdm.ingest.mext_school_aid import pdf_text, read_rates
+          src = tomllib.loads(Path("config/sources.toml").read_text(encoding="utf-8"))
+          want = {
+            "mext_school_aid_2024": {"21": ["多治見","中津川","美濃加茂","各務原","関ケ原","関ヶ原","輪之内","揖斐川","八百津","東白川"], "26": ["笠置","和束","南山城"], "30": ["かつらぎ","那智勝浦"], "39": ["檮原","梼原"], "44": ["日出"], "07": ["鏡石"], "22": ["森町"]},
+            "mext_school_aid_2021": {"01": ["乙部","妹背牛","美瑛","白老","別海","中標津","羅臼"], "13": ["日の出"], "40": ["小竹"]},
+            "mext_school_aid_2023": {"08": ["かすみがうら","つくばみらい","東海"], "42": ["諫早"], "46": ["いちき串木野","湧水"]},
+          }
+          for key, prefs in want.items():
+              cfg = src[key]
+              for pref, names in prefs.items():
+                  url = cfg["download_url"].replace("{pref_n}", str(int(pref))).replace("{pref3}", pref.zfill(3))
+                  p = Path(f"/tmp/{key}_{pref}.pdf"); p.write_bytes(urllib.request.urlopen(url, timeout=60).read())
+                  text = pdf_text(p)
+                  year, rates = read_rates(text)
+                  print("=====", key, pref, year, len(rates))
+                  for k, v in rates.items():
+                      if any(n in k[1] for n in names): print("  parsed", k, v)
+                  for page in text.split("\f"):
+                      if "援助率" not in page: continue
+                      for line in page.splitlines():
+                          if any(n in line for n in names): print("  line", repr(line))
+          PY
