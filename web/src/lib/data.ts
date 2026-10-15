@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import release from "../generated/release.json";
+import type { PlacePoints } from "./placeStats";
 import type { Geometry } from "./shape";
 import type {
   AreasFile, IndicatorCatalog, LegendFile, ReleaseInfo, SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
@@ -90,4 +91,42 @@ export function loadBoundaries(name: string): { features: { properties: { id: st
   } catch {
     return null;
   }
+}
+
+/** 点のデータの都道府県ごとのファイルをまとめて読む（ないときは空） */
+function placeRows<T>(name: string, key: string): T[] {
+  const index = loadPlace(name) as { prefectures?: Record<string, unknown> } | null;
+  if (!index?.prefectures) return [];
+  return Object.keys(index.prefectures).flatMap((code) => {
+    try {
+      return read<Record<string, T[]>>(`places/${name}/${code}.json`)[key] ?? [];
+    } catch {
+      return [];
+    }
+  });
+}
+
+let placePoints: PlacePoints | null | undefined;
+/** 地域ページの考察に使う、全国の駅・空港・港・地価公示・都道府県地価調査・天気の点（ビルドの間とっておく） */
+export function loadPlacePoints(): PlacePoints | null {
+  if (placePoints !== undefined) return placePoints;
+  type Indexed = { periods: { label: string }[]; points?: never[]; stations?: never[] };
+  const labels = (name: string) => ((loadPlace(name) as Indexed | null)?.periods ?? []).map((p) => p.label);
+  const inline = <T>(name: string, key: "points" | "stations") => ((loadPlace(name) as Indexed | null)?.[key] ?? []) as T[];
+  placePoints = {
+    stations: placeRows("station_passengers", "stations"),
+    stationPeriods: labels("station_passengers"),
+    land: placeRows("land_price", "points"),
+    landPeriods: labels("land_price"),
+    landSurvey: placeRows("land_survey_price", "points"),
+    landSurveyPeriods: labels("land_survey_price"),
+    airports: inline("airport_passengers", "points"),
+    airportPeriods: labels("airport_passengers"),
+    ports: inline("port_passengers", "points"),
+    portPeriods: labels("port_passengers"),
+    weather: inline("weather_normals", "stations"),
+    weatherLabel: labels("weather_normals")[0] ?? "",
+    centers: new Map(loadAreas().municipalities.map((m) => [m.id, m.center as [number, number]])),
+  };
+  return placePoints;
 }

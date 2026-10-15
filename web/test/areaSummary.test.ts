@@ -24,6 +24,13 @@ describe("areaSummary", () => {
     // 増減・全国順位で目立つ指標は areaInsights で書く
     expect(lines).toHaveLength(1);
   });
+  it("都道府県の一部の市区町村に値がない時点では、値のある市区町村の中の順位と書く", () => {
+    const pop = stat(ind("population_total", "人口", "count", "人"), 237966, [1, 36], [60, 1889]);
+    const hamamatsu = Array(7).fill({ region: "浜松市" });
+    expect(areaSummary("サンプル区", "静岡県", [pop], hamamatsu)[0]).toBe("サンプル区の人口は237,966 人（2020年）で、静岡県の36市区町村（浜松市の区を除く）のうち最も多い市区町村です。");
+    expect(areaSummary("サンプル区", "静岡県", [pop], [{ region: null }, { region: "浜松市" }])[0]).toBe("サンプル区の人口は237,966 人（2020年）で、静岡県の値のある36市区町村のうち最も多い市区町村です。");
+    expect(areaSummary("サンプル区", "静岡県", [pop])[0]).toBe("サンプル区の人口は237,966 人（2020年）で、静岡県の36市区町村のうち最も多い市区町村です。");
+  });
   it("値がない指標は文章にしない（0 として扱わない）", () => {
     expect(areaSummary("サンプル市", "東京都", [stat(ind("population_total", "人口", "count", "人"), null, null, null)])).toEqual([]);
   });
