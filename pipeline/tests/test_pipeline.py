@@ -2052,6 +2052,13 @@ def test_police_crime_opendata_file_shapes(tmp_path):
         z.writestr("\x93\x8c.csv", body)   # 文字化けした日本語のファイル名
     got = od._files_by_year([tmp_path / "2023_syazyounerai.csv"])
     assert od.read_incidents(got[2023]["syazyounerai"]) == [("34202", "呉市", "本町", 1)]
+    # Excel の数値のセル（件数の列など）は「3.0」を30と読まない
+    from tdm.xlsx import write_sheets
+    write_sheets(tmp_path / "2024_syazyounerai.xlsx",
+                 {"Sheet1": [["罪名", "市区町村コード（発生地）", "市区町村（発生地）", "町丁目（発生地）", "件数"],
+                             ["窃盗", "342025", "呉市", "本町", 3.0]]})
+    data = od._sheet_as_csv(tmp_path / "2024_syazyounerai.xlsx")
+    assert od.read_incidents(data) == [("34202", "呉市", "本町", 3)]
 
 
 def test_weather_normals(built):

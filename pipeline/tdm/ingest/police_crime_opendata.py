@@ -175,8 +175,14 @@ def detect_technique(data: bytes) -> str | None:
 
 def _sheet_as_csv(source) -> bytes:
     """Excel（.xlsx）の1枚目のシートを CSV と同じ形にする（秋田県の2024年、広島県の2023・2024年など）。"""
+    def text(c) -> str:
+        if c is None:
+            return ""
+        # 数値のセルは整数を「1.0」ではなく「1」と書く（件数の列が10倍に読まれないように）
+        return str(int(c)) if isinstance(c, float) and c.is_integer() else str(c)
+
     buf = io.StringIO()
-    csv.writer(buf).writerows([["" if c is None else str(c) for c in r] for r in read_sheet(source)])
+    csv.writer(buf).writerows([[text(c) for c in r] for r in read_sheet(source)])
     return buf.getvalue().encode("utf-8")
 
 
