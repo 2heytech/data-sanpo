@@ -22,22 +22,27 @@ jobs:
           from pathlib import Path
           from tdm.ingest.mext_school_aid import pdf_text, read_rates
           src = tomllib.loads(Path("config/sources.toml").read_text(encoding="utf-8"))
-          want = {
-            "mext_school_aid_2024": {"21": ["多治見","中津川","美濃加茂","各務原","関ケ原"], "26": ["相楽","広域","連合","組合"], "27": ["豊中"]},
-            "mext_school_aid_2023": {"08": ["かすみがうら","つくばみらい"], "42": ["早"], "46": ["串木野"], "27": ["豊中"]},
-          }
-          for key, prefs in want.items():
-              cfg = src[key]
-              for pref, names in prefs.items():
-                  url = cfg["download_url"].replace("{pref_n}", str(int(pref))).replace("{pref3}", pref.zfill(3))
+          from tdm.ingest.mext_school_aid import _norm, _match
+          from tdm.regions import PREFECTURES
+          ents = {}
+          for line in Path("tmp_munis.tsv").read_text(encoding="utf-8").splitlines():
+              eid, name = line.split("\t")
+              ents[(PREFECTURES[eid[5:7]], _norm(name))] = eid
+          for key in ("mext_school_aid_2024", "mext_school_aid_2023", "mext_school_aid_2022", "mext_school_aid_2021"):
+              cfg = src[key]; got = set(); unmatched = []; bad = []
+              for n in range(1, 48):
+                  pref = f"{n:02d}"
+                  url = cfg["download_url"].replace("{pref_n}", str(n)).replace("{pref3}", pref.zfill(3))
                   p = Path(f"/tmp/{key}_{pref}.pdf"); p.write_bytes(urllib.request.urlopen(url, timeout=60).read())
-                  text = pdf_text(p)
-                  print("=====", key, pref)
-                  for page in text.split("\f"):
-                      if "援助率" not in page: continue
-                      lines = page.splitlines()
-                      for i, line in enumerate(lines):
-                          if any(n in line for n in names):
-                              for l in lines[max(0, i-2): i+3]: print("   |", l[:60], "...", l[-30:])
-                              print("   ---")
+                  year, rates = read_rates(pdf_text(p))
+                  if year != cfg["fiscal_year"]: bad.append(f"{pref}:{year}")
+                  for (pn, m), v in rates.items():
+                      e = _match(ents, pn, m)
+                      if e: got.add(e)
+                      else: unmatched.append(f"{pn}{m}")
+              miss = sorted(eid for eid in ents.values() if eid not in got)
+              names = {v: k[1] for k, v in ents.items()}
+              print("=====", key, "matched", len(got), "bad", bad)
+              print("  unmatched", unmatched)
+              print("  no value (wards excluded?)", [f"{e}{names[e]}" for e in miss if "区" not in names[e]])
           PY
