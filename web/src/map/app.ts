@@ -87,6 +87,8 @@ interface FeatureCollection {
 }
 
 const shortLabel = (label: string) => label.replace(/(\d+年).*/, "$1");
+// 推移の表の時点。年度の指標は「2024年度」のまま（「2024年」と書くと暦年と取り違える）
+const trendLabel = (label: string) => label.replace(/(\d+年度?).*/, "$1");
 
 // 地名の文字の大きさに使う範囲（形のいちばん大きい部分）。境界を読み込んだときに入れる
 const labelBoxes = new Map<string, [number, number, number, number]>();
@@ -721,7 +723,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
           : esc(amount);
       }
       prev = v;
-      return `<tr${p.period === period ? ' aria-current="true"' : ""}><td>${esc(shortLabel(p.label))}</td>
+      return `<tr${p.period === period ? ' aria-current="true"' : ""}><td>${esc(trendLabel(p.label))}</td>
         <td class="num">${esc(formatValue(row, indicator))}</td>${withChange ? `<td class="num change">${change}</td>` : ""}</tr>`;
     }).join("");
     const note = rows.find(({ row }) => row?.status === "not_applicable")?.row?.note;
