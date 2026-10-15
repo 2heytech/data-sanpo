@@ -29,7 +29,7 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>): In
 const fill = (first: number | null, rest = 10) => [first, ...Array(19).fill(rest)];
 
 describe("areaInsights", () => {
-  it("住民基本台帳（1月）の外国人の割合が国勢調査（10月）よりかなり大きいと、季節的に働く人がいるかもしれないと書く", () => {
+  it("住民基本台帳（1月）の外国人の割合が国勢調査（10月）よりかなり大きいと、季節的に働く人が多いと考えられると書く", () => {
     const lines = areaInsights("muni-01001", makeData({
       foreign_resident_share: { "2025-10-01": fill(21.6, 2) },
       foreign_residents_share: { "2026-01-01": fill(35.5, 2) },
@@ -37,7 +37,7 @@ describe("areaInsights", () => {
       foreign_residents: { "2026-01-01": fill(541) },
     }));
     expect(lines[0]).toContain("住民基本台帳（2026年1月1日現在）では35.5%、国勢調査（2025年10月1日現在）では21.6%");
-    expect(lines[0]).toContain("かもしれません");
+    expect(lines[0]).toContain("考えられます");
   });
   it("外国人が少ない地域や差が小さい地域では書かない", () => {
     const few = makeData({
@@ -46,7 +46,7 @@ describe("areaInsights", () => {
     });
     expect(areaInsights("muni-01001", few)).toEqual([]);
     const close = makeData({
-      foreign_resident_share: { "2025-10-01": fill(10) }, foreign_residents_share: { "2026-01-01": fill(11) },
+      foreign_resident_share: { "2025-10-01": fill(10, 10) }, foreign_residents_share: { "2026-01-01": fill(11, 11) },
       census_foreign_population: { "2025-10-01": fill(300) }, foreign_residents: { "2026-01-01": fill(330) },
     });
     expect(areaInsights("muni-01001", close)).toEqual([]);
@@ -60,6 +60,10 @@ describe("areaInsights", () => {
       "昼間の人口は住んでいる人の1.5倍です（2020年10月1日現在）。周りから通勤・通学で人が集まる、職場や学校の多いまちと思われます。",
       "人口は5年前から12.0%減っていて（2020年10月1日現在）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。",
     ]);
+  });
+  it("「かもしれません」は使わない", () => {
+    const src = areaInsights.toString();
+    expect(src).not.toContain("かもしれません");
   });
   it("値がない指標は使わない（0 として扱わない）", () => {
     expect(areaInsights("muni-01001", makeData({ daytime_night_ratio: { "2020-10-01": fill(null, 100) } }))).toEqual([]);

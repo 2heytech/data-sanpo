@@ -31,16 +31,7 @@ export function areaSummary(name: string, pref: string, stats: SummaryStat[]): s
     lines.push(`${name}の人口は${formatValue(pop.row, pop.ind)}（${pop.periodLabel}）` +
       (prefRank && pref ? `で、${pref}の${jp(prefRank.total)}市区町村のうち${prefRank.rank === 1 ? "最も多い" : `${jp(prefRank.rank)}番目に多い`}市区町村です。` : "です。"));
   }
-  const change = byId.get("population_change_rate");
-  if (change?.row?.value != null) {
-    const v = change.row.value;
-    lines.push(v === 0 ? `5年前の国勢調査から人口は変わっていません（${change.periodLabel}）。`
-      : `5年前の国勢調査から人口が${formatValue({ ...change.row, value: Math.abs(v) }, change.ind).replace(/^\+/, "")}${v > 0 ? "増えました" : "減りました"}（${change.periodLabel}）。`);
-  }
-  const aged = byId.get("aged_65_plus_share");
-  if (aged?.row?.value != null) {
-    lines.push(`65歳以上の人の割合は${formatValue(aged.row, aged.ind)}です（${aged.periodLabel}）。`);
-  }
+  // 人口の増減と年齢構成は「データから考えられること」（areaInsights）で書くので、ここでは書かない
 
   // 全国の市区町村の中で値が特に大きい・小さい指標。人口に比例しやすい件数・人数は除き、割合・密度・増減率だけを見る。
   // 政党別の得票率のように同じ組の指標が並ばないよう、組（family か名前の括弧の前）ごとに1つにする
