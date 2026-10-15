@@ -1,0 +1,108 @@
+---
+// 市区町村の一覧ページ。地方・都道府県ごとに市区町村ページへのリンクを並べ、名前で絞り込める（設計変更記録 #114）
+import Base from "../../layouts/Base.astro";
+import { loadAreas } from "../../lib/data";
+
+const areas = loadAreas();
+// 地方の区分（都道府県コードの範囲）
+const REGIONS: { name: string; from: number; to: number }[] = [
+  { name: "北海道", from: 1, to: 1 },
+  { name: "東北", from: 2, to: 7 },
+  { name: "関東", from: 8, to: 14 },
+  { name: "中部", from: 15, to: 23 },
+  { name: "近畿", from: 24, to: 30 },
+  { name: "中国", from: 31, to: 35 },
+  { name: "四国", from: 36, to: 39 },
+  { name: "九州・沖縄", from: 40, to: 47 },
+];
+const regions = REGIONS.map((r, i) => ({
+  ...r, id: `r${i + 1}`,
+  prefs: areas.prefectures
+    .filter((p) => Number(p.code) >= r.from && Number(p.code) <= r.to)
+    .map((p) => ({ ...p, munis: areas.municipalities.filter((m) => m.prefecture === p.code) }))
+    .filter((p) => p.munis.length > 0),
+})).filter((r) => r.prefs.length > 0);
+const total = areas.municipalities.length;
+const description = `全国${total.toLocaleString("ja-JP")}の市区町村の一覧。都道府県ごとに並べ、名前でも探せます。各市区町村の人口・年齢構成など公開データの指標と、都道府県内・全国の順位を見られます。`;
+---
+<Base title="市区町村の一覧" description={description}>
+  <header class="page-head">
+    <p class="eyebrow">市区町村から探す</p>
+    <h1>市区町村の一覧</h1>
+    <p class="lead">{total.toLocaleString("ja-JP")}の市区町村ごとに、人口や年齢構成などの指標と順位をまとめたページがあります。</p>
+  </header>
+
+  <section class="sheet">
+    <div class="finder">
+      <label for="area-filter">名前で探す</label>
+      <input id="area-filter" type="search" placeholder="例: 府中、北区、村" autocomplete="off" />
+      <p class="muted" id="area-filter-status" aria-live="polite"></p>
+    </div>
+    {regions.length > 1 && (
+      <nav class="toc" aria-label="地方">
+        {regions.map((r) => <a href={`#${r.id}`}>{r.name}</a>)}
+      </nav>
+    )}
+
+    {regions.map((r) => (
+      <section class="region" id={r.id} data-group>
+        {regions.length > 1 && <h2>{r.name}</h2>}
+        {r.prefs.length > 1 && (
+          <p class="pref-jump">{r.prefs.map((p) => <a href={`#pref-${p.code}`}>{p.name}</a>)}</p>
+        )}
+        {r.prefs.map((p) => (
+          <section class="pref" data-group>
+            <h3 id={`pref-${p.code}`}>{p.name}<span class="muted">{p.munis.length}</span></h3>
+            <ul class="area-links">
+              {p.munis.map((m) => <li data-name={m.name}><a href={`/areas/${m.id}/`}>{m.name}</a></li>)}
+            </ul>
+          </section>
+        ))}
+      </section>
+    ))}
+    <p class="muted" id="area-none" hidden>見つかりませんでした。名前の一部（「府中」など）で探してみてください。</p>
+  </section>
+</Base>
+
+<script>
+  // 名前の一部で市区町村を絞り込む（ひらがな・カタカナの区別なし）
+  const input = document.querySelector<HTMLInputElement>("#area-filter")!;
+  const status = document.querySelector<HTMLElement>("#area-filter-status")!;
+  const none = document.querySelector<HTMLElement>("#area-none")!;
+  const items = [...document.querySelectorAll<HTMLElement>("li[data-name]")];
+  const groups = [...document.querySelectorAll<HTMLElement>("[data-group]")].reverse();
+  const norm = (s: string) => s.trim().replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  input.addEventListener("input", () => {
+    const q = norm(input.value);
+    let hits = 0;
+    for (const li of items) {
+      const on = !q || norm(li.dataset.name!).includes(q);
+      li.hidden = !on;
+      if (on) hits++;
+    }
+    for (const g of groups) g.hidden = !!q && !g.querySelector("li:not([hidden])");
+    none.hidden = hits > 0;
+    status.textContent = q ? `${hits.toLocaleString("ja-JP")}件` : "";
+  });
+</script>
+
+<style>
+  .finder { display: grid; gap: 4px; max-width: 420px; margin-bottom: 12px; }
+  .finder label { font-weight: 700; color: var(--ink); }
+  .finder input {
+    font: inherit; padding: 9px 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface);
+  }
+  .finder p { margin: 0; min-height: 1.5em; }
+  .toc { margin-bottom: 4px; }
+  .region { scroll-margin-top: 90px; }
+  .region h2 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.4em; }
+  .pref-jump { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 0.4em; font-size: 0.9rem; }
+  .pref h3 { scroll-margin-top: 90px; display: flex; align-items: baseline; gap: 8px; margin: 1.2em 0 0.5em; }
+  .area-links { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .area-links a {
+    display: inline-block; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px;
+    text-decoration: none; font-size: 0.92rem; background: var(--surface);
+  }
+  .area-links a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  [hidden] { display: none !important; }
+</style>

@@ -58,8 +58,10 @@ const prefRows = areas.prefectures.length > 1 && period.levels.includes("prefect
   ? [...(loadValues(ind.id, period.period, "prefectures")?.rows ?? [])]
       .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   : [];
+// 検索で「〇〇 ランキング」と探す人に届くよう、市区町村の値がある指標は題名にランキングと入れる
+const pageTitle = muniCount > 0 ? `${ind.name}の市区町村ランキング${nationwide && !partial ? "（全国）" : ""}` : ind.name;
 ---
-<Base title={ind.name} description={`${ind.name}（${ind.unit}）の意味・計算方法・対象範囲と、市区町村別の値。${ind.description}`}>
+<Base title={pageTitle} description={`${ind.name}（${ind.unit}）の${nationwide && !partial ? "全国の" : ""}市区町村ランキング${prefRows.length ? "と都道府県別の値" : ""}。意味・計算方法・出典つき。${ind.description}`}>
   <header class="page-head">
     <p class="eyebrow">{ind.category}</p>
     <h1>{ind.name}</h1>
