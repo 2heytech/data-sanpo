@@ -370,21 +370,30 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     }
   }
 
+  // 値を読んでいる間に指標・時点が変わったか（変わっていたら、古い値で塗ったり一覧を書いたりしない）
+  const shownKey = () => `${indicator.id}/${period}`;
+
   async function paintPrefectures() {
     if (!nationwide) return;
+    const key = shownKey();
     const v = prefLevel() ? await loadValues("prefectures") : null;
+    if (key !== shownKey()) return;
     applyRows("prefs", areas.prefectures.map((p) => p.id), v?.rows);
     refreshLabels("prefs");
   }
 
   async function paintMunicipalities() {
+    const key = shownKey();
     const v = await loadValues("municipalities");
+    if (key !== shownKey()) return;
     applyRows("munis", munis.keys(), v?.rows);
     refreshLabels("munis");
   }
 
   async function paintChunk(code: string) {
+    const key = shownKey();
     const v = await loadValues(code.slice(0, 2));
+    if (key !== shownKey()) return;
     const ids = areaFeatures.features
       .filter((f) => municipalityCodeOf(f.properties.id) === code)
       .map((f) => f.properties.id);
@@ -399,8 +408,13 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   let legend: LegendFile | null = null;
+  let colorsToken = 0;
   async function refreshColors() {
-    legend = await fetchJSON<LegendFile>(`values/${indicator.id}/${period}/legend.json`);
+    // 凡例を読んでいる間に指標・時点が変わったら（続けて切り替えた・再生中など）、古い凡例で塗らない
+    const token = ++colorsToken;
+    const next = await fetchJSON<LegendFile>(`values/${indicator.id}/${period}/legend.json`);
+    if (token !== colorsToken) return;
+    legend = next;
     // 都道府県の値がある指標は、縮小すると都道府県・拡大すると市区町村（さらに町丁目）で塗る
     const muniFrom = prefLevel() ? PREF_ZOOM : 0;
     const prefMax = prefectureOnly() ? 24 : PREF_ZOOM;
@@ -884,7 +898,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <p class="muted small sources">${srcHtml}（<a href="/sources/">出典の一覧</a>）</p>`;
   }
 
+  let listToken = 0;
   async function renderList() {
+    const token = ++listToken;
     const level = levelNow();
     let ids: string[];
     let title: string;
@@ -910,6 +926,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       rows = (await loadValues(code.slice(0, 2)))?.rows ?? [];
       title = `${munis.get(`muni-${code}`)?.name ?? ""}の町丁・字等`;
     }
+    if (token !== listToken) return;   // 読んでいる間に次の一覧を書き始めた
     const byId = new Map(rows.map((r) => [r.entity_id, r]));
     const sorted = ids
       .map((id) => ({ id, row: byId.get(id) }))
