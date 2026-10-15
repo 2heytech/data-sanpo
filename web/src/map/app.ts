@@ -5,7 +5,7 @@ import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, LngLatBoundsLike, PointLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { colorsFor, fillColorExpression, NO_DATA_COLOR } from "../lib/classify";
-import { bandLabel, compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
+import { bandLabel, compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
 import type {
@@ -23,6 +23,7 @@ import type { PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
 import { normalize } from "../lib/search";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
+import { esc } from "../lib/html";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
 // 切り替えは、次の段階の地名がある程度読める縮尺まで待つ（市区町村名は MUNI_LABEL_ZOOM、町丁目名は AREA_LABEL_ZOOM から）
@@ -1487,8 +1488,4 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   } else {
     updateUrl();
   }
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

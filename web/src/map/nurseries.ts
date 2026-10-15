@@ -3,9 +3,10 @@
 // 都道府県の分だけ読む（createPrefLoader）。東京都以外は定員の公開データがなく、国土数値情報の位置だけを小さな点で出す。
 // 定員は受け入れの上限で、通っている子どもの数ではないことを凡例と詳細に明記する。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { createPrefLoader, type PointLayer } from "./points";
+import { createPrefLoader, type PointLayer, sourcesHtml } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, NurseryFile, NurseryPoint } from "../lib/types";
+import { esc } from "../lib/html";
 
 const LAYER = "nursery-circle";
 const SELECTED = "nursery-selected";
@@ -139,7 +140,6 @@ export function initNurseries(o: Options): PointLayer {
     }
     const i = latest();
     const v = p.values[i];
-    const srcs = [...new Set(data.source_ids.map((sid) => o.sources.get(sid)?.attribution ?? sid))];
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="認可保育所の情報を閉じる">×</button>
@@ -153,7 +153,7 @@ export function initNurseries(o: Options): PointLayer {
       <div class="value">${v != null ? `${formatNumber(v, 0)}人` : "値なし"}</div>`}
       ${p.precision === "町丁目" ? `<p class="note small">所在地の街区が見つからないため、町丁目の代表点に表示しています。</p>` : ""}
       <p class="muted small">${data.caveats.map(esc).join(" ")}</p>
-      <p class="muted small">${srcs.map(esc).join("／")}</p>`;
+      ${sourcesHtml(data.source_ids, o.sources)}`;
     o.onPanel();
   }
 
@@ -174,8 +174,4 @@ export function initNurseries(o: Options): PointLayer {
     show: showPoint,
     isOpen: () => !o.panel.hidden,
   };
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

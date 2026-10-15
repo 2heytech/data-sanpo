@@ -3,10 +3,11 @@
 // places/weather_normals.json の1ファイルに全地点をまとめ、全国を見ているときから表示する（docs/design-changes.md #94）。
 // 地域の平均ではなく観測所1地点の値であることを凡例と詳細に明記し、地域には割り振らない。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import type { PointLayer } from "./points";
+import { sourcesHtml, type PointLayer } from "./points";
 import { colorsFor } from "../lib/classify";
 import { formatNumber } from "../lib/format";
 import type { Source, WeatherElement, WeatherFile, WeatherStation } from "../lib/types";
+import { esc } from "../lib/html";
 
 const LAYER = "weather-circle";
 const SELECTED = "weather-selected";
@@ -164,7 +165,6 @@ export function initWeather(o: Options): PointLayer {
     const short = els.filter((x) => s.years[x.id] && s.years[x.id][2] < 30)
       .map((x) => `${SHORT[x.id] ?? x.name}は${s.years[x.id][0]}〜${s.years[x.id][1]}年（${s.years[x.id][2]}年分）`);
     const missing = data.elements.filter((x) => s.values[x.id] == null).map((x) => SHORT[x.id] ?? x.name);
-    const srcs = [...new Set(data.source_ids.map((sid) => o.sources.get(sid)?.attribution ?? sid))];
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="観測所の情報を閉じる">×</button>
@@ -183,7 +183,7 @@ export function initWeather(o: Options): PointLayer {
         }).join("")}</tr>`).join("")}</tbody></table></div>
       <p class="muted small">最深積雪の月の値はその月にいちばん深く積もったときの深さ、ほかは月の合計です。</p>
       <p class="muted small">${e.caveats.map(esc).join(" ")}</p>
-      <p class="muted small">${srcs.map(esc).join("／")}</p>`;
+      ${sourcesHtml(data.source_ids, o.sources)}`;
     o.onPanel();
   }
 
@@ -213,8 +213,4 @@ export function initWeather(o: Options): PointLayer {
     show: showStation,
     isOpen: () => !o.panel.hidden,
   };
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

@@ -5,7 +5,7 @@ import release from "../generated/release.json";
 import type { PlacePoints } from "./placeStats";
 import type { Geometry } from "./shape";
 import type {
-  AreasFile, IndicatorCatalog, LegendFile, ReleaseInfo, SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
+  AreasFile, IndicatorCatalog, ReleaseInfo, SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
 } from "./types";
 
 export const RELEASE = release as ReleaseInfo;
@@ -80,9 +80,6 @@ export function loadSmallAreaRows(indicatorId: string, period: string, prefectur
   }
   return out;
 }
-
-export const loadLegend = (indicatorId: string, period: string) =>
-  read<LegendFile>(`values/${indicatorId}/${period}/legend.json`);
 
 /** 境界（GeoJSON）。name は boundaries/<版>/ の下のパス（"prefectures"・"municipalities/13" など）。ないときは null */
 export function loadBoundaries(name: string): { features: { properties: { id: string }; geometry: Geometry }[] } | null {
