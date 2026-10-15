@@ -1,5 +1,7 @@
 import { formatNumber, formatValue } from "./format";
-import { nationalityTemplate, RANK_TEMPLATES, type RankTemplate, type Tone } from "./rankInsights";
+import { approxCount, summarizePlaces, type MuniPlaces, type PlacePoints } from "./placeStats";
+import { municipalityPeriods } from "./periods";
+import { nationalityTemplate, RANK_TEMPLATES, tag, type RankTemplate, type Tag, type Tone } from "./rankInsights";
 import type { Indicator, ValueRow } from "./types";
 
 /**
@@ -17,10 +19,14 @@ export interface InsightData {
   rows(id: string, period?: string): ValueRow[];
   /** すべての指標（全国順位で目立つ指標を探すのに使う） */
   indicators(): Indicator[];
+  /** 駅・空港・港・地価公示・天気の点（ないときは点の考察を出さない） */
+  places?(): PlacePoints | null;
 }
 
 interface Stat {
   ind: Indicator;
+  /** 使った時点と、その表示名 */
+  period: string;
   label: string;
   value: number;
   text: string;
@@ -36,7 +42,9 @@ interface Stat {
 /** 良いところを探す範囲（全国の上位・下位それぞれ全体のこの割合まで） */
 const BRIGHT_SHARE = 0.25;
 /** 考察の数の上限（多すぎると読まれないため） */
-const MAX_INSIGHTS = 6;
+const MAX_INSIGHTS = 8;
+/** 課題に当たる文の数の上限（人口減少と高齢化など、似た課題の文が並んで暗いページにならないようにする） */
+const MAX_NEGATIVE = 3;
 /** 全国順位で目立つとみなす範囲（上位・下位それぞれ全体のこの割合まで）と、その考察の数の上限 */
 const RANK_SHARE = 0.02;
 /** 上の範囲に入る指標がない市区町村は、この範囲まで広げて一番目立つ指標を1つ挙げる */
@@ -70,22 +78,91 @@ function countBelow(values: number[], v: number): { lt: number; le: number } {
   return { lt: search(true), le: search(false) };
 }
 
-type Line = { text: string; strong: boolean; tone?: Tone };
+/**
+ * 考察のまとまり（テーマ）。ページではテーマごとに小見出しを付けてまとめる。
+ * 並びは、題名の元になった考察のテーマを先に、あとは目立つ考察のあるテーマから（同じなら下の順）
+ */
+export const THEMES = ["気候と土地", "交通", "住む人", "住まい", "仕事と産業", "子育てと学び", "安全と健康", "選挙"] as const;
+export type Theme = (typeof THEMES)[number];
+/** 全国順位の考察（rankInsights）のテーマ。指標のカテゴリから決め、合わないものは指標ごとに決める */
+const CATEGORY_THEME: Record<string, Theme> = {
+  "人口・世帯": "住む人", "年齢構成": "住む人", "外国人住民": "住む人", "学歴": "住む人", "所得・税": "住む人", "暮らし方": "住まい",
+  "緑": "気候と土地", "通勤・通学": "交通", "働き方": "仕事と産業", "農業": "仕事と産業", "工業": "仕事と産業", "商業": "仕事と産業",
+  "観光": "仕事と産業", "子育て": "子育てと学び", "教育": "子育てと学び", "交通事故": "安全と健康", "犯罪": "安全と健康", "選挙": "選挙",
+};
+const ID_THEME: Record<string, Theme> = {
+  population_density: "気候と土地",
+  total_fertility_rate: "住む人",
+  households_with_children_share: "住む人",
+  life_expectancy_male: "安全と健康",
+  life_expectancy_female: "安全と健康",
+};
+const themeOf = (ind: Indicator): Theme => ID_THEME[ind.id] ?? CATEGORY_THEME[ind.category] ?? "安全と健康";
+
+/** w は見出しに選ぶときの目立ち方（小さいほど目立つ。全国の中の位置など） */
+type Line = { text: string; strong: boolean; tone?: Tone; tag?: Tag; w: number; theme?: Theme; topic?: string };
+/**
+ * テーマの中の話の順（人口 → 年齢 → 世帯 → 外国人 → 住まい → 地価、のように話がつながる順）。
+ * 考察を出す処理の名前と、全国順位の考察の指標の id（国籍別・政党別は名前の頭）で並べる。ないものはテーマの最後
+ */
+const TOPIC_ORDER = [
+  // 気候と土地
+  "population_density", "weather", "altitude",
+  // 交通
+  "airport", "port", "station", "commute", "commute_walk_share", "commute_bicycle_share", "commute_bus_share", "commute_car_share",
+  // 住む人
+  "populationChange", "ageStructure", "total_fertility_rate", "foreignGap", "foreignShare", "census_foreign", "households",
+  "persons_per_household", "households_with_children_share", "university_graduate_share", "taxable_income_per_taxpayer",
+  "income_levy_taxpayer_share", "income",
+  // 住まい
+  "same_residence_5y_share", "residence_20y_share", "residence_under5y_share", "residence_under1y_share",
+  "housing", "owner_occupied_share", "high_rise_household_share", "land", "vacancy", "vacant_house_rate",
+  // 仕事と産業
+  "daytime", "industry", "manufacturing_shipments", "agri_output_rice", "agri_output_vegetables", "agri_output_fruits",
+  "agri_output_livestock", "wholesale_sales", "shopping", "inbound_guest_nights", "inbound_guest_share",
+  "self_employed_share", "professional_share", "manager_share", "furusato",
+  // 子育てと学び
+  "childcare_usage_rate", "preschool_kindergarten_share", "preschool_nursery_share", "preschool_kodomoen_share",
+  "elem_class_size", "jhs_class_size", "jhs_students_private", "education", "hs_grad_vocational_rate",
+  // 安全と健康
+  "life_expectancy_male", "life_expectancy_female", "traffic_accidents_per_100_residents", "street_crime_total_per_100_residents",
+  // 選挙
+  "voter_turnout", "vote_share",
+];
+/** どの地域にも出やすい、ありきたりな考察（昼と夜の人口がほぼ同じ、平均的な年齢構成など）。ほかに考察が多いときは出さない */
+const isFiller = (l: Line) => !l.strong && l.w >= 0.8;
+/** ありきたりな考察を外しても、この数以上の考察が残るときは外す */
+const MIN_WITHOUT_FILLER = 6;
+
+// 点のデータの市区町村ごとのまとめは、点のデータ1つにつき1回だけ作る
+const placeCache = new WeakMap<PlacePoints, Map<string, MuniPlaces>>();
+
+/** 「データで見る〇〇」の見出し（特徴を一言で表す文）と考察（テーマごとのまとまりと、その順に並べた文） */
+export interface AreaProfile { title: string | null; groups: { theme: Theme; lines: string[] }[]; lines: string[] }
 
 export function areaInsights(muniId: string, data: InsightData): string[] {
+  return areaProfile(muniId, data).lines;
+}
+
+export function areaProfile(muniId: string, data: InsightData): AreaProfile {
+  // period を省くと、国勢調査の新しい回（2025年）を先に使い、その市区町村に値がなければ既定の時点を使う（設計変更記録 #118）。
+  // 順位・全国の位置は、使った時点の市区町村の中で数える
   const stat = (id: string, period?: string): Stat | null => {
     const ind = data.indicator(id);
     if (!ind) return null;
-    const p = period ?? ind.default_period;
-    const rows = data.rows(id, p);
-    const row = rows.find((r) => r.entity_id === muniId);
+    let p = "", rows: ValueRow[] = [], row: ValueRow | undefined;
+    for (const candidate of period ? [period] : municipalityPeriods(ind)) {
+      rows = data.rows(id, candidate);
+      row = rows.find((r) => r.entity_id === muniId && r.value !== null);
+      if (row) { p = candidate; break; }
+    }
     if (!row || row.value === null) return null;
     const { values, nationwide: spans } = sortedOf(rows);
     // 全国の位置は、複数の都道府県に値があり、値に違いがある指標だけで見る
     const nationwide = spans && values[0] !== values[values.length - 1];
     const { lt, le } = countBelow(values, row.value);
     return {
-      ind, value: row.value, text: formatValue(row, ind),
+      ind, period: p, value: row.value, text: formatValue(row, ind),
       label: ind.periods.find((x) => x.period === p)?.label ?? "",
       top: nationwide ? (values.length - le + 1) / values.length : null,
       bottom: nationwide ? (lt + 1) / values.length : null,
@@ -95,17 +172,112 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   // 型の絞り込みはしない（false のときに null と見なされるため）。真のときは値があるので ! で読む
   const isTop = (s: Stat | null, share: number): boolean => !!s && s.top !== null && s.top <= share;
   const isBottom = (s: Stat | null, share: number): boolean => !!s && s.bottom !== null && s.bottom <= share;
-  const strong = (text: string, tone?: Tone): Line => ({ text, strong: true, tone });
-  const general = (text: string, tone?: Tone): Line => ({ text, strong: false, tone });
+  const strong = (text: string, tone?: Tone, t?: Tag, w = 0.1): Line => ({ text, strong: true, tone, tag: t, w });
+  const general = (text: string, tone?: Tone, t?: Tag, w = 0.5): Line => ({ text, strong: false, tone, tag: t, w });
+  const pts = data.places?.() ?? null;
+  let place: MuniPlaces = {};
+  if (pts) {
+    let m = placeCache.get(pts);
+    if (!m) { m = summarizePlaces(pts); placeCache.set(pts, m); }
+    place = m.get(muniId) ?? {};
+  }
 
   const gap = foreignGap();
   const ranked = rankCandidates();
-  const lines = [gap, ...rankNotables(), gap ? null : foreignShare(), daytime(), populationChange(), ageStructure(), households(), housing(),
-    commute(), industry(), shopping(), furusato(), income(), vacancy(), education()]
-    .filter((l): l is Line => !!l);
+  const on = (theme: Theme, topic: string, l: Line | null): Line | null => {
+    if (l) { l.theme ??= theme; l.topic ??= topic; }
+    return l;
+  };
+  const all = [on("住む人", "foreignGap", gap), ...rankNotables(), on("交通", "airport", airport()), on("交通", "port", port()),
+    on("交通", "station", station()), ...weather().map((l) => on("気候と土地", "weather", l)), on("住まい", "land", landPrice()),
+    on("住む人", "foreignShare", gap ? null : foreignShare()), on("仕事と産業", "daytime", daytime()),
+    on("住む人", "populationChange", populationChange()), on("住む人", "ageStructure", ageStructure()),
+    on("住む人", "households", households()), on("住まい", "housing", housing()), on("交通", "commute", commute()),
+    on("仕事と産業", "industry", industry()), on("仕事と産業", "shopping", shopping()), on("仕事と産業", "furusato", furusato()),
+    on("住む人", "income", income()), on("住まい", "vacancy", vacancy()), on("子育てと学び", "education", education()),
+    on("住まい", "land", landGeneral()), on("交通", "station", stationGeneral())]
+    .filter((l): l is Line => !!l)
+    // 同じことを言う考察は1つにする（持ち家が少ない方の全国順位があれば、借家が多いという文は出さない）
+    .filter((l, _, list) => !(l.topic === "housing" && l.text.startsWith("民営の借家") && list.some((x) => x.topic === "owner_occupied_share")));
+  // ほかに考察が十分あるときは、どの地域にも出やすいありきたりな考察を外す
+  const lines = all.filter((l) => !isFiller(l)).length >= MIN_WITHOUT_FILLER ? all.filter((l) => !isFiller(l)) : all;
   // 強い考察を先に（並びは上の順のまま）、一般的な考察で埋める
-  const picked = [...lines.filter((l) => l.strong), ...lines.filter((l) => !l.strong)].slice(0, MAX_INSIGHTS);
-  return balance(picked).map((l) => l.text);
+  const ordered = [...lines.filter((l) => l.strong), ...lines.filter((l) => !l.strong)];
+  const picked = balance(ordered.filter((l) => l.tone !== "neg" || ordered.filter((x) => x.tone === "neg").indexOf(l) < MAX_NEGATIVE)
+    .slice(0, MAX_INSIGHTS));
+  const titleLines: Line[] = [];
+  const title = headline(picked);
+  const groups = arrange(picked);
+  return { title, groups: groups.map((g) => ({ theme: g.theme, lines: g.lines.map((l) => l.text) })),
+    lines: groups.flatMap((g) => g.lines.map((l) => l.text)) };
+
+  /**
+   * 読む順に並べる。同じテーマの考察はまとめ、題名の元になった考察のテーマを先頭に（題名のすぐ下で理由が分かるように）、
+   * あとは最初の文が目立つテーマから。課題に当たる文は目立ち方を割り引き、地域の特徴から読み始められるようにする。
+   * 政党の得票率などの選挙は、まちの第一印象が支持政党にならないよう、最後の方にする。
+   * テーマの中は、題名の元になった考察を先に、あとは話がつながる順（TOPIC_ORDER）にする
+   */
+  function arrange(list: Line[]): { theme: Theme; lines: Line[] }[] {
+    const score = (l: Line) => {
+      const t = titleLines.indexOf(l);
+      if (t >= 0) return t - 10;
+      // 住む人の国籍の文は、題名と同じく、まちの第一印象にしない
+      const origin = l.topic === "foreignShare" || l.topic?.startsWith("census_foreign_");
+      return l.w + (l.tone === "neg" ? 0.5 : 0) + (origin ? 0.5 : 0) + (l.theme === "選挙" ? 1 : 0);
+    };
+    const topic = (l: Line) => {
+      if (titleLines.includes(l)) return -1;
+      const t = l.topic ?? "";
+      // 指標の系統（国籍別の外国人・政党別の得票率）は名前の頭で見る
+      const i = TOPIC_ORDER.indexOf(t) >= 0 ? TOPIC_ORDER.indexOf(t) : TOPIC_ORDER.findIndex((x) => t.startsWith(`${x}_`));
+      return i < 0 ? TOPIC_ORDER.length : i;
+    };
+    const byTheme = new Map<Theme, Line[]>();
+    for (const l of list) {
+      const theme = l.theme ?? "安全と健康";
+      byTheme.set(theme, [...(byTheme.get(theme) ?? []), l]);
+    }
+    // テーマは、その最初の文（読む人が最初に目にする文）の目立ち方で並べる
+    return [...byTheme].map(([theme, lines]) => ({ theme, lines: [...lines].sort((a, b) => topic(a) - topic(b) || score(a) - score(b)) }))
+      .sort((a, b) => score(a.lines[0]) - score(b.lines[0]) || THEMES.indexOf(a.theme) - THEMES.indexOf(b.theme));
+  }
+
+  /**
+   * 特徴を一言で表す見出し。表示する考察のうち全国の中で目立つものから、課題に当たらない言い回しを2つまで選んで
+   * 「雪が多く、米どころのまち」のようにつなぐ。選んだ考察にないときは、ほかの考察からも探す
+   */
+  function headline(list: Line[]): string | null {
+    // 表示する考察のほか、全国の上位・下位10%に入る指標の考察も候補にする（選んだときは考察にも加える）
+    const extra = ranked.filter((f) => f.pos <= 0.1 && f.tag && f.tone !== "neg" && !list.some((l) => l.text === f.text))
+      .map((f) => ({ ...strong(f.text, f.tone, f.tag, f.pos), theme: f.theme, topic: f.id }));
+    const usable = (ls: Line[]) => ls.filter((l) => l.tag && l.tone !== "neg").sort((a, b) => a.w - b.w);
+    let candidates = usable([...list, ...extra, ...lines.filter((l) => !list.includes(l))]);
+    // ほかに言い回しがないときだけ、外したありきたりな考察（職場と住まいが近いなど）からも作る
+    if (!candidates.length) candidates = usable(all.filter((l) => !lines.includes(l)));
+    const chosen: Line[] = [];
+    for (const l of candidates) {
+      if (chosen.some((x) => x.tag!.key === l.tag!.key)) continue;
+      // 「盛ん」が2回続くなど、同じ言葉が重なる組み合わせは避ける
+      if (chosen.length === 1 && ["盛ん", "多く", "多い"].some((w) => chosen[0].tag!.renyou.includes(w) && l.tag!.rentai.includes(w))) continue;
+      chosen.push(l);
+      if (chosen.length === 2) break;
+    }
+    if (!chosen.length) return null;
+    // 見出しの元になった考察が表示する考察にないときは、いちばん後ろの一般的な考察と入れ替えて加える
+    for (const l of chosen) {
+      if (list.includes(l)) continue;
+      if (list.length >= MAX_INSIGHTS) {
+        // 良いところの文（ネガティブな文だけにしないために入れたもの）は残す
+        const drop = list.findLastIndex((x) => !x.strong && x.tone !== "pos");
+        if (drop < 0) continue;
+        list.splice(drop, 1);
+      }
+      list.splice(list.filter((x) => x.strong).length, 0, l);
+    }
+    titleLines.push(...chosen);
+    const [a, b] = chosen.map((l) => l.tag!);
+    return b ? `${a.renyou}、${b.rentai}まち` : `${a.rentai}まち`;
+  }
 
   /** 課題に当たる文が半分以上なら、良いところの文を1つ入れる（最後の課題の文と入れ替える） */
   function balance(list: Line[]): Line[] {
@@ -127,37 +299,39 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   function brightSide(): Line[] {
     const best = ranked.find((f) => f.tone === "pos");
     if (!best) return [];
-    if (best.pos <= BRIGHT_SHARE) return [strong(best.text, best.tone)];
-    return [general(`${best.fact}全国の中では${best.high ? "大きい" : "小さい"}方の半分に入ります。`, best.tone)];
+    if (best.pos <= BRIGHT_SHARE) return [{ ...strong(best.text, best.tone, best.pos <= 0.1 ? best.tag : undefined, best.pos), theme: best.theme, topic: best.id }];
+    return [{ ...general(`${best.fact}全国の中では${best.high ? "大きい" : "小さい"}方の半分に入ります。`, best.tone), theme: best.theme, topic: best.id }];
   }
 
   /** 全国の市区町村の中で順位が特に高い・低い指標（上位・下位2%）に、指標ごとの考察を付ける。目立つ順に3つまで */
   function rankNotables(): Line[] {
     const sorted = ranked.filter((f) => f.pos <= RANK_SHARE_FALLBACK);
     const within = sorted.filter((f) => f.pos <= RANK_SHARE);
-    return (within.length ? within.slice(0, MAX_RANK_INSIGHTS) : sorted.slice(0, 1)).map((f) => strong(f.text, f.tone));
+    return (within.length ? within.slice(0, MAX_RANK_INSIGHTS) : sorted.slice(0, 1))
+      .map((f) => ({ ...strong(f.text, f.tone, f.pos <= 0.1 ? f.tag : undefined, f.pos), theme: f.theme, topic: f.id }));
   }
 
   /** 考察の文がある指標を、全国の中で目立つ順に（同じ系統の指標は1つだけ） */
-  function rankCandidates(): { pos: number; group: string; text: string; fact: string; high: boolean; tone?: Tone }[] {
+  type Ranked = { id: string; pos: number; group: string; text: string; fact: string; high: boolean; tone?: Tone; tag?: Tag; theme: Theme };
+  function rankCandidates(): Ranked[] {
     const jp = (n: number) => n.toLocaleString("ja-JP");
-    const found: { pos: number; group: string; text: string; fact: string; high: boolean; tone?: Tone }[] = [];
+    const found: Ranked[] = [];
     for (const ind of data.indicators()) {
       const t: RankTemplate | null = RANK_TEMPLATES[ind.id] ?? nationalityTemplate(ind.id, ind.name);
       if (!t) continue;
       const s = stat(ind.id);
       if (!s || s.top === null || s.bottom === null || s.total < 100) continue;
       if (t.minCountOf) {
-        const n = data.rows(t.minCountOf, ind.default_period).find((r) => r.entity_id === muniId)?.value ?? null;
+        const n = data.rows(t.minCountOf, s.period).find((r) => r.entity_id === muniId)?.value ?? null;
         if (n === null || n < (t.minCount ?? 0)) continue;
       }
       const group = ind.family ?? ind.id;
       if (t.high && s.top <= 0.5 && (!t.low || s.top <= s.bottom)) {
         const fact = `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村のうち${jp(s.rankTop)}位です（${s.label}）。`;
-        found.push({ pos: s.top, group, tone: t.highTone, fact, high: true, text: fact + t.high });
-      } else if (t.low && s.bottom <= 0.5) {
+        found.push({ id: ind.id, pos: s.top, group, tone: t.highTone, tag: t.highTag, fact, high: true, text: fact + t.high, theme: themeOf(ind) });
+      } else if (t.low && s.bottom <= 0.5 && (!t.lowWhen || isTop(stat(t.lowWhen.id), t.lowWhen.top))) {
         const fact = `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村の中で低い方から${jp(s.rankBottom)}番目です（${s.label}）。`;
-        found.push({ pos: s.bottom, group, tone: t.lowTone, fact, high: false, text: fact + t.low });
+        found.push({ id: ind.id, pos: s.bottom, group, tone: t.lowTone, tag: t.lowTag, fact, high: false, text: fact + t.low, theme: themeOf(ind) });
       }
     }
     const seen = new Set<string>();
@@ -184,12 +358,18 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
     if (cCount === null || jCount === null || Math.max(cCount, jCount) < 30) return null;
     const head = `外国人住民の割合は、住民基本台帳（${j!.label}）では${j!.text}、国勢調査（${c!.label}）では${c!.text}です。`;
     if (j.value >= c.value * 1.5 && j.value - c.value >= 2) {
-      return strong(head + "1月の時点の方がかなり多く、冬の観光や農作業など、季節的に働きに来る外国人が多いと考えられます" +
-        "（2つの統計は調べ方も違います）。");
+      // 冬の観光で人が集まると書くのは、雪の多い地域（近くの観測所の年間の降雪量が200cm以上）だけ
+      const snow = Math.max(place.weather?.values.snowfall_normal?.value ?? 0, place.snowNearby ?? 0);
+      if (snow >= 200) {
+        return strong(head + "1月の時点の方がかなり多く、冬の観光や農作業など、季節的に働きに来る外国人が多いと考えられます" +
+          "（2つの統計は調べ方も違います）。", undefined, tag("season", "冬に人が集まり", "冬に人が集まる"), 0.005);
+      }
+      return strong(head + "1月の時点の方がかなり多く、時期によって働きに来る外国人が入れ替わっていることや、" +
+        "2つの統計の調べ方の違いが表れていると考えられます。", undefined, undefined, 0.005);
     }
     if (c.value >= j.value * 1.5 && c.value - j.value >= 2) {
       return strong(head + "10月の時点の方がかなり多く、収穫や工事など、時期によって働きに来る外国人が入れ替わっているようです" +
-        "（2つの統計は調べ方も違います）。");
+        "（2つの統計は調べ方も違います）。", undefined, tag("season", "季節ごとに働く人が集まり", "季節ごとに働く人が集まる"), 0.005);
     }
     return null;
   }
@@ -205,6 +385,7 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
     const why = isTop(mfg, 0.25) ? "工場で働く外国人が多く住んでいると思われます"
       : isTop(agri, 0.25) ? "農業や水産業で働く外国人が多く住んでいると思われます"
       : "働く人や留学生など、多くの外国人が暮らしている地域のようです";
+    // 題名には使わない（住む人の国籍でまちを言い表すことになり、偏見につながるおそれがあるため）
     return strong(`外国人住民の割合が${s!.text}と全国でも高い方です（${s!.label}）。${why}。`);
   }
 
@@ -213,18 +394,19 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
     if (!s) return null;
     const head = `昼間の人口は住んでいる人の`;
     if (s.value >= 130) {
-      return strong(`${head}${formatNumber(s.value / 100, 1)}倍です（${s!.label}）。周りから通勤・通学で人が集まる、職場や学校の多いまちと思われます。`, "pos");
+      return strong(`${head}${formatNumber(s.value / 100, 1)}倍です（${s!.label}）。周りから通勤・通学で人が集まる、職場や学校の多いまちと思われます。`, "pos", tag("hub", "周りから人が集まり", "周りから人が集まる"), 0.04);
     }
     if (s.value <= 85) {
-      return strong(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。周りのまちへ通勤・通学する人が多い、住宅地としての性格が強いと考えられます。`);
+      return strong(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。周りのまちへ通勤・通学する人が多い、住宅地としての性格が強いと考えられます。`, undefined, tag("bed", "住宅地としての性格が強く", "住宅地としての性格が強い"));
     }
     if (s.value >= 110) {
-      return general(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。周りの地域から働きに来る人がやや多く、地域の中心的なまちのようです。`);
+      return general(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。周りの地域から働きに来る人がやや多く、地域の中心的なまちのようです。`, undefined, tag("hub", "地域の中心となり", "地域の中心となる"), 0.4);
     }
     if (s.value <= 95) {
-      return general(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。まちの外へ通勤・通学する人がやや多いようです。`);
+      return general(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。まちの外へ通勤・通学する人がやや多いようです。`, undefined,
+        tag("out", "周りのまちへ通う人がやや多く", "周りのまちへ通う人がやや多い"), 0.8);
     }
-    return general(`${head}${formatNumber(s.value, 0)}%で、昼と夜の人口がほぼ同じです（${s!.label}）。多くの人がまちの中で働き、暮らしていると思われます。`);
+    return general(`${head}${formatNumber(s.value, 0)}%で、昼と夜の人口がほぼ同じです（${s!.label}）。多くの人がまちの中で働き、暮らしていると思われます。`, undefined, tag("near", "職場と住まいが近く", "職場と住まいが近い"), 0.9);
   }
 
   function populationChange(): Line | null {
@@ -232,13 +414,13 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
     if (!s) return null;
     const amount = s.text.replace(/^[+−-]/, "");
     if (isTop(s, 0.1) && s.value > 0) {
-      return strong(`人口は5年前から${amount}増えていて（${s!.label}）、全国の市区町村の中でも増え方が大きい方です。住宅の開発などで移り住む人が多いと考えられます。`, "pos");
+      return strong(`人口は5年前から${amount}増えていて（${s!.label}）、全国の市区町村の中でも増え方が大きい方です。住宅の開発などで移り住む人が多いと考えられます。`, "pos", tag("grow", "人口が大きく増え", "人口が大きく増えている"), s.top!);
     }
     if (isBottom(s, 0.1) && s.value < 0) {
       return strong(`人口は5年前から${amount}減っていて（${s!.label}）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。`, "neg");
     }
     if (s.value > 0) {
-      return general(`人口は5年前から${amount}増えています（${s!.label}）。全国で人口が減る市区町村が多い中、人が集まっている地域のようです。`, "pos");
+      return general(`人口は5年前から${amount}増えています（${s!.label}）。全国で人口が減る市区町村が多い中、人が集まっている地域のようです。`, "pos", tag("grow", "人口が増え", "人口が増えている"), 0.4);
     }
     if (s.value === 0) return general(`人口は5年前からほとんど変わっていません（${s!.label}）。`);
     if (isTop(s, 0.5)) {
@@ -257,17 +439,18 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
       return strong(`65歳以上の人が${aged!.text}、15歳未満の子どもが${kids!.text}です（${aged!.label}）。全国の中でも高齢化が進んだ地域と思われます。`, "neg");
     }
     if (isTop(kids, 0.1)) {
-      return strong(`15歳未満の子どもの割合が${kids!.text}と全国でも高い方です（${kids!.label}）。子育て中の世帯が多く住んでいると思われます。`, "pos");
+      return strong(`15歳未満の子どもの割合が${kids!.text}と全国でも高い方です（${kids!.label}）。子育て中の世帯が多く住んでいると思われます。`, "pos", tag("kids", "子育て世代が多く", "子育て世代の多い"), kids!.top!);
     }
     if (!aged) return null;
     if (isTop(aged, 0.3)) {
       return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中では高めです（${aged!.label}）。高齢化が進みつつある地域と考えられます。`, "neg");
     }
     if (isBottom(aged, 0.3)) {
-      return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中では低めです（${aged!.label}）。働く世代や子育て世代が比較的多いようです。`);
+      return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中では低めです（${aged!.label}）。働く世代や子育て世代が比較的多いようです。`, undefined, tag("young", "働く世代が多く", "働く世代の多い"), 0.4);
     }
     if (aged.top === null) return general(`65歳以上の人の割合は${aged!.text}です（${aged!.label}）。`);
-    return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中ではほぼ真ん中くらいです（${aged!.label}）。全国の平均的な年齢構成に近い地域と考えられます。`);
+    return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中ではほぼ真ん中くらいです（${aged!.label}）。全国の平均的な年齢構成に近い地域と考えられます。`,
+      undefined, tag("avg", "全国の平均的な年齢構成で", "全国の平均的な年齢構成に近い"), 0.95);
   }
 
   function households(): Line | null {
@@ -276,7 +459,11 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
       const students = stat("university_student_share");
       // 学生のまちと読むのは、大学生・大学院生が人口の5%以上いるときだけ（都心の区は割合の順位だけなら上位に入る）
       if (isTop(single, 0.05) && isTop(students, 0.05) && students!.value >= 5) {
-        return strong(`一人暮らしの世帯が${single!.text}、大学生・大学院生が人口の${students!.text}で、どちらも全国で高い方です（${single!.label}）。学生の一人暮らしが多いまちと思われます。`);
+        // 2つの時点が違うとき（一人暮らしは2025年、大学生は2020年など）は、それぞれに時点を添える
+        const same = single!.label === students!.label;
+        const each = (x: Stat) => (same ? "" : `（${x.label}）`);
+        return strong(`一人暮らしの世帯が${single!.text}${each(single!)}、大学生・大学院生が人口の${students!.text}${each(students!)}で、` +
+          `どちらも全国で高い方です${same ? `（${single!.label}）` : ""}。学生の一人暮らしが多いまちと思われます。`, undefined, tag("students", "学生が多く", "学生の多い"), 0.02);
       }
       // 高齢化が進んだ地域の一人暮らしは、働く人より高齢の人と考える方が自然
       if (isTop(stat("aged_65_plus_share"), 0.1)) {
@@ -286,7 +473,7 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
     }
     const size = stat("persons_per_household");
     if (isTop(size, 0.1)) {
-      return strong(`1世帯あたりの人数が${size!.text}と全国でも多い方です（${size!.label}）。三世代で暮らす家族など、大きな世帯が多いと考えられます。`);
+      return strong(`1世帯あたりの人数が${size!.text}と全国でも多い方です（${size!.label}）。三世代で暮らす家族など、大きな世帯が多いと考えられます。`, undefined, tag("family", "大家族が多く", "大家族の多い"), size!.top!);
     }
     return null;
   }
@@ -294,7 +481,7 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   function housing(): Line | null {
     const owner = stat("owner_occupied_share");
     if (isTop(owner, 0.1)) {
-      return strong(`持ち家に住む世帯が${owner!.text}と全国でも多い方です（${owner!.label}）。長く住み続ける人が多い地域と考えられます。`, "pos");
+      return strong(`持ち家に住む世帯が${owner!.text}と全国でも多い方です（${owner!.label}）。長く住み続ける人が多い地域と考えられます。`, "pos", tag("settled", "持ち家が多く", "持ち家の多い"), owner!.top!);
     }
     const rented = stat("private_rented_share");
     if (isTop(rented, 0.1)) {
@@ -308,11 +495,11 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
     // 通勤圏と読むのは、昼間に人が出ていく（昼夜間人口比率が100%未満の）地域だけ。都心は鉄道で人が集まる側なので除く
     const day = stat("daytime_night_ratio");
     if (isTop(rail, 0.1) && day && day.value < 100) {
-      return strong(`通勤・通学に鉄道を使う人が${rail!.text}と多く（${rail!.label}）、大きな都市への通勤圏にあると思われます。`);
+      return strong(`通勤・通学に鉄道を使う人が${rail!.text}と多く（${rail!.label}）、大きな都市への通勤圏にあると思われます。`, undefined, tag("rail", "鉄道で都市へ通いやすく", "大きな都市への通勤圏にある"), rail!.top!);
     }
     const car = stat("commute_car_share");
     if (isTop(car, 0.1)) {
-      return strong(`通勤・通学に自家用車を使う人が${car!.text}と多く（${car!.label}）、車が欠かせない暮らしと思われます。`);
+      return strong(`通勤・通学に自家用車を使う人が${car!.text}と多く（${car!.label}）、車が欠かせない暮らしと思われます。`, undefined, tag("car", "車が暮らしの足となり", "車が暮らしの足となる"), car!.top!);
     }
     return null;
   }
@@ -320,35 +507,36 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   function industry(): Line | null {
     const mfg = stat("employees_manufacturing_share");
     if (isTop(mfg, 0.1)) {
-      return strong(`まちの事業所で働く人のうち製造業が${mfg!.text}を占めていて（${mfg!.label}）、工場の多いものづくりのまちと思われます。`, "pos");
+      return strong(`まちの事業所で働く人のうち製造業が${mfg!.text}を占めていて（${mfg!.label}）、工場の多いものづくりのまちと思われます。`, "pos", tag("mfg", "ものづくりが盛んで", "ものづくりの盛んな"), mfg!.top!);
     }
     const agri = stat("employees_agriculture_share");
     if (isTop(agri, 0.1)) {
-      return strong(`まちの事業所で働く人のうち農林漁業が${agri!.text}を占めていて（${agri!.label}）、農業や漁業が暮らしを支えていると思われます。`, "pos");
+      return strong(`まちの事業所で働く人のうち農林漁業が${agri!.text}を占めていて（${agri!.label}）、農業や漁業が暮らしを支えていると思われます。`, "pos", tag("agri", "農業や漁業が盛んで", "農業や漁業の盛んな"), agri!.top!);
     }
     const commerce = stat("employees_commerce_share");
     if (isTop(commerce, 0.1)) {
-      return strong(`まちの事業所で働く人のうち卸売業・小売業が${commerce!.text}を占めていて（${commerce!.label}）、商業がまちを支える産業のようです。`, "pos");
+      return strong(`まちの事業所で働く人のうち卸売業・小売業が${commerce!.text}を占めていて（${commerce!.label}）、商業がまちを支える産業のようです。`, "pos", tag("commerce", "商業が盛んで", "商業の盛んな"), commerce!.top!);
     }
     // 目立つ産業がないときは、3つのうち全国の中で最も高い位置にあるものを挙げる
-    const options: { s: Stat | null; name: string }[] = [{ s: mfg, name: "製造業" }, { s: agri, name: "農林漁業" }, { s: commerce, name: "卸売業・小売業" }];
+    const options: { s: Stat | null; name: string; key: string }[] = [{ s: mfg, name: "製造業", key: "mfg" }, { s: agri, name: "農林漁業", key: "agri" }, { s: commerce, name: "卸売業・小売業", key: "commerce" }];
     const best = options
-      .filter((x): x is { s: Stat; name: string } => !!x.s && x.s.top !== null && x.s.top <= 0.4)
+      .filter((x): x is { s: Stat; name: string; key: string } => !!x.s && x.s.top !== null && x.s.top <= 0.4)
       .sort((a, b) => a.s.top! - b.s.top!)[0];
     if (!best) return null;
-    return general(`まちの事業所で働く人のうち${best.name}が${best.s.text}で、全国の市区町村の中では多めです（${best.s.label}）。${best.name}がまちの主な産業の1つと考えられます。`, "pos");
+    return general(`まちの事業所で働く人のうち${best.name}が${best.s.text}で、全国の市区町村の中では多めです（${best.s.label}）。${best.name}がまちの主な産業の1つと考えられます。`, "pos",
+      tag(best.key, `${best.name}が主な産業で`, `${best.name}が主な産業の`), 0.6);
   }
 
   function shopping(): Line | null {
     const s = stat("retail_sales_per_capita");
     if (!isTop(s, 0.05)) return null;
-    return strong(`住民1人あたりの小売業の販売額が${s!.text}と全国でも大きい方です（${s!.label}）。周りから買い物に来る人が多い、商業の中心と思われます。`, "pos");
+    return strong(`住民1人あたりの小売業の販売額が${s!.text}と全国でも大きい方です（${s!.label}）。周りから買い物に来る人が多い、商業の中心と思われます。`, "pos", tag("commerce", "買い物客が集まり", "買い物客の集まる"), s!.top!);
   }
 
   function furusato(): Line | null {
     const s = stat("furusato_amount_per_capita");
     if (!isTop(s, 0.03)) return null;
-    return strong(`ふるさと納税の受入額が住民1人あたり${s!.text}と全国でも多い方です（${s!.label}）。返礼品などで人気を集めているようです。`, "pos");
+    return strong(`ふるさと納税の受入額が住民1人あたり${s!.text}と全国でも多い方です（${s!.label}）。返礼品などで人気を集めているようです。`, "pos", tag("furusato", "ふるさと納税で人気を集め", "ふるさと納税で人気の"), s!.top!);
   }
 
   function income(): Line | null {
@@ -362,7 +550,14 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   function vacancy(): Line | null {
     const s = stat("vacant_house_rate");
     if (!isTop(s, 0.1)) return null;
-    return strong(`空き家率が${s!.text}と全国でも高い方です（${s!.label}）。住む人が減り、使われなくなった家が増えていると考えられます。`, "neg");
+    // 空き家には別荘や入居者を募集中の賃貸住宅も含まれる。人口が減っていない地域（別荘地など）では、使われなくなった家とは書かない
+    const change = stat("population_change_rate");
+    const head = `空き家率が${s!.text}と全国でも高い方です（${s!.label}）。`;
+    if (!change) return strong(head + "別荘や入居者を募集中の賃貸住宅、長く使われていない家など、ふだん人が住んでいない住宅が多いようです。");
+    if (change.value >= 0) {
+      return strong(head + "人口は減っていないので、別荘や入居者を募集中の賃貸住宅など、ふだん人が住んでいない住宅が多いと考えられます。");
+    }
+    return strong(head + "空き家には別荘や賃貸用の住宅も含まれますが、人口も減っていることから、長く使われていない家も多いと考えられます。", "neg");
   }
 
   function education(): Line | null {
@@ -375,5 +570,118 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
       return strong(`まちにある高校の卒業者のうち就職した人が${job!.text}と全国でも高い方です（${job!.label}、学校の所在地で数えています）。卒業後すぐに働き始める人の多い高校があると考えられます。`);
     }
     return null;
+  }
+
+  // --- 点のデータ（駅・空港・港・地価公示・天気） ---
+
+  /** 空港。年に1,000人以上が乗り降りする空港があるときだけ */
+  function airport(): Line | null {
+    const a = place.airport;
+    if (!a || a.value < 1000) return null;
+    const name = /(空港|飛行場|ヘリポート)$/.test(a.name) ? a.name : `${a.name}空港`;
+    const head = `まちには${name}があり、${a.label}は${approxCount(a.value)}が飛行機に乗り降りしました。`;
+    const why = a.international >= a.value * 0.2 ? "国際線の利用も多く、海外との行き来の玄関口にもなっているようです。"
+      : a.pos.top <= 0.1 ? "全国でも利用者の多い空港で、空の玄関口になっていると考えられます。"
+      : "遠くのまちとの行き来を、飛行機が支えていると考えられます。";
+    return strong(head + why, "pos", tag("airport", "空港があり", "空港のある"), 0.01);
+  }
+
+  /** 港。全国の港の中で利用者の多い方（上位半分）のときだけ */
+  function port(): Line | null {
+    const x = place.port;
+    if (!x || x.pos.top > 0.5) return null;
+    const name = /港$/.test(x.name) ? x.name : `${x.name}港`;
+    const why = x.pos.top <= 0.1 ? "全国でも船の利用者が多い港で、島への航路や観光の船など、海の玄関口になっていると考えられます。"
+      : "島への航路や観光の船など、船が暮らしや観光を支えているようです。";
+    return strong(`${name}では、${x.label}に${approxCount(x.value)}が船に乗り降りしました。${why}`, "pos",
+      tag("port", "港に船が行き交い", "船が行き交う港のある"), x.pos.top / 5);
+  }
+
+  function stationName(n: string) { return /駅$/.test(n) ? n : `${n}駅`; }
+  function stationNote(st: NonNullable<MuniPlaces["station"]>) { return `${st.label}${st.operators > 1 ? `、${st.operators}事業者の合計` : ""}`; }
+
+  /** 駅。まちでいちばん利用者の多い駅が、全国の市区町村の中で上位30%に入るとき */
+  function station(): Line | null {
+    const st = place.station;
+    if (!st || st.pos.top > 0.3) return null;
+    const head = `まちでいちばん利用者の多い駅は${stationName(st.name)}で、1日に${approxCount(st.total)}が乗り降りしています（${stationNote(st)}）。`;
+    if (st.pos.top <= 0.03) {
+      return strong(head + "全国の市区町村の中でも特に利用者の多い駅で、通勤・通学や乗り換えの拠点になっていると考えられます。", "pos",
+        tag("station", "多くの人が使う駅があり", "多くの人が使う駅のある"), st.pos.top);
+    }
+    return general(head + "まちの玄関口として、多くの人が使う駅のようです。", "pos",
+      st.pos.top <= 0.1 ? tag("station", "多くの人が使う駅があり", "多くの人が使う駅のある") : undefined, st.pos.top);
+  }
+
+  /** 駅（上の条件に当てはまらないとき）。駅の数と、いちばん利用者の多い駅 */
+  function stationGeneral(): Line | null {
+    const st = place.station;
+    if (!st || st.pos.top <= 0.3) return null;
+    const head = st.stationCount > 1 ? `まちには鉄道の駅が${st.stationCount}駅あり、いちばん利用者の多い${stationName(st.name)}では`
+      : `まちの鉄道の駅は${stationName(st.name)}で、`;
+    return general(`${head}1日に${approxCount(st.total)}が乗り降りしています（${stationNote(st)}）。`);
+  }
+
+  /** 天気（気象庁の観測所の平年値）。雪・日照・雨のうち全国の観測所の中で特に目立つものを1つと、観測所の標高 */
+  function weather(): Line[] {
+    const w = place.weather;
+    if (!w) return [];
+    const out: Line[] = [];
+    const v = w.values;
+    const where = (e: string) => `（気象庁の観測所「${v[e].station}」、${w.label}）`;
+    const fmt = (n: number) => Math.round(n).toLocaleString("ja-JP");
+    const options: { pos: number; line: () => Line }[] = [];
+    if (v.snowfall_normal && v.snowfall_normal.value >= 300 && v.snowfall_normal.pos.top <= 0.2) {
+      options.push({ pos: v.snowfall_normal.pos.top, line: () => strong(`年間の降雪量は${fmt(v.snowfall_normal.value)}cm${where("snowfall_normal")}と、全国の観測所の中でも多い方です。` +
+        "冬は雪とともに暮らす、雪国のまちと考えられます。", undefined, tag("snow", "雪が多く", "雪の多い"), v.snowfall_normal.pos.top / 2) });
+    }
+    if (v.sunshine_normal && v.sunshine_normal.pos.top <= 0.1) {
+      options.push({ pos: v.sunshine_normal.pos.top, line: () => strong(`日照時間は年間${fmt(v.sunshine_normal.value)}時間${where("sunshine_normal")}と、全国の観測所の中でも長い方です。` +
+        "晴れの日が多い地域のようです。", "pos", tag("sun", "晴れの日が多く", "晴れの日が多い"), v.sunshine_normal.pos.top) });
+    }
+    if (v.precipitation_normal && v.precipitation_normal.pos.top <= 0.1) {
+      options.push({ pos: v.precipitation_normal.pos.top, line: () => strong(`年間の降水量は${fmt(v.precipitation_normal.value)}mm${where("precipitation_normal")}と、全国の観測所の中でも多い方です。` +
+        "雨の多い気候で、水や緑の豊かな地域と考えられます。", undefined, tag("rain", "雨が多く", "雨の多い"), v.precipitation_normal.pos.top) });
+    }
+    if (v.precipitation_normal && v.precipitation_normal.pos.bottom <= 0.1) {
+      options.push({ pos: v.precipitation_normal.pos.bottom, line: () => strong(`年間の降水量は${fmt(v.precipitation_normal.value)}mm${where("precipitation_normal")}と、全国の観測所の中でも少ない方です。` +
+        "雨の少ない、晴れやすい気候のようです。", "pos", tag("dry", "雨が少なく", "雨の少ない"), v.precipitation_normal.pos.bottom) });
+    }
+    const best = options.sort((a, b) => a.pos - b.pos)[0];
+    if (best) out.push({ ...best.line(), topic: "weather" });
+    if (w.altitude !== null && w.altitude >= 500) {
+      out.push({ ...strong(`気象庁の観測所「${w.station}」は標高${fmt(w.altitude)}mにあり、高原や山あいのまちと考えられます。夏も比較的すずしい気候と思われます。`,
+        undefined, tag("high", "標高が高く", "高原や山あいの"), 0.02), topic: "altitude" });
+    }
+    return out;
+  }
+
+  function yen(n: number) { return n >= 10_000 ? `約${(Math.round(n / 1_000) / 10).toLocaleString("ja-JP")}万円` : `${Math.round(n).toLocaleString("ja-JP")}円`; }
+  function day(label: string) { return label.replace(/現在$/, ""); }
+
+  /** 地価公示（住宅地）。価格が全国の市区町村の上位5%か、5年間の上がり方が上位5%のとき */
+  function landPrice(): Line | null {
+    const l = place.land;
+    if (!l) return null;
+    const c = l.change;
+    if (c && c.pos.top <= 0.05 && c.rate >= 10) {
+      return strong(`住宅地の地価公示の価格は、同じ地点で比べると${day(c.from)}から${formatNumber(c.rate, 1)}%上がっていて（${c.points}地点の中央値）、` +
+        "全国の市区町村の中でも上がり方が大きい方です。住宅の開発や交通の便の向上などで、住まいとしての人気が高まっていると考えられます。",
+        "pos", tag("landup", "地価が上がり", "地価が上がっている"), c.pos.top * 2);
+    }
+    if (l.pos.top <= 0.05) {
+      return strong(`住宅地の地価公示の価格は、まちの${l.points}地点の中央値で1㎡あたり${yen(l.median)}（${l.label}）と、全国の市区町村の中でも高い方です。` +
+        "住まいとしての人気が高い地域と考えられます。", undefined, tag("land", "住宅地の人気が高く", "住宅地の人気が高い"), l.pos.top);
+    }
+    return null;
+  }
+
+  /** 地価公示（住宅地）の価格と5年間の変化（上の条件に当てはまらないとき） */
+  function landGeneral(): Line | null {
+    const l = place.land;
+    if (!l || l.pos.top <= 0.05 || (l.change && l.change.pos.top <= 0.05 && l.change.rate >= 10)) return null;
+    const c = l.change;
+    const change = c ? `同じ地点で比べた${day(c.from)}からの変化は${c.rate > 0 ? "+" : ""}${formatNumber(c.rate, 1)}%です。` : "";
+    return general(`住宅地の${l.survey ? "都道府県地価調査" : "地価公示"}の価格は、まちの${l.points}地点の中央値で1㎡あたり${yen(l.median)}です（${l.label}）。${change}`);
   }
 }
