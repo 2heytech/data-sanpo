@@ -1268,6 +1268,37 @@ def test_land_prices(built):
     assert "land_price" not in {i["id"] for i in load(built, "indicators.json")["indicators"]}
 
 
+def test_land_price_point_with_new_ward_code_is_located_by_position(tmp_path):
+    # 区を再編した市（浜松市中央区 22138 など）の地点は、コードが地図にないので位置から地図の区を決める
+    import json as _json
+    from shapely.geometry import box, mapping
+    from tdm.ingest import mlit_landprice
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    shapes = {"muni-22131": box(137.70, 34.69, 137.75, 34.73), "muni-22132": box(137.75, 34.69, 137.80, 34.73)}
+    for eid, g in shapes.items():
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'municipality', ?)", (eid, eid))
+        conn.execute("INSERT INTO boundaries VALUES (?, 'v', ?, '2020-10-01', 's', ?, NULL, NULL, ?, ?, ?, ?)",
+                     (f"v:{eid}", eid, _json.dumps(mapping(g)), *g.bounds))
+    props = {"L01_001": "22138", "L01_002": "000", "L01_003": 1, "L01_007": 1984, "L01_009": 0.5,
+             "L01_024": "浜松中央", "L01_062": 0, "L01_063": 120000}
+    gj = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "properties": props, "geometry": {"type": "Point", "coordinates": [137.77, 34.71]}},
+        {"type": "Feature", "properties": {**props, "L01_003": 2},
+         "geometry": {"type": "Point", "coordinates": [140.0, 36.0]}},   # どの区にも入らない
+        {"type": "Feature", "properties": {**props, "L01_001": "22900", "L01_003": 3},   # 県の林地
+         "geometry": {"type": "Point", "coordinates": [137.72, 34.70]}}]}
+    path = tmp_path / "L01-26_22.geojson"
+    path.write_text(_json.dumps(gj), encoding="utf-8")
+    result = mlit_landprice.ingest(conn, path, "s", "land_price", {"definition_version": "1"}, "v")
+    assert result["points"] == 1 and result["located_by_point"] == 1 and result["no_municipality"] == 2
+    row = conn.execute("SELECT name, parent_id FROM entities WHERE entity_id = 'land-22138-000-001'").fetchone()
+    assert (row["name"], row["parent_id"]) == ("浜松中央-1", "muni-22132")
+    got = conn.execute("SELECT period_start, value FROM observations WHERE entity_id = 'land-22138-000-001'").fetchall()
+    assert [(r["period_start"], r["value"]) for r in got] == [("1984-01-01", 120000)]   # 0 の年は値なし
+
+
 def test_estat_file_ids_are_found_by_prefecture_and_table(tmp_path):
     from tdm.fetch import resolve_file_ids
     pages = {
