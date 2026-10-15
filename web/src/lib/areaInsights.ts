@@ -1,4 +1,5 @@
 import { formatNumber, formatValue } from "./format";
+import { nationalityTemplate, RANK_TEMPLATES, type RankTemplate } from "./rankInsights";
 import type { Indicator, ValueRow } from "./types";
 
 /**
@@ -12,6 +13,8 @@ export interface InsightData {
   indicator(id: string): Indicator | undefined;
   /** 指標の市区町村の値（全国）。period を省くと既定の時点 */
   rows(id: string, period?: string): ValueRow[];
+  /** すべての指標（全国順位で目立つ指標を探すのに使う） */
+  indicators(): Indicator[];
 }
 
 interface Stat {
@@ -22,10 +25,19 @@ interface Stat {
   /** 全国の市区町村の中の位置（0〜1）。top は大きい方から、bottom は小さい方から。1つの都道府県だけの指標は null */
   top: number | null;
   bottom: number | null;
+  /** 大きい方からの順位（同じ値は同じ順位）、小さい方からの順位、値のある市区町村の数 */
+  rankTop: number;
+  rankBottom: number;
+  total: number;
 }
 
 /** 考察の数の上限（多すぎると読まれないため） */
-const MAX_INSIGHTS = 5;
+const MAX_INSIGHTS = 6;
+/** 全国順位で目立つとみなす範囲（上位・下位それぞれ全体のこの割合まで）と、その考察の数の上限 */
+const RANK_SHARE = 0.02;
+/** 上の範囲に入る指標がない市区町村は、この範囲まで広げて一番目立つ指標を1つ挙げる */
+const RANK_SHARE_FALLBACK = 0.2;
+const MAX_RANK_INSIGHTS = 3;
 
 // 値を並べた配列は指標・時点ごとに1回だけ作る（ビルドで約1,900ページが同じ値の表を使うため）
 const sortedCache = new WeakMap<ValueRow[], { values: number[]; nationwide: boolean }>();
@@ -73,6 +85,7 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
       label: ind.periods.find((x) => x.period === p)?.label ?? "",
       top: nationwide ? (values.length - le + 1) / values.length : null,
       bottom: nationwide ? (lt + 1) / values.length : null,
+      rankTop: values.length - le + 1, rankBottom: lt + 1, total: values.length,
     };
   };
   // 型の絞り込みはしない（false のときに null と見なされるため）。真のときは値があるので ! で読む
@@ -82,11 +95,39 @@ export function areaInsights(muniId: string, data: InsightData): string[] {
   const general = (text: string): Line => ({ text, strong: false });
 
   const gap = foreignGap();
-  const lines = [gap, gap ? null : foreignShare(), daytime(), populationChange(), ageStructure(), households(), housing(),
+  const lines = [gap, ...rankNotables(), gap ? null : foreignShare(), daytime(), populationChange(), ageStructure(), households(), housing(),
     commute(), industry(), shopping(), furusato(), income(), vacancy(), education()]
     .filter((l): l is Line => !!l);
   // 強い考察を先に（並びは上の順のまま）、一般的な考察で埋める
   return [...lines.filter((l) => l.strong), ...lines.filter((l) => !l.strong)].slice(0, MAX_INSIGHTS).map((l) => l.text);
+
+  /** 全国の市区町村の中で順位が特に高い・低い指標（上位・下位2%）に、指標ごとの考察を付ける。目立つ順に3つまで */
+  function rankNotables(): Line[] {
+    const jp = (n: number) => n.toLocaleString("ja-JP");
+    const found: { pos: number; group: string; text: string }[] = [];
+    for (const ind of data.indicators()) {
+      const t: RankTemplate | null = RANK_TEMPLATES[ind.id] ?? nationalityTemplate(ind.id, ind.name);
+      if (!t) continue;
+      const s = stat(ind.id);
+      if (!s || s.top === null || s.bottom === null || s.total < 100) continue;
+      if (t.minCountOf) {
+        const n = data.rows(t.minCountOf, ind.default_period).find((r) => r.entity_id === muniId)?.value ?? null;
+        if (n === null || n < (t.minCount ?? 0)) continue;
+      }
+      const group = ind.family ?? ind.id;
+      if (t.high && s.top <= RANK_SHARE_FALLBACK && (!t.low || s.top <= s.bottom)) {
+        found.push({ pos: s.top, group,
+          text: `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村のうち${jp(s.rankTop)}位です（${s.label}）。${t.high}` });
+      } else if (t.low && s.bottom <= RANK_SHARE_FALLBACK) {
+        found.push({ pos: s.bottom, group,
+          text: `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村の中で低い方から${jp(s.rankBottom)}番目です（${s.label}）。${t.low}` });
+      }
+    }
+    const seen = new Set<string>();
+    const sorted = found.sort((a, b) => a.pos - b.pos).filter((f) => !seen.has(f.group) && !!seen.add(f.group));
+    const within = sorted.filter((f) => f.pos <= RANK_SHARE);
+    return (within.length ? within.slice(0, MAX_RANK_INSIGHTS) : sorted.slice(0, 1)).map((f) => strong(f.text));
+  }
 
   /** 外国人: 国勢調査（10月1日）と住民基本台帳（1月1日）の差。数え方の違いに加え、季節で住む人が入れ替わる地域で大きく開く */
   function foreignGap(): Line | null {

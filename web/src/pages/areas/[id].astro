@@ -43,6 +43,7 @@ const summary = areaSummary(muni.name, pref, stats.map((s) => ({ ind: s.ind, per
 const indicatorById = new Map(loadIndicators().map((i) => [i.id, i]));
 const insights = areaInsights(muni.id, {
   indicator: (id) => indicatorById.get(id),
+  indicators: () => [...indicatorById.values()],
   rows: (id, period) => loadValues(id, period ?? indicatorById.get(id)?.default_period ?? "", "municipalities")?.rows ?? [],
 });
 const place = [pref, muni.region].filter(Boolean).join("・");

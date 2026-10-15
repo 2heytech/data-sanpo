@@ -3,7 +3,7 @@ import { areaInsights, type InsightData } from "../src/lib/areaInsights";
 import type { Indicator, ValueRow } from "../src/lib/types";
 
 const ind = (id: string, unit: string, digits: number, periods: string[], kind: Indicator["kind"] = "ratio") => ({
-  id, unit, digits, kind, default_period: periods[periods.length - 1],
+  id, name: id, unit, digits, kind, default_period: periods[periods.length - 1],
   periods: periods.map((p) => ({ period: p, label: `${p.slice(0, 4)}年${Number(p.slice(5, 7))}月1日現在` })),
 }) as unknown as Indicator;
 
@@ -16,17 +16,21 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>): In
     ["foreign_residents", ind("foreign_residents", "人", 0, ["2026-01-01"], "count")],
     ["daytime_night_ratio", ind("daytime_night_ratio", "%", 1, ["2020-10-01"])],
     ["population_change_rate", ind("population_change_rate", "%", 1, ["2020-10-01"], "change")],
+    ["commute_bicycle_share", ind("commute_bicycle_share", "%", 1, ["2020-10-01"])],
+    ["census_foreign_nepal_share", { ...ind("census_foreign_nepal_share", "%", 1, ["2020-10-01"]), name: "国勢調査の外国人の割合（ネパール）" } as Indicator],
+    ["census_foreign_nepal", ind("census_foreign_nepal", "人", 0, ["2020-10-01"], "count")],
   ]);
-  const ids = Array.from({ length: 20 }, (_, i) => `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`);
+  const ids = Array.from({ length: 200 }, (_, i) => `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`);
   return {
     indicator: (id) => inds.get(id),
+    indicators: () => [...inds.values()],
     rows: (id, period) => {
       const v = values[id]?.[period ?? inds.get(id)!.default_period];
       return v ? ids.map((e, i): ValueRow => ({ entity_id: e, value: v[i] ?? null, status: v[i] === null ? "missing" : "observed" })) : [];
     },
   };
 }
-const fill = (first: number | null, rest = 10) => [first, ...Array(19).fill(rest)];
+const fill = (first: number | null, rest = 10) => [first, ...Array(199).fill(rest)];
 
 describe("areaInsights", () => {
   it("住民基本台帳（1月）の外国人の割合が国勢調査（10月）よりかなり大きいと、季節的に働く人が多いと考えられると書く", () => {
@@ -59,6 +63,16 @@ describe("areaInsights", () => {
     expect(lines).toEqual([
       "昼間の人口は住んでいる人の1.5倍です（2020年10月1日現在）。周りから通勤・通学で人が集まる、職場や学校の多いまちと思われます。",
       "人口は5年前から12.0%減っていて（2020年10月1日現在）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。",
+    ]);
+  });
+  it("全国順位が特に高い指標に、指標ごとの考察を付ける（人数が少ない国籍は除く）", () => {
+    const lines = areaInsights("muni-01001", makeData({
+      commute_bicycle_share: { "2020-10-01": fill(40, 10) },
+      census_foreign_nepal_share: { "2020-10-01": fill(3, 0.1) },
+      census_foreign_nepal: { "2020-10-01": fill(10, 1) },
+    }));
+    expect(lines).toEqual([
+      "commute_bicycle_shareは40.0%で、全国200市区町村のうち1位です（2020年10月1日現在）。平らな土地が多く、自転車で通勤・通学しやすいまちと考えられます。",
     ]);
   });
   it("「かもしれません」は使わない", () => {

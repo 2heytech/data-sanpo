@@ -10,11 +10,6 @@ export interface SummaryStat {
   ranks: [{ rank: number; total: number } | null, { rank: number; total: number } | null];
 }
 
-/** 全国で目立つとみなす順位の範囲（上位・下位それぞれ全体のこの割合まで） */
-const NOTABLE_SHARE = 0.05;
-/** 目立つ指標として挙げる数（上位・下位それぞれ） */
-const NOTABLE_COUNT = 3;
-
 const jp = (n: number) => n.toLocaleString("ja-JP");
 
 /**
@@ -31,31 +26,6 @@ export function areaSummary(name: string, pref: string, stats: SummaryStat[]): s
     lines.push(`${name}の人口は${formatValue(pop.row, pop.ind)}（${pop.periodLabel}）` +
       (prefRank && pref ? `で、${pref}の${jp(prefRank.total)}市区町村のうち${prefRank.rank === 1 ? "最も多い" : `${jp(prefRank.rank)}番目に多い`}市区町村です。` : "です。"));
   }
-  // 人口の増減と年齢構成は「データから考えられること」（areaInsights）で書くので、ここでは書かない
-
-  // 全国の市区町村の中で値が特に大きい・小さい指標。人口に比例しやすい件数・人数は除き、割合・密度・増減率だけを見る。
-  // 政党別の得票率のように同じ組の指標が並ばないよう、組（family か名前の括弧の前）ごとに1つにする
-  const candidates = stats.filter((s) => s.ind.kind !== "count" && !s.ind.legend?.band && s.row?.value != null && s.ranks[1]
-    && s.ranks[1].total >= 20);
-  const pick = (top: boolean) => {
-    const seen = new Set<string>();
-    return candidates
-      .map((s) => {
-        const r = s.ranks[1]!;
-        // 下位は順位の位置で近似する（同じ値が多い指標では下位に入らないことがあるが、入る指標を誤ることはない）
-        return { s, r, pos: top ? r.rank / r.total : (r.total - r.rank + 1) / r.total };
-      })
-      .filter((x) => x.pos <= NOTABLE_SHARE)
-      .sort((a, b) => a.pos - b.pos)
-      .filter(({ s }) => {
-        const group = s.ind.family ?? s.ind.name.replace(/（[^（）]*）$/, "");
-        if (seen.has(group)) return false;
-        seen.add(group);
-        return true;
-      })
-      .slice(0, NOTABLE_COUNT)
-      .map(({ s, r }) => `${s.ind.name}は${formatValue(s.row, s.ind)}で、全国の${jp(r.total)}市区町村のうち${jp(r.rank)}位と${top ? "大きい" : "小さい"}方です（${s.periodLabel}）。`);
-  };
-  // 全国で目立つ指標は1つずつ文にする（この地域の特色として読めるように）
-  return [...lines, ...pick(true), ...pick(false)];
+  // 人口の増減・年齢構成・全国順位で目立つ指標は「データから考えられること」（areaInsights）で考察と一緒に書く
+  return lines;
 }

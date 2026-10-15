@@ -10,7 +10,7 @@ const stat = (i: Indicator, value: number | null, prefRank: [number, number] | n
 });
 
 describe("areaSummary", () => {
-  it("人口と増減、全国で目立つ指標を文章にする", () => {
+  it("人口と都道府県内の順位を文章にする", () => {
     const lines = areaSummary("サンプル市", "東京都", [
       stat(ind("population_total", "人口", "count", "人"), 12345, [3, 62], [100, 1900]),
       stat(ind("population_change_rate", "人口増加率", "change"), -2.5, null, null),
@@ -21,12 +21,8 @@ describe("areaSummary", () => {
       stat(ind("e", "Eの件数", "count", "件"), 999, null, [1, 1900]),
     ]);
     expect(lines[0]).toBe("サンプル市の人口は12,345 人（2020年）で、東京都の62市区町村のうち3番目に多い市区町村です。");
-    // 同じ組（得票率）は1つだけ、件数は挙げない
-    expect(lines.slice(1)).toEqual([
-      "得票率（甲党）は30.0%で、全国の1,900市区町村のうち1位と大きい方です（2020年）。",
-      "Aの割合は40.0%で、全国の1,900市区町村のうち2位と大きい方です（2020年）。",
-      "Dの割合は1.0%で、全国の1,900市区町村のうち1,890位と小さい方です（2020年）。",
-    ]);
+    // 増減・全国順位で目立つ指標は areaInsights で書く
+    expect(lines).toHaveLength(1);
   });
   it("値がない指標は文章にしない（0 として扱わない）", () => {
     expect(areaSummary("サンプル市", "東京都", [stat(ind("population_total", "人口", "count", "人"), null, null, null)])).toEqual([]);
