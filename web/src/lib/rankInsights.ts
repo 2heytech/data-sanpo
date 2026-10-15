@@ -54,9 +54,10 @@ export const RANK_TEMPLATES: Record<string, RankTemplate> = {
   preschool_nursery_share: { high: "共働きの家庭が多く、保育園を使う家庭が多いと考えられます。" },
   preschool_kodomoen_share: { high: "幼稚園や保育園の認定こども園への切り替えが進んだ地域のようです。" },
   jhs_students_private: { high: "私立中学校に通う子どもが多く、中学受験が盛んな地域と思われます。" },
+  // 学級の人数は学校の大きさではなく、学年ごとの児童の数と学級編制の決まりで決まる
   elem_class_size: {
-    high: "児童の多い大きな小学校が多いようです。",
-    low: "少人数の学級が多く、小さな学校の多い地域と考えられます。",
+    high: "1つの学級の児童が多く、子どもの多い地域で、学級の上限に近い人数の学級が多いと考えられます。",
+    low: "1つの学級の児童が少なく、先生の目が一人ひとりに届きやすい環境と考えられます。",
   },
   hs_grad_vocational_rate: { high: "まちにある高校では、専門学校で資格や技術を身につける進路を選ぶ人が多いようです。" },
   // 暮らし・健康
