@@ -37,7 +37,7 @@ const smallAreaRanked = period.levels.includes("small_area")
 const zeroCount = smallAreaRanked.filter((r) => r.value === 0).length;
 const smallAreaName = (id: string) => {
   const code = id.slice(5, 10);
-  return loadSmallAreas(code)?.areas.find((a) => a.id === id)?.name ?? id;
+  return loadSmallAreas(code)?.find((a) => a.id === id)?.name ?? id;
 };
 const smallAreaRow = (r: typeof smallAreaRanked[number]): RankingRow => {
   const m = munis.get(`muni-${r.entity_id.slice(5, 10)}`);
