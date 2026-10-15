@@ -7,9 +7,9 @@ import pytest
 from tdm import fixture
 from tdm.cli import cmd_build
 from tdm.config import Paths, load_censuses, load_indicators
-from tdm.db import connect, init_schema, insert_observation, upsert_indicators
+from tdm.db import connect, init_schema, insert_observation, upsert_entity, upsert_indicators
 from tdm.ingest.estat_small_area import normalize_label, parse_cell
-from tdm.regions import region_of
+from tdm.regions import designated_city_wards, region_of
 
 
 @pytest.fixture(scope="module")
@@ -952,7 +952,8 @@ def test_resident_tax(built):
     # 神奈川県も取り込むが、政令指定都市（市全体の行）の値を区に割り振らない
     assert "14190" in read_rows(next((built.raw / "soumu_tax_2025").glob("*.xlsx")), ["13", "14"])
     rows = {r["entity_id"]: r for r in load(built, f"values/resident_tax_per_taxpayer/{pid}/municipalities.json")["rows"]}
-    assert rows.get("muni-14199", {}).get("value") is None
+    assert rows["muni-14199"]["value"] is None and rows["muni-14199"]["status"] == "not_applicable"
+    assert "市全体の値だけ" in rows["muni-14199"]["note"]                      # 「データなし」に見えないよう理由を書く
     # 所得割を納める人の割合: 分母は同じ年の1月1日の住民基本台帳の人口（#106）
     share = by["income_levy_taxpayer_share"]
     assert share["unit"] == "%" and "income_levy_taxpayers" not in by    # 分子の人数は公開しない
@@ -987,8 +988,9 @@ def test_finance(built):
     assert burden["muni-13199"]["value"] == 0 and "将来負担なし" in burden["muni-13199"]["note"]
     assert burden["muni-13499"]["value"] is None and burden["muni-13499"]["status"] == "missing"
     assert burden["muni-13299"]["value"] == v["13299"][3]
-    # 政令指定都市は市全体の値だけなので、区には割り振らない
-    assert burden.get("muni-14199", {}).get("value") is None
+    # 政令指定都市は市全体の値だけなので、区には割り振らない（区には理由を書く）
+    assert burden["muni-14199"]["value"] is None and burden["muni-14199"]["status"] == "not_applicable"
+    assert "市全体の値だけ" in burden["muni-14199"]["note"]
     # 比率は合計できないので、都道府県の値は出さない
     pref = rows("future_burden_ratio", "prefectures")
     assert pref["pref-13"]["value"] is None and pref["pref-13"]["status"] == "not_applicable"
@@ -1006,7 +1008,25 @@ def test_finance(built):
     tokyo = [s[c] for c in ("13199", "13299", "13499")]
     assert abs(pref["pref-13"]["value"] - sum(r[4] for r in tokyo) * 1000 / sum(r[3] for r in tokyo)) < 0.01
     assert abs(pref["pref-14"]["value"] - s["14190"][4] * 1000 / s["14190"][3]) < 0.01
+    ward = rows("expenditure_per_capita")["muni-14199"]
+    assert ward["value"] is None and ward["status"] == "not_applicable" and "市全体の値だけ" in ward["note"]
     assert "01100" not in {e[5:] for e in rows("expenditure_per_capita")}              # 取り込まない都道府県
+
+
+def test_designated_city_wards():
+    """政令指定都市の区を、市のすぐ後ろの区の地域区分（市の名前）で集める（#119）。"""
+    conn = connect(":memory:")
+    init_schema(conn)
+    wards = {"14131": "川崎市", "14137": "川崎市", "14151": "相模原市", "14153": "相模原市",
+             "22131": "浜松市", "22138": "浜松市", "22140": "浜松市", "14201": None, "13101": "区部"}
+    for pref in ("13", "14", "22"):
+        upsert_entity(conn, f"pref-{pref}", "prefecture", pref)
+    for code, region in wards.items():
+        upsert_entity(conn, f"muni-{code}", "municipality", code, f"pref-{code[:2]}", region)
+    assert designated_city_wards(conn, "14130") == ["muni-14131", "muni-14137"]   # 相模原市の区（14151〜）は入れない
+    assert designated_city_wards(conn, "14150") == ["muni-14151", "muni-14153"]
+    assert designated_city_wards(conn, "22130") == ["muni-22131", "muni-22138", "muni-22140"]
+    assert designated_city_wards(conn, "14200") == [] and designated_city_wards(conn, "13100") == []
 
 
 def test_area(built):

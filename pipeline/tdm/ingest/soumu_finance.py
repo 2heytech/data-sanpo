@@ -24,13 +24,15 @@ import sqlite3
 from pathlib import Path
 
 from ..db import insert_observation
-from ..regions import current_code, municipality_entity_id, prefecture_entity_id
+from ..regions import current_code, designated_city_wards, municipality_entity_id, prefecture_entity_id
 from ..xlsx import read_sheet
 
 POPULATION = "住民基本台帳登載人口"
 # 決算の各ファイルから読む列（ファイル名の末尾の番号: 1 概況・2 歳入内訳・5 地方債現在高等）
 SETTLEMENT_COLUMNS = {"1": [POPULATION, "歳出総額"], "2": ["地方税"], "5": ["地方債現在高", "積立金現在高"]}
 DASHES = {"-", "－", "‐", "―"}
+# 政令指定都市の区に付ける注記（区の行に値を入れず、地図で「データなし」と見えないように理由を書く）
+WARD_NOTE = "政令指定都市は市全体の値だけが公表されているため、区の値はありません"
 
 
 def _norm(cell) -> str:
@@ -122,6 +124,7 @@ def ingest_fiscal_indicators(conn: sqlite3.Connection, path: Path, source_id: st
         if not _exists(conn, entity_id):
             # 政令指定都市は市全体の値しかない。区に割り振ると元データより細かくなるので、区には値を入れない
             result["not_in_map"].append(code)
+            _insert_ward_notes(conn, code, targets, base)
             continue
         result["municipalities"] += 1
         for indicator_id, d in targets.items():
@@ -152,6 +155,7 @@ def ingest_settlement(conn: sqlite3.Connection, files: list[Path], source_id: st
     data = read_settlement(files, prefs)
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "soumu_settlement"}
     result = {"municipalities": 0, "prefectures": 0, "not_in_map": []}
+    base = dict(period_start=period[0], period_end=period[1], period_kind=period[2], source_id=source_id)
     # 都道府県の値は、政令指定都市（市全体の行）を含む県内のすべての団体の合計から出す
     totals: dict[str, dict[str, float | None]] = {}
     for code, values in sorted(data.items()):
@@ -161,6 +165,7 @@ def ingest_settlement(conn: sqlite3.Connection, files: list[Path], source_id: st
         entity_id = municipality_entity_id(code)
         if not _exists(conn, entity_id):
             result["not_in_map"].append(code)
+            _insert_ward_notes(conn, code, targets, base)
             continue
         _insert_per_capita(conn, entity_id, values, targets, source_id, period)
         result["municipalities"] += 1
@@ -170,6 +175,14 @@ def ingest_settlement(conn: sqlite3.Connection, files: list[Path], source_id: st
                                 "（都道府県庁の決算は含みません）")
         result["prefectures"] += 1
     return result
+
+
+def _insert_ward_notes(conn: sqlite3.Connection, city_code: str, targets: dict, base: dict) -> None:
+    for ward in designated_city_wards(conn, city_code):
+        for indicator_id, d in targets.items():
+            insert_observation(conn, entity_id=ward, indicator_id=indicator_id,
+                               definition_version=d["definition_version"], value=None,
+                               status="not_applicable", method_note=WARD_NOTE, **base)
 
 
 def _insert_per_capita(conn: sqlite3.Connection, entity_id: str, values: dict, targets: dict,
