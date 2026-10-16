@@ -1,0 +1,41 @@
+---
+// 寄り道の中の順位の表（上位・下位の数件）。値は公開データから出し、本文で挙げた地域（expect）が表に入るかを確かめる。
+import RankingTable, { type RankingRow } from "./RankingTable.astro";
+import { indicator, ranking, type ArticleLevel } from "../lib/articleData";
+import { loadAreas } from "../lib/data";
+
+interface Props {
+  id: string;
+  period: string;
+  level?: ArticleLevel;
+  order?: "high" | "low";
+  n?: number;
+  /** 本文で名前を挙げた地域（muni-xxxxx・pref-xx） */
+  expect?: string[];
+  caption: string;
+}
+const { id, period, level = "municipality", order = "high", n = 10, expect = [], caption } = Astro.props;
+const ind = indicator(id);
+const areas = loadAreas();
+const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
+const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));
+const rows: RankingRow[] = ind
+  ? ranking(id, period, level, order, n, expect).map((r) => {
+      if (level === "prefecture") {
+        return { ...r, name: prefs.get(r.entity_id.slice(5)) ?? r.entity_id, href: `/map/?i=${id}&p=${period}&a=${r.entity_id}`, extra: [] };
+      }
+      const m = munis.get(r.entity_id)!;
+      return { ...r, name: m.name, href: `/areas/${r.entity_id}/`, extra: [prefs.get(m.prefecture) ?? ""] };
+    })
+  : [];
+---
+{ind && rows.length > 0 && (
+  <figure class="article-ranking">
+    <RankingTable ind={ind} rows={rows} areaLabel={level === "prefecture" ? "都道府県" : "市区町村"}
+      extraLabels={level === "prefecture" ? [] : ["都道府県"]} note={false} caption={caption} />
+    <figcaption class="muted">
+      {order === "low" ? "小さい順" : "大きい順"}です。
+      <a href={`/indicators/${id}/`}>{ind.name}のすべての順位</a>・<a href={`/map/?i=${id}&p=${period}`}>地図で見る</a>
+    </figcaption>
+  </figure>
+)}

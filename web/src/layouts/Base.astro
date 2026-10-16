@@ -15,8 +15,10 @@ interface Props {
   prefecture?: string;
   /** title をそのまま使う（サイト名を後ろに付けない）。トップページ用 */
   titleIsFull?: boolean;
+  /** ページの構造化データ（寄り道の Article など）。JSON-LD にして head に置く */
+  structuredData?: Record<string, unknown>;
 }
-const { title, description, wide = false, preload, prefecture, titleIsFull = false } = Astro.props;
+const { title, description, wide = false, preload, prefecture, titleIsFull = false, structuredData } = Astro.props;
 const SITE_NAME = "データさんぽ";
 const fullTitle = titleIsFull || title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
 // SNS で共有されたときの画像（全ページ共通、1200×630）。作り方は scripts/og-image.mjs
@@ -30,6 +32,7 @@ const areaLabel = prefecture ?? (prefectures.length === 1 ? prefectures[0].name 
 const nav = [
   ["/#indicators", "指標"],
   ["/areas/", "市区町村"],
+  ["/articles/", "寄り道"],
   ["/sources/", "出典"],
   ["/about/", "このサイトについて"],
 ];
@@ -63,6 +66,7 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     {!indexable && <meta name="robots" content="noindex, nofollow" />}
     <meta property="og:site_name" content={SITE_NAME} />
     {websiteLd && <script type="application/ld+json" set:html={websiteLd} />}
+    {structuredData && <script type="application/ld+json" set:html={JSON.stringify(structuredData).replace(/</g, "\\u003c")} />}
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
@@ -134,6 +138,8 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
               <li><a href="/map/">地図</a></li>
               <li><a href="/#indicators">指標の一覧</a></li>
               <li><a href="/areas/">市区町村の一覧</a></li>
+              <li><a href="/articles/">寄り道</a></li>
+              <li><a href="/guide/">使い方</a></li>
             </ul>
           </div>
           <div>

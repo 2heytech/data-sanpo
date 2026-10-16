@@ -173,8 +173,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
      メニューの右端に置くと画面からはみ出して切れていた */
   .header-links { display: contents; }
   .site-header .nav-cta { order: 1; margin-left: auto; padding: 4px 12px; font-size: 0.9rem; }
-  .site-header nav { order: 2; width: 100%; gap: 2px; font-size: 0.9rem; overflow-x: auto; flex-wrap: nowrap; }
-  .site-header nav a { padding: 4px 10px; white-space: nowrap; }
+  /* メニューの5項目（寄り道を加えた。#126）が390px幅で1行に収まるよう、文字と余白を少し詰める */
+  .site-header nav { order: 2; width: 100%; gap: 2px; font-size: 0.85rem; overflow-x: auto; flex-wrap: nowrap; }
+  .site-header nav a { padding: 4px 7px; white-space: nowrap; }
   main { padding: 16px 12px 32px; }
   .sheet { padding: 20px 16px; border-radius: 10px; }
   h1 { font-size: 1.45rem; }
@@ -185,6 +186,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 @media (max-width: 380px) {
   .site-header { gap: 6px 8px; }
   .brand img { height: 26px; }
+  .site-header nav { font-size: 0.8rem; }
+  .site-header nav a { padding: 4px 6px; }
 }
 h2[id], h3[id] { scroll-margin-top: 100px; }
 
@@ -197,3 +200,25 @@ td .rank-bar { width: 96px; margin: 6px 0 2px auto; height: 6px; }
 td .rank-mark { width: 11px; height: 11px; border-width: 2px; }
 /* 長い URL などで本文が画面の幅を超えないようにする（スマホで画面全体が広がり、表の横スクロールが効かなくなるため） */
 .sheet p, .sheet li, .sheet dd { overflow-wrap: break-word; }
+
+/* --- 寄り道（/articles/）と使い方（/guide/）（#126） --- */
+.crumbs { margin: 0 0 6px; }
+.crumbs a { color: inherit; }
+.article-date { margin: 4px 0 0; }
+.article-body { font-size: 1.02rem; }
+.article-body p, .article-body li { max-width: 46em; }
+.article-body h2 { margin-top: 1.8em; }
+.article-body .note { max-width: 46em; }
+.article-ranking { margin: 16px 0 20px; }
+.article-ranking figcaption { margin-top: 4px; }
+.article-ranking table.ranking { max-width: 640px; }
+.article-links { padding-left: 1.2em; }
+.article-links li { margin: 4px 0; }
+.article-links .muted { display: block; }
+.article-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.article-list li { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
+.article-list a { font-weight: 700; }
+.article-list p { margin: 4px 0 0; }
+.guide-figure { margin: 12px 0 20px; }
+.guide-figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+.guide-figure figcaption { margin-top: 4px; }

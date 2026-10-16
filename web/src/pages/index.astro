@@ -7,6 +7,7 @@ import CategoryIcon from "../components/CategoryIcon.astro";
 import { loadAreas, loadIndicators, loadPlace } from "../lib/data";
 import type { Indicator, WeatherElement } from "../lib/types";
 import { GENRES as BASE_GENRES } from "../lib/genres";
+import { ARTICLES } from "../lib/articles";
 
 const indicators = loadIndicators();
 const areas = loadAreas();
@@ -180,6 +181,18 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
       <li><strong>時点を動かす</strong>スライドバー（▶で再生）で、時点ごとの変化を追えます。</li>
       <li><strong>拡大して比べる</strong>町丁目ごとの値を、色だけでなく数値と一覧でも確認できます。</li>
     </ol>
+    <p><a href="/guide/">画面の見方と使い方をくわしく見る</a></p>
+  </section>
+
+  <section class="sheet">
+    <h2 id="articles">寄り道：データで読む記事</h2>
+    <p class="muted">地図と順位の数字から、地域の特徴を読み解く記事です。</p>
+    <ul class="article-list">
+      {ARTICLES.slice(0, 4).map((a) => (
+        <li><a href={`/articles/${a.slug}/`}>{a.title}</a><p class="muted">{a.description}</p></li>
+      ))}
+    </ul>
+    <p><a href="/articles/">寄り道の記事をすべて見る（{ARTICLES.length}本）</a></p>
   </section>
 
   <section class="sheet">

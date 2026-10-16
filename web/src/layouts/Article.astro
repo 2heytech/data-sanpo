@@ -1,0 +1,70 @@
+---
+// 寄り道のページの枠。題名・日付・本文・関連する指標とほかの寄り道・広告枠（本文の後）を並べる。
+import Base from "./Base.astro";
+import AdSlot from "../components/AdSlot.astro";
+import { ARTICLES, articleBySlug, formatDate } from "../lib/articles";
+import { loadIndicators } from "../lib/data";
+
+interface Props { slug: string }
+const article = articleBySlug(Astro.props.slug);
+if (!article) throw new Error(`寄り道 ${Astro.props.slug} が lib/articles.ts にありません`);
+const indicators = loadIndicators();
+const related = article.indicators.flatMap((id) => indicators.find((i) => i.id === id) ?? []);
+const others = ARTICLES.filter((a) => a.slug !== article.slug);
+const url = Astro.site ? new URL(`/articles/${article.slug}/`, Astro.site).href : undefined;
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      headline: article.title,
+      description: article.description,
+      datePublished: article.published,
+      dateModified: article.updated ?? article.published,
+      inLanguage: "ja",
+      author: { "@type": "Organization", name: "TsumuGroove" },
+      publisher: { "@type": "Organization", name: "データさんぽ" },
+      ...(url ? { mainEntityOfPage: url } : {}),
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "データさんぽ", ...(Astro.site ? { item: new URL("/", Astro.site).href } : {}) },
+        { "@type": "ListItem", position: 2, name: "寄り道", ...(Astro.site ? { item: new URL("/articles/", Astro.site).href } : {}) },
+        { "@type": "ListItem", position: 3, name: article.title },
+      ],
+    },
+  ],
+};
+---
+<Base title={article.title} description={article.description} structuredData={structuredData}>
+  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/articles/">寄り道</a></nav>
+  <header class="page-head">
+    <p class="eyebrow">寄り道</p>
+    <h1>{article.title}</h1>
+    <p class="muted article-date">
+      <time datetime={article.published}>{formatDate(article.published)}</time>公開
+      {article.updated && <>・<time datetime={article.updated}>{formatDate(article.updated)}</time>更新</>}
+    </p>
+  </header>
+  <article class="sheet article-body">
+    <slot />
+  </article>
+  {related.length > 0 && (
+    <section class="sheet">
+      <h2>この記事で使った指標</h2>
+      <ul class="article-links">
+        {related.map((i) => (
+          <li><a href={`/indicators/${i.id}/`}>{i.name}</a>（<a href={`/map/?i=${i.id}`}>地図</a>）<span class="muted">{i.description}</span></li>
+        ))}
+      </ul>
+    </section>
+  )}
+  <section class="sheet">
+    <h2>ほかの寄り道</h2>
+    <ul class="article-links">
+      {others.map((a) => <li><a href={`/articles/${a.slug}/`}>{a.title}</a></li>)}
+    </ul>
+  </section>
+  <AdSlot name="page" />
+</Base>
