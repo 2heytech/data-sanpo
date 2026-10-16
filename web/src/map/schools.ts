@@ -4,9 +4,10 @@
 // 都道府県の分だけ読む（createPrefLoader）。東京都以外は児童・生徒数の公開データがなく、国土数値情報の位置だけを小さな点で出す。
 // 学校に通う子どもの数で、周辺に住む子どもの数ではないことを凡例と詳細に明記する。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer } from "./points";
+import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, SchoolsFile, School } from "../lib/types";
+import { esc } from "../lib/html";
 
 const LAYER = "school-circle";
 const SELECTED = "school-selected";
@@ -186,7 +187,6 @@ export function initSchools(o: Options): SchoolLayer {
       : s.precision === "町丁目"
         ? "住所の街区が見つからないため、町丁目の代表点に表示しています。"
         : "";
-    const srcs = [...new Set(data.source_ids.map((id) => o.sources.get(id)?.attribution ?? id))];
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="学校の情報を閉じる">×</button>
@@ -202,13 +202,12 @@ export function initSchools(o: Options): SchoolLayer {
         <thead><tr><th>時点</th><th class="num">児童・生徒数</th><th class="num">前年から</th></tr></thead>
         <tbody>${trend}</tbody></table>
       <p class="muted small">${data.caveats.map(esc).join(" ")}</p>
-      <p class="muted small">${srcs.map(esc).join("／")}</p>`;
+      ${sourcesHtml(data.source_ids, o.sources)}`;
     o.onPanel();
   }
 
   /** 東京都以外の学校（国土数値情報の位置だけ。児童・生徒数の公開データがない） */
   function showLocationOnly(s: School) {
-    const srcs = [...new Set(data!.source_ids.map((id) => o.sources.get(id)?.attribution ?? id))];
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="学校の情報を閉じる">×</button>
@@ -218,7 +217,7 @@ export function initSchools(o: Options): SchoolLayer {
       <div>${esc(data!.name)}</div>
       <div class="value">公開データなし</div>
       <p class="note small">児童・生徒数は東京都の学校だけです。ほかの道府県は、国土数値情報「学校データ」（${esc(s.as_of ?? "")}）の学校の位置だけを表示しています。</p>
-      <p class="muted small">${srcs.map(esc).join("／")}</p>`;
+      ${sourcesHtml(data!.source_ids, o.sources)}`;
     o.onPanel();
   }
 
@@ -257,8 +256,4 @@ export function initSchools(o: Options): SchoolLayer {
 /** 設置者（東京都は「千代田区」など → 「千代田区立」。国土数値情報は「市区町村立」「都道府県立」） */
 function founderText(s: School): string {
   return s.founder.endsWith("立") ? s.founder : `${s.founder}立`;
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

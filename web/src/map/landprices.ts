@@ -6,9 +6,10 @@
 // 地域の平均ではなく選ばれた1地点の価格であることを凡例と詳細に明記する。
 // 価格は住宅地の数万円から都心の商業地の数千万円まで桁が違うので、切りのよい桁ごとの区切りで色を分ける。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer } from "./points";
+import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, LandPriceFile, LandPoint } from "../lib/types";
+import { esc } from "../lib/html";
 
 /** 地価の点の種類ごとの名前・URL の引数。地価調査の円は四角い縁取りにせず、縁の色で見分ける */
 export const LAND_KINDS = {
@@ -198,7 +199,6 @@ export function initLandPrices(o: Options): LandPriceLayer {
       p.zoning ? `用途地域: ${p.zoning}` : "",
       p.station ? `最寄駅: ${p.station}${p.station_distance_m ? `（${formatNumber(p.station_distance_m, 0)}m）` : ""}` : "",
     ].filter(Boolean);
-    const srcs = [...new Set(data.source_ids.map((sid) => o.sources.get(sid)?.attribution ?? sid))];
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="${k.name}の情報を閉じる">×</button>
@@ -214,7 +214,7 @@ export function initLandPrices(o: Options): LandPriceLayer {
         <thead><tr><th>年</th><th class="num">価格（円/㎡）</th><th class="num">前年から</th></tr></thead>
         <tbody>${rows.reverse().join("")}</tbody></table></div>
       <p class="muted small">${data.caveats.map(esc).join(" ")}</p>
-      <p class="muted small">${srcs.map(esc).join("／")}</p>`;
+      ${sourcesHtml(data.source_ids, o.sources)}`;
     o.onPanel();
   }
 
@@ -248,8 +248,4 @@ export function initLandPrices(o: Options): LandPriceLayer {
     show: showPoint,
     isOpen: () => !o.panel.hidden,
   };
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

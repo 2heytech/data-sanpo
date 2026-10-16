@@ -81,8 +81,8 @@ def _num(row: list, col: int) -> float | None:
     if isinstance(v, (int, float)):
         return float(v)
     s = _clean(v)
-    if s in ("-", "－", "‐", "―", "…"):
-        return 0.0   # 学校基本調査の「-」は該当なし（0）
+    if s in ("-", "－", "‐", "―"):
+        return 0.0   # 学校基本調査の「-」は該当なし（0）。「…」（計数不明）は値なし（0 にしない）
     try:
         return float(s.replace(",", ""))
     except ValueError:

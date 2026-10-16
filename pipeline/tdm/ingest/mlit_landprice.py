@@ -9,6 +9,9 @@
 
 標準地の番号は「千代田-1」（住宅地）・「千代田5-1」（商業地）のように市区町村名・用途・連番で呼ぶ。
 0 の年は値なし（標準地でなかった）として扱い、0円にしない。価格は1月1日時点。
+市区町村コードが地図（2020年の境界）にない地点（2024年1月に区を再編した浜松市の新しい区など）は、
+地点の位置から地図の市区町村を決める。都道府県地価調査の林地（市区町村コードが「02900」のような
+都道府県の番号）は載せない。
 
 「都道府県地価調査データ」（L02、L02-25_13 を 2026-10-10 に GitHub Actions から取得して確認）も同じ形で読む。
   L02_001 用途区分、L02_002 連番、L02_005 調査年、L02_006 当年の価格、L02_007 変動率、L02_020 市区町村コード、
@@ -22,7 +25,10 @@ import json
 import sqlite3
 from pathlib import Path
 
+from shapely.geometry import Point
+
 from ..db import insert_observation, upsert_entity
+from .mlit_stations import _municipality_index, _municipality_of
 
 FIRST_YEAR = 1983
 # 地価公示（L01）と都道府県地価調査（L02）の属性名。first_price は 1983年の価格の欄の番号
@@ -73,23 +79,31 @@ def _text(v) -> str | None:
 
 
 def ingest(conn: sqlite3.Connection, path: Path, source_id: str, indicator_id: str,
-           definition: dict) -> dict:
+           definition: dict, boundary_version: str | None = None) -> dict:
     features = json.loads(path.read_text(encoding="utf-8"))["features"]
     munis = {r["entity_id"] for r in conn.execute(
         "SELECT entity_id FROM entities WHERE entity_type = 'municipality'")}
-    result = {"points": 0, "no_municipality": 0, "observations": 0}
+    indexes: dict[str, tuple] = {}   # 都道府県 → 市区町村の形の索引（コードが地図にない地点があったときだけ作る）
+    result = {"points": 0, "located_by_point": 0, "no_municipality": 0, "observations": 0}
     for feature in features:
         p = feature["properties"]
         f = _fields(p)
         code = str(p[f["code"]])
         muni = f"muni-{code}"
+        lon, lat = feature["geometry"]["coordinates"][:2]
+        # 都道府県の林地の基準地（コード末尾 900）は市区町村が決まっていないので、これまでどおり載せない
+        if muni not in munis and boundary_version and not code.endswith("900"):
+            pref = code[:2]
+            if pref not in indexes:
+                indexes[pref] = _municipality_index(conn, boundary_version, [pref])
+            muni = _municipality_of(Point(lon, lat), *indexes[pref]) or muni
+            result["located_by_point"] += muni in munis
         if muni not in munis:
             result["no_municipality"] += 1
             continue
         use = str(p[f["use"]])
         entity_id = f"{f['id_prefix']}-{code}-{use}-{int(p[f['seq']]):03d}"
         upsert_entity(conn, entity_id, "land_point", point_name(p), parent_id=muni)
-        lon, lat = feature["geometry"]["coordinates"][:2]
         conn.execute(
             """INSERT INTO locations (location_id, entity_id, role, lon, lat, source_id)
                VALUES (?, ?, 'main', ?, ?, ?)

@@ -10,7 +10,11 @@ export const STATUS_LABEL: Record<Status, string> = {
   not_applicable: "対象外",
 };
 
+/** 表示の桁に丸めると0になる値か（-0.04 を「-0.0」、+0.04 を「+0.0」と書かないため）。 */
+const roundsToZero = (value: number, digits: number) => Math.abs(value) < 0.5 * 10 ** -digits;
+
 export function formatNumber(value: number, digits: number): string {
+  if (roundsToZero(value, digits)) value = 0;
   return new Intl.NumberFormat("ja-JP", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
@@ -45,7 +49,7 @@ export function formatValue(row: Pick<ValueRow, "value" | "status"> | undefined,
   if (row.value === null) return STATUS_LABEL[row.status] || "データなし";
   if (ind.legend?.band) return bandLabel(row.value, ind.legend.band, ind.unit);
   // 増減率は増加に「+」を付ける（減少は「−」が付く）
-  const sign = ind.kind === "change" && row.value > 0 ? "+" : "";
+  const sign = ind.kind === "change" && row.value > 0 && !roundsToZero(row.value, ind.digits) ? "+" : "";
   return `${sign}${formatNumber(row.value, ind.digits)}${unitSuffix(ind.unit)}`;
 }
 

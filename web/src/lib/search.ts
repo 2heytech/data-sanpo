@@ -64,8 +64,10 @@ export class AreaSearch {
       else if (nameKey.includes(q)) score = 2;
       else if (item.key.includes(q)) score = 3;
       if (score >= 0) {
-        // 市区町村を先に、短い名前を先に
-        scored.push([score * 10 + (item.level === "small_area" ? 1 : 0), item]);
+        // 市区町村を先に、短い名前を先に。名前の完全一致・前方一致では、市区町村（「新宿」→新宿区）を
+        // 町丁・字等の完全一致（魚津市の「新宿」）より先にする
+        const small = item.level === "small_area" ? 1 : 0;
+        scored.push([score <= 1 ? small * 2 + score : score * 10 + small, item]);
       }
     }
     scored.sort((a, b) => a[0] - b[0] || a[1].name.length - b[1].name.length);

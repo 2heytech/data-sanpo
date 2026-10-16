@@ -92,6 +92,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .table-scroll table { border: 0; }
 .table-scroll tbody tr:last-child td { border-bottom: 0; }
 .compare th, .compare td { white-space: nowrap; }
+/* 指標のページの表: スマホで1列目が1文字幅に縮み、県名・粒度が縦に並ばないようにする
+   （長い指標名の見出しは折り返す（ランキングの表で途中で切れないように）。粒度は「都道府県」などの語の途中では折り返さない） */
+.pref-table th.num, .ranking th.num { white-space: normal; }
+.pref-table td:first-child, .pref-table th:first-child { white-space: nowrap; }
 .table-scroll + .table-scroll, .table-scroll + .ranking-more, .ranking-more + .table-scroll, .ranking-more + .ranking-more { margin-top: 12px; }
 .ranking { table-layout: fixed; min-width: 600px; }  /* 上位・下位などの表で列の幅をそろえる */
 .ranking .col-rank { width: 6.5em; }

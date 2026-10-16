@@ -5,7 +5,7 @@ import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, LngLatBoundsLike, PointLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { colorsFor, fillColorExpression, NO_DATA_COLOR } from "../lib/classify";
-import { bandLabel, compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried, STATUS_LABEL } from "../lib/format";
+import { bandLabel, compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
 import type {
@@ -24,6 +24,7 @@ import type { PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
 import { normalize } from "../lib/search";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
+import { esc } from "../lib/html";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
 // 切り替えは、次の段階の地名がある程度読める縮尺まで待つ（市区町村名は MUNI_LABEL_ZOOM、町丁目名は AREA_LABEL_ZOOM から）
@@ -33,8 +34,9 @@ const FINE_MUNI_ZOOM = 8; // これ以上で市区町村界を都道府県ごと
 const MAX_PREFS_PER_MOVE = 6;
 const MAX_CHUNKS_PER_MOVE = 8;
 // 地名の文字。漢字・かなは端末のフォントで描き、数字などだけ地理院のフォントを読み込む
+// （地理院の noto-jp にあるのは NotoSansCJKjp-Regular。NotoSansJP-Regular は 404 で、数字などが描けなかった）
 const GLYPHS_URL = "https://maps.gsi.go.jp/xyz/noto-jp/{fontstack}/{range}.pbf";
-const LABEL_FONT = ["NotoSansJP-Regular"];
+const LABEL_FONT = ["NotoSansCJKjp-Regular"];
 const LOCAL_FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif';
 const AREA_LABEL_ZOOM = AREA_ZOOM; // 町丁目名はこれ以上で表示（狭い範囲に多数あるため）
 const MUNI_LABEL_ZOOM = PREF_ZOOM; // 市区町村名はこれ以上で表示
@@ -165,6 +167,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   // 値のファイル: 都道府県・市区町村は全国で1つずつ、町丁・字等は都道府県ごと
   const chunkOf = (id: string) =>
     (isPref(id) ? "prefectures" : munis.has(id) ? "municipalities" : prefectureCodeOf(id)!);
+  const levelOf = (id: string): Level => (isPref(id) ? "prefecture" : munis.has(id) ? "municipality" : "small_area");
+  // その時点にその粒度の値があるか（ない粒度のファイルは読みにいかない。読むと 404 になる）
+  const hasLevel = (ind: Indicator, at: string, level: Level) =>
+    !!ind.periods.find((p) => p.period === at)?.levels.includes(level);
   const smallAreas = new Map<string, SmallArea>();
   const loadedChunks = new Set<string>();
   const loadingChunks = new Map<string, Promise<void>>();
@@ -372,21 +378,30 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     }
   }
 
+  // 値を読んでいる間に指標・時点が変わったか（変わっていたら、古い値で塗ったり一覧を書いたりしない）
+  const shownKey = () => `${indicator.id}/${period}`;
+
   async function paintPrefectures() {
     if (!nationwide) return;
+    const key = shownKey();
     const v = prefLevel() ? await loadValues("prefectures") : null;
+    if (key !== shownKey()) return;
     applyRows("prefs", areas.prefectures.map((p) => p.id), v?.rows);
     refreshLabels("prefs");
   }
 
   async function paintMunicipalities() {
-    const v = await loadValues("municipalities");
+    const key = shownKey();
+    const v = periodInfo().levels.includes("municipality") ? await loadValues("municipalities") : null;
+    if (key !== shownKey()) return;
     applyRows("munis", munis.keys(), v?.rows);
     refreshLabels("munis");
   }
 
   async function paintChunk(code: string) {
+    const key = shownKey();
     const v = await loadValues(code.slice(0, 2));
+    if (key !== shownKey()) return;
     const ids = areaFeatures.features
       .filter((f) => municipalityCodeOf(f.properties.id) === code)
       .map((f) => f.properties.id);
@@ -401,8 +416,13 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   let legend: LegendFile | null = null;
+  let colorsToken = 0;
   async function refreshColors() {
-    legend = await fetchJSON<LegendFile>(`values/${indicator.id}/${period}/legend.json`);
+    // 凡例を読んでいる間に指標・時点が変わったら（続けて切り替えた・再生中など）、古い凡例で塗らない
+    const token = ++colorsToken;
+    const next = await fetchJSON<LegendFile>(`values/${indicator.id}/${period}/legend.json`);
+    if (token !== colorsToken) return;
+    legend = next;
     // 都道府県の値がある指標は、縮小すると都道府県・拡大すると市区町村（さらに町丁目）で塗る
     const muniFrom = prefLevel() ? PREF_ZOOM : 0;
     const prefMax = prefectureOnly() ? 24 : PREF_ZOOM;
@@ -613,11 +633,15 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   // --- 表示 ---------------------------------------------------------------------
-  // 市区町村の一覧・凡例で見る都道府県: 選んだ地域の都道府県、なければ地図の中心にいちばん近い市区町村の都道府県
+  // 市区町村の一覧・凡例で見る都道府県: 選んだ地域の都道府県、なければ地図の中心にいちばん近い市区町村の都道府県。
+  // 選んだ地域の都道府県が画面から外れたら（地域を選んだまま他県へ動かしたとき）、地図の中心の都道府県にする
+  // （凡例の区切りを、画面に見えている市区町村の塗り分けと合わせるため）
   function focusPrefecture(): string | undefined {
-    return (selected && prefectureCodeOf(selected)) ||
-      visibleMunicipalities().sort((a, b) => dist(a.center, map.getCenter()) - dist(b.center, map.getCenter()))[0]?.prefecture ||
-      areas.prefectures[0]?.code;
+    const visible = visibleMunicipalities();
+    const own = selected ? prefectureCodeOf(selected) : null;
+    if (own && (!visible.length || visible.some((m) => m.prefecture === own))) return own;
+    return visible.sort((a, b) => dist(a.center, map.getCenter()) - dist(b.center, map.getCenter()))[0]?.prefecture ||
+      own || areas.prefectures[0]?.code;
   }
 
   // ロゴの横の都道府県名: 地域を選んでいればその都道府県、市区町村が見える縮尺まで拡大していれば地図の中心の都道府県。
@@ -689,6 +713,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   async function rowsFor(id: string, at = period): Promise<ValueRow[]> {
+    if (!hasLevel(indicator, at, levelOf(id))) return [];
     if (!munis.has(id) && !isPref(id) && !covers(prefectureCodeOf(id))) return [];
     try {
       return (await fetchJSON<ValuesFile>(`values/${indicator.id}/${at}/${chunkOf(id)}.json`)).rows;
@@ -741,6 +766,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (!others.length) return "";
     const items = await Promise.all(others.map(async (o) => {
       let row: ValueRow | undefined;
+      if (!hasLevel(o, period, levelOf(id))) return "";
       if (!munis.has(id) && !isPref(id) && o.prefectures && !o.prefectures.includes(prefectureCodeOf(id)!)) return "";
       try {
         row = (await fetchJSON<ValuesFile>(`values/${o.id}/${period}/${chunkOf(id)}.json`)).rows
@@ -886,7 +912,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       <p class="muted small sources">${srcHtml}（<a href="/sources/">出典の一覧</a>）</p>`;
   }
 
+  let listToken = 0;
   async function renderList() {
+    const token = ++listToken;
     const level = levelNow();
     let ids: string[];
     let title: string;
@@ -912,6 +940,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       rows = (await loadValues(code.slice(0, 2)))?.rows ?? [];
       title = `${munis.get(`muni-${code}`)?.name ?? ""}の町丁・字等`;
     }
+    if (token !== listToken) return;   // 読んでいる間に次の一覧を書き始めた
     const byId = new Map(rows.map((r) => [r.entity_id, r]));
     const sorted = ids
       .map((id) => ({ id, row: byId.get(id) }))
@@ -1446,14 +1475,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     searcher ??= new AreaSearch(await fetchJSON<SearchIndex>("search-index.json"));
     const wanted = [selected && prefectureCodeOf(selected), ...visiblePrefectures().slice(0, MAX_PREFS_PER_MOVE).map((p) => p.code)]
       .filter((c): c is string => !!c && !searchedPrefs.has(c));
-    for (const code of new Set(wanted)) {
+    // 都道府県ごとの町丁・字等の索引は、1つずつ待たずにまとめて読む（加える順はこれまでどおり）
+    const files = await Promise.all([...new Set(wanted)].map((code) => {
       searchedPrefs.add(code);
-      try {
-        searcher.add(await fetchJSON<SearchIndex>(`search-index/${code}.json`));
-      } catch {
-        // 町丁・字等の索引がない都道府県
-      }
-    }
+      return fetchJSON<SearchIndex>(`search-index/${code}.json`).catch(() => null); // 町丁・字等の索引がない都道府県
+    }));
+    for (const f of files) if (f) searcher.add(f);
     return searcher;
   };
 
@@ -1508,8 +1535,4 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   } else {
     updateUrl();
   }
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

@@ -1,7 +1,8 @@
 // 点レイヤー（駅・学校・地価公示・認可保育所）の共通の形。クリックは app.ts でまとめて受け、
 // 直前にクリックした1地点だけを右の欄に出す（重なっている地点は一覧から選ぶ）。
 import type { Map as MapLibreMap } from "maplibre-gl";
-import type { PlacePrefecture } from "../lib/types";
+import { esc } from "../lib/html";
+import type { PlacePrefecture, Source } from "../lib/types";
 
 export interface PointLayer {
   /** クリック判定に使う円のレイヤー */
@@ -15,6 +16,11 @@ export interface PointLayer {
   isOpen(): boolean;
 }
 
+/** 右の欄の出典の行（出典表記を重複なく「／」で並べる） */
+export function sourcesHtml(ids: string[], sources: Map<string, Source>): string {
+  const names = [...new Set(ids.map((id) => sources.get(id)?.attribution ?? id))];
+  return `<p class="muted small">${names.map(esc).join("／")}</p>`;
+}
 
 /** 点の一覧を読み込み始める縮尺。全国を見ているときは読まない（1都道府県が収まるくらいから） */
 export const PLACES_MIN_ZOOM = 8;

@@ -4,6 +4,7 @@
   飛び抜けた地域があるときは、両端5%を除いた範囲の等間隔も試す（両端の階級は「未満」「以上」）。
   偏った分布（差の大きい指標）は等間隔だと大半が1色になるので、分位点の近くで切りのよい数値を選ぶ。
 - diverging: 0 を境に、減少側・増加側をそれぞれ classes/2 の階級に分ける（区切りは切りのよい数値）。
+- quantile: 分位点をそのまま区切りにする（切りのよい数値には寄せない）。
 区切りは「その値以上が次の階級」。切りのよい数値は 1000, 500, 100, 50, 10, 5, 1, 0.5, 0.1 … の順に探す。
 """
 from __future__ import annotations
@@ -133,3 +134,16 @@ def diverging_breaks(values: list[float], classes: int, digits: int) -> list[flo
     below = [-b for b in reversed(_refined_quantile_breaks(neg, half, digits))] if len(neg) >= 2 else []
     above = _refined_quantile_breaks(pos, half, digits) if len(pos) >= 2 else []
     return [*below, 0.0, *above]
+
+
+def quantile_breaks(values: list[float], classes: int, digits: int) -> list[float]:
+    """分位点（表示の桁に丸めたもの）をそのまま区切りにする。同じ値になった区切りは1つにまとめる。"""
+    if len(values) < 2:
+        return []
+    qs = statistics.quantiles(values, n=classes, method="inclusive")
+    breaks: list[float] = []
+    for q in qs:
+        b = round(q, digits)
+        if not breaks or b > breaks[-1]:
+            breaks.append(b)
+    return breaks

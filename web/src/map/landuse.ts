@@ -4,6 +4,7 @@
 // （読むと 404 になる）。タイルは画素がマスとほぼ同じ大きさなので、拡大してもぼかさない（nearest）。
 import type * as MapLibre from "maplibre-gl";
 import type { Map as MapLibreMap, RasterTileSource } from "maplibre-gl";
+import { esc } from "../lib/html";
 import type { Source } from "../lib/types";
 
 export interface LandUseIndex {
@@ -135,8 +136,4 @@ export function initLandUse(o: Options): LandUseLayer {
   }
 
   return { setVisible, sync };
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

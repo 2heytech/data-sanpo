@@ -19,6 +19,8 @@ from pathlib import Path
 
 import shapefile
 
+from .xlsx import FIXED_ZIP_TIME
+
 FIXTURE_SOURCE = {
     "title": "開発用の架空データ（実在の統計ではありません）",
     "provider": "tokyo-data-map 開発用",
@@ -2543,7 +2545,8 @@ def _write_weather(directory: Path) -> dict[str, Path]:
                       for n, name, kana, lat, lon, alt in WEATHER_STATIONS]
     index = d / "amedas_station_index.zip"
     with zipfile.ZipFile(index, "w") as z:
-        z.writestr("amedas_station_index.csv", ("\r\n".join(lines) + "\r\n").encode("cp932"))
+        z.writestr(zipfile.ZipInfo("amedas_station_index.csv", FIXED_ZIP_TIME),
+                   ("\r\n".join(lines) + "\r\n").encode("cp932"))
     monthly = d / "normal_amedas_monthly.zip"
     with zipfile.ZipFile(monthly, "w") as z:
         for n, elements in WEATHER_NORMALS.items():
@@ -2555,7 +2558,8 @@ def _write_weather(directory: Path) -> dict[str, Path]:
                 else:
                     years, start, vals = v
                     rows.append(f"21,{n},{el},{years:2d},{start},2020," + ",".join(f"{x:6d},8" for x in vals))
-            z.writestr(f"monthly/area{n[:2]}/nml_amd_m_{n}.csv", ("\r\n".join(rows) + "\r\n").encode("cp932"))
+            z.writestr(zipfile.ZipInfo(f"monthly/area{n[:2]}/nml_amd_m_{n}.csv", FIXED_ZIP_TIME),
+                       ("\r\n".join(rows) + "\r\n").encode("cp932"))
     return {"weather_index": index, "weather_monthly": monthly}
 
 

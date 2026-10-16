@@ -44,6 +44,8 @@ POLICE_PREFECTURES = {
 BICYCLE = {"51", "52"}
 COLUMNS = ("都道府県コード", "市区町村コード", "事故内容", "事故類型", "当事者種別（当事者A）", "当事者種別（当事者B）",
            "地点　緯度（北緯）", "地点　経度（東経）")
+# 数えるのに使う列（市区町村コードは地点で市区町村を決めるので使わない）
+REQUIRED = tuple(c for c in COLUMNS if c != "市区町村コード")
 NEAR_DEGREES = 0.002     # 約200m。橋の上・海沿いなどで境界のわずかに外にある地点を最寄りの地域に含める
 NO_LOCATION_NOTE = "地点の記録がない事故は含みません"
 
@@ -74,6 +76,10 @@ def read_accidents(path: Path, encoding: str = "cp932", prefs: list[str] | None 
     text = path.read_bytes().decode(encoding, errors="replace")
     reader = csv.DictReader(io.StringIO(text))
     reader.fieldnames = [f.strip() for f in reader.fieldnames or []]
+    missing = [k for k in REQUIRED if k not in reader.fieldnames]
+    if missing:
+        # 列名が変わると全域が0件になってしまうので止める
+        raise ValueError(f"{path.name}: 交通事故の表に列 {missing} がありません。見出し: {reader.fieldnames[:20]}")
     # 全国では1年で30万行ほどあるので、使う列だけ残してメモリを抑える
     return [{k: r.get(k) or "" for k in COLUMNS} for r in reader
             if POLICE_PREFECTURES.get((r.get("都道府県コード") or "").strip()) in wanted]

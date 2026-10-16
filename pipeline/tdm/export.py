@@ -9,7 +9,6 @@ import gzip
 import hashlib
 import json
 import sqlite3
-import statistics
 import subprocess
 from collections import defaultdict
 from pathlib import Path
@@ -19,7 +18,7 @@ from shapely.ops import unary_union
 from shapely.strtree import STRtree
 
 from . import SCHEMA_VERSION
-from .breaks import diverging_breaks, nice_breaks
+from .breaks import diverging_breaks, nice_breaks, quantile_breaks
 from .db import load_geometry, now_iso
 from .progress import progress
 from .regions import PREFECTURES, prefecture_entity_id, prefecture_of
@@ -124,38 +123,27 @@ def _write_places(out: Path, indicator_id: str, meta: dict, key: str, items: lis
     _write(out, f"places/{indicator_id}.json", {**meta, "prefectures": prefs})
 
 
+def _coord(e) -> list[float]:
+    """位置（経度・緯度）を公開用の桁に丸める。"""
+    return [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)]
+
+
+def _places_meta(release_id: str, indicator_id: str, d: dict, periods: list[tuple], source_ids: set[str]) -> dict:
+    """点の一覧（駅・学校・地価・保育所・空港・港）のファイルに共通の情報: 指標の名前・説明・時点・出典。"""
+    return {"schema_version": SCHEMA_VERSION, "release_id": release_id,
+            "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
+            "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
+            "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
+                         "label": _period_label(*p)} for p in periods],
+            "source_ids": sorted(source_ids)}
+
+
 def _git_commit() -> str | None:
     try:
         return subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
                               check=True).stdout.strip() or None
     except (OSError, subprocess.CalledProcessError):
         return None
-
-
-def _quantile_breaks(values: list[float], classes: int, digits: int) -> list[float]:
-    if len(values) < 2:
-        return []
-    qs = statistics.quantiles(values, n=classes, method="inclusive")
-    breaks: list[float] = []
-    for q in qs:
-        b = round(q, digits)
-        if not breaks or b > breaks[-1]:
-            breaks.append(b)
-    return breaks
-
-
-def _diverging_breaks(values: list[float], classes: int, digits: int) -> list[float]:
-    """0（増減なし）を境にし、減少側・増加側をそれぞれ classes/2 等分した位置で区切る。"""
-    half = max(1, classes // 2)
-    breaks = [0.0]
-    for side in ([v for v in values if v < 0], [v for v in values if v > 0]):
-        if len(side) >= 2 and half > 1:
-            breaks.extend(round(q, digits) for q in statistics.quantiles(side, n=half, method="inclusive"))
-    out: list[float] = []
-    for b in sorted(breaks):
-        if not out or b > out[-1]:
-            out.append(b)
-    return out
 
 
 def _period_id(start: str, end: str, kind: str) -> str:
@@ -397,7 +385,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
                     if r["value"] is not None and not (zero_blank and r["value"] == 0))
         method = d["legend"]["method"]
         breaks_fn = (diverging_breaks if method == "diverging" else
-                     nice_breaks if method == "nice" else _quantile_breaks)
+                     nice_breaks if method == "nice" else quantile_breaks)
         if method == "bands":
             # 区分で公表された値（就学援助率の「10%未満」など、値は区分の上の端）。区分ごとに1色にし、
             # 都道府県・時点が違っても同じ区分は同じ色にする（区切りは全国・全時点の最大値まで同じ）
@@ -543,6 +531,7 @@ def export_stations(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pat
         periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
         index = {p[0]: i for i, p in enumerate(periods)}
         stations: dict[str, dict] = {}
+        srcs: set[str] = set()   # この指標の出典（同じ種類の点のほかの指標と混ぜない）
         info = {r["entity_id"]: r for r in conn.execute(
             """SELECT e.entity_id, e.name, e.parent_id, l.lon, l.lat, a.attributes
                FROM entities e JOIN locations l ON l.entity_id = e.entity_id AND l.role = 'main'
@@ -559,7 +548,7 @@ def export_stations(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pat
                     "id": r["entity_id"], "name": e["name"], "operator": attrs.get("operator", ""),
                     "group": attrs.get("group", ""), "lines": attrs.get("lines", []),
                     "municipality_id": e["parent_id"],
-                    "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)],
+                    "coord": _coord(e),
                     "values": [None] * len(periods), "status": [None] * len(periods)}
             i = index[r["period_start"]]
             if r["dimension_key"] != "all":
@@ -570,15 +559,10 @@ def export_stations(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pat
             note = "。".join(n for n in (r["coverage_note"], r["method_note"]) if n)
             if note:
                 st.setdefault("notes", {})[str(i)] = note
-            used.add(r["source_id"])
-        _write_places(out, indicator_id, {
-            "schema_version": SCHEMA_VERSION, "release_id": release_id,
-            "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
-            "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
-            "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
-                         "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(used)},
+            srcs.add(r["source_id"])
+        _write_places(out, indicator_id, _places_meta(release_id, indicator_id, d, periods, srcs),
             "stations", sorted(stations.values(), key=lambda s: s["id"]))
+        used |= srcs
     return used
 
 
@@ -607,6 +591,7 @@ def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
         periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
         index = {p[0]: i for i, p in enumerate(periods)}
         schools: dict[str, dict] = {}
+        srcs: set[str] = set()   # この指標の出典（同じ種類の点のほかの指標と混ぜない）
         for r in rows:
             e = info.get(r["entity_id"])
             if e is None:
@@ -620,18 +605,18 @@ def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
                     "school_type": attrs.get("school_type", ""), "type_label": attrs.get("type_label", ""),
                     "founder": attrs.get("founder", ""), "address": attrs.get("address"),
                     "municipality_id": e["parent_id"],
-                    "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)] if located else None,
+                    "coord": _coord(e) if located else None,
                     "precision": attrs.get("precision") if located else None,
                     "values": [None] * len(periods), "status": [None] * len(periods)}
                 if located:
-                    used.add(e["loc_source"])
+                    srcs.add(e["loc_source"])
             i = index[r["period_start"]]
             if r["dimension_key"] != "all":
                 sc.setdefault("by_grade", {}).setdefault(r["dimension_key"], [None] * len(periods))[i] = r["value"]
                 continue
             sc["values"][i] = None if r["value"] is None else round(r["value"])
             sc["status"][i] = r["status"]
-            used.add(r["source_id"])
+            srcs.add(r["source_id"])
         for e in _location_only(info, ok_sources):
             attrs = json.loads(e["attributes"] or "{}")
             schools[e["entity_id"]] = {
@@ -639,22 +624,17 @@ def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
                 "school_type": attrs.get("school_type", ""), "type_label": attrs.get("type_label", ""),
                 "founder": attrs.get("founder", ""), "address": attrs.get("address"),
                 "municipality_id": e["parent_id"],
-                "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)], "precision": None,
+                "coord": _coord(e), "precision": None,
                 "values": [None] * len(periods), "status": [None] * len(periods),
                 "location_only": True, "as_of": attrs.get("as_of")}
-            used.add(e["loc_source"])
+            srcs.add(e["loc_source"])
         for sc in schools.values():
             if "by_grade" in sc:
                 sc["by_grade"] = {g: [None if v is None else round(v) for v in vals]
                                   for g, vals in sorted(sc["by_grade"].items())}
-        _write_places(out, indicator_id, {
-            "schema_version": SCHEMA_VERSION, "release_id": release_id,
-            "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
-            "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
-            "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
-                         "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(used)},
+        _write_places(out, indicator_id, _places_meta(release_id, indicator_id, d, periods, srcs),
             "schools", sorted(schools.values(), key=lambda s: s["id"]))
+        used |= srcs
     return used
 
 
@@ -683,7 +663,7 @@ def export_land_prices(conn: sqlite3.Connection, catalog: dict[str, dict], out: 
                LEFT JOIN entity_attributes a ON a.entity_id = e.entity_id
                WHERE e.entity_type = 'land_point'""")}
         points: dict[str, dict] = {}
-        sources: set[str] = set()   # この指標の出典（地価公示・地価調査で混ぜない）
+        srcs: set[str] = set()   # この指標の出典（地価公示・地価調査で混ぜない）
         for r in rows:
             e = info.get(r["entity_id"])
             if e is None or e["loc_source"] not in ok_sources:
@@ -693,23 +673,17 @@ def export_land_prices(conn: sqlite3.Connection, catalog: dict[str, dict], out: 
                 attrs = json.loads(e["attributes"] or "{}")
                 pt = points[r["entity_id"]] = {
                     "id": r["entity_id"], "name": e["name"], "municipality_id": e["parent_id"],
-                    "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)],
+                    "coord": _coord(e),
                     **{k: attrs.get(k) for k in ("use", "use_label", "address", "residential_address",
                                                  "area_m2", "current_use", "station", "station_distance_m",
                                                  "zoning", "change_rate")},
                     "values": [None] * len(periods)}
-                sources.add(e["loc_source"])
+                srcs.add(e["loc_source"])
             pt["values"][index[r["period_start"]]] = None if r["value"] is None else round(r["value"])
-            sources.add(r["source_id"])
-        used |= sources
-        _write_places(out, indicator_id, {
-            "schema_version": SCHEMA_VERSION, "release_id": release_id,
-            "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
-            "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
-            "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
-                         "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(sources)},
+            srcs.add(r["source_id"])
+        _write_places(out, indicator_id, _places_meta(release_id, indicator_id, d, periods, srcs),
             "points", sorted(points.values(), key=lambda s: s["id"]))
+        used |= srcs
     return used
 
 
@@ -747,7 +721,7 @@ def export_weather(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
         pt = points.setdefault(r["entity_id"], {
             "id": r["entity_id"], "name": e["name"], "kana": e["name_kana"],
             "municipality_id": e["parent_id"],
-            "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)],
+            "coord": _coord(e),
             "altitude_m": attrs.get("altitude_m"), "values": {}, "monthly": {}, "years": {}})
         d = catalog[r["indicator_id"]]
         el = attrs.get("elements", {}).get(r["indicator_id"], {})
@@ -811,7 +785,7 @@ def export_transport(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pa
                 continue
             pt = points.setdefault(r["entity_id"], {
                 "id": r["entity_id"], "name": e["name"], "municipality_id": e["parent_id"],
-                "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)],
+                "coord": _coord(e),
                 "values": [None] * len(periods), "domestic": [None] * len(periods),
                 "international": [None] * len(periods)})
             key = {"all": "values"}.get(r["dimension_key"], r["dimension_key"])
@@ -819,12 +793,7 @@ def export_transport(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pa
                 pt[key][index[r["period_start"]]] = round(r["value"])
             srcs |= {r["source_id"], e["loc_source"]}
         _write(out, f"places/{indicator_id}.json", {
-            "schema_version": SCHEMA_VERSION, "release_id": release_id,
-            "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
-            "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
-            "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
-                         "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(srcs),
+            **_places_meta(release_id, indicator_id, d, periods, srcs),
             "points": sorted(points.values(), key=lambda p: p["id"])})
         used |= srcs
     return used
@@ -855,6 +824,7 @@ def export_nurseries(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pa
         periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
         index = {p[0]: i for i, p in enumerate(periods)}
         points: dict[str, dict] = {}
+        srcs: set[str] = set()   # この指標の出典（同じ種類の点のほかの指標と混ぜない）
         for r in rows:
             e = info.get(r["entity_id"])
             if e is None:
@@ -866,29 +836,24 @@ def export_nurseries(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pa
                 pt = points[r["entity_id"]] = {
                     "id": r["entity_id"], "name": e["name"], "municipality_id": e["parent_id"],
                     "founder": attrs.get("founder", ""), "address": attrs.get("address"),
-                    "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)] if located else None,
+                    "coord": _coord(e) if located else None,
                     "precision": attrs.get("precision") if located else None,
                     "values": [None] * len(periods)}
                 if located:
-                    used.add(e["loc_source"])
+                    srcs.add(e["loc_source"])
             pt["values"][index[r["period_start"]]] = None if r["value"] is None else round(r["value"])
-            used.add(r["source_id"])
+            srcs.add(r["source_id"])
         for e in _location_only(info, ok_sources):
             attrs = json.loads(e["attributes"] or "{}")
             points[e["entity_id"]] = {
                 "id": e["entity_id"], "name": e["name"], "municipality_id": e["parent_id"],
                 "founder": attrs.get("founder", ""), "address": attrs.get("address"),
-                "coord": [round(e["lon"], COORD_DIGITS), round(e["lat"], COORD_DIGITS)], "precision": None,
+                "coord": _coord(e), "precision": None,
                 "values": [None] * len(periods), "location_only": True, "as_of": attrs.get("as_of")}
-            used.add(e["loc_source"])
-        _write_places(out, indicator_id, {
-            "schema_version": SCHEMA_VERSION, "release_id": release_id,
-            "indicator_id": indicator_id, "name": d["name"], "unit": d["unit"],
-            "description": d["description"], "method": d["method"], "caveats": d.get("caveats", []),
-            "periods": [{"period": p[0], "period_end": p[1], "period_kind": p[2],
-                         "label": _period_label(*p)} for p in periods],
-            "source_ids": sorted(used)},
+            srcs.add(e["loc_source"])
+        _write_places(out, indicator_id, _places_meta(release_id, indicator_id, d, periods, srcs),
             "points", sorted(points.values(), key=lambda s: s["id"]))
+        used |= srcs
     return used
 
 
