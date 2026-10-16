@@ -246,7 +246,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "keishicho_crime":
             y = cfg["year"]
             period = (f"{y}-01-01", f"{y}-12-31", "calendar_year")
-            result[key] = keishicho_crime.ingest(conn, files[0], src, catalog, period,
+            result[key] = keishicho_crime.ingest(conn, files[0], src, catalog, period, boundary_version,
                                                  cfg.get("encoding", "cp932"))
         elif kind == "npa_traffic":
             y = cfg["year"]
@@ -357,7 +357,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                 if d.get("source_kind") == kind:
                     for f in files:   # 都道府県ごとのファイル
                         _add_counts(result, f"{key} {indicator_id}",
-                                    mlit_landprice.ingest(conn, f, src, indicator_id, d))
+                                    mlit_landprice.ingest(conn, f, src, indicator_id, d, boundary_version))
         elif kind == "jma_normals":   # 気象庁の平年値（観測所の点）
             result[key] = jma_normals.ingest(conn, files, src, catalog, boundary_version, prefs)
         elif kind == "mlit_schools":

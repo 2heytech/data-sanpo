@@ -2,9 +2,10 @@
 // 空港は全国で約100、港は数百と少ないので、places/<指標>.json の1ファイルに全件をまとめ、全国を見ているときから表示する。
 // 空港・港1か所の値なので地域には割り振らない（docs/design-changes.md #110）。選ぶと国内・国際の内訳と年ごとの推移を出す。
 import type { Map as MapLibreMap } from "maplibre-gl";
-import type { PointLayer } from "./points";
+import { sourcesHtml, type PointLayer } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, TransportFile, TransportPoint } from "../lib/types";
+import { esc } from "../lib/html";
 
 export type TransportKind = "airport" | "port";
 
@@ -157,7 +158,6 @@ export function initTransport(o: Options): PointLayer {
         <td class="num">${changeText(p.values[n - 1], p.values[n])}</td></tr>` : "").join("");
     const parts = per.map((x, n) => has(n) ? `<tr${cur(n)}><td>${esc(x.label)}</td><td class="num">${num(p.domestic[n])}</td>
         <td class="num">${num(p.international[n])}</td></tr>` : "").join("");
-    const srcs = [...new Set(data.source_ids.map((sid) => o.sources.get(sid)?.attribution ?? sid))];
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="${k.label}の情報を閉じる">×</button>
@@ -174,7 +174,7 @@ export function initTransport(o: Options): PointLayer {
         <tbody>${parts}</tbody></table>
       <p class="muted small">${esc(data.description)}</p>
       <p class="muted small">${data.caveats.map(esc).join(" ")}</p>
-      <p class="muted small">${srcs.map(esc).join("／")}</p>`;
+      ${sourcesHtml(data.source_ids, o.sources)}`;
     o.onPanel();
   }
 
@@ -203,8 +203,4 @@ export function initTransport(o: Options): PointLayer {
     show: showPoint,
     isOpen: () => !o.panel.hidden,
   };
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

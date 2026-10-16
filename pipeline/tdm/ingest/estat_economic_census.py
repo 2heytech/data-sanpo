@@ -5,7 +5,7 @@ tblT001167Cxx.txt、cp932 の CSV。2026-10-10 に GitHub Actions から取得�
   1行目が列コード（KEY_CODE, CITY_NAME, AZA_CODE, AZA_NAME, T001167001, …）、2行目が列名
   （T001167001「AR_全産業（S_公務を除く）」の事業所数、T001167019 が同じ区分の従業者数）。
   KEY_CODE は市区町村コード5桁＋町丁・大字コード12桁。各市区町村の最後に「その他」（町丁・大字が分からない
-  事業所）の行がある。「-」は該当なし（0）。2021年の表には秘匿（X）の値はない。
+  事業所）の行がある。「-」は該当なし（0）。2021年の表には秘匿（X）や空欄の値はない（あれば取込を止める）。
 
 町丁・大字のコードは国勢調査の小地域のコードと体系が違うため、町丁・大字の名前で国勢調査の小地域（地図の境界）に
 対応付ける。表記ゆれは犯罪の表と同じ正規化に加え、「条・丁・線・号・番・地割」の前の漢数字（札幌市の「北三条」、
@@ -70,7 +70,11 @@ def ingest(conn: sqlite3.Connection, files: list[Path], source_id: str, catalog:
             if muni not in munis:
                 continue   # 対象外の都道府県・政令指定都市の市全体など
             result["rows"] += 1
-            values = {c: parse_cell(r[j]).value or 0.0 for c, j in cols.items()}   # 秘匿のない表（「-」は0）
+            cells = {c: parse_cell(r[j]) for c, j in cols.items()}   # 「-」は0
+            if any(cell.value is None for cell in cells.values()):
+                # 2021年の表には秘匿（X）・空欄がない（2026-10-15 に全都道府県で確認）。あれば0にせず止める
+                raise ValueError(f"{path.name}: 秘匿・空欄のセルがあります（0 にしないよう取込を見直す）: {r[:4]}")
+            values = {c: cell.value for c, cell in cells.items()}
             for c, v in values.items():
                 muni_sum[muni][c] += v
             key = town_key(r[name_col])

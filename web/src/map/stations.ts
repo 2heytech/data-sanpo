@@ -4,9 +4,10 @@
 // 都道府県の分だけ places/station_passengers/<都道府県>.json から読む（createPrefLoader）。
 // 駅は事業者ごとに別の点。同じ駅の他の事業者の値は並べて表示し、合計しない。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer } from "./points";
+import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml } from "./points";
 import { formatNumber, STATUS_LABEL } from "../lib/format";
 import type { Source, StationsFile, Station } from "../lib/types";
+import { esc } from "../lib/html";
 
 const LAYER = "station-circle";
 const SELECTED = "station-selected";
@@ -201,7 +202,6 @@ export function initStations(o: Options): StationLayer {
          <ul class="small">${others.map((x) => `<li><a href="#" data-station="${esc(x.id)}">${esc(x.operator)}</a>
          <strong>${esc(valueText(x, i))}</strong></li>`).join("")}</ul></div>`
       : "";
-    const srcs = [...new Set(data.source_ids.map((id) => o.sources.get(id)?.attribution ?? id))];
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="駅の情報を閉じる">×</button>
@@ -218,7 +218,7 @@ export function initStations(o: Options): StationLayer {
         <thead><tr><th>年度</th><th class="num">乗降客数</th><th class="num">前年度から</th></tr></thead>
         <tbody>${trend}</tbody></table>
       <p class="muted small">${data.caveats.map(esc).join(" ")}</p>
-      <p class="muted small">${srcs.map(esc).join("／")}</p>`;
+      ${sourcesHtml(data.source_ids, o.sources)}`;
     o.onPanel();
   }
 
@@ -257,8 +257,4 @@ export function initStations(o: Options): StationLayer {
     show: showStation,
     isOpen: () => !o.panel.hidden,
   };
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

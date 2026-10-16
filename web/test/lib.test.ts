@@ -14,6 +14,13 @@ describe("formatValue", () => {
     expect(formatValue({ value: 12345, status: "observed" }, people)).toBe("12,345 人");
     expect(formatValue({ value: 23.456, status: "derived" }, pct)).toBe("23.5%");
   });
+  it("表示の桁で0になる値に符号を付けない（-0.0% と出さない）", () => {
+    const change = { unit: "%", digits: 1, kind: "change" } as Indicator;
+    expect(formatValue({ value: -0.036, status: "derived" }, change)).toBe("0.0%");
+    expect(formatValue({ value: 0.04, status: "derived" }, change)).toBe("0.0%");
+    expect(formatValue({ value: -0.05, status: "derived" }, change)).toBe("-0.1%");
+    expect(formatValue({ value: 0.05, status: "derived" }, change)).toBe("+0.1%");
+  });
   it("区分で公表された値は区分の名前で書く（就学援助率、値は区分の上の端）", () => {
     const band = { unit: "%", digits: 0, kind: "ratio", legend: { method: "bands", classes: 12, scheme: "oranges", band: 5 } } as Indicator;
     expect(formatValue({ value: 15, status: "observed" }, band)).toBe("10%以上15%未満");
@@ -142,6 +149,10 @@ describe("search", () => {
     const hits = new AreaSearch(index).search("新宿");
     expect(hits.map((h) => h.id)).toEqual(["muni-13104", "area-2", "area-1"]);
     expect(new AreaSearch(index).search("新宿1丁目")[0].id).toBe("area-2");
+  });
+  it("市区町村の前方一致を、ほかの市区町村にある同じ名前の町丁・字等より先に出す", () => {
+    const withTown: SearchIndex = { ...index, entries: [...index.entries, ["area-3", "新宿", "魚津市", "small_area"]] };
+    expect(new AreaSearch(withTown).search("新宿").map((h) => h.id)).toEqual(["muni-13104", "area-3", "area-2", "area-1"]);
   });
 });
 
@@ -288,5 +299,13 @@ describe("municipalityPeriods（市区町村ページで使う時点）", () => 
       period("2025-10-01", "census2025_prefecture", ["prefecture"]),
     ] } as unknown as Indicator;
     expect(municipalityPeriods(prefOnly)).toEqual(["2020-10-01"]);
+  });
+  it("既定の時点に市区町村の値がなければ、市区町村の値がある最も新しい時点を最後に置く（投票率）", () => {
+    const turnout = { default_period: "2026-02-08", periods: [
+      period("2025-06-22", "tokyo_election_2025", ["municipality", "prefecture"]),
+      period("2025-07-20", "soumu_election_2025", ["municipality", "prefecture"]),
+      period("2026-02-08", "soumu_election_2026", ["prefecture"]),
+    ] } as unknown as Indicator;
+    expect(municipalityPeriods(turnout)).toEqual(["2026-02-08", "2025-07-20"]);
   });
 });
