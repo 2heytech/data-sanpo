@@ -1,0 +1,29 @@
+# 公開版の取込の前に Actions「Prepare derived sources」で作る集計（docs/design-changes.md #123、pipeline/tdm/prepare/）。
+# outputs: 作るファイル（役割 = sources.toml のキー）。ファイル名は sources.toml の download_url の最後の部分で、
+# GitHub Release「derived-sources」に置く。作り方や元データを変えたら、sources.toml の download_url と files の
+# ファイル名の版（-v1 → -v2）を上げる（Release の同じ名前のファイルは置き換えない）。
+# 町丁・字等の境界は sources.toml の census2020_small_area_boundary（2020年国勢調査）を使う。
+
+# 国土数値情報「土地利用細分メッシュ」（100m、1次メッシュごとの ZIP）と「都市地域土地利用細分メッシュ」（令和3年度）。
+# codes: 区分のコードリスト（昭和51年度 LandUseCd-77、平成3・9・18年度 LandUseCd-YY、平成21年度以降 LandUseCd-09）。
+# datum = "tokyo": 日本測地系のメッシュ（平成18年度までは日本測地系だけの年度がある。平成18年度は世界測地系の版を使う）。
+# 1次メッシュの一覧は mesh_list のページのリンクから読む。
+[land_use]
+method = "land_use"
+outputs = { towns = "land_use_towns", urban = "urban_land_use_towns", tiles = "land_use_tiles" }
+mesh_list = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L03-b-2021.html"
+urban_mesh_list = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L03-b-u-2021.html"
+urban_url = "https://nlftp.mlit.go.jp/ksj/gml/data/L03-b-u/L03-b-u-21/L03-b-u-21_{mesh}-jgd2011_GML.zip"
+years = [
+  { year = 1976, label = "1976年度", codes = "77", datum = "tokyo", url = "https://nlftp.mlit.go.jp/ksj/gml/data/L03-b/L03-b-76/L03-b-76_{mesh}_GML.zip" },
+  { year = 1991, label = "1991年度", codes = "YY", datum = "tokyo", url = "https://nlftp.mlit.go.jp/ksj/gml/data/L03-b/L03-b-91/L03-b-91_{mesh}_GML.zip" },
+  { year = 2006, label = "2006年度", codes = "YY", url = "https://nlftp.mlit.go.jp/ksj/gml/data/L03-b/L03-b-06/L03-b-06_{mesh}-jgd_GML.zip" },
+  { year = 2021, label = "2021年度", codes = "09", url = "https://nlftp.mlit.go.jp/ksj/gml/data/L03-b/L03-b-21/L03-b-21_{mesh}-jgd2011_GML.zip" },
+]
+
+# 地理院タイル「標高タイル（基盤地図情報数値標高モデル）」。ズーム12（1画素は東京あたりで約31m四方）
+[elevation]
+method = "elevation"
+outputs = { towns = "elevation_towns" }
+tiles = "https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png"
+zoom = 12

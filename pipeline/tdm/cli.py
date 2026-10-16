@@ -7,6 +7,7 @@
   export      公開用ファイルを生成する
   build       ingest → validate → export を続けて実行する
   fixture     架空データで build を実行する（開発・CI用）
+  prepare     大きな元データを町丁・字等ごとの集計にまとめる（Actions「Prepare derived sources」用、#123）
 """
 from __future__ import annotations
 
@@ -28,7 +29,7 @@ from .derive import derive_change, derive_density, derive_multi_year_sum, derive
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
 from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
-                     estat_commerce, estat_economic_census, estat_school_basic, estat_school_municipal,
+                     derived_towns, estat_commerce, estat_economic_census, estat_school_basic, estat_school_municipal,
                      gsi_area, jma_normals,
                      estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
                      keishicho_crime, mext_school_aid,
@@ -217,7 +218,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
                         "gsi_airports", "gsi_ports", "soumu_election", "soumu_fiscal_indicators",
-                        "soumu_settlement", "gsi_area"):
+                        "soumu_settlement", "gsi_area", "land_use_cells", "urban_land_use_cells",
+                        "town_elevation", "land_use_tiles"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -344,6 +346,12 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = (soumu_finance.ingest_fiscal_indicators(conn, files[0], src, catalog, period, prefs)
                            if kind == "soumu_fiscal_indicators" else
                            soumu_finance.ingest_settlement(conn, files, src, catalog, period, prefs))
+        elif kind in ("land_use_cells", "urban_land_use_cells"):
+            result[key] = derived_towns.ingest_cells(conn, files[0], src, catalog, cfg, prefs)
+        elif kind == "town_elevation":
+            result[key] = derived_towns.ingest_elevation(conn, files[0], src, catalog, cfg, prefs)
+        elif kind == "land_use_tiles":
+            result[key] = f"{len(files)} ファイル（公開版の land_use/ に書き出す）"
         elif kind == "gsi_area":
             result[key] = gsi_area.ingest(conn, files[0], src, catalog, cfg["column"],
                                           (cfg["period"], cfg["period"], "point"), prefs)
@@ -492,7 +500,7 @@ def cmd_export(paths: Paths, release_id: str | None, note: str | None = None) ->
     conn = connect(paths.db)
     with conn:
         out = export_release(conn, load_indicators(), paths.releases, release_id,
-                             load_censuses(), note)
+                             load_censuses(), note, raw=paths.raw)
     print(f"公開用ファイルを生成しました: {out}")
     size = json.loads((out / "manifest.json").read_text(encoding="utf-8"))["size"]
     print(f"容量: {size['file_count']:,} ファイル、合計 {size['total_bytes']:,} bytes（圧縮後 {size['total_gzip_bytes']:,}）、"
@@ -542,6 +550,18 @@ def cmd_build(paths: Paths, release_id: str | None, overrides=None, note=None, p
     return subprocess.run(argv, check=False).returncode
 
 
+def cmd_prepare(paths: Paths, job: str, out: Path, list_only: bool = False) -> int:
+    from . import prepare   # numpy・Pillow を使う。公開版の取込には要らない
+    if list_only:
+        for f in prepare.outputs_of(prepare.load_jobs()[job], load_sources(), out).values():
+            print(f.name)
+        return 0
+    prefs = selected_prefectures()
+    print(f"集計 {job}（{len(prefs)} 都道府県）→ {out}")
+    print(prepare.run(job, paths, out, prefs))
+    return 0
+
+
 def cmd_fixture(data_dir: Path) -> int:
     if data_dir.exists():
         shutil.rmtree(data_dir)
@@ -565,6 +585,10 @@ def main(argv: list[str] | None = None) -> int:
         p = sub.add_parser(name)
         p.add_argument("--release-id")
         p.add_argument("--note")
+    p = sub.add_parser("prepare")
+    p.add_argument("job", help="config/prepare.toml の集計の名前（land_use・elevation）")
+    p.add_argument("--out", type=Path, default=DEFAULT_PATHS.data_dir / "derived")
+    p.add_argument("--list", action="store_true", help="作るファイルの名前だけを表示する")
     p = sub.add_parser("fixture")
     p.add_argument("--out", type=Path,
                    default=Path(tempfile.gettempdir()) / "tdm-fixture")
@@ -588,4 +612,6 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_build(paths, args.release_id, note=args.note)
     if args.command == "fixture":
         return cmd_fixture(args.out)
+    if args.command == "prepare":
+        return cmd_prepare(paths, args.job, args.out, args.list)
     return 2

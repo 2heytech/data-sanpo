@@ -18,6 +18,7 @@ import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
 import { initWeather } from "./weather";
+import { initLandUse } from "./landuse";
 import { initTransport } from "./transport";
 import type { PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
@@ -1253,8 +1254,19 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const photoNote = $<HTMLElement>("#photo-note");
   const reliefToggle = $<HTMLInputElement>("#relief-toggle");
   const reliefNote = $<HTMLElement>("#relief-note");
-  let baseMode: "pale" | "photo" | "relief" = "pale";
-  // 写真・標高を出すときは色分けを消して背景を見やすくし、閉じたら元に戻す
+  // 土地利用図（#123）。背景の地図と同じく、写真・標高とは同時に出さない。土地利用図のない公開版では切替を出さない
+  const landUseToggle = $<HTMLInputElement>("#landuse-toggle");
+  const landUseSource = sourcesFile.sources.find((s) => s.dataset_key === "land_use_tiles");
+  landUseToggle.closest("label")!.hidden = !landUseSource;
+  const landUse = initLandUse({
+    maplibregl, map, base, fetchJSON, source: landUseSource,
+    range: $<HTMLInputElement>("#landuse-year"), label: $<HTMLOutputElement>("#landuse-year-label"),
+    ends: $("#landuse-year-ends"), controls: $("#landuse-controls"), legend: $("#landuse-note"),
+    // 背景の地図のすぐ上（境界の塗り・線・地名より下）
+    beforeLayer: () => map.getStyle().layers.find((l) => l.id !== "pale" && !BASEMAPS.some((b) => b.id === l.id))?.id,
+  });
+  let baseMode: "pale" | "photo" | "relief" | "landuse" = "pale";
+  // 写真・標高・土地利用図を出すときは色分けを消して背景を見やすくし、閉じたら元に戻す
   let colorsBeforeBase: boolean | null = null;
   function setBaseMode(next: typeof baseMode) {
     if (next === baseMode) return;
@@ -1320,6 +1332,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     photoPanel.hidden = !photo;
     photoToggle.setAttribute("aria-pressed", String(photo));
     reliefToggle.checked = baseMode === "relief";
+    landUseToggle.checked = baseMode === "landuse";
+    void landUse.setVisible(baseMode === "landuse");
     const zoomIn = chosen && map.getZoom() < chosen.minzoom;
     reliefNote.hidden = baseMode !== "relief";
     reliefNote.textContent = zoomIn ? "拡大すると表示されます。" : "標高が高いほど茶色、低いほど青く表示します。";
@@ -1341,6 +1355,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   photoToggle.addEventListener("click", () => setBaseMode(baseMode === "photo" ? "pale" : "photo"));
   photoClose.addEventListener("click", () => setBaseMode("pale"));
   reliefToggle.addEventListener("change", () => setBaseMode(reliefToggle.checked ? "relief" : "pale"));
+  landUseToggle.addEventListener("change", () => setBaseMode(landUseToggle.checked ? "landuse" : "pale"));
   photoRange.addEventListener("input", () => {
     stopPhotoPlay();
     photoEraId = photoEras[Number(photoRange.value)]?.id ?? "photo";
@@ -1482,6 +1497,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   searchInput.addEventListener("blur", () => setTimeout(() => { hits = []; showHits(); }, 150));
 
   // --- 初期表示 -------------------------------------------------------------------
+  // ?show=landuse で開いたときは土地利用図を出す（ほかの重ねる層の ?show= と同じ）
+  if (landUseSource && new URLSearchParams(location.search).get("show")?.split(",").includes("landuse")) {
+    setBaseMode("landuse");
+  }
   await refreshColors();
   if (initial.area && (munis.has(initial.area) || municipalityCodeOf(initial.area) ||
       (isPref(initial.area) && prefectures.has(prefectureCodeOf(initial.area)!)))) {

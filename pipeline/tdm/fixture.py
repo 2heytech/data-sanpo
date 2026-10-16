@@ -8,9 +8,13 @@
 from __future__ import annotations
 
 import csv
+import gzip
 import json
+import math
 import random
+import struct
 import zipfile
+import zlib
 from pathlib import Path
 
 import shapefile
@@ -152,6 +156,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
         out[f"tax_{year}"] = _write_tax(directory, year, random.Random(f"{seed}-tax-{year}"))
     out.update(_write_finance(directory))
     out.update(_write_gsi_area(directory))
+    out.update(_write_derived_towns(directory))
     out.update(_write_elections(directory, random.Random(f"{seed}-elections")))
     out["nurseries"] = _write_nurseries(directory)
     out["furusato"] = _write_furusato(directory, random.Random(f"{seed}-furusato"))
@@ -1190,6 +1195,162 @@ def _write_gsi_area(directory: Path) -> dict[str, Path]:
         (d / name).write_bytes(("\r\n".join(lines) + "\r\n").encode(encoding))
         out[key] = d
     return out
+
+
+# 土地利用・標高の集計（tdm/prepare で作り、GitHub Release「derived-sources」に置く CSV・タイル。#123）。
+# 区分は tdm/prepare/land_use.py の LAND_USE・URBAN と同じ順。町丁・字等は _cells の16地域（番号 t は KEY_CODE の順）
+LAND_USE_FIXTURE_YEARS = (1976, 1991, 2006, 2021)
+LAND_USE_COLUMNS = ["田", "畑など", "森林", "荒地", "建物用地", "道路・鉄道", "その他の用地", "河川・湖沼", "海浜", "ゴルフ場"]
+LAND_USE_COLORS = ["#f2dc6b", "#f0a85a", "#3f8f4e", "#c4bf86", "#e2574c", "#8e8e8e", "#b08bd9", "#5aa7e3", "#efdfb0",
+                   "#a8d86e"]
+URBAN_COLUMNS = ["田", "畑など", "森林", "荒地", "高層建物", "工場", "低層建物", "低層建物（密集地）", "道路", "鉄道",
+                 "公共施設等用地", "空地", "公園・緑地", "河川・湖沼", "海浜", "ゴルフ場"]
+
+
+def _fixture_towns() -> list[tuple[str, int, float, float]]:
+    """(KEY_CODE, 市区町村の中の番号, 西端, 南端)。"""
+    out = []
+    for city5, _, prefix, west, south in [*MUNICIPALITIES, *OTHER_MUNICIPALITIES]:
+        cells = sorted((key, min(x for x, _ in ring), min(y for _, y in ring))
+                       for key, _, ring in _cells(city5, prefix, west, south))
+        out += [(key, t, x, y) for t, (key, x, y) in enumerate(cells)]
+    return out
+
+
+def land_use_counts(key: str, t: int, year: int) -> list[int]:
+    """町丁・字等の区分ごとのマスの数（LAND_USE_COLUMNS の順）＋データなし。
+    13199 は市街地、13299 は田が減って建物が増える郊外、13499 は森林の多い島（陸のない地域・陸の少ない地域・
+    1976年度のデータがない地域の例）、14199 は田と畑の多い地域。"""
+    step = (year - 1976) / 45
+    city = key[:5]
+    if city == "13199":
+        c = [0, 2, 3, 1, 150 + 2 * t + round(20 * step), 40, 10, 3, 0, 0]
+    elif city == "13299":
+        c = [round((60 - 3 * t) * (1 - 0.7 * step)), 30, 20 + t, 4, 60 + t + round(80 * step), 20, 10, 5, 0,
+             8 if t == 5 else 0]
+    elif city == "13499":
+        if t == 0:
+            return [0] * (len(LAND_USE_COLUMNS) + 1)   # 海だけ（陸のマスがない）
+        if t == 1:
+            return [0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0]   # 陸のマスが5つ未満
+        c = [0, 5, 150 - 3 * t, 10, 10 + t, 5, 3, 2, 4 if t >= 12 else 0, 0]
+    else:
+        c = [round((90 - 2 * t) * (1 - 0.3 * step)), 50 + t, 30, 5, 40 + round(30 * step), 15, 8, 6, 0, 0]
+    gap = 40 if (city == "13499" and t == 2 and year == 1976) else (3 if (city == "13299" and t == 3) else 0)
+    return [*c, gap]
+
+
+def urban_land_use_counts(key: str, t: int) -> list[int] | None:
+    """2021年度の都市地域の区分ごとのマスの数（URBAN_COLUMNS の順）＋都市地域の範囲外。東京都の分だけ作る
+    （神奈川県は集計に含まれない都道府県の例）。13499 は都市地域の外。"""
+    city = key[:5]
+    if city == "14199":
+        return None
+    land = land_use_counts(key, t, 2021)[:-1]
+    paddy, field, forest, waste, building, road, other, water, beach, golf = land
+    if city == "13499":
+        return [0] * len(URBAN_COLUMNS) + [sum(land)]
+    high = round(building * (0.5 if city == "13199" else 0.1))
+    factory = round(building * 0.1) if t % 4 == 0 else 0
+    dense = round(building * (0.1 if city == "13199" else 0.3))
+    public, vacant = round(other * 0.5), round(other * 0.2)
+    rows = [paddy, field, forest, waste, high, factory, building - high - factory - dense, dense,
+            round(road * 0.8), road - round(road * 0.8), public, vacant, other - public - vacant, water, beach, golf]
+    outside = 30 if (city == "13299" and t == 15) else (2 if (city == "13299" and t == 14) else 0)
+    return [*rows, outside]
+
+
+def elevation_stats(key: str, t: int) -> tuple[int, float, float, float]:
+    """(点の数, 標高の合計, 最低, 最高)。13499 の海だけの地域は点がなく、陸の少ない地域は点が3つ。"""
+    city = key[:5]
+    if city == "13499" and t == 0:
+        return 0, 0.0, 0.0, 0.0
+    n = 3 if (city == "13499" and t == 1) else 2300
+    mean, low, high = {"13199": (20.0 + t, 2.0 + t / 2, 40.0 + 2 * t), "13299": (50.0 + 3 * t, 30.0, 80.0 + 5 * t),
+                       "13499": (100.0 + 20 * t, 0.0, 300.0 + 10 * t), "14199": (3.0 + t / 4, -1.5, 12.0 + t)}[city]
+    return n, round(mean * n, 1), low, high
+
+
+def _fixture_png(size: int, pixels: list[list[int]]) -> bytes:
+    """パレットの PNG（0 は透明、1〜は LAND_USE_COLORS）。Pillow なしで作る。"""
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+    raw = b"".join(b"\x00" + bytes(row) for row in pixels)
+    palette = b"\x00\x00\x00" + b"".join(bytes.fromhex(c[1:]) for c in LAND_USE_COLORS)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 3, 0, 0, 0))
+            + chunk(b"PLTE", palette) + chunk(b"tRNS", b"\x00") + chunk(b"IDAT", zlib.compress(raw, 9))
+            + chunk(b"IEND", b""))
+
+
+def _write_land_use_tiles(directory: Path, towns: list[tuple[str, int, float, float]]) -> Path:
+    """土地利用図のタイル（Release の ZIP を展開した形: tiles.json と 年度/ズーム/x/y.png）。
+    架空の町丁・字等の正方形を、その地域で最も多い区分の色で塗る（本番の1画素ごとの区分の代わり）。"""
+    d = directory / "land_use_tiles"
+    size = 64
+    index: dict = {"years": [], "zooms": {"5": size, "7": size},
+                   "legend": [{"id": i + 1, "name": n, "color": c}
+                              for i, (n, c) in enumerate(zip(LAND_USE_COLUMNS, LAND_USE_COLORS))]}
+
+    def lonlat(zoom: int, x: float, y: float) -> tuple[float, float]:
+        n = 2 ** zoom
+        return x / n * 360 - 180, math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * y / n))))
+
+    def tile_of(zoom: int, lon: float, lat: float) -> tuple[int, int]:
+        n = 2 ** zoom
+        return (int((lon + 180) / 360 * n),
+                int((1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n))
+
+    for year in LAND_USE_FIXTURE_YEARS:
+        colors = {}
+        for key, t, west, south in towns:
+            c = land_use_counts(key, t, year)[:-1]
+            if sum(c):
+                colors[(west, south)] = c.index(max(c)) + 1
+        listed: dict[str, list[str]] = {}
+        for zoom in (5, 7):
+            tiles = sorted({tile_of(zoom, w + CELL / 2, s + CELL / 2) for w, s in colors})
+            for tx, ty in tiles:
+                pixels = []
+                for py in range(size):
+                    row = []
+                    for px in range(size):
+                        lon, lat = lonlat(zoom, tx + (px + 0.5) / size, ty + (py + 0.5) / size)
+                        row.append(next((v for (w, s), v in colors.items()
+                                         if 0 <= lon - w < CELL and 0 <= lat - s < CELL), 0))
+                    pixels.append(row)
+                target = d / str(year) / str(zoom) / str(tx) / f"{ty}.png"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(_fixture_png(size, pixels))
+            listed[str(zoom)] = [f"{tx}/{ty}" for tx, ty in tiles]
+        index["years"].append({"year": year, "label": f"{year}年度", "tiles": listed})
+    (d / "tiles.json").write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
+    return d
+
+
+def _write_derived_towns(directory: Path) -> dict[str, Path]:
+    towns = _fixture_towns()
+
+    def write_gz(key: str, head: list[str], rows: list[list]) -> Path:
+        d = directory / key
+        d.mkdir(parents=True, exist_ok=True)
+        lines = [",".join(head), *(",".join(str(v) for v in r) for r in rows)]
+        path = d / f"{key}-v1.csv.gz"
+        path.write_bytes(gzip.compress(("\n".join(lines) + "\n").encode("utf-8"), mtime=0))
+        return path
+
+    land = [[key, year, *land_use_counts(key, t, year)] for key, t, _, _ in towns for year in LAND_USE_FIXTURE_YEARS]
+    urban = [[key, 2021, *u] for key, t, _, _ in towns if (u := urban_land_use_counts(key, t)) is not None]
+    elevation = []
+    for key, t, _, _ in towns:
+        n, total, low, high = elevation_stats(key, t)
+        elevation.append([key, n, total, low, high] if n else [key, 0, "", "", ""])
+    return {
+        "land_use_towns": write_gz("land_use_towns", ["KEY_CODE", "年度", *LAND_USE_COLUMNS, "データなし"], land),
+        "urban_land_use_towns": write_gz("urban_land_use_towns", ["KEY_CODE", "年度", *URBAN_COLUMNS, "都市地域の範囲外"],
+                                         urban),
+        "elevation_towns": write_gz("elevation_towns", ["KEY_CODE", "点の数", "標高の合計", "最低", "最高"], elevation),
+        "land_use_tiles": _write_land_use_tiles(directory, towns),
+    }
 
 
 # 地価公示（国土数値情報 L01 の GeoJSON 形式）。L01_062〜L01_105 が 1983〜2026年の価格（標準地でない年は 0）。

@@ -194,8 +194,10 @@ def comparable_areas(conn: sqlite3.Connection, old_version: str, new_version: st
 
 
 def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root: Path,
-                   release_id: str, censuses: list[dict], note: str | None = None) -> Path:
-    """censuses は古い順。最後の時点の境界で地図を作り、過去の時点の値はそこへ重ねる。"""
+                   release_id: str, censuses: list[dict], note: str | None = None,
+                   raw: Path | None = None) -> Path:
+    """censuses は古い順。最後の時点の境界で地図を作り、過去の時点の値はそこへ重ねる。
+    raw は元ファイルの場所（土地利用図のタイルをそのまま公開版に入れるため）。"""
     boundary_version = censuses[-1]["boundary_version"]
     past = {c["period"]: c for c in censuses[:-1]}
     comparable = {period: comparable_areas(conn, c["boundary_version"], boundary_version)
@@ -447,11 +449,14 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
                     for r in rows:
                         if r["entity_id"] in national:
                             r["national_rank"] = national[r["entity_id"]]
+                # fraction = false: 分子・分母を公開ファイルに書かない（平均標高の「標高の合計」のように、
+                # 内訳として見せても意味のない数。都道府県の値の計算には使う）
+                hidden = {"_parts"} | ({"numerator", "denominator"} if d.get("fraction") is False else set())
                 _write(out, f"{vdir}/{chunk}.json", {
                     "schema_version": SCHEMA_VERSION, "release_id": release_id,
                     "indicator_id": indicator_id, "period": pid, "level": level,
                     "unit": d["unit"], "boundary_version": boundary_version,
-                    "rows": [{k: v for k, v in r.items() if k != "_parts"}
+                    "rows": [{k: v for k, v in r.items() if k not in hidden}
                              for r in sorted(rows, key=lambda r: r["entity_id"])]})
             _write(out, f"{vdir}/legend.json", {
                 "indicator_id": indicator_id, "period": pid, "method": method,
@@ -486,6 +491,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
     used_sources |= export_nurseries(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_weather(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_transport(conn, catalog, out, release_id, ok_sources)
+    used_sources |= export_land_use_tiles(conn, out, raw, ok_sources)
 
     used_sources |= {r["source_id"] for r in muni_rows} | {r["source_id"] for r in area_rows}
     src = conn.execute(
@@ -899,6 +905,32 @@ def _default_period(period_meta: list[dict], levels: list[str]) -> str:
         if fine:
             return fine[-1]["period"]
     return annual[-1]["period"]
+
+
+LAND_USE_TILES = "land_use_tiles"
+
+
+def export_land_use_tiles(conn: sqlite3.Connection, out: Path, raw: Path | None, ok_sources: set[str]) -> set[str]:
+    """地図に重ねる土地利用図のタイル（tdm/prepare で作ったもの、#123）を land_use/ にそのまま入れる。
+    land_use/tiles.json に年度・タイルの一覧・凡例と出典を書く。取り込んでいなければ何もしない。"""
+    row = conn.execute("SELECT source_id FROM sources WHERE dataset_key = ? ORDER BY retrieved_at DESC LIMIT 1",
+                       (LAND_USE_TILES,)).fetchone()
+    src = raw / LAND_USE_TILES if raw else None
+    if row is None or row["source_id"] not in ok_sources or src is None or not (src / "tiles.json").exists():
+        return set()
+    index = json.loads((src / "tiles.json").read_text(encoding="utf-8"))
+    count = 0
+    for y in index["years"]:
+        for zoom, tiles in y["tiles"].items():
+            for t in tiles:
+                rel = f"{y['year']}/{zoom}/{t}.png"
+                target = out / "land_use" / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((src / rel).read_bytes())
+                count += 1
+    _write(out, "land_use/tiles.json", {**index, "source_ids": [row["source_id"]]})
+    progress(f"土地利用図のタイル {count} 枚")
+    return {row["source_id"]}
 
 
 def _national_small_area_ranks(rows: dict) -> dict[str, int]:

@@ -93,6 +93,207 @@ caveats = ["境界の一部が決まっていない市区町村（全国で約16
 source_kind = "gsi_area"
 legend = { method = "nice", classes = 12, scheme = "greens" }
 
+# 土地利用（国土数値情報 土地利用細分メッシュ・都市地域土地利用細分メッシュを町丁・字等ごとに数えたもの）と標高（#123）。
+# 元データを Actions「Prepare derived sources」で集計した CSV（sources.toml の land_use_towns など）から取り込む。
+# numerator_columns / denominator_columns: CSV の区分の列（"*" はデータなし・範囲外の列を除くすべての区分）
+[land_use_building_share]
+name = "建物用地の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "陸地のうち、住宅地・市街地など建物が建ち並ぶ土地（建物用地）の割合。100m四方のマスごとの土地利用から求めたもの。"
+method = "国土交通省 国土数値情報「土地利用細分メッシュ」（100m四方のマスごとに、地形図や衛星画像から判読した土地利用の区分）を、マスの中心が入る町丁・字等ごとに数え、建物用地のマスの数 ÷ 陸のマス（海を除くすべての区分）の数 × 100。市区町村・都道府県の値はマスの数の合計から計算。1976・1991・2006・2021年度。"
+caveats = ["100m四方のマスごとに、その中で最も広い土地利用の区分でマス全体を数えています。マスより小さな公園・畑・建物などは数に入らないことがあります。", "マスの中心が入る町丁・字等に数えています（境界でマスを分けません）。陸のマスが5つ未満の町丁・字等は値を表示しません。", "どの年度も2020年国勢調査の町丁・字等の境界で数えています。埋立地など昔は海だった所は、古い年度ほど陸のマスが少なくなります。", "年度によって判読の方法（地形図・衛星画像など）や区分の決め方が違うため、年度の間の増減には判読の違いも含まれます。", "その年度のデータがない範囲を5%より多く含む地域は値なしです。", "1976年度は、建物が密集した所（建物用地A）と小さな建物が点在する所（建物用地B）を合わせています。"]
+source_kind = "land_use_cells"
+numerator_columns = ["建物用地"]
+denominator_columns = "*"
+denominator_label = "陸の100mのマス"
+fraction_units = ["マス", "マス"]
+legend = { method = "nice", classes = 12, scheme = "reds" }
+
+[land_use_paddy_share]
+name = "田の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "陸地のうち、田（湿田・乾田・蓮田など）の割合。100m四方のマスごとの土地利用から求めたもの。"
+method = "国土交通省 国土数値情報「土地利用細分メッシュ」（100m四方のマスごとに、地形図や衛星画像から判読した土地利用の区分）を、マスの中心が入る町丁・字等ごとに数え、田のマスの数 ÷ 陸のマス（海を除くすべての区分）の数 × 100。市区町村・都道府県の値はマスの数の合計から計算。1976・1991・2006・2021年度。"
+caveats = ["100m四方のマスごとに、その中で最も広い土地利用の区分でマス全体を数えています。マスより小さな公園・畑・建物などは数に入らないことがあります。", "マスの中心が入る町丁・字等に数えています（境界でマスを分けません）。陸のマスが5つ未満の町丁・字等は値を表示しません。", "どの年度も2020年国勢調査の町丁・字等の境界で数えています。埋立地など昔は海だった所は、古い年度ほど陸のマスが少なくなります。", "年度によって判読の方法（地形図・衛星画像など）や区分の決め方が違うため、年度の間の増減には判読の違いも含まれます。", "その年度のデータがない範囲を5%より多く含む地域は値なしです。"]
+source_kind = "land_use_cells"
+numerator_columns = ["田"]
+denominator_columns = "*"
+denominator_label = "陸の100mのマス"
+fraction_units = ["マス", "マス"]
+legend = { method = "nice", classes = 12, scheme = "ylorbr" }
+
+[land_use_field_share]
+name = "畑などの割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "陸地のうち、田以外の農地（畑・果樹園・茶畑・牧草地など。土地利用細分メッシュの「その他の農用地」）の割合。100m四方のマスごとの土地利用から求めたもの。"
+method = "国土交通省 国土数値情報「土地利用細分メッシュ」（100m四方のマスごとに、地形図や衛星画像から判読した土地利用の区分）を、マスの中心が入る町丁・字等ごとに数え、その他の農用地（畑・果樹園など）のマスの数 ÷ 陸のマス（海を除くすべての区分）の数 × 100。市区町村・都道府県の値はマスの数の合計から計算。1976・1991・2006・2021年度。"
+caveats = ["100m四方のマスごとに、その中で最も広い土地利用の区分でマス全体を数えています。マスより小さな公園・畑・建物などは数に入らないことがあります。", "マスの中心が入る町丁・字等に数えています（境界でマスを分けません）。陸のマスが5つ未満の町丁・字等は値を表示しません。", "どの年度も2020年国勢調査の町丁・字等の境界で数えています。埋立地など昔は海だった所は、古い年度ほど陸のマスが少なくなります。", "年度によって判読の方法（地形図・衛星画像など）や区分の決め方が違うため、年度の間の増減には判読の違いも含まれます。", "その年度のデータがない範囲を5%より多く含む地域は値なしです。", "1976年度は、畑・果樹園・その他の樹木畑（桑畑・茶畑など）を合わせています。"]
+source_kind = "land_use_cells"
+numerator_columns = ["畑など"]
+denominator_columns = "*"
+denominator_label = "陸の100mのマス"
+fraction_units = ["マス", "マス"]
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[land_use_forest_share]
+name = "森林の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "陸地のうち、森林（高さ2m以上の木が茂っている所。竹林を含む）の割合。100m四方のマスごとの土地利用から求めたもの。"
+method = "国土交通省 国土数値情報「土地利用細分メッシュ」（100m四方のマスごとに、地形図や衛星画像から判読した土地利用の区分）を、マスの中心が入る町丁・字等ごとに数え、森林のマスの数 ÷ 陸のマス（海を除くすべての区分）の数 × 100。市区町村・都道府県の値はマスの数の合計から計算。1976・1991・2006・2021年度。"
+caveats = ["100m四方のマスごとに、その中で最も広い土地利用の区分でマス全体を数えています。マスより小さな公園・畑・建物などは数に入らないことがあります。", "マスの中心が入る町丁・字等に数えています（境界でマスを分けません）。陸のマスが5つ未満の町丁・字等は値を表示しません。", "どの年度も2020年国勢調査の町丁・字等の境界で数えています。埋立地など昔は海だった所は、古い年度ほど陸のマスが少なくなります。", "年度によって判読の方法（地形図・衛星画像など）や区分の決め方が違うため、年度の間の増減には判読の違いも含まれます。", "その年度のデータがない範囲を5%より多く含む地域は値なしです。"]
+source_kind = "land_use_cells"
+numerator_columns = ["森林"]
+denominator_columns = "*"
+denominator_label = "陸の100mのマス"
+fraction_units = ["マス", "マス"]
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
+[urban_high_rise_share]
+name = "高層建物の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "都市地域の陸地のうち、商業・業務用のビルや4階建て以上のマンションなどの高層の建物が建ち並ぶ土地の割合。100m四方のマスごとの土地利用から求めたもの。"
+method = "国土交通省 国土数値情報「都市地域土地利用細分メッシュ」（2021年度、都市地域の100m四方のマスごとの土地利用）を、マスの中心が入る町丁・字等ごとに数え、高層建物のマスの数 ÷ 陸のマス（海を除くすべての区分）の数 × 100。市区町村・都道府県の値はマスの数の合計から計算。"
+caveats = ["都市地域（市街地とその周り）だけのデータです。都市地域の範囲の外の部分を5%より多く含む地域は値なしです（多くの市町村は全体としては値なしになり、町丁・字等を拡大すると見られます）。", "100m四方のマスごとに、その中で最も広い土地利用の区分でマス全体を数えています。マスより小さな公園・畑・建物などは数に入らないことがあります。", "マスの中心が入る町丁・字等に数えています（境界でマスを分けません）。陸のマスが5つ未満の町丁・字等は値を表示しません。"]
+source_kind = "urban_land_use_cells"
+numerator_columns = ["高層建物"]
+denominator_columns = "*"
+denominator_label = "陸の100mのマス"
+fraction_units = ["マス", "マス"]
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[urban_dense_low_rise_share]
+name = "低層の住宅が密集した土地の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "都市地域の陸地のうち、3階建て以下の住宅が高い密度で建ち並ぶ土地（都市地域土地利用細分メッシュの「低層建物（密集地）」）の割合。100m四方のマスごとの土地利用から求めたもの。"
+method = "国土交通省 国土数値情報「都市地域土地利用細分メッシュ」（2021年度、都市地域の100m四方のマスごとの土地利用）を、マスの中心が入る町丁・字等ごとに数え、低層建物（密集地）のマスの数 ÷ 陸のマス（海を除くすべての区分）の数 × 100。市区町村・都道府県の値はマスの数の合計から計算。"
+caveats = ["都市地域（市街地とその周り）だけのデータです。都市地域の範囲の外の部分を5%より多く含む地域は値なしです（多くの市町村は全体としては値なしになり、町丁・字等を拡大すると見られます）。", "100m四方のマスごとに、その中で最も広い土地利用の区分でマス全体を数えています。マスより小さな公園・畑・建物などは数に入らないことがあります。", "マスの中心が入る町丁・字等に数えています（境界でマスを分けません）。陸のマスが5つ未満の町丁・字等は値を表示しません。"]
+source_kind = "urban_land_use_cells"
+numerator_columns = ["低層建物（密集地）"]
+denominator_columns = "*"
+denominator_label = "陸の100mのマス"
+fraction_units = ["マス", "マス"]
+legend = { method = "nice", classes = 12, scheme = "rdpu" }
+
+[urban_factory_share]
+name = "工場の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "都市地域の陸地のうち、工場（工業用の建物）が建つ土地の割合。100m四方のマスごとの土地利用から求めたもの。"
+method = "国土交通省 国土数値情報「都市地域土地利用細分メッシュ」（2021年度、都市地域の100m四方のマスごとの土地利用）を、マスの中心が入る町丁・字等ごとに数え、工場のマスの数 ÷ 陸のマス（海を除くすべての区分）の数 × 100。市区町村・都道府県の値はマスの数の合計から計算。"
+caveats = ["都市地域（市街地とその周り）だけのデータです。都市地域の範囲の外の部分を5%より多く含む地域は値なしです（多くの市町村は全体としては値なしになり、町丁・字等を拡大すると見られます）。", "100m四方のマスごとに、その中で最も広い土地利用の区分でマス全体を数えています。マスより小さな公園・畑・建物などは数に入らないことがあります。", "マスの中心が入る町丁・字等に数えています（境界でマスを分けません）。陸のマスが5つ未満の町丁・字等は値を表示しません。"]
+source_kind = "urban_land_use_cells"
+numerator_columns = ["工場"]
+denominator_columns = "*"
+denominator_label = "陸の100mのマス"
+fraction_units = ["マス", "マス"]
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
+[urban_park_share]
+name = "公園・緑地の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "都市地域の陸地のうち、整備された公園・緑地（池などの水面を除く）の割合。100m四方のマスごとの土地利用から求めたもの。"
+method = "国土交通省 国土数値情報「都市地域土地利用細分メッシュ」（2021年度、都市地域の100m四方のマスごとの土地利用）を、マスの中心が入る町丁・字等ごとに数え、公園・緑地のマスの数 ÷ 陸のマス（海を除くすべての区分）の数 × 100。市区町村・都道府県の値はマスの数の合計から計算。"
+caveats = ["都市地域（市街地とその周り）だけのデータです。都市地域の範囲の外の部分を5%より多く含む地域は値なしです（多くの市町村は全体としては値なしになり、町丁・字等を拡大すると見られます）。", "100m四方のマスごとに、その中で最も広い土地利用の区分でマス全体を数えています。マスより小さな公園・畑・建物などは数に入らないことがあります。", "マスの中心が入る町丁・字等に数えています（境界でマスを分けません）。陸のマスが5つ未満の町丁・字等は値を表示しません。"]
+source_kind = "urban_land_use_cells"
+numerator_columns = ["公園・緑地"]
+denominator_columns = "*"
+denominator_label = "陸の100mのマス"
+fraction_units = ["マス", "マス"]
+legend = { method = "nice", classes = 12, scheme = "bugn" }
+
+[elevation_mean]
+name = "平均標高"
+category = "土地"
+unit = "m"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1
+unbounded = true
+allow_negative = true
+fraction = false
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "地域の中の地面の高さ（海面からの高さ）の平均。約30m間隔の点の標高の平均。"
+method = "国土地理院 地理院タイル「標高タイル（基盤地図情報数値標高モデル）」のズーム12（東京あたりで約31m間隔）の点のうち、町丁・字等の中に入る点の標高の平均。市区町村・都道府県は中の点すべての平均。"
+caveats = ["建物や木の高さは含まない、地面の高さです。", "海面より低い土地はマイナスです。", "点が5つ未満の小さな町丁・字等は値を表示しません。", "湖や川の水面の点も含みます。"]
+source_kind = "town_elevation"
+elevation_value = "mean"
+legend = { method = "nice", classes = 12, scheme = "ylorbr" }
+
+[elevation_range]
+name = "高低差"
+category = "土地"
+unit = "m"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1
+unbounded = true
+min_denominator = 5
+levels = ["municipality", "small_area"]
+description = "地域の中でいちばん高い地面といちばん低い地面の標高の差。坂や崖の多さの目安。約30m間隔の点の標高から求めたもの。"
+method = "国土地理院 地理院タイル「標高タイル（基盤地図情報数値標高モデル）」のズーム12（東京あたりで約31m間隔）の点のうち、町丁・字等の中に入る点の標高の最高 − 最低。市区町村・都道府県は中の点すべての最高 − 最低。"
+caveats = ["約30m間隔の点の標高なので、それより短い急な坂や崖、建物は反映されません。", "広い地域ほど大きくなりやすい値です。", "点が5つ未満の小さな町丁・字等は値を表示しません。"]
+source_kind = "town_elevation"
+elevation_value = "range"
+legend = { method = "nice", classes = 12, scheme = "bupu" }
+
 [population_change_rate]
 name = "人口増加率"
 category = "人口・世帯"
