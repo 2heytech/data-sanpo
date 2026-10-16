@@ -324,6 +324,136 @@ def test_population_change_rate_uses_previous_census(built):
     assert 0 in legend["levels"]["municipality"]["breaks"] or 0.0 in legend["levels"]["small_area"]["breaks"]
 
 
+
+def _regroup_db():
+    """組み替え（#125）の試験用 DB。2010年と2020年の市区町村の境界（経度・緯度の長方形）と2010年の値。"""
+    import json as _json
+    from shapely.geometry import box, mapping
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    shapes = {
+        "census2010": {
+            "11203": ("川口市", box(0, 0, 2, 1)), "11225": ("鳩ヶ谷市", box(2, 0, 3, 1)),   # 編入
+            "03366": ("岩手郡滝沢村", box(10, 0, 11, 1)),                                  # 村が市になりコードが変わる
+            "43100": ("熊本市", box(20, 0, 22, 1)),                                       # のちに区に分かれる
+            "13108": ("江東区", box(29, 0, 30, 1)), "13199": ("", box(30, 0, 31, 1)),        # 人口のない区域が分かれる
+            "13111": ("大田区", box(31, 0, 32, 1)),
+            "01001": ("甲町", box(40, 0, 41, 1)), "01002": ("乙村", box(41, 0, 42, 1)),     # 編入後に区域が広がる
+            "09203": ("栃木市", box(50, 0, 51, 1)), "09341": ("西方町", box(51, 0, 52, 1)),   # 編入した町の値が一部ない
+        },
+        "census2020": {
+            "11203": ("川口市", box(0, 0, 3, 1)),
+            "03216": ("滝沢市", box(10, 0, 11, 1)),
+            "43101": ("熊本市中央区", box(20, 0, 21, 1)), "43102": ("熊本市東区", box(21, 0, 22, 1)),
+            "13108": ("江東区", box(29, 0, 30.5, 1)), "13111": ("大田区", box(30.5, 0, 32, 1)),
+            "01001": ("甲町", box(40, 0, 42, 1.2)),
+            "09203": ("栃木市", box(50, 0, 52, 1)),
+        },
+    }
+    for version, munis in shapes.items():
+        for code, (name, g) in munis.items():
+            eid = f"muni-{code}"
+            upsert_entity(conn, eid, "municipality", name)
+            conn.execute("INSERT INTO boundaries VALUES (?, ?, ?, '2010-10-01', 's', ?, ?, 'computed', ?, ?, ?, ?)",
+                         (f"{version}:{eid}", version, eid, _json.dumps(mapping(g)), g.area * 1e6, *g.bounds))
+    period = dict(period_start="2010-10-01", period_end="2010-10-01", period_kind="point", source_id="s",
+                  definition_version="1")
+
+    def put(indicator_id, code, value=None, status="observed", **kw):
+        insert_observation(conn, entity_id=f"muni-{code}", indicator_id=indicator_id, value=value,
+                           status=status, **period, **kw)
+
+    for code, pop, hh in (("11203", 500000, 200000), ("11225", 61506, 24000), ("03366", 53857, 19000),
+                          ("43100", 734474, 300000), ("13108", 460819, 230000), ("13111", 693373, 340000),
+                          ("01001", 1000, 400), ("01002", 500, 200), ("09203", 82000, 30000), ("09341", 6000, 2000)):
+        put("population_total", code, pop)
+        put("households_total", code, hh)
+        put("persons_per_household", code, pop / hh, "derived", numerator=pop, denominator=hh)
+    put("population_total", "13199", 0)
+    put("population_total", "43101", 1)   # 試験のため、分かれた先にも当時の行がある場合
+    put("daytime_population", "09203", 90000)
+    put("daytime_population", "09341", status="missing")
+    # 分母が小さい割合は、足すと分母が足りて値が出る
+    put("small_share", "11203", status="withheld", numerator=1, denominator=6)
+    put("small_share", "11225", status="withheld", numerator=2, denominator=6)
+    put("small_share", "09203", status="suppressed")
+    put("small_share", "09341", 50, "derived", numerator=1, denominator=2)
+    catalog = {"population_total": {"kind": "count"}, "households_total": {"kind": "count"},
+               "daytime_population": {"kind": "count"},
+               "persons_per_household": {"kind": "ratio", "scale": 1, "min_denominator": 10},
+               "small_share": {"kind": "ratio", "scale": 100, "min_denominator": 10}}
+    census = {"period": "2010-10-01", "label": "2010年", "boundary_version": "census2010"}
+    return conn, catalog, census
+
+
+def test_regroup_lineage_of_merged_municipalities():
+    from tdm.regroup import municipality_lineage
+    conn, _, _ = _regroup_db()
+    lineage = municipality_lineage(conn, "census2010", "census2020", "2010-10-01")
+    assert lineage.members == {"muni-11203": ["muni-11203", "muni-11225"], "muni-03216": ["muni-03366"],
+                               "muni-09203": ["muni-09203", "muni-09341"]}
+    # 分かれた熊本市の区と、編入後に区域が5%を超えて広がった甲町は値なし。人口のない区域が分かれても
+    # 江東区・大田区はそのまま
+    assert lineage.broken == {"muni-43101", "muni-43102", "muni-01001"}
+
+
+def test_regroup_adds_merged_municipalities_from_numerator_and_denominator():
+    from tdm.regroup import regroup_municipalities
+    conn, catalog, census = _regroup_db()
+    result = regroup_municipalities(conn, catalog, census, "census2020")
+    assert result["組み替えた市区町村"] == 3 and result["値なしにした市区町村"] == 3
+
+    def get(indicator_id, code):
+        return conn.execute("""SELECT value, status, numerator, denominator, method_note FROM observations
+                               WHERE indicator_id = ? AND entity_id = ? AND period_start = '2010-10-01'""",
+                            (indicator_id, f"muni-{code}")).fetchone()
+
+    kawaguchi = get("population_total", "11203")
+    assert (kawaguchi["value"], kawaguchi["status"]) == (561506, "derived")
+    assert kawaguchi["method_note"] == "2010年の値を今の区域に組み替え（川口市・鳩ヶ谷市の合計）"
+    # 割合は分子・分母をそれぞれ足して計算する
+    pph = get("persons_per_household", "11203")
+    assert (pph["numerator"], pph["denominator"]) == (561506, 224000)
+    assert abs(pph["value"] - 561506 / 224000) < 1e-9
+    share = get("small_share", "11203")
+    assert (share["status"], share["numerator"], share["denominator"]) == ("derived", 3, 12)
+    assert abs(share["value"] - 25) < 1e-9
+    # コードが変わった市は、当時の村の値をそのまま使う
+    takizawa = get("population_total", "03216")
+    assert (takizawa["value"], takizawa["method_note"]) == (53857, "2010年の岩手郡滝沢村の値（今の区域と同じ）")
+    # 編入した町の値がなければ値なし（0 にしない）。秘匿があれば秘匿
+    assert tuple(get("daytime_population", "09203"))[:2] == (None, "missing")
+    assert tuple(get("small_share", "09203"))[:2] == (None, "suppressed")
+    assert get("population_total", "09203")["value"] == 88000
+    # 分かれた区域・広がった区域は値なしにし、細かく割り振らない
+    assert tuple(get("population_total", "43101"))[:2] == (None, "missing")
+    assert get("population_total", "43102") is None
+    assert tuple(get("population_total", "01001"))[:2] == (None, "missing")
+    # 区域が変わらない市区町村はそのまま
+    assert tuple(get("population_total", "13108"))[:3] == (460819, "observed", None)
+    assert get("population_total", "11225")["value"] == 61506   # 当時の市の行は消さない（地図には出ない）
+
+
+def test_change_rate_uses_regrouped_previous_census():
+    from tdm.derive import derive_change
+    from tdm.regroup import regroup_municipalities
+    conn, catalog, census = _regroup_db()
+    regroup_municipalities(conn, catalog, census, "census2020")
+    insert_observation(conn, entity_id="muni-11203", indicator_id="population_total", definition_version="1",
+                       period_start="2015-10-01", period_end="2015-10-01", period_kind="point",
+                       value=578112, status="observed", source_id="s")
+    d = {"kind": "change", "base": "population_total", "definition_version": "1", "scale": 100,
+         "min_denominator": 50}
+    derive_change(conn, "population_change_rate", d, {"definition_version": "1"},
+                  [census, {"period": "2015-10-01", "label": "2015年", "boundary_version": "census2015"}], {})
+    rate = conn.execute("""SELECT value, numerator, denominator FROM observations
+                           WHERE indicator_id = 'population_change_rate' AND entity_id = 'muni-11203'""").fetchone()
+    # 編入した鳩ヶ谷市の分を含めた2010年の人口と比べる（含めないと +15.6%）
+    assert (rate["numerator"], rate["denominator"]) == (16606, 561506)
+    assert abs(rate["value"] - 16606 / 561506 * 100) < 1e-9
+
+
 def test_municipality_outline_has_no_holes(built):
     gj = load(built, "boundaries/census2020/municipalities.geojson")
     for f in gj["features"]:
