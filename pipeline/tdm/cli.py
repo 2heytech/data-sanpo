@@ -38,6 +38,7 @@ from .ingest import (estat_boundary, estat_census_history, estat_census_municipa
                      tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
 from .regions import selected_prefectures
+from .regroup import regroup_municipalities
 from .sources import find_files, register_source
 from .validate import validate
 from .progress import progress
@@ -82,9 +83,17 @@ def ingest_all(paths: Paths, overrides: dict | None = None, prefs: list[str] | N
                     raise
                 # 過去の時点の元ファイルがなければ、その時点を除いて続ける
                 result[census["label"]] = f"元ファイルがないため除外（{e}）"
-        # 前回からの増減率は全時点を取り込んだあとに計算する（境界の比較に最新の境界を使う）
         progress("国勢調査の取込が終わった")
         latest_version = censuses[-1]["boundary_version"]
+        # 市区町村の値だけの国勢調査（2025年や、過去の昼間人口・外国人の表）。2025年は最新の境界の面積で
+        # 人口密度、前回の調査からの増減率も出す
+        result.update(_ingest_municipal_census(conn, paths, sources, catalog, overrides, censuses[-1], prefs))
+        # 過去の時点の市区町村の値を、地図の市区町村の区域に組み替える（編入した市に旧町村の値を足す。#125）。
+        # 増減率より先に行う
+        for c in censuses[:-1]:
+            result[f"{c['label']} 市区町村の組み替え"] = regroup_municipalities(conn, catalog, c, latest_version)
+        progress("過去の市区町村の値を今の区域に組み替えた")
+        # 前回からの増減率は全時点を取り込んだあとに計算する（境界の比較に最新の境界を使う）
         comparable = {c["period"]: comparable_areas(conn, c["boundary_version"], latest_version)
                       for c in censuses[:-1]}
         for indicator_id, d in catalog.items():
@@ -92,8 +101,6 @@ def ingest_all(paths: Paths, overrides: dict | None = None, prefs: list[str] | N
                 result[indicator_id] = derive_change(conn, indicator_id, d, catalog[d["base"]],
                                                      censuses, comparable)
         progress("増減率を計算した")
-        # 市区町村の値だけの国勢調査（2025年）。最新の境界の面積で人口密度、前回の調査からの増減率を出す
-        result.update(_ingest_municipal_census(conn, paths, sources, catalog, overrides, censuses[-1], prefs))
         # 国勢調査以外の出典（犯罪・交通事故・駅など）。地域IDは最新の境界の町丁・字等を使う
         result.update(_ingest_other_sources(conn, paths, sources, catalog, overrides,
                                             latest_version, prefs))
