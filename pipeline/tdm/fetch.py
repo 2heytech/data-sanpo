@@ -379,6 +379,10 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
     except (FetchError, OSError) as e:
         # 配布元が一時的に（または GitHub Actions からの接続を）拒んだとき、前回の取得分（キャッシュ）があれば使う
         prior = _already_fetched(dest, url)
+        if prior is None and cfg.get("optional") and isinstance(e, urllib.error.HTTPError) and e.code == 404:
+            # まだ置いていない集計（derived-sources の Release、#123）。この出典を除いて公開版を作る
+            print(f"[{key}] まだ置かれていないため飛ばします: {url}", file=sys.stderr)
+            return []
         if prior is None:
             raise
         print(f"[{key}] 取得できないため前回の取得分を使います（{e}）", file=sys.stderr)

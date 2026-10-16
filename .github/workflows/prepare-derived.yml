@@ -1,0 +1,115 @@
+# 公開版の取込の前に、大きな元データ（土地利用細分メッシュ・標高タイル・筆ポリゴン・植生図など）を町丁・字等ごとの
+# 小さな集計にまとめ、GitHub Release「derived-sources」に置く（docs/design-changes.md #123・#124、pipeline/tdm/prepare/）。
+# Data release は sources.toml の download_url でこの Release のファイルを取得して取り込む（まだ置いていない集計は飛ばす）。
+# Release に同じ名前のファイルがある集計は作り直さない。作り方や元データを変えたら、sources.toml のファイル名の版
+# （-v1 → -v2）を上げてから実行する（同じ名前のファイルは置き換えない。使っている版の中身が途中で変わらないように）。
+name: Prepare derived sources
+
+on:
+  workflow_dispatch:
+    inputs:
+      jobs:
+        description: "作る集計（pipeline/config/prepare.toml の名前。カンマ区切り）"
+        required: false
+        default: "land_use,elevation,farmland,vegetation"
+      prefectures:
+        description: "集計する都道府県（all で全国。13 などで試せる。全国以外と main 以外では Release に上げず、Artifacts に置く）"
+        required: false
+        default: "all"
+
+permissions:
+  contents: write
+
+# 同じ Release に同時に上げないよう、1つずつ動かす
+concurrency:
+  group: prepare-derived
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      DERIVED_TAG: derived-sources
+      TDM_PREFS: ${{ inputs.prefectures }}
+      JOBS: ${{ inputs.jobs }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 全国の土地利用細分メッシュ（4年度）は ZIP で数GB、植生図は約9GBになるので、使わないツールを消して空ける
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/local/share/powershell /usr/share/swift || true
+          df -h /
+          free -h
+
+      - name: Install pipeline
+        run: python -m pip install -e "pipeline[prepare]"
+
+      - name: Decide upload
+        run: |
+          if [ "$TDM_PREFS" = "all" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo "UPLOAD=true" >> "$GITHUB_ENV"
+          else
+            echo "UPLOAD=false" >> "$GITHUB_ENV"
+            echo "全国でない、または main でないので、作ったファイルは Release に上げず Artifacts に置きます"
+          fi
+
+      - name: Prepare
+        working-directory: pipeline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh release view "$DERIVED_TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          : > ../todo.txt
+          for job in ${JOBS//,/ }; do
+            names=$(python -m tdm prepare "$job" --list)
+            missing=""
+            for n in $names; do grep -qxF "$n" <<<"$existing" || missing="$missing $n"; done
+            if [ "$UPLOAD" = "true" ] && [ -z "$missing" ]; then
+              echo "$job: Release $DERIVED_TAG にすでにあるので作りません（$(echo $names)）"
+              continue
+            fi
+            python -m tdm prepare "$job" --out ../data/derived
+            for n in $names; do echo "$job $n" >> ../todo.txt; done
+            # 取得した元データ（ZIP・GeoPackage など）は次の集計の前に消す（ディスクが足りなくならないように）
+            rm -rf "../data/prepare/$job"
+            df -h / | tail -1
+          done
+          ls -l ../data/derived 2>/dev/null || true
+
+      # Release の説明に、ファイルごとの作成日・コミット・元データを書き足す（DB・無償枠のスレッドとの取り決め）
+      - name: Upload to release
+        if: env.UPLOAD == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -s todo.txt ] || { echo "上げるファイルはありません"; exit 0; }
+          if ! gh release view "$DERIVED_TAG" >/dev/null 2>&1; then
+            gh release create "$DERIVED_TAG" --target "$GITHUB_SHA" --title "$DERIVED_TAG" --latest=false \
+              --notes "土地利用・標高・農地の区画・植生などを町丁・字等ごとにまとめた集計（Actions「Prepare derived sources」が作り、Data release が使う。手で消さないこと）。"
+          fi
+          notes=$(gh release view "$DERIVED_TAG" --json body --jq .body)
+          while read -r job name; do
+            # 同じ名前のファイルは置き換えない（--clobber を付けない。あれば失敗する）
+            gh release upload "$DERIVED_TAG" "data/derived/$name"
+            title=$(python3 -c 'import sys, tomllib; c = tomllib.load(open("pipeline/config/sources.toml", "rb")); print(next(v["title"] for v in c.values() if v.get("download_url", "").endswith("/" + sys.argv[1])))' "$name")
+            notes="$notes
+          - $name: $(date -u +%F) にコミット ${GITHUB_SHA::7} で作成（集計 $job、元データ: $title）"
+          done < todo.txt
+          gh release edit "$DERIVED_TAG" --notes "$notes" >/dev/null
+          gh release view "$DERIVED_TAG" --json assets --jq '.assets[] | "\(.name)  \(.size)"'
+
+      - name: Keep as artifact
+        if: env.UPLOAD != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: derived-${{ github.run_id }}
+          path: data/derived
+          retention-days: 3
+          if-no-files-found: ignore

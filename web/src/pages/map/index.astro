@@ -22,6 +22,7 @@ const ICON: Record<string, string> = {
   ports: '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M7 10h10M4.5 14.5A7.5 7.5 0 0 0 12 21a7.5 7.5 0 0 0 7.5-6.5M3 14.5h3M18 14.5h3"/>',
   weather: '<circle cx="9" cy="9" r="3.5"/><path d="M9 2.5v1.5M2.5 9H4M4.4 4.4l1.1 1.1M13.6 4.4l-1.1 1.1"/><path d="M8 20h10a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.5A2.8 2.8 0 0 0 8 20z"/>',
   relief: '<path d="M2 20 9 7.5l3.5 5.5 2.5-3.5L22 20z"/><path d="M7.2 10.7 9 12l1.8-1.3"/>',
+  landuse: '<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M12 3.5v17M3.5 12h17M5.5 9.5l4-4M5.5 7l1.5-1.5M14 20.5l6.5-6.5M16.5 20.5l4-4"/>',
 };
 const VIEW_TOGGLES = [
   { id: "colors-toggle", name: "色分け", title: "色分けを表示", icon: ICON.colors },
@@ -38,6 +39,7 @@ const OVERLAYS = [
   { id: "nursery-toggle", note: "nursery-legend", name: "保育所", title: "認可保育所（定員）", icon: ICON.nursery },
   { id: "weather-toggle", note: "weather-legend", name: "天気", title: "天気（気象庁の観測所の平年値）", icon: ICON.weather },
   { id: "relief-toggle", note: "relief-note", name: "標高", title: "標高（色別標高図）", icon: ICON.relief },
+  { id: "landuse-toggle", note: "landuse-note", name: "土地利用", title: "土地利用（100m四方のマス）", icon: ICON.landuse },
 ];
 const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "天気"])];
 ---
@@ -150,6 +152,13 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
           <div class="overlay-note">
             <h3><svg viewBox="0 0 24 24" aria-hidden="true" set:html={t.icon} />{t.title}</h3>
             {t.id === "weather-toggle" && <select id="weather-select" class="weather-select" aria-label="天気の指標" hidden></select>}
+            {t.id === "landuse-toggle" && (
+              <div id="landuse-controls" class="landuse-controls" hidden>
+                <output id="landuse-year-label" for="landuse-year" aria-live="polite"></output>
+                <input id="landuse-year" type="range" min="0" max="0" step="1" value="0" aria-label="土地利用の年度" />
+                <div id="landuse-year-ends" class="photo-era-ends muted small" aria-hidden="true"></div>
+              </div>
+            )}
             <p id={t.note} class="muted small" hidden></p>
           </div>
         ))}
@@ -370,6 +379,11 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .overlay-note h3 svg { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .overlay-note p { margin: 0; }
   .overlay-note select { width: auto; margin: 0 0 4px; }
+  .landuse-controls { margin: 2px 0 4px; }
+  .landuse-controls output { font-weight: 700; font-size: 0.85rem; }
+  .landuse-controls input { width: 100%; accent-color: var(--accent); }
+  .landuse-controls .photo-era-ends { margin-left: 0; }
+  .panel label.icon-toggle[hidden] { display: none; }
   .period-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   #period-label { font-weight: 700; font-variant-numeric: tabular-nums; }
   .period-control { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
@@ -437,6 +451,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: -1px;
     border: 1px solid #fff; box-shadow: 0 0 0 1px #bbb;
   }
+  .land-bins .sw.sq { border-radius: 2px; border: 0; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
   .trend-scroll { max-height: 260px; overflow-y: auto; }
   .rank { margin: 10px 0; }
   .rank ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
