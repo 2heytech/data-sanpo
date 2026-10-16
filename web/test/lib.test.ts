@@ -143,6 +143,10 @@ describe("search", () => {
     expect(hits.map((h) => h.id)).toEqual(["muni-13104", "area-2", "area-1"]);
     expect(new AreaSearch(index).search("新宿1丁目")[0].id).toBe("area-2");
   });
+  it("市区町村の前方一致を、ほかの市区町村にある同じ名前の町丁・字等より先に出す", () => {
+    const withTown: SearchIndex = { ...index, entries: [...index.entries, ["area-3", "新宿", "魚津市", "small_area"]] };
+    expect(new AreaSearch(withTown).search("新宿").map((h) => h.id)).toEqual(["muni-13104", "area-3", "area-2", "area-1"]);
+  });
 });
 
 describe("urlstate", () => {
