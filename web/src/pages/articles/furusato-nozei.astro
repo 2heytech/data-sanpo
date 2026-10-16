@@ -1,0 +1,48 @@
+---
+import Article from "../../layouts/Article.astro";
+import ArticleRanking from "../../components/ArticleRanking.astro";
+import { formatNumber } from "../../lib/format";
+import { oku, raw, rows, value } from "../../lib/articleData";
+
+const P = "2025-04-01";
+const ID = "furusato_amount";
+const PC = "furusato_amount_per_capita";
+// 全国の合計（都道府県の値＝県と県内の市区町村の受入の合計、を足したもの）。値のない県があれば出さない
+const prefRows = rows(ID, P, "prefecture");
+const total = prefRows.length && prefRows.every((r) => r.value !== null) ? prefRows.reduce((s, r) => s + (r.value as number), 0) : null;
+const cho = total === null ? "—" : `約${formatNumber(Math.floor(total / 1e6), 0)}兆${formatNumber(Math.round((total % 1e6) / 100), 0)}億円`;
+---
+<Article slug="furusato-nozei">
+  <p>
+    ふるさと納税は、住んでいる自治体以外にも寄附ができ、その分が住民税などから差し引かれる仕組みです。
+    2025年度（2025年4月〜2026年3月）に全国の自治体が受け入れた額は、合わせて{cho}でした。
+    どの自治体に多く集まっているのかを、金額と、住民1人あたりの額の両方で見てみます。
+  </p>
+
+  <h2>受入額の多い自治体</h2>
+  <ArticleRanking id={ID} period={P} n={10} expect={["muni-27213", "muni-01668", "muni-45202", "muni-01691"]} caption="ふるさと納税の受入額が多い市区町村（2025年度）" />
+  <p>
+    1位は大阪府泉佐野市で{oku(raw(ID, P, "muni-27213"))}、北海道白糠町（{oku(raw(ID, P, "muni-01668"))}）、
+    宮崎県都城市（{oku(raw(ID, P, "muni-45202"))}）、北海道別海町（{oku(raw(ID, P, "muni-01691"))}）が続きます。
+    上位には、肉や魚介などの特産品を返礼品にしている自治体が多いようで、北海道の自治体が目立ちます。
+    都道府県ごとに県と県内の市区町村の受入額を合計すると、北海道が{oku(raw(ID, P, "pref-01"))}で、2位の県を大きく引き離しています。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-01"]} caption="ふるさと納税の受入額が多い都道府県（県と県内の市区町村の合計、2025年度）" />
+
+  <h2>住民1人あたりで見ると</h2>
+  <p>
+    自治体の規模をならすため、受入額を住民の数（2020年国勢調査の人口）で割ると、顔ぶれが変わります。
+    白糠町は住民1人あたり{value(PC, P, "muni-01668")}で、町の人口の小ささに比べて非常に多くの寄附が集まっています。
+    北海道別海町、福岡県赤村、和歌山県北山村など、人口の少ない町村が上位に並びます。
+  </p>
+  <ArticleRanking id={PC} period={P} n={10} expect={["muni-01668", "muni-01691"]} caption="ふるさと納税の受入額（住民1人あたり）が多い市区町村（2025年度）" />
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>受入額は、返礼品の調達や送料、事務の経費を差し引く前の額です。自治体の手元に残る額はこれより少なくなります。</li>
+    <li>寄附を受けた側の額です。住民がほかの自治体に寄附したことで減った住民税は含みません。都市部の自治体では、受け入れより流出の方が大きいところもあります。</li>
+    <li>政令指定都市は市全体の値しか公表されていないため、区ごとの値はありません。</li>
+    <li>返礼品の基準の見直しなどで、年度によって順位が大きく入れ替わることがあります。地図の時点のスライドバーで、過去の年度と比べられます。</li>
+  </ul>
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}`}>ふるさと納税の受入額を地図で見る</a></p>
+</Article>

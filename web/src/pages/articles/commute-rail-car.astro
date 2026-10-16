@@ -1,0 +1,60 @@
+---
+import Article from "../../layouts/Article.astro";
+import ArticleRanking from "../../components/ArticleRanking.astro";
+import { nationalValue, value } from "../../lib/articleData";
+
+const P = "2020-10-01";
+const CAR = "commute_car_share";
+const RAIL = "commute_rail_share";
+const BIKE = "commute_bicycle_share";
+---
+<Article slug="commute-rail-car">
+  <p>
+    国勢調査では、ふだんの通勤・通学に使う交通手段を尋ねています。2020年の調査で、15歳以上の通勤者・通学者のうち
+    自家用車を使う人は全国で{nationalValue(CAR, P)}、鉄道・電車を使う人は{nationalValue(RAIL, P)}でした。
+    全国では車の方が多いものの、どちらが多いかは地域によって正反対です。
+  </p>
+
+  <h2>車の県、電車の都府県</h2>
+  <p>
+    自家用車の割合が最も高いのは山形県（{value(CAR, P, "pref-06")}）で、秋田県、富山県、福井県、福島県が続きます。
+    いずれも8割前後の人が車で通勤・通学しています。最も低いのは東京都（{value(CAR, P, "pref-13")}）で、
+    神奈川県、大阪府も2割ほどです。
+  </p>
+  <ArticleRanking id={CAR} period={P} level="prefecture" n={5} expect={["pref-06"]} caption="通勤・通学に自家用車を使う人の割合が高い都道府県（2020年）" />
+  <ArticleRanking id={CAR} period={P} level="prefecture" order="low" n={5} expect={["pref-13"]} caption="通勤・通学に自家用車を使う人の割合が低い都道府県（2020年）" />
+  <p>
+    鉄道・電車の割合はその裏返しで、東京都（{value(RAIL, P, "pref-13")}）と神奈川県（{value(RAIL, P, "pref-14")}）では半分を超えます。
+    一方、宮崎県（{value(RAIL, P, "pref-45")}）や沖縄県では数%にとどまります。
+    沖縄県の鉄道は那覇市などを走るモノレール（ゆいレール）だけで、通勤・通学は車が中心です。
+  </p>
+
+  <h2>市区町村で見ると</h2>
+  <p>
+    市区町村では、自家用車の割合が9割を超えるまちが東北や北関東を中心にあります。
+    鉄道の割合が高いのは、東京都の杉並区（{value(RAIL, P, "muni-13115")}）や川崎市中原区（{value(RAIL, P, "muni-14133")}）のような、
+    都心へ電車で通う人が多い住宅のまちです。都心の千代田区や中央区は、職場まで歩いて通える人も多いため、鉄道の割合はこれらのまちより低くなります。
+  </p>
+  <ArticleRanking id={RAIL} period={P} n={6} expect={["muni-13115", "muni-14133"]} caption="通勤・通学に鉄道・電車を使う人の割合が高い市区町村（2020年）" />
+  <ArticleRanking id={CAR} period={P} n={6} caption="通勤・通学に自家用車を使う人の割合が高い市区町村（2020年）" />
+
+  <h2>自転車のまち、大阪</h2>
+  <p>
+    自転車で通勤・通学する人の割合は、大阪府（{value(BIKE, P, "pref-27")}）が都道府県で最も高く、
+    市区町村の上位にも大阪市生野区・平野区や門真市・守口市など大阪府のまちが並びます。
+    平らな土地に住宅と工場・商店が近く集まり、自転車で行ける距離に職場や駅があるためと考えられます。
+    京都市上京区のように、大学や職場が近い京都の中心部も高めです。
+  </p>
+  <ArticleRanking id={BIKE} period={P} n={6} expect={["muni-27116", "muni-27126", "muni-27223", "muni-27209"]} caption="通勤・通学に自転車を使う人の割合が高い市区町村（2020年）" />
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>交通手段は複数回答です。自転車で駅まで行って電車に乗る人は、自転車と鉄道の両方に数えます。そのため各手段の割合を足すと100%を超えます。</li>
+    <li>住んでいる地域で数えた値です。勤め先や学校のある地域の値ではありません。</li>
+    <li>15歳以上の通勤者・通学者だけが対象で、買い物や通院などの移動は含みません。</li>
+  </ul>
+  <p>
+    <a class="button" href={`/map/?i=${CAR}&p=${P}`}>自家用車の割合を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${RAIL}&p=${P}`}>鉄道・電車の割合を地図で見る</a>
+  </p>
+</Article>
