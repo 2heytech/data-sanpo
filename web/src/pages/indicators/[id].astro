@@ -61,7 +61,9 @@ const prefRows = areas.prefectures.length > 1 && period.levels.includes("prefect
 // 検索で「〇〇 ランキング」と探す人に届くよう、市区町村の値がある指標は題名にランキングと入れる
 const pageTitle = muniCount > 0 ? `${ind.name}の市区町村ランキング${nationwide && !partial ? "（全国）" : ""}` : ind.name;
 ---
-<Base title={pageTitle} description={`${ind.name}${ind.unit ? `（${ind.unit}）` : ""}の${nationwide && !partial ? "全国の" : ""}市区町村ランキング${prefRows.length ? "と都道府県別の値" : ""}。意味・計算方法・出典つき。${ind.description}`}>
+<Base title={pageTitle} description={`${ind.name}${ind.unit ? `（${ind.unit}）` : ""}の${muniValues.length
+  ? `${nationwide && !partial ? "全国の" : ""}市区町村ランキング${prefRows.length ? "と都道府県別の値" : ""}`
+  : "都道府県別の値"}。意味・計算方法・出典つき。${ind.description}`}>
   <header class="page-head">
     <p class="eyebrow">{ind.category}</p>
     <h1>{ind.name}</h1>
@@ -90,7 +92,7 @@ const pageTitle = muniCount > 0 ? `${ind.name}の市区町村ランキング${na
       {ind.periods.map((p) => (
         <tr>
           <td>{p.label}</td>
-          <td>{levelOrder.filter((l) => p.levels.includes(l)).map((l) => levelLabel[l]).join("・")}</td>
+          <td>{levelOrder.filter((l) => p.levels.includes(l)).map((l, i) => <>{i > 0 && "・"}<span class="nowrap">{levelLabel[l]}</span></>)}</td>
           <td>{p.source_ids.map((id) => sources.get(id)?.title ?? id).join("／")}</td>
         </tr>
       ))}
@@ -107,7 +109,7 @@ const pageTitle = muniCount > 0 ? `${ind.name}の市区町村ランキング${na
     <>
       <h2>都道府県別の値（{period.label}）</h2>
       <div class="table-scroll">
-        <table>
+        <table class="pref-table">
           <thead><tr><th>都道府県</th><th class="num">{ind.name}</th><th>備考</th></tr></thead>
           <tbody>
             {prefRows.map((r) => (
@@ -122,6 +124,8 @@ const pageTitle = muniCount > 0 ? `${ind.name}の市区町村ランキング${na
       </div>
     </>
   )}
+  {muniValues.length > 0 && (
+  <>
   <h2>市区町村のランキング（{period.label}）</h2>
   <p class="muted">値の大きい順です（同じ値は同じ順位）。大きいほど良い・悪いという意味ではありません。
     {muniCount > RANKING_SIZE * 2 && `${muniCount.toLocaleString("ja-JP")}市区町村のうち、上位と下位の${RANKING_SIZE}位までを出し、その間は畳んでいます。`}</p>
@@ -142,6 +146,8 @@ const pageTitle = muniCount > 0 ? `${ind.name}の市区町村ランキング${na
       <summary>{`値のない市区町村（${muniMissing.length.toLocaleString("ja-JP")}）`}</summary>
       <RankingTable ind={ind} rows={muniMissing} areaLabel="市区町村" extraLabels={nationwide ? ["都道府県"] : []} />
     </details>
+  )}
+  </>
   )}
 
   {smallAreaTop.length > 0 && (
