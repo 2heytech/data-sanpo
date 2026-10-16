@@ -294,6 +294,166 @@ source_kind = "town_elevation"
 elevation_value = "range"
 legend = { method = "nice", classes = 12, scheme = "bupu" }
 
+# 農地の区画（農林水産省「筆ポリゴン」）と植生（環境省「現存植生図2024」）（#124）。土地利用と同じく、Actions
+# 「Prepare derived sources」で町丁・字等ごとに面積（ha）を足した CSV（sources.toml の farmland_towns・vegetation_towns）から取り込む。
+# 面積の内訳は端数が大きく見えるので、分子・分母は公開ファイルに書かない（fraction = false）。
+[farmland_paddy_share]
+name = "田の区画の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+min_denominator_unit = "ha"
+fraction = false
+levels = ["municipality", "small_area"]
+description = "地域の面積のうち、田として描かれた農地の区画（筆ポリゴン）の面積の割合。農地1枚ごとの区画から求めたもの。"
+method = "農林水産省「筆ポリゴンデータ（2026年度公開）」（農地1枚ごとの区画と、田・畑の別）の区画を、重心が入る町丁・字等ごとに足し、田の区画の面積の合計 ÷ 町丁・字等の面積（2020年国勢調査の小地域境界の面積）× 100。市区町村・都道府県の値は面積の合計から計算。"
+caveats = ["筆ポリゴンは、農林水産省が統計調査のために衛星画像などを見て手作業で描いた農地の区画で、田か畑かも画像から目視で判断しています。実際の区画の形や地目、土地の権利関係とは一致しない場合があります。", "区画は重心が入る町丁・字等に数えています（境界で区画を分けません）。面積が5ha未満の町丁・字等と、田・畑の区画の面積の合計が町丁・字等の面積を超える町丁・字等は値を表示しません。", "区画を描いた（直した）年は地域によって違います。2026年度に公開されたデータです。", "土地利用の「田の割合」（100m四方のマスの区分、陸地のうちの割合）とは求め方が違うため、値も違います。"]
+source_kind = "farmland_areas"
+numerator_columns = ["田"]
+denominator_columns = ["面積"]
+denominator_label = "面積"
+over_columns = ["田", "畑"]
+over_note = "田・畑の区画の面積の合計が地域の面積を超えるため非表示"
+period_labels = { "2026-04-01" = "2026年度公開" }
+legend = { method = "nice", classes = 12, scheme = "ylorbr" }
+
+[farmland_field_share]
+name = "畑の区画の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+min_denominator_unit = "ha"
+fraction = false
+levels = ["municipality", "small_area"]
+description = "地域の面積のうち、畑（田以外の農地。果樹園・茶畑・牧草地なども含む）として描かれた農地の区画（筆ポリゴン）の面積の割合。農地1枚ごとの区画から求めたもの。"
+method = "農林水産省「筆ポリゴンデータ（2026年度公開）」（農地1枚ごとの区画と、田・畑の別）の区画を、重心が入る町丁・字等ごとに足し、畑の区画の面積の合計 ÷ 町丁・字等の面積（2020年国勢調査の小地域境界の面積）× 100。市区町村・都道府県の値は面積の合計から計算。"
+caveats = ["筆ポリゴンは、農林水産省が統計調査のために衛星画像などを見て手作業で描いた農地の区画で、田か畑かも画像から目視で判断しています。実際の区画の形や地目、土地の権利関係とは一致しない場合があります。", "区画は重心が入る町丁・字等に数えています（境界で区画を分けません）。面積が5ha未満の町丁・字等と、田・畑の区画の面積の合計が町丁・字等の面積を超える町丁・字等は値を表示しません。", "区画を描いた（直した）年は地域によって違います。2026年度に公開されたデータです。", "土地利用の「畑などの割合」（100m四方のマスの区分、陸地のうちの割合）とは求め方が違うため、値も違います。"]
+source_kind = "farmland_areas"
+numerator_columns = ["畑"]
+denominator_columns = ["面積"]
+denominator_label = "面積"
+over_columns = ["田", "畑"]
+over_note = "田・畑の区画の面積の合計が地域の面積を超えるため非表示"
+period_labels = { "2026-04-01" = "2026年度公開" }
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[farmland_parcel_area]
+name = "農地の1区画の平均面積"
+category = "土地"
+unit = "㎡"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 10000
+min_denominator = 5
+fraction = false
+levels = ["municipality", "small_area"]
+description = "田・畑の区画（筆ポリゴン）1枚あたりの平均の面積。区画が大きいほど、大きな機械で効率よく耕作できる農地が多い目安になる。"
+method = "農林水産省「筆ポリゴンデータ（2026年度公開）」（農地1枚ごとの区画と、田・畑の別）の区画を、重心が入る町丁・字等ごとに足し、田・畑の区画の面積の合計 ÷ 区画の数。市区町村・都道府県の値は面積と数の合計から計算。"
+caveats = ["筆ポリゴンは、農林水産省が統計調査のために衛星画像などを見て手作業で描いた農地の区画で、田か畑かも画像から目視で判断しています。実際の区画の形や地目、土地の権利関係とは一致しない場合があります。", "区画は重心が入る町丁・字等に数えています（境界で区画を分けません）。区画が5つ未満の町丁・字等は値を表示しません。", "区画を描いた（直した）年は地域によって違います。2026年度に公開されたデータです。", "1区画は、あぜ道などで区切られた農地1枚です。土地の登記上の筆（地番）とは一致しません。"]
+source_kind = "farmland_areas"
+numerator_columns = ["田", "畑"]
+denominator_columns = ["田の区画", "畑の区画"]
+denominator_label = "田・畑の区画"
+period_labels = { "2026-04-01" = "2026年度公開" }
+legend = { method = "nice", classes = 12, scheme = "ylorbr" }
+
+[vegetation_natural_forest_share]
+name = "自然林の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+min_denominator_unit = "ha"
+fraction = false
+levels = ["municipality", "small_area"]
+description = "植生図のある範囲のうち、自然林（ブナ林やシイ・カシ林など、人の手がほとんど入っていない森林）の割合。"
+method = "環境省 生物多様性センター「現存植生図2024」（1/25,000 の植生図を全国でつないだもの）の面と、2020年国勢調査の町丁・字等の形が重なる面積を区分ごとに足し、自然林（植生自然度9）の面積 ÷ 植生図のある面積 × 100。市区町村・都道府県の値は面積の合計から計算。"
+caveats = ["植生図の調査の年は地域によって違います（2000〜2023年度）。", "町丁・字等の形と植生図の面が重なる面積から求めています。植生図のない範囲を5%より多く含む地域は値なしです。", "分母は、湖や川などの水面・市街地・農地も含む、植生図のある範囲の面積です。その面積が5ha未満の町丁・字等は値を表示しません。", "自然林は、環境省の植生自然度の9（自然林）です。高い山の低木林なども含みます。"]
+source_kind = "vegetation_areas"
+numerator_columns = ["自然林"]
+denominator_columns = "*"
+denominator_label = "植生図のある面積"
+period_labels = { "2024-04-01" = "現存植生図2024" }
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
+[vegetation_secondary_forest_share]
+name = "二次林の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+min_denominator_unit = "ha"
+fraction = false
+levels = ["municipality", "small_area"]
+description = "植生図のある範囲のうち、二次林（伐採などのあとに自然に育った森林。コナラ林やアカマツ林などの雑木林・里山の林）の割合。"
+method = "環境省 生物多様性センター「現存植生図2024」（1/25,000 の植生図を全国でつないだもの）の面と、2020年国勢調査の町丁・字等の形が重なる面積を区分ごとに足し、二次林（植生自然度7・8）の面積 ÷ 植生図のある面積 × 100。市区町村・都道府県の値は面積の合計から計算。"
+caveats = ["植生図の調査の年は地域によって違います（2000〜2023年度）。", "町丁・字等の形と植生図の面が重なる面積から求めています。植生図のない範囲を5%より多く含む地域は値なしです。", "分母は、湖や川などの水面・市街地・農地も含む、植生図のある範囲の面積です。その面積が5ha未満の町丁・字等は値を表示しません。", "二次林は、環境省の植生自然度の7（二次林）と8（自然林に近い二次林）です。"]
+source_kind = "vegetation_areas"
+numerator_columns = ["二次林"]
+denominator_columns = "*"
+denominator_label = "植生図のある面積"
+period_labels = { "2024-04-01" = "現存植生図2024" }
+legend = { method = "nice", classes = 12, scheme = "bugn" }
+
+[vegetation_plantation_share]
+name = "植林地の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+min_denominator_unit = "ha"
+fraction = false
+levels = ["municipality", "small_area"]
+description = "植生図のある範囲のうち、植林地（スギ・ヒノキ・カラマツなどを植えて育てている森林）の割合。"
+method = "環境省 生物多様性センター「現存植生図2024」（1/25,000 の植生図を全国でつないだもの）の面と、2020年国勢調査の町丁・字等の形が重なる面積を区分ごとに足し、植林地（凡例の植林地）の面積 ÷ 植生図のある面積 × 100。市区町村・都道府県の値は面積の合計から計算。"
+caveats = ["植生図の調査の年は地域によって違います（2000〜2023年度）。", "町丁・字等の形と植生図の面が重なる面積から求めています。植生図のない範囲を5%より多く含む地域は値なしです。", "分母は、湖や川などの水面・市街地・農地も含む、植生図のある範囲の面積です。その面積が5ha未満の町丁・字等は値を表示しません。", "竹林は含みません（「竹林の割合」に入れています）。"]
+source_kind = "vegetation_areas"
+numerator_columns = ["植林地"]
+denominator_columns = "*"
+denominator_label = "植生図のある面積"
+period_labels = { "2024-04-01" = "現存植生図2024" }
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
+[vegetation_bamboo_share]
+name = "竹林の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 5
+min_denominator_unit = "ha"
+fraction = false
+levels = ["municipality", "small_area"]
+description = "植生図のある範囲のうち、竹林（モウソウチク・マダケなどの林）の割合。"
+method = "環境省 生物多様性センター「現存植生図2024」（1/25,000 の植生図を全国でつないだもの）の面と、2020年国勢調査の町丁・字等の形が重なる面積を区分ごとに足し、竹林（凡例の竹林）の面積 ÷ 植生図のある面積 × 100。市区町村・都道府県の値は面積の合計から計算。"
+caveats = ["植生図の調査の年は地域によって違います（2000〜2023年度）。", "町丁・字等の形と植生図の面が重なる面積から求めています。植生図のない範囲を5%より多く含む地域は値なしです。", "分母は、湖や川などの水面・市街地・農地も含む、植生図のある範囲の面積です。その面積が5ha未満の町丁・字等は値を表示しません。", "ササの草原は含みません。"]
+source_kind = "vegetation_areas"
+numerator_columns = ["竹林"]
+denominator_columns = "*"
+denominator_label = "植生図のある面積"
+period_labels = { "2024-04-01" = "現存植生図2024" }
+legend = { method = "nice", classes = 12, scheme = "bugn" }
+
 [population_change_rate]
 name = "人口増加率"
 category = "人口・世帯"

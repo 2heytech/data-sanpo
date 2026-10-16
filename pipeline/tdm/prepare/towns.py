@@ -27,6 +27,7 @@ class Towns:
     keys: list[str]               # KEY_CODE（町丁・字等の地域コード11桁など）
     geoms: list                   # shapely の図形（keys と同じ順）
     tree: shapely.STRtree
+    areas: list[float] | None = None   # 境界の AREA（㎡、飛び地の合計。公開版の取込の面積と同じ）
 
     @property
     def bounds(self) -> tuple[float, float, float, float]:
@@ -48,6 +49,7 @@ def read_towns(shp: Path, pref: str, encoding: str = "cp932") -> Towns:
     reader = shapefile.Reader(str(shp), encoding=encoding)
     fields = [f[0] for f in reader.fields[1:]]
     parts: dict[str, list] = {}
+    areas: dict[str, float] = {}
     for sr in reader.iterShapeRecords():
         rec = dict(zip(fields, sr.record))
         if _clean(rec.get("PREF")) != pref or int(rec.get("HCODE") or 0) == WATER_HCODE:
@@ -56,10 +58,11 @@ def read_towns(shp: Path, pref: str, encoding: str = "cp932") -> Towns:
         if not key.startswith(pref + _clean(rec.get("CITY")).zfill(3)):
             continue
         parts.setdefault(key, []).append(shape(sr.shape.__geo_interface__))
+        areas[key] = areas.get(key, 0.0) + float(rec.get("AREA") or 0)
     keys = sorted(parts)
     geoms = [_polygonal(shapely.union_all(parts[k])) if len(parts[k]) > 1 else _polygonal(parts[k][0])
              for k in keys]
-    return Towns(pref, keys, geoms, shapely.STRtree(geoms))
+    return Towns(pref, keys, geoms, shapely.STRtree(geoms), [areas[k] for k in keys])
 
 
 def load_towns(raw: Path, sources: dict, pref: str) -> Towns:

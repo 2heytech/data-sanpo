@@ -219,7 +219,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
                         "gsi_airports", "gsi_ports", "soumu_election", "soumu_fiscal_indicators",
                         "soumu_settlement", "gsi_area", "land_use_cells", "urban_land_use_cells",
-                        "town_elevation", "land_use_tiles"):
+                        "town_elevation", "land_use_tiles", "farmland_areas", "vegetation_areas"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -346,7 +346,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = (soumu_finance.ingest_fiscal_indicators(conn, files[0], src, catalog, period, prefs)
                            if kind == "soumu_fiscal_indicators" else
                            soumu_finance.ingest_settlement(conn, files, src, catalog, period, prefs))
-        elif kind in ("land_use_cells", "urban_land_use_cells"):
+        elif kind in ("land_use_cells", "urban_land_use_cells", "farmland_areas", "vegetation_areas"):
             result[key] = derived_towns.ingest_cells(conn, files[0], src, catalog, cfg, prefs)
         elif kind == "town_elevation":
             result[key] = derived_towns.ingest_elevation(conn, files[0], src, catalog, cfg, prefs)
@@ -586,7 +586,7 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--release-id")
         p.add_argument("--note")
     p = sub.add_parser("prepare")
-    p.add_argument("job", help="config/prepare.toml の集計の名前（land_use・elevation）")
+    p.add_argument("job", help="config/prepare.toml の集計の名前（land_use・elevation・farmland・vegetation）")
     p.add_argument("--out", type=Path, default=DEFAULT_PATHS.data_dir / "derived")
     p.add_argument("--list", action="store_true", help="作るファイルの名前だけを表示する")
     p = sub.add_parser("fixture")

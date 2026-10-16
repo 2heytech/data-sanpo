@@ -46,7 +46,7 @@ Actions タブの「Data release」を手動実行すると、e-Stat からの�
 （GitHub Release `published-data` に保存）でサイトだけビルドします。取込・書き出し（`pipeline/tdm`・`pipeline/config`）を
 変えたときは使えません（ワークフローが止めます）。
 
-土地利用・標高のように元データが大きい指標は、先に Actions の「Prepare derived sources」で町丁・字等ごとの集計を作り、
+土地利用・標高・農地の区画・植生のように元データが大きい指標は、先に Actions の「Prepare derived sources」で町丁・字等ごとの集計を作り、
 GitHub Release `derived-sources` に置いておきます（`pipeline/config/prepare.toml`。手元では `python -m tdm prepare land_use`）。
 「Data release」はそれを取得して取り込みます。まだ置いていない集計は飛ばして公開版を作ります。
 

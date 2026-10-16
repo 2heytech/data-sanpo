@@ -1,5 +1,5 @@
-# 公開版の取込の前に、大きな元データ（土地利用細分メッシュ・標高タイルなど）を町丁・字等ごとの小さな集計にまとめ、
-# GitHub Release「derived-sources」に置く（docs/design-changes.md #123、pipeline/tdm/prepare/）。
+# 公開版の取込の前に、大きな元データ（土地利用細分メッシュ・標高タイル・筆ポリゴン・植生図など）を町丁・字等ごとの
+# 小さな集計にまとめ、GitHub Release「derived-sources」に置く（docs/design-changes.md #123・#124、pipeline/tdm/prepare/）。
 # Data release は sources.toml の download_url でこの Release のファイルを取得して取り込む（まだ置いていない集計は飛ばす）。
 # Release に同じ名前のファイルがある集計は作り直さない。作り方や元データを変えたら、sources.toml のファイル名の版
 # （-v1 → -v2）を上げてから実行する（同じ名前のファイルは置き換えない。使っている版の中身が途中で変わらないように）。
@@ -11,7 +11,7 @@ on:
       jobs:
         description: "作る集計（pipeline/config/prepare.toml の名前。カンマ区切り）"
         required: false
-        default: "land_use,elevation"
+        default: "land_use,elevation,farmland,vegetation"
       prefectures:
         description: "集計する都道府県（all で全国。13 などで試せる。全国以外と main 以外では Release に上げず、Artifacts に置く）"
         required: false
@@ -40,7 +40,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      # 全国の土地利用細分メッシュ（4年度）は ZIP で数GBになるので、使わないツールを消して空ける
+      # 全国の土地利用細分メッシュ（4年度）は ZIP で数GB、植生図は約9GBになるので、使わないツールを消して空ける
       - name: Free disk space
         run: |
           df -h /
@@ -77,6 +77,9 @@ jobs:
             fi
             python -m tdm prepare "$job" --out ../data/derived
             for n in $names; do echo "$job $n" >> ../todo.txt; done
+            # 取得した元データ（ZIP・GeoPackage など）は次の集計の前に消す（ディスクが足りなくならないように）
+            rm -rf "../data/prepare/$job"
+            df -h / | tail -1
           done
           ls -l ../data/derived 2>/dev/null || true
 
@@ -89,7 +92,7 @@ jobs:
           [ -s todo.txt ] || { echo "上げるファイルはありません"; exit 0; }
           if ! gh release view "$DERIVED_TAG" >/dev/null 2>&1; then
             gh release create "$DERIVED_TAG" --target "$GITHUB_SHA" --title "$DERIVED_TAG" --latest=false \
-              --notes "土地利用・標高などを町丁・字等ごとにまとめた集計（Actions「Prepare derived sources」が作り、Data release が使う。手で消さないこと）。"
+              --notes "土地利用・標高・農地の区画・植生などを町丁・字等ごとにまとめた集計（Actions「Prepare derived sources」が作り、Data release が使う。手で消さないこと）。"
           fi
           notes=$(gh release view "$DERIVED_TAG" --json body --jq .body)
           while read -r job name; do

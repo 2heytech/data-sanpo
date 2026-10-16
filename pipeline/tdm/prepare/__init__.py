@@ -15,10 +15,10 @@ import tomllib
 from pathlib import Path
 
 from ..config import CONFIG_DIR, Paths, load_sources
-from . import elevation, land_use
+from . import elevation, farmland, land_use, vegetation
 from .towns import load_towns
 
-METHODS = {"land_use": land_use, "elevation": elevation}
+METHODS = {"land_use": land_use, "elevation": elevation, "farmland": farmland, "vegetation": vegetation}
 
 
 def load_jobs() -> dict[str, dict]:

@@ -1320,6 +1320,186 @@ def test_fetch_skips_optional_source_not_yet_released(tmp_path):
         fetch_source("k", {**cfg, "optional": False}, tmp_path / "c", downloader=missing)
 
 
+def test_farmland_and_vegetation(built):
+    """農地の区画（筆ポリゴン）・植生（現存植生図2024）の町丁・字等ごとの面積（#124）。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    paddy, parcel, natural = by["farmland_paddy_share"], by["farmland_parcel_area"], by["vegetation_natural_forest_share"]
+    assert [(p["period"], p["label"]) for p in paddy["periods"]] == [("2026-04-01", "2026年度公開")]
+    assert [(p["period"], p["label"]) for p in natural["periods"]] == [("2024-04-01", "現存植生図2024")]
+    assert paddy["category"] == natural["category"] == "土地" and parcel["unit"] == "㎡"
+    towns = {key: t for key, t, _, _ in fixture._fixture_towns()}
+    key_of = {(k[:5], t): k for k, t in towns.items()}
+
+    # 田の区画の割合 = 田の面積 ÷ 町丁・字等の面積。分子・分母は書き出さない
+    rows = {r["entity_id"]: r for r in load(built, "values/farmland_paddy_share/2026-04-01/13.json")["rows"]}
+    first = rows[f"area-{key_of[('13299', 0)]}"]
+    assert first["value"] == pytest.approx(8 / 40 * 100, abs=1e-3) and "numerator" not in first
+    assert rows[f"area-{key_of[('13299', 4)]}"]["status"] == "withheld"    # 面積が5ha未満
+    over = rows[f"area-{key_of[('13299', 6)]}"]                            # 区画の面積が地域の面積を超える
+    assert over["status"] == "withheld" and over["value"] is None
+    assert rows[f"area-{key_of[('13199', 0)]}"]["value"] == 0              # 田のない市街地は 0（値なしではない）
+    # 市区町村・都道府県は面積の合計から（値を出さない町丁・字等の分も入れる）
+    munis = {r["entity_id"]: r for r in load(built, "values/farmland_paddy_share/2026-04-01/municipalities.json")["rows"]}
+    rows13299 = [fixture.farmland_areas(k, t) for k, t in towns.items() if k.startswith("13299")]
+    assert munis["muni-13299"]["value"] == pytest.approx(
+        sum(r[0] for r in rows13299) / sum(r[4] for r in rows13299) * 100, abs=1e-3)
+    prefs = {r["entity_id"]: r for r in load(built, "values/farmland_paddy_share/2026-04-01/prefectures.json")["rows"]}
+    rows13 = [fixture.farmland_areas(k, t) for k, t in towns.items() if k.startswith("13")]
+    assert prefs["pref-13"]["value"] == pytest.approx(sum(r[0] for r in rows13) / sum(r[4] for r in rows13) * 100, abs=1e-3)
+
+    # 1区画の平均面積（㎡）= 田・畑の面積 ÷ 区画の数。区画が5つ未満は非表示、区画がなければ算出しない
+    rows = {r["entity_id"]: r for r in load(built, "values/farmland_parcel_area/2026-04-01/13.json")["rows"]}
+    t3 = fixture.farmland_areas(key_of[("13299", 3)], 3)
+    assert rows[f"area-{key_of[('13299', 3)]}"]["value"] == pytest.approx((t3[0] + t3[1]) / (t3[2] + t3[3]) * 1e4, abs=1e-2)
+    assert rows[f"area-{key_of[('13199', 0)]}"]["status"] == "withheld"
+    assert rows[f"area-{key_of[('13499', 0)]}"]["status"] == "not_applicable"
+    prefs = {r["entity_id"]: r for r in load(built, "values/farmland_parcel_area/2026-04-01/prefectures.json")["rows"]}
+    rows14 = [fixture.farmland_areas(k, t) for k, t in towns.items() if k.startswith("14")]
+    assert prefs["pref-14"]["value"] == pytest.approx(
+        sum(r[0] + r[1] for r in rows14) / sum(r[2] + r[3] for r in rows14) * 1e4, abs=1e-2)
+
+    # 植生: 分母は植生図のある面積。植生図のない範囲が5%を超える地域は値なし（0 にしない）
+    rows = {r["entity_id"]: r for r in
+            load(built, "values/vegetation_natural_forest_share/2024-04-01/13.json")["rows"]}
+    v = fixture.vegetation_areas(key_of[("13199", 0)], 0)
+    assert rows[f"area-{key_of[('13199', 0)]}"]["value"] == pytest.approx(v[0] / sum(v[:-1]) * 100, abs=1e-3)
+    assert rows[f"area-{key_of[('13299', 3)]}"]["status"] == "missing"
+    assert rows[f"area-{key_of[('13499', 0)]}"]["status"] == "missing"
+    assert rows[f"area-{key_of[('13499', 1)]}"]["status"] == "withheld"
+    bamboo = {r["entity_id"]: r for r in
+              load(built, "values/vegetation_bamboo_share/2024-04-01/municipalities.json")["rows"]}
+    vs = [fixture.vegetation_areas(k, t) for k, t in towns.items() if k.startswith("14199")]
+    assert bamboo["muni-14199"]["value"] == pytest.approx(sum(x[3] for x in vs) / sum(sum(x[:-1]) for x in vs) * 100,
+                                                          abs=1e-3)
+    assert by["vegetation_bamboo_share"]["prefectures"] == ["13", "14"]
+
+
+def test_farmland_service_paging_and_area(tmp_path, monkeypatch):
+    """筆ポリゴンのサービス: 都道府県の OBJECTID の範囲の二分探索、OBJECTID 順の読み出し、面積の換算、重心での集計。"""
+    import json as js
+    import math
+    import urllib.parse
+    import numpy as np
+    import shapely
+    from tdm.prepare import farmland
+    from tdm.prepare.towns import Towns
+
+    # OBJECTID 1〜30（7・8 は欠番）。市区町村コードの順に並ぶ: 1〜10 は北海道、11〜24 は東京都、25〜30 は神奈川県
+    recs = []
+    for oid in [i for i in range(1, 31) if i not in (7, 8)]:
+        code = "011011" if oid <= 10 else "131016" if oid <= 24 else "141011"
+        lat = 35.0 + (oid % 4) * 0.001
+        recs.append({"OBJECTID": oid, "local_government_cd": code, "land_type": 100 if oid % 3 else 200,
+                     "point_lng": 139.0005 + (oid % 2) * 0.001, "point_lat": lat, "SHAPE__Area": 1000.0 * oid})
+    calls = []
+
+    def service(url):
+        q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(url).query))
+        calls.append(q)
+        where = q["where"]
+        rows = recs
+        for part in where.split(" AND "):
+            if part.startswith("OBJECTID>="):
+                rows = [r for r in rows if r["OBJECTID"] >= int(part[10:])]
+            elif part.startswith("OBJECTID>"):
+                rows = [r for r in rows if r["OBJECTID"] > int(part[9:])]
+            elif part.startswith("OBJECTID<"):
+                rows = [r for r in rows if r["OBJECTID"] < int(part[9:])]
+        rows = sorted(rows, key=lambda r: r["OBJECTID"], reverse=q.get("orderByFields", "").endswith("DESC"))
+        n = int(q.get("resultRecordCount", 1000))
+        fields = q["outFields"].split(",")
+        return js.dumps({"features": [{"attributes": {f: r[f] for f in fields}} for r in rows[:n]],
+                         "exceededTransferLimit": len(rows) > n}).encode()
+
+    last = farmland._last_id("svc", service)
+    assert last == 30
+    assert farmland.pref_range("svc", "13", last, service) == (11, 25)
+    assert farmland.pref_range("svc", "14", last, service) == (25, 31)
+    monkeypatch.setattr(farmland, "PAGE", 4)
+    calls.clear()
+    got = farmland.fetch_parcels("svc", tmp_path, 11, 25, service)
+    assert len(got["kind"]) == 14 and len(calls) == 4                    # 4件ずつ OBJECTID の順に読む
+    lat = 35.0 + (11 % 4) * 0.001
+    assert got["area"][0] == pytest.approx(11000.0 * math.cos(math.radians(lat)) ** 2)   # メルカトルの面積 → 地表
+    calls.clear()
+    again = farmland.fetch_parcels("svc", tmp_path, 11, 25, service)    # 取得したものは work から読む
+    assert not calls and np.array_equal(again["area"], got["area"])
+
+    # 重心が入る町丁・字等に数える。どこにも入らない区画は数えない
+    geoms = [shapely.box(139.0, 34.99, 139.001, 35.01), shapely.box(139.001, 34.99, 139.002, 35.01)]
+    towns = Towns("13", ["A", "B"], geoms, shapely.STRtree(geoms), [50000.0, 70000.0])
+    parcels = {k: np.append(v, v[:1]) for k, v in got.items()}
+    parcels["lon"][-1] = 140.0                                           # 町丁・字等の外
+    rows, counted = farmland.count_towns(towns, parcels, 2026)
+    assert counted == 14
+    a = [r for r in recs if 11 <= r["OBJECTID"] <= 24 and r["OBJECTID"] % 2 == 0]   # 経度 139.0005（A）
+    area = lambda r: r["SHAPE__Area"] * math.cos(math.radians(r["point_lat"])) ** 2   # noqa: E731
+    assert rows[0][:2] == ["A", 2026] and rows[0][6] == 5.0
+    assert rows[0][2] == pytest.approx(sum(area(r) for r in a if r["land_type"] == 100) / 1e4, abs=1e-3)
+    assert rows[0][4] == sum(1 for r in a if r["land_type"] == 100)
+    assert rows[0][5] == sum(1 for r in a if r["land_type"] == 200)
+
+
+def _gpkg(path, table: str, features: list[tuple]) -> None:
+    """GeoPackage（面・植生自然度・凡例コードと R-tree の索引だけ）。features は (図形, 植生自然度, 凡例コード)。"""
+    import sqlite3
+    import struct
+    import shapely
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE gpkg_geometry_columns (table_name TEXT, column_name TEXT, geometry_type_name TEXT,"
+                " srs_id INTEGER, z INTEGER, m INTEGER)")
+    con.execute("INSERT INTO gpkg_geometry_columns VALUES (?, 'geom', 'POLYGON', 6668, 0, 0)", (table,))
+    con.execute(f'CREATE TABLE "{table}" (fid INTEGER PRIMARY KEY AUTOINCREMENT, geom BLOB, '
+                '"植生自然度" TEXT, "凡例コード" TEXT)')
+    con.execute(f'CREATE VIRTUAL TABLE "rtree_{table}_geom" USING rtree(id, minx, maxx, miny, maxy)')
+    for g, nat, legend in features:
+        x0, y0, x1, y1 = g.bounds
+        # ヘッダー: GP・版・フラグ（リトルエンディアン、範囲 minx/maxx/miny/maxy つき）・SRS・範囲
+        blob = b"GP" + bytes([0, 0b011]) + struct.pack("<i4d", 6668, x0, x1, y0, y1) + shapely.to_wkb(g)
+        fid = con.execute(f'INSERT INTO "{table}" (geom, "植生自然度", "凡例コード") VALUES (?, ?, ?)',
+                          (blob, nat, legend)).lastrowid
+        con.execute(f'INSERT INTO "rtree_{table}_geom" VALUES (?, ?, ?, ?, ?)', (fid, x0, x1, y0, y1))
+    con.commit()
+    con.close()
+
+
+def test_vegetation_overlay(tmp_path):
+    """植生図の面と町丁・字等の形の重なりの面積を区分ごとに足す。植生図のない部分は範囲外（#124）。"""
+    import numpy as np
+    import shapely
+    from tdm.prepare import vegetation as veg
+    from tdm.prepare.towns import Towns
+
+    assert veg.category("9", "350601") == 0 and veg.category("8", "400100") == 1 and veg.category("7", "") == 1
+    assert veg.category("6", "540100") == 2 and veg.category("3", "550000") == 3
+    assert veg.category("6", "440000") == veg.OTHER and veg.category("99", "580600") == veg.OTHER
+    # 1度あたりの面積: 緯度35度で南北約110.9km × 東西約91.3km
+    assert veg.m2_per_deg2(np.array([35.0]))[0] == pytest.approx(110_946 * 91_288, rel=1e-3)
+
+    d = 0.01
+    a = shapely.box(139.0, 35.0, 139.0 + d, 35.0 + d)          # 町丁・字等 A（左）と B（右）
+    b = shapely.box(139.0 + d, 35.0, 139.0 + 2 * d, 35.0 + d)
+    towns = Towns("13", ["A", "B"], [a, b], shapely.STRtree([a, b]))
+    # 自然林が A の左半分、植林地が A の右半分から B の左半分、竹林は B の右上の4分の1。B の右下は植生図がない
+    _gpkg(tmp_path / "bk1.gpkg", "veg2024bk1", [
+        (shapely.box(139.0, 35.0, 139.0 + d / 2, 35.0 + d), "9", "350601"),
+        (shapely.box(139.0 + d / 2, 35.0, 139.0 + 1.5 * d, 35.0 + d), "6", "540100"),
+    ])
+    _gpkg(tmp_path / "bk2.gpkg", "veg2024bk2", [
+        (shapely.box(139.0 + 1.5 * d, 35.0 + d / 2, 139.0 + 2 * d, 35.0 + d), "3", "550000"),
+        (shapely.box(140.0, 36.0, 140.1, 36.1), "9", "350601"),   # 遠くの面は読まない
+    ])
+    geoms, cats = veg.read_polygons(tmp_path / "bk2.gpkg", [towns.bounds])
+    assert len(geoms) == 1 and cats.tolist() == [3]
+    rows = {r[0]: r[1:] for r in veg.summarize(towns, [tmp_path / "bk1.gpkg", tmp_path / "bk2.gpkg"], 2024)}
+    cell = d * d * veg.m2_per_deg2(np.array([35.0 + d / 2]))[0] / 1e4   # 町丁・字等1つの面積（ha）
+    assert rows["A"][0] == 2024
+    assert rows["A"][1] == pytest.approx(cell / 2, rel=1e-3) and rows["A"][3] == pytest.approx(cell / 2, rel=1e-3)
+    assert rows["A"][6] == pytest.approx(0, abs=1e-3)
+    assert rows["B"][3] == pytest.approx(cell / 2, rel=1e-3) and rows["B"][4] == pytest.approx(cell / 4, rel=1e-3)
+    assert rows["B"][6] == pytest.approx(cell / 4, rel=1e-3)          # 植生図の範囲外
+
+
 def test_childcare(built):
     from tdm.ingest.tokyo_childcare import read_table
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}

@@ -1199,7 +1199,7 @@ def _write_gsi_area(directory: Path) -> dict[str, Path]:
     return out
 
 
-# 土地利用・標高の集計（tdm/prepare で作り、GitHub Release「derived-sources」に置く CSV・タイル。#123）。
+# 土地利用・標高の集計（tdm/prepare で作り、GitHub Release「derived-sources」に置く CSV・タイル。#123・#124）。
 # 区分は tdm/prepare/land_use.py の LAND_USE・URBAN と同じ順。町丁・字等は _cells の16地域（番号 t は KEY_CODE の順）
 LAND_USE_FIXTURE_YEARS = (1976, 1991, 2006, 2021)
 LAND_USE_COLUMNS = ["田", "畑など", "森林", "荒地", "建物用地", "道路・鉄道", "その他の用地", "河川・湖沼", "海浜", "ゴルフ場"]
@@ -1271,6 +1271,43 @@ def elevation_stats(key: str, t: int) -> tuple[int, float, float, float]:
     mean, low, high = {"13199": (20.0 + t, 2.0 + t / 2, 40.0 + 2 * t), "13299": (50.0 + 3 * t, 30.0, 80.0 + 5 * t),
                        "13499": (100.0 + 20 * t, 0.0, 300.0 + 10 * t), "14199": (3.0 + t / 4, -1.5, 12.0 + t)}[city]
     return n, round(mean * n, 1), low, high
+
+
+# 農地の区画（筆ポリゴン）・植生（現存植生図2024）の集計（#124）。面積は ha、区画は数
+FARMLAND_COLUMNS = ["田", "畑", "田の区画", "畑の区画", "面積"]
+VEGETATION_COLUMNS = ["自然林", "二次林", "植林地", "竹林", "その他"]
+
+
+def farmland_areas(key: str, t: int) -> list[float]:
+    """FARMLAND_COLUMNS の順。13199 は農地がほとんどない市街地（区画が5つ未満）、13299 は田と畑のある郊外
+    （t=4 は面積が5ha未満、t=6 は区画の面積の合計が地域の面積を超える例）、13499 は畑の島、14199 は田の多い地域。"""
+    city = key[:5]
+    if city == "13199":
+        return [0.0, 0.3, 0, 2, 30.0]
+    if city == "13299":
+        if t == 6:
+            return [25.0, 20.0, 60, 40, 40.0]
+        return [round(8 - 0.4 * t, 4), 5.0, 40 - 2 * t, 30, 3.0 if t == 4 else 40.0]
+    if city == "13499":
+        return [0.0, 0.0, 0, 0, 0.5] if t == 0 else [0.0, round(2 + 0.1 * t, 4), 0, 10, 150.0]
+    return [float(20 - t), 10 + t / 2, 50, 40, 60.0]
+
+
+def vegetation_areas(key: str, t: int) -> list[float]:
+    """VEGETATION_COLUMNS の順＋植生図の範囲外。13199 は t=0 に自然林のある市街地、13299 は二次林・竹林のある郊外
+    （t=3 は植生図のない範囲が5%を超える例）、13499 は森林の島（t=0 は植生図がない、t=1 は面積が5ha未満）。"""
+    city = key[:5]
+    if city == "13199":
+        return [2.0 if t == 0 else 0.0, 0.4, 0.0, 0.0, 25.0 + t, 0.0]
+    if city == "13299":
+        return [0.0, round(8 - 0.3 * t, 4), 4.0, 1 + (t % 3) * 0.5, 25.0, 3.0 if t == 3 else 0.0]
+    if city == "13499":
+        if t == 0:
+            return [0.0, 0.0, 0.0, 0.0, 0.0, 0.5]
+        if t == 1:
+            return [0.0, 0.0, 0.0, 0.0, 3.0, 0.0]
+        return [20.0 + t, 30.0, 40.0 - t, 0.0, 10.0, 0.0]
+    return [0.0, 5.0, 2.0, round(3 + 0.2 * t, 4), 50.0, 0.0]
 
 
 def _fixture_png(size: int, pixels: list[list[int]]) -> bytes:
@@ -1346,7 +1383,12 @@ def _write_derived_towns(directory: Path) -> dict[str, Path]:
     for key, t, _, _ in towns:
         n, total, low, high = elevation_stats(key, t)
         elevation.append([key, n, total, low, high] if n else [key, 0, "", "", ""])
+    farmland = [[key, 2026, *farmland_areas(key, t)] for key, t, _, _ in towns]
+    vegetation = [[key, 2024, *vegetation_areas(key, t)] for key, t, _, _ in towns]
     return {
+        "farmland_towns": write_gz("farmland_towns", ["KEY_CODE", "年度", *FARMLAND_COLUMNS], farmland),
+        "vegetation_towns": write_gz("vegetation_towns", ["KEY_CODE", "年度", *VEGETATION_COLUMNS, "植生図の範囲外"],
+                                     vegetation),
         "land_use_towns": write_gz("land_use_towns", ["KEY_CODE", "年度", *LAND_USE_COLUMNS, "データなし"], land),
         "urban_land_use_towns": write_gz("urban_land_use_towns", ["KEY_CODE", "年度", *URBAN_COLUMNS, "都市地域の範囲外"],
                                          urban),

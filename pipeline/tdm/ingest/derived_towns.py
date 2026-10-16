@@ -6,6 +6,8 @@ land_use_cells / urban_land_use_cells: 列は「KEY_CODE, 年度, 区分ごと�
   指標の値は numerator_columns の合計 ÷ denominator_columns の合計 × scale（"*" は範囲外の列を除くすべての区分）。
   市区町村の値は町丁・字等のマスの合計から計算する（都道府県の値は公開ファイルを作るときに市区町村の合計から作る）。
   範囲外のマスが、陸のマスとの合計の MAX_GAP_SHARE を超える地域は値なし（missing）にする。
+vegetation_areas（現存植生図、#124）も同じ形で、マスの数の代わりに区分ごとの面積（ha）、範囲外の列は植生図のない面積。
+farmland_areas（筆ポリゴン、#124）は「KEY_CODE, 年度, 田, 畑（ha）, 田の区画, 畑の区画（数）, 面積（ha）」で、範囲外の列はない。
 town_elevation: 列は「KEY_CODE, 点の数, 標高の合計, 最低, 最高」（標高タイルの画素の数と標高）。
   elevation_value = "mean" は 標高の合計 ÷ 点の数、"range" は 最高 − 最低。市区町村・都道府県の高低差は、中の町丁・字等の
   最高・最低から求める（平均標高の都道府県の値は、公開ファイルを作るときに市区町村の合計から作る）。
@@ -50,7 +52,7 @@ def ingest_cells(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
     rows = read_rows(path)
     if not rows:
         return {"rows": 0}
-    gap = cfg["gap_column"]
+    gap = cfg.get("gap_column")
     categories = [c for c in rows[0] if c not in ("KEY_CODE", "年度", gap)]
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == cfg["kind"]}
     areas = _areas(conn, prefs)
@@ -66,7 +68,7 @@ def ingest_cells(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
         if entity_id not in areas:
             unmatched.append(r["KEY_CODE"])
             continue
-        counts[int(r["年度"])][entity_id] = {c: float(r[c]) for c in [*categories, gap]}
+        counts[int(r["年度"])][entity_id] = {c: float(r[c]) for c in [*categories, *([gap] if gap else [])]}
     result: dict = {"unmatched": unmatched}
     for year, by_area in sorted(counts.items()):
         period = (f"{year}-04-01", f"{year + 1}-03-31", "fiscal_year")
@@ -83,21 +85,25 @@ def ingest_cells(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
             n = 0
             for entity_id, c in [*((e, by_area.get(e, {})) for e in areas if prefecture_of(e) in covered),
                                  *munis.items()]:
+                den = sum(c.get(k, 0) for k in den_cols)
                 _insert_ratio(conn, entity_id, indicator_id, d, period, source_id,
-                              sum(c.get(k, 0) for k in num_cols), sum(c.get(k, 0) for k in den_cols),
-                              c.get(gap, 0), cfg)
+                              sum(c.get(k, 0) for k in num_cols), den, c.get(gap, 0) if gap else 0, cfg,
+                              over="over_columns" in d and sum(c.get(k, 0) for k in d["over_columns"]) > den)
                 n += 1
             result[f"{indicator_id} {year}"] = n
     return result
 
 
 def _insert_ratio(conn, entity_id: str, indicator_id: str, d: dict, period: tuple, source_id: str,
-                  numerator: float, denominator: float, gap: float, cfg: dict) -> None:
+                  numerator: float, denominator: float, gap: float, cfg: dict, over: bool = False) -> None:
+    """over: 分母を超える内訳がある（筆ポリゴンの区画は重心の入る地域に数えるので、小さな地域では田・畑の区画の
+    面積の合計が地域の面積を超えることがある。そのような地域は田・畑どちらの割合も出さない）。"""
     obs = dict(entity_id=entity_id, indicator_id=indicator_id, definition_version=d["definition_version"],
                period_start=period[0], period_end=period[1], period_kind=period[2],
                source_id=source_id, denominator_source_id=source_id)
     unit = d.get("denominator_label", "マス")
     min_den = float(d.get("min_denominator", 0))
+    min_note = f"{unit}が{min_den:g}{d.get('min_denominator_unit', '')}未満のため非表示"
     if gap > MAX_GAP_SHARE * (denominator + gap):
         obs.update(value=None, status="missing", method_note=cfg.get("gap_note", "データのない範囲を含むため値なし"))
     else:
@@ -105,7 +111,9 @@ def _insert_ratio(conn, entity_id: str, indicator_id: str, d: dict, period: tupl
         if denominator <= 0:
             obs.update(value=None, status="not_applicable", method_note=f"{unit}がないため算出しない")
         elif denominator < min_den:
-            obs.update(value=None, status="withheld", method_note=f"{unit}が{min_den:g}未満のため非表示")
+            obs.update(value=None, status="withheld", method_note=min_note)
+        elif over:
+            obs.update(value=None, status="withheld", method_note=d.get("over_note", "割合が100%を超えるため非表示"))
         else:
             obs.update(value=numerator / denominator * float(d.get("scale", 1)), status="derived")
     insert_observation(conn, **obs)

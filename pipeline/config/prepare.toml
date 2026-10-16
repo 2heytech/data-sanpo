@@ -27,3 +27,33 @@ method = "elevation"
 outputs = { towns = "elevation_towns" }
 tiles = "https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png"
 zoom = 12
+
+# 農林水産省「筆ポリゴン」（2026年度公開、農地の区画。#124）。筆ポリゴン公開サイトの地図が使っている ArcGIS Online の
+# 地物サービスから、区画ごとの耕地の種類（田・畑）・重心点・面積を読む（区画の形は読まない）。
+# サービスの名前は公開年度ごとに変わる（FudePolygonTemp_2026）。年度を変えるときは sources.toml の版も上げる。
+[farmland]
+method = "farmland"
+outputs = { towns = "farmland_towns" }
+service = "https://services8.arcgis.com/cW9ZoPyzxXOxrpu1/arcgis/rest/services/FudePolygonTemp_2026/FeatureServer/0"
+year = 2026
+
+# 環境省 生物多様性センター「現存植生図2024」（GeoPackage、地域ブロックごとの12ファイル。#124）。
+# 町丁・字等の形と植生図の面の重なりの面積を区分ごとに足す。
+[vegetation]
+method = "vegetation"
+outputs = { towns = "vegetation_towns" }
+year = 2024
+blocks = [
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/0df79056-7501-4d4c-9aac-1f64f7ea2c6f/download/veg2024bk1a.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/875f78de-c292-4a4d-9439-c272b5a6991c/download/veg2024bk1b.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/80cea7b5-8788-4562-a6a1-fe3b879a533d/download/veg2024bk2a.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/820e1614-2d0d-4470-9cbe-e3a626ce4fa2/download/veg2024bk2b.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/3be59af1-7c1e-4ede-822c-0021137427a7/download/veg2024bk3.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/8068020a-9f57-4545-82d0-971b29734dee/download/veg2024bk4.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/28e3bf50-76a9-46db-b11f-85a159991941/download/veg2024bk5.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/5a0fdf88-c13b-4aab-855b-c0950ae5a3cf/download/veg2024bk6.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/b731d016-7842-4ff3-bcfc-77193fc535f9/download/veg2024bk7a.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/9d87bac0-5da2-447e-9ee0-265ff78d9474/download/veg2024bk7b.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/f4c7bb6e-a46b-4777-9c63-e25874f7a754/download/veg2024bk8a.gpkg",
+  "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/36b3cd1d-224f-4b56-a81e-22c4c6d15b01/download/veg2024bk8b.gpkg",
+]
