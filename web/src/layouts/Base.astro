@@ -15,7 +15,7 @@ interface Props {
   prefecture?: string;
   /** title をそのまま使う（サイト名を後ろに付けない）。トップページ用 */
   titleIsFull?: boolean;
-  /** ページの構造化データ（読み物の Article など）。JSON-LD にして head に置く */
+  /** ページの構造化データ（寄り道の Article など）。JSON-LD にして head に置く */
   structuredData?: Record<string, unknown>;
 }
 const { title, description, wide = false, preload, prefecture, titleIsFull = false, structuredData } = Astro.props;
@@ -32,7 +32,7 @@ const areaLabel = prefecture ?? (prefectures.length === 1 ? prefectures[0].name 
 const nav = [
   ["/#indicators", "指標"],
   ["/areas/", "市区町村"],
-  ["/articles/", "読み物"],
+  ["/articles/", "寄り道"],
   ["/sources/", "出典"],
   ["/about/", "このサイトについて"],
 ];
@@ -138,7 +138,7 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
               <li><a href="/map/">地図</a></li>
               <li><a href="/#indicators">指標の一覧</a></li>
               <li><a href="/areas/">市区町村の一覧</a></li>
-              <li><a href="/articles/">読み物</a></li>
+              <li><a href="/articles/">寄り道</a></li>
               <li><a href="/guide/">使い方</a></li>
             </ul>
           </div>

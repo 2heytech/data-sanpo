@@ -185,14 +185,14 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
   </section>
 
   <section class="sheet">
-    <h2 id="articles">読み物</h2>
+    <h2 id="articles">寄り道：データで読む記事</h2>
     <p class="muted">地図と順位の数字から、地域の特徴を読み解く記事です。</p>
     <ul class="article-list">
       {ARTICLES.slice(0, 4).map((a) => (
         <li><a href={`/articles/${a.slug}/`}>{a.title}</a><p class="muted">{a.description}</p></li>
       ))}
     </ul>
-    <p><a href="/articles/">読み物の一覧（{ARTICLES.length}本）</a></p>
+    <p><a href="/articles/">寄り道の記事をすべて見る（{ARTICLES.length}本）</a></p>
   </section>
 
   <section class="sheet">

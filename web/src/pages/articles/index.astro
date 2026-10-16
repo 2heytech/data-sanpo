@@ -1,14 +1,14 @@
 ---
-// 読み物の一覧（設計変更記録 #126）
+// 寄り道の一覧（設計変更記録 #126）
 import Base from "../../layouts/Base.astro";
 import { ARTICLES, formatDate } from "../../lib/articles";
 
 const list = [...ARTICLES].sort((a, b) => (b.updated ?? b.published).localeCompare(a.updated ?? a.published));
 ---
-<Base title="読み物" description="データさんぽの公開データを使って、人口の増減・高齢化・通勤・所得・外国人住民・空き家などを、都道府県と市区町村の数字で読む記事の一覧。">
+<Base title="寄り道" description="データさんぽの公開データを使って、人口の増減・高齢化・通勤・所得・外国人住民・空き家などを、都道府県と市区町村の数字で読む記事の一覧。">
   <header class="page-head">
-    <h1>読み物</h1>
-    <p class="lead">地図と順位の数字から、地域の特徴を読み解く記事です。数値はすべて掲載しているデータの値で、出典は各指標のページにあります。</p>
+    <h1>寄り道</h1>
+    <p class="lead">地図から少し寄り道して、数字から地域の特徴を読み解く記事です。数値はすべて掲載しているデータの値で、出典は各指標のページにあります。</p>
     <div class="actions">
       <a class="button secondary" href="/guide/">データさんぽの使い方</a>
     </div>

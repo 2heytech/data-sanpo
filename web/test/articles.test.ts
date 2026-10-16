@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ARTICLES, formatDate } from "../src/lib/articles";
 
-describe("読み物の一覧", () => {
+describe("寄り道の一覧", () => {
   it("slug が重ならず、それぞれのページがある", () => {
     expect(new Set(ARTICLES.map((a) => a.slug)).size).toBe(ARTICLES.length);
     for (const a of ARTICLES) {

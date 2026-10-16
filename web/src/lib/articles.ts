@@ -1,4 +1,4 @@
-// 読み物（/articles/）の一覧。本文は pages/articles/<slug>.astro に書く。
+// 寄り道（/articles/）の一覧。本文は pages/articles/<slug>.astro に書く。
 // 数値は本文に直接書かず、公開データから出す（components/ArticleValue.astro・ArticleRanking.astro）。
 // 本文で名前を挙げた地域は ArticleRanking の expect に入れ、実データで表に出ないときはビルドを止める（設計変更記録 #126）。
 

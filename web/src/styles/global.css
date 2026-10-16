@@ -173,7 +173,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
      メニューの右端に置くと画面からはみ出して切れていた */
   .header-links { display: contents; }
   .site-header .nav-cta { order: 1; margin-left: auto; padding: 4px 12px; font-size: 0.9rem; }
-  /* メニューの5項目（読み物を加えた。#126）が390px幅で1行に収まるよう、文字と余白を少し詰める */
+  /* メニューの5項目（寄り道を加えた。#126）が390px幅で1行に収まるよう、文字と余白を少し詰める */
   .site-header nav { order: 2; width: 100%; gap: 2px; font-size: 0.85rem; overflow-x: auto; flex-wrap: nowrap; }
   .site-header nav a { padding: 4px 7px; white-space: nowrap; }
   main { padding: 16px 12px 32px; }
@@ -201,7 +201,7 @@ td .rank-mark { width: 11px; height: 11px; border-width: 2px; }
 /* 長い URL などで本文が画面の幅を超えないようにする（スマホで画面全体が広がり、表の横スクロールが効かなくなるため） */
 .sheet p, .sheet li, .sheet dd { overflow-wrap: break-word; }
 
-/* --- 読み物（/articles/）と使い方（/guide/）（#126） --- */
+/* --- 寄り道（/articles/）と使い方（/guide/）（#126） --- */
 .crumbs { margin: 0 0 6px; }
 .crumbs a { color: inherit; }
 .article-date { margin: 4px 0 0; }

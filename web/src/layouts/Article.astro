@@ -1,5 +1,5 @@
 ---
-// 読み物のページの枠。題名・日付・本文・関連する指標とほかの読み物・広告枠（本文の後）を並べる。
+// 寄り道のページの枠。題名・日付・本文・関連する指標とほかの寄り道・広告枠（本文の後）を並べる。
 import Base from "./Base.astro";
 import AdSlot from "../components/AdSlot.astro";
 import { ARTICLES, articleBySlug, formatDate } from "../lib/articles";
@@ -7,7 +7,7 @@ import { loadIndicators } from "../lib/data";
 
 interface Props { slug: string }
 const article = articleBySlug(Astro.props.slug);
-if (!article) throw new Error(`読み物 ${Astro.props.slug} が lib/articles.ts にありません`);
+if (!article) throw new Error(`寄り道 ${Astro.props.slug} が lib/articles.ts にありません`);
 const indicators = loadIndicators();
 const related = article.indicators.flatMap((id) => indicators.find((i) => i.id === id) ?? []);
 const others = ARTICLES.filter((a) => a.slug !== article.slug);
@@ -30,7 +30,7 @@ const structuredData = {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "データさんぽ", ...(Astro.site ? { item: new URL("/", Astro.site).href } : {}) },
-        { "@type": "ListItem", position: 2, name: "読み物", ...(Astro.site ? { item: new URL("/articles/", Astro.site).href } : {}) },
+        { "@type": "ListItem", position: 2, name: "寄り道", ...(Astro.site ? { item: new URL("/articles/", Astro.site).href } : {}) },
         { "@type": "ListItem", position: 3, name: article.title },
       ],
     },
@@ -38,9 +38,9 @@ const structuredData = {
 };
 ---
 <Base title={article.title} description={article.description} structuredData={structuredData}>
-  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/articles/">読み物</a></nav>
+  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/articles/">寄り道</a></nav>
   <header class="page-head">
-    <p class="eyebrow">読み物</p>
+    <p class="eyebrow">寄り道</p>
     <h1>{article.title}</h1>
     <p class="muted article-date">
       <time datetime={article.published}>{formatDate(article.published)}</time>公開
@@ -61,7 +61,7 @@ const structuredData = {
     </section>
   )}
   <section class="sheet">
-    <h2>ほかの読み物</h2>
+    <h2>ほかの寄り道</h2>
     <ul class="article-links">
       {others.map((a) => <li><a href={`/articles/${a.slug}/`}>{a.title}</a></li>)}
     </ul>

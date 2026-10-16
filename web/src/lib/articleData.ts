@@ -1,4 +1,4 @@
-// 読み物の本文で使う数値・地域名（ビルド時だけ）。本文に数値を手で書かず、公開データから出すためのもの。
+// 寄り道の本文で使う数値・地域名（ビルド時だけ）。本文に数値を手で書かず、公開データから出すためのもの。
 // 実データで、本文が前提にしている値・地域が見つからないときは例外を投げてビルドを止める
 // （データを差し替えたあとに、本文と表が食い違ったまま公開しないため。設計変更記録 #126）。
 // 開発用の架空データ（fixture）では地域も値も違うので、止めずに「—」を出す。
@@ -15,7 +15,7 @@ export class ArticleDataError extends Error {}
 /** 本文の前提が崩れたとき。実データなら止め、架空データなら null を返す */
 function fail(message: string): null {
   if (RELEASE.is_fixture) return null;
-  throw new ArticleDataError(`読み物: ${message}（本文を実データに合わせて直してください）`);
+  throw new ArticleDataError(`寄り道: ${message}（本文を実データに合わせて直してください）`);
 }
 
 export function indicator(id: string): Indicator | null {
