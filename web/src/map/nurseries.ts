@@ -25,7 +25,7 @@ interface Options {
   municipalityName: (id: string) => string;
   beforeLayer: string;
   labelFont: string[];
-  /** 右の欄の表示が変わったとき（開いた・閉じた） */
+  /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
 }
 
@@ -131,9 +131,12 @@ export function initNurseries(o: Options): PointLayer {
   }
   o.toggle.addEventListener("change", () => void setVisible(o.toggle.checked));
 
+  /** 情報を出している施設の位置（位置を求められなかった施設は null） */
+  let at: [number, number] | null = null;
   function showPoint(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, ["==", ["get", "id"], id ?? ""]);
     const p = id ? byId.get(id) : undefined;
+    at = p && data ? p.coord : null;
     if (!p || !data) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -184,5 +187,6 @@ export function initNurseries(o: Options): PointLayer {
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     show: showPoint,
     isOpen: () => !o.panel.hidden,
+    coord: () => (o.panel.hidden ? null : at),
   };
 }

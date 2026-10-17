@@ -29,7 +29,7 @@ interface Options {
   municipalityName: (id: string) => string;
   beforeLayer: string;
   labelFont: string[];
-  /** 右の欄の表示が変わったとき（開いた・閉じた） */
+  /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
 }
 
@@ -39,6 +39,8 @@ export function initStations(o: Options): StationLayer {
   let data: StationsFile | null = null;
   let stations: Station[] = [];
   let byId = new Map<string, Station>();
+  /** 情報を出している駅 */
+  let shown: Station | null = null;
   const latest = () => (data ? data.periods.length - 1 : 0);
   const loader = createPrefLoader<Station>({
     map: o.map, fetchJSON: o.fetchJSON, id: "station_passengers", key: "stations",
@@ -164,10 +166,11 @@ export function initStations(o: Options): StationLayer {
     return MISSING_TEXT[s.status[i] ?? ""] ?? "駅なし";
   };
 
-  /** 駅を選んだときの処理（クリック・一覧から）。表示は右の欄の駅の情報にまとめる */
+  /** 駅を選んだときの処理（クリック・一覧から）。表示はポップアップの駅の情報にまとめる */
   function showStation(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, ["==", ["get", "id"], id ?? ""]);
     const s = id ? byId.get(id) : undefined;
+    shown = s && data ? s : null;
     if (!s || !data) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -257,5 +260,6 @@ export function initStations(o: Options): StationLayer {
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     show: showStation,
     isOpen: () => !o.panel.hidden,
+    coord: () => (o.panel.hidden ? null : shown?.coord ?? null),
   };
 }

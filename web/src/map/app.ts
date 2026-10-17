@@ -18,7 +18,7 @@ import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
 import { initWeather } from "./weather";
-import { initLandUse } from "./landuse";
+import { initLandUse, NARROW_MAP_PX } from "./landuse";
 import { initTransport } from "./transport";
 import type { PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
@@ -44,6 +44,9 @@ const PLAY_INTERVAL_MS = 1600;
 const PHOTO_PLAY_INTERVAL_MS = 2500; // 航空写真は読み込みに時間がかかるので、指標の再生より長めに見せる
 const MUNI_OPACITY = 0.72;
 const AREA_OPACITY = 0.68;
+const POPUP_MAX_PX = 420; // 地点の情報のポップアップの高さの上限
+// ポップアップを地図の端からこれだけ離す（上は左上の背景の切替の下まで）
+const POPUP_PAD = { top: 58, bottom: 24, side: 12 };
 const GSI_ATTRIBUTION =
   '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>';
 // 背景に切り替えられる地理院タイル（淡色地図はいつも下に敷き、写真が撮られていない場所や縮小時はそれが見える）。
@@ -578,6 +581,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
 
   // 点レイヤー（駅・空港・港・学校・地価（地価公示・都道府県地価調査）・保育所・天気の観測所）。オンにしたときだけ読み込む
   const pickEl = $("#pick-detail");
+  // 地点の情報は、押した点から出る地図の上のポップアップに出す。右の欄は地域（色分け）の情報だけにする（#139）。
+  // 中身（駅・学校などの情報の欄と、重なった地点の一覧）は各点レイヤーが書き、開いている1つだけが見える
+  const popupEl = $("#point-popup");
+  const popup = new maplibregl.Popup({
+    closeButton: false, closeOnClick: false, focusAfterOpen: false, maxWidth: "none", offset: 12, className: "point-popup-wrap",
+  });
   const pointOptions = (toggle: string, legendSel: string, panel: string) => ({
     map, fetchJSON, sources, beforeLayer: "area-label", labelFont: LABEL_FONT,
     toggle: $<HTMLInputElement>(toggle), legend: $(legendSel), panel: $(panel),
@@ -594,10 +603,50 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     initWeather({ select: $<HTMLSelectElement>("#weather-select"),
       ...pointOptions("#weather-toggle", "#weather-legend", "#weather-detail") }),
   ];
-  // 地点の情報を出している間は、地域の情報を隠す（直前にクリックしたものだけを出す）
+  // 各点レイヤーが情報の欄を受け取ってから、欄をまとめてポップアップに移す（移すとページの中からは探せなくなる）
+  popup.setDOMContent(popupEl);
+  popupEl.hidden = false;
+  // 重なった地点の一覧を出す位置（押した所）
+  let pickAt: [number, number] | null = null;
+  // 地点の情報を開いた・閉じた・別の地点にしたときに、ポップアップを開く・動かす・閉じる。
+  // 位置が分からない地点（住所から位置を求められなかった学校など）は地図の真ん中に出す
   function syncPanels() {
-    detailEl.hidden = pointLayers.some((p) => p.isOpen()) || !pickEl.hidden;
+    const open = pointLayers.find((p) => p.isOpen());
+    const at = open ? open.coord() ?? map.getCenter().toArray() : !pickEl.hidden ? pickAt : null;
+    if (!at) {
+      popup.remove();
+      return;
+    }
+    popupEl.style.maxHeight = `${popupMaxHeight()}px`;
+    popupEl.scrollTop = 0;
+    popup.setLngLat(at);
+    if (!popup.isOpen()) popup.addTo(map);
+    fitPopup();
   }
+  // ポップアップの高さの上限（長い推移の表などはポップアップの中でスクロールする）。地図の高さの6割まで
+  function popupMaxHeight() {
+    return Math.round(Math.min(POPUP_MAX_PX, map.getContainer().clientHeight * 0.6));
+  }
+  // ポップアップが地図からはみ出す（左上の背景の切替に重なる）ときは、収まるまで地図を動かす
+  function fitPopup() {
+    requestAnimationFrame(() => {
+      if (!popup.isOpen()) return;
+      const c = map.getContainer().getBoundingClientRect();
+      const r = popup.getElement().getBoundingClientRect();
+      const top = c.top + POPUP_PAD.top, bottom = c.bottom - POPUP_PAD.bottom;
+      const left = c.left + POPUP_PAD.side, right = c.right - POPUP_PAD.side;
+      const dx = r.left < left ? r.left - left : r.right > right ? r.right - right : 0;
+      const dy = r.top < top ? r.top - top : r.bottom > bottom ? r.bottom - bottom : 0;
+      if (dx || dy) map.panBy([dx, dy], { duration: 300 });
+    });
+  }
+  map.on("resize", () => {
+    if (popup.isOpen()) popupEl.style.maxHeight = `${popupMaxHeight()}px`;
+  });
+  // Esc キーで閉じる（指標の選択画面を開いているときは、そちらを閉じるだけにする）
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && popup.isOpen() && !root.querySelector("dialog[open]")) showPoint(null, null);
+  });
   function showPoint(target: PointLayer | null, id: string | null) {
     pickEl.hidden = true;
     pickEl.innerHTML = "";
@@ -627,6 +676,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     };
   }
   closePoints = () => showPoint(null, null);
+  // 地図に重ねているもの（点・土地利用）の凡例（地図の右上）。見出しのボタンで畳める。
+  // 地図の幅が狭いとき（スマホ）は地図を隠しすぎないよう、畳んで始める（#139）
+  const notesToggle = $<HTMLButtonElement>("#overlay-notes-toggle");
+  if (map.getContainer().clientWidth <= NARROW_MAP_PX) notesToggle.setAttribute("aria-expanded", "false");
+  notesToggle.addEventListener("click", () =>
+    notesToggle.setAttribute("aria-expanded", String(notesToggle.getAttribute("aria-expanded") !== "true")));
   const PICK_PX = 4; // クリック位置の周りこのピクセル以内の点を拾う
   map.on("click", (e) => {
     const box: [PointLike, PointLike] = [[e.point.x - PICK_PX, e.point.y - PICK_PX], [e.point.x + PICK_PX, e.point.y + PICK_PX]];
@@ -636,7 +691,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         layer, id: String(f.properties.id), name: String(f.properties.pick ?? f.properties.name),
       }))).filter((h) => !seen.has(`${h.layer.kind}:${h.id}`) && !!seen.add(`${h.layer.kind}:${h.id}`));
     if (hits.length === 1) return showPoint(hits[0].layer, hits[0].id);
-    if (hits.length > 1) return showPicker(hits);
+    if (hits.length > 1) {
+      pickAt = [e.lngLat.lng, e.lngLat.lat];
+      return showPicker(hits);
+    }
+    // 点のない所を押したら、地点の情報（ポップアップ）を閉じる
+    if (popup.isOpen()) showPoint(null, null);
     const f = map.queryRenderedFeatures(e.point, { layers: ["pref-fill", "muni-fill", "area-fill"] })[0];
     if (f) void select(String(f.properties.id));
   });

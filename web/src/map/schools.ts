@@ -28,7 +28,7 @@ interface Options {
   municipalityName: (id: string) => string;
   beforeLayer: string;
   labelFont: string[];
-  /** 右の欄の表示が変わったとき（開いた・閉じた） */
+  /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
 }
 
@@ -158,9 +158,12 @@ export function initSchools(o: Options): SchoolLayer {
     return v !== null && v !== undefined ? `${formatNumber(v, 0)}人` : "一覧になし";
   };
 
+  /** 情報を出している学校の位置（位置を求められなかった学校は null） */
+  let at: [number, number] | null = null;
   function showSchool(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, ["==", ["get", "id"], id ?? ""]);
     const s = id ? byId.get(id) : undefined;
+    at = s && data ? s.coord : null;
     if (!s || !data) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -264,6 +267,7 @@ export function initSchools(o: Options): SchoolLayer {
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     show: showSchool,
     isOpen: () => !o.panel.hidden,
+    coord: () => (o.panel.hidden ? null : at),
   };
 }
 

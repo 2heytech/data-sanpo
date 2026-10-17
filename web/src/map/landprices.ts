@@ -1,7 +1,7 @@
 // 地価の点レイヤー。地価公示（国土数値情報「地価公示データ」、1月1日時点の標準地）と都道府県地価調査
 // （「都道府県地価調査データ」、7月1日時点の基準地）を、1つの「地価」の表示にまとめて出す（docs/design-changes.md #134）。
 // 地点ごとの最新の価格（円/㎡）で円を塗り分け、地価調査の基準地は縁の色で見分ける。
-// 同じ土地を両方で調べている地点（共通地点）は1つの点にし、右の欄に両方の価格を時点の順に並べる（pairLandPoints）。
+// 同じ土地を両方で調べている地点（共通地点）は1つの点にし、ポップアップに両方の価格を時点の順に並べる（pairLandPoints）。
 // 表示をオンにしたときに初めて places/<指標>.json を読み込み、地点の一覧は地図に映っている
 // 都道府県の分だけ読む（createPrefLoader）。
 // 地域の平均ではなく選ばれた1地点の価格であることを凡例と詳細に明記する。
@@ -39,7 +39,7 @@ interface Options {
   municipalityName: (id: string) => string;
   beforeLayer: string;
   labelFont: string[];
-  /** 右の欄の表示が変わったとき（開いた・閉じた） */
+  /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
 }
 
@@ -344,10 +344,13 @@ export function initLandPrices(o: Options): LandPriceLayer {
       (both ? `<p class="note small">共通地点なので、「前回から」は半年前（もう一方の調査の時点）の価格からの変化です。</p>` : "");
   }
 
+  /** 情報を出している地点の位置 */
+  let at: [number, number] | null = null;
   function showPoint(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, selectedFilter(id));
     const s = id ? byId.get(id) : undefined;
     const kinds = s ? KINDS.filter((kind) => s[kind] && files[kind]) : [];
+    at = s && kinds.length ? s[kinds[0]]!.coord : null;
     if (!s || !kinds.length) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -427,5 +430,6 @@ export function initLandPrices(o: Options): LandPriceLayer {
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     show: showPoint,
     isOpen: () => !o.panel.hidden,
+    coord: () => (o.panel.hidden ? null : at),
   };
 }
