@@ -112,8 +112,8 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
 <Base title="データさんぽ｜全国の市区町村・町丁目の統計を色分けして見る地図" titleIsFull
   description="全国の都道府県・市区町村・町丁目の人口・外国人・年収・選挙・犯罪・交通事故・教育などを、国勢調査などの公開データで色分けした地図サイト。市区町村のランキングと出典つき。">
   <section class="hero">
-    <h1><img src="/logo.svg" alt="データさんぽ" width="339" height="70" /></h1>
-    <p class="lead">日本を、データで歩く。</p>
+    <!-- ロゴの文字の下に一文「日本を、データで歩く。」を入れたもの（設計変更記録 #140） -->
+    <h1><img src="/logo-tagline.svg" alt="データさんぽ　日本を、データで歩く。" width="339" height="82" /></h1>
     <a class="button big" href="/map/">地図をひらく</a>
   </section>
 
@@ -235,9 +235,8 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
     background: radial-gradient(120% 90% at 50% 0%, #ffffff 0%, #eef4fb 60%, #e3edf8 100%);
     border: 1px solid var(--line); box-shadow: var(--shadow);
   }
-  .hero h1 { margin: 0; }
+  .hero h1 { margin: 0 0 26px; }
   .hero h1 img { width: min(520px, 92%); height: auto; }
-  .lead { font-size: 1.12rem; margin: 18px 0 26px; color: #2c3a4a; }
   .area-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
   .button.big { font-size: 1.3rem; padding: 16px 52px; box-shadow: 0 6px 18px rgba(11, 92, 173, .35); }
   .genre h3 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.8em; scroll-margin-top: 100px; }
@@ -263,7 +262,6 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
   .area-links a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
   @media (max-width: 720px) {
     .hero { padding: 28px 14px 22px; }
-    .lead { font-size: 1rem; }
     .sp-only { display: inline; }
     .steps { grid-template-columns: 1fr; }
     .hide-sp { display: none; }
