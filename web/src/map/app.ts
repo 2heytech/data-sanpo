@@ -1272,26 +1272,26 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   // --- 背景・範囲・現在地 -------------------------------------------------------------
-  // 航空写真は地図の上のボタンで出す独立した機能。年代のスライドバーも地図の上に置き、見ている年代が地図と一緒に分かる。
-  // 標高（色別標高図）は左の欄のチェックで出す。どちらか一方だけを背景に重ねる
-  const photoToggle = $<HTMLButtonElement>("#photo-toggle");
+  // 背景（地図・航空写真・標高・土地利用）は地図の左上の切替でどれか1つを選ぶ（#128）。航空写真の撮影年代・土地利用の年度の
+  // スライドバーと標高の色の見本は地図の上のパネルに置き、見ている年代・年度が地図と一緒に分かるようにする
+  const baseButtons = [...root.querySelectorAll<HTMLButtonElement>(".base-switch button")];
   const photoPanel = $<HTMLElement>("#photo-panel");
-  const photoClose = $<HTMLButtonElement>("#photo-close");
   const photoRange = $<HTMLInputElement>("#photo-era-range");
   const photoLabel = $<HTMLOutputElement>("#photo-era-label");
   const photoEnds = $<HTMLElement>("#photo-era-ends");
   const photoPlay = $<HTMLButtonElement>("#photo-era-play");
   const photoNote = $<HTMLElement>("#photo-note");
-  const reliefToggle = $<HTMLInputElement>("#relief-toggle");
+  const reliefPanel = $<HTMLElement>("#relief-panel");
   const reliefNote = $<HTMLElement>("#relief-note");
-  // 土地利用図（#123）。背景の地図と同じく、写真・標高とは同時に出さない。土地利用図のない公開版では切替を出さない
-  const landUseToggle = $<HTMLInputElement>("#landuse-toggle");
+  // 土地利用図（#123）。土地利用図のない公開版では切替を出さない
   const landUseSource = sourcesFile.sources.find((s) => s.dataset_key === "land_use_tiles");
-  landUseToggle.closest("label")!.hidden = !landUseSource;
+  baseButtons.find((b) => b.dataset.basemap === "landuse")!.hidden = !landUseSource;
   const landUse = initLandUse({
     maplibregl, map, base, fetchJSON, source: landUseSource,
-    range: $<HTMLInputElement>("#landuse-year"), label: $<HTMLOutputElement>("#landuse-year-label"),
-    ends: $("#landuse-year-ends"), controls: $("#landuse-controls"), legend: $("#landuse-note"),
+    panel: $("#landuse-panel"), range: $<HTMLInputElement>("#landuse-year"), label: $<HTMLOutputElement>("#landuse-year-label"),
+    ticks: $("#landuse-year-ticks"), play: $<HTMLButtonElement>("#landuse-play"),
+    legend: $("#landuse-legend"), legendToggle: $<HTMLButtonElement>("#landuse-legend-toggle"),
+    note: $("#landuse-note"), info: $("#landuse-info"),
     // 背景の地図のすぐ上（境界の塗り・線・地名より下）
     beforeLayer: () => map.getStyle().layers.find((l) => l.id !== "pale" && !BASEMAPS.some((b) => b.id === l.id))?.id,
   });
@@ -1359,14 +1359,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const chosen = chosenBasemap();
     for (const b of BASEMAPS) map.setLayoutProperty(b.id, "visibility", b === chosen ? "visible" : "none");
     const photo = baseMode === "photo";
+    for (const b of baseButtons) b.setAttribute("aria-pressed", String(b.dataset.basemap === baseMode));
     photoPanel.hidden = !photo;
-    photoToggle.setAttribute("aria-pressed", String(photo));
-    reliefToggle.checked = baseMode === "relief";
-    landUseToggle.checked = baseMode === "landuse";
+    reliefPanel.hidden = baseMode !== "relief";
     void landUse.setVisible(baseMode === "landuse");
-    const zoomIn = chosen && map.getZoom() < chosen.minzoom;
-    reliefNote.hidden = baseMode !== "relief";
-    reliefNote.textContent = zoomIn ? "拡大すると表示されます。" : "標高が高いほど茶色、低いほど青く表示します。";
+    // 256px のタイルは「地図の縮尺 + 1」を丸めたズームのタイルで描かれ（MapLibre の raster）、それが minzoom 未満だと何も出ない
+    const zoomIn = chosen && Math.round(map.getZoom() + 1) < chosen.minzoom;
+    reliefNote.hidden = !zoomIn;
+    reliefNote.textContent = zoomIn ? "拡大すると表示されます。" : "";
     if (!photo || !chosen) return;
     photoRange.max = String(photoEras.length - 1);
     photoRange.value = String(Math.max(0, photoEras.findIndex((e) => e.id === photoEraId)));
@@ -1382,10 +1382,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       : photoChecked ? "この場所の昔の写真は見つかりませんでした。"
       : map.getZoom() < 10 ? "拡大すると、昔の写真を年代を選んで見られます。" : "この場所の写真の年代を確かめています。";
   }
-  photoToggle.addEventListener("click", () => setBaseMode(baseMode === "photo" ? "pale" : "photo"));
-  photoClose.addEventListener("click", () => setBaseMode("pale"));
-  reliefToggle.addEventListener("change", () => setBaseMode(reliefToggle.checked ? "relief" : "pale"));
-  landUseToggle.addEventListener("change", () => setBaseMode(landUseToggle.checked ? "landuse" : "pale"));
+  for (const b of baseButtons) b.addEventListener("click", () => setBaseMode(b.dataset.basemap as typeof baseMode));
+  // パネルの × は地図（淡色地図）に戻す
+  for (const b of root.querySelectorAll<HTMLButtonElement>(".base-close")) b.addEventListener("click", () => setBaseMode("pale"));
   photoRange.addEventListener("input", () => {
     stopPhotoPlay();
     photoEraId = photoEras[Number(photoRange.value)]?.id ?? "photo";
