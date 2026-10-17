@@ -193,6 +193,9 @@ class Gazetteer:
     def locate(self, municipality: str, address: str) -> GeoResult | None:
         muni = normalize_municipality(municipality)
         a = normalize(address)
+        # 「字」のある住所（「大字恒久5-13-5」「鹿島町久保字於振2-6」）の数字は地番。丁目と読むのは「丁目」と書いたときだけ
+        raw = unicodedata.normalize("NFKC", address)
+        aza = "字" in re.split(r"\d", raw, maxsplit=1)[0] and not re.search(r"\d\s*丁", raw)
         a = re.split(r"[(（]", a)[0]
         # 町名・番地の欄に都道府県・郡・市区町村名を重ねて書いた住所（「静岡県駿東郡長泉町下土狩87-1」）と、
         # 政令指定都市の区名から書いた住所（市区町村が「静岡市葵区」で「葵区古庄4-2-11」）
@@ -253,7 +256,7 @@ class Gazetteer:
             candidates.append((town, nums))
             town, town_koaza = parts
         # 「町名＋丁目-街区」と「町名-街区（丁目なし）」の両方を試す
-        chome = town and len(nums) >= 2 and 0 < int(nums[0]) < 100
+        chome = town and len(nums) >= 2 and 0 < int(nums[0]) < 100 and not aza
         if chome:
             candidates.append((town + kanji_number(int(nums[0])) + "丁目", nums[1:]))
         candidates.append((town, nums))
@@ -262,8 +265,8 @@ class Gazetteer:
             candidates.append((town + kanji_number(int(nums[0])) + "丁", nums[1:]))
             if not town.endswith("町"):
                 candidates.append((town + "町" + kanji_number(int(nums[0])) + "丁目", nums[1:]))
-        # 地番の前の「甲」「乙」（「三河内乙1189」）は大字名ではない
-        if town[-1:] in ("甲", "乙", "丙") and len(town) > 2:
+        # 地番の前の「甲」「乙」（「三河内乙1189」）は大字名ではない（「東根甲」のように町名にあるときを除く）
+        if town[-1:] in ("甲", "乙", "丙") and len(town) > 2 and not self._towns(muni).get(town_key(town)):
             candidates.append((town[:-1], nums))
         # 位置参照情報に「大字」がない町名（住所は「鍋島町大字蛎久」）と、住所に「大字」がない町名
         # （位置参照情報は「川副町大字早津江」）も試す
