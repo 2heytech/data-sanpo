@@ -56,10 +56,19 @@ body.wide .site-header { position: static; }
 .site-header nav a, .site-header .nav-cta {
   padding: 6px 12px; border-radius: 999px; color: var(--fg); text-decoration: none; font-weight: 500;
 }
+.site-header nav a { display: inline-flex; align-items: center; gap: 6px; }
+/* メニューのアイコン（ロゴの藍、文字は墨色。設計変更記録 #141） */
+.site-header .nav-icon { width: 18px; height: 18px; flex: none; color: var(--accent); }
 .site-header nav a:hover { background: var(--panel); }
 .site-header nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-ink); font-weight: 700; }
 .site-header .nav-cta { background: var(--accent); color: #fff; font-weight: 700; white-space: nowrap; }
 .site-header .nav-cta:hover { background: var(--accent-ink); }
+/* 画面が狭くなったら、アイコンの下に小さめの文字を置いて幅を詰め、ヘッダーを1行（パソコン）・2行（スマホ）に保つ */
+@media (max-width: 1180px) {
+  .site-header nav a { flex-direction: column; gap: 1px; padding: 3px 8px; border-radius: 10px; font-size: 0.78rem; line-height: 1.25; }
+  .site-header .nav-icon { width: 20px; height: 20px; }
+  .site-header nav .nav-wide { display: none; }
+}
 .fixture-banner { margin: 0; padding: 6px 20px; background: var(--warn-bg); font-size: 0.9rem; }
 
 /* --- 本文 --- */
@@ -176,10 +185,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   .header-links { display: contents; }
   .site-header .nav-cta { order: 1; margin-left: auto; padding: 4px 12px; font-size: 0.9rem; }
   /* メニューの6項目（寄り道 #126、都道府県 #135 を加えた）が360〜390px幅で1行に収まるよう、文字と余白を詰め、
-     「このサイトについて」は「サイトについて」にする */
-  .site-header nav { order: 2; width: 100%; gap: 0; font-size: 0.85rem; overflow-x: auto; flex-wrap: nowrap; }
-  .site-header nav a { padding: 4px 5px; white-space: nowrap; }
-  .site-header nav .nav-wide { display: none; }
+     「このサイトについて」は「サイトについて」にする。アイコンは文字の上に置き、項目を横いっぱいに並べる（#141） */
+  .site-header nav { order: 2; width: 100%; gap: 0; overflow-x: auto; flex-wrap: nowrap; justify-content: space-between; }
+  .site-header nav a { padding: 3px 5px; font-size: 0.75rem; white-space: nowrap; }
+  .site-header .nav-icon { width: 18px; height: 18px; }
   main { padding: 16px 12px 32px; }
   .sheet { padding: 20px 16px; border-radius: 10px; }
   h1 { font-size: 1.45rem; }
@@ -190,8 +199,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 @media (max-width: 380px) {
   .site-header { gap: 6px 8px; }
   .brand img { height: 26px; }
-  .site-header nav { font-size: 0.8rem; }
-  .site-header nav a { padding: 4px 4px; }
+  .site-header nav a { padding: 3px 3px; }
 }
 h2[id], h3[id] { scroll-margin-top: 100px; }
 
@@ -226,3 +234,19 @@ td .rank-mark { width: 11px; height: 11px; border-width: 2px; }
 .guide-figure { margin: 12px 0 20px; }
 .guide-figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
 .guide-figure figcaption { margin-top: 4px; }
+
+/* 件数の札と、開け閉めできる指標の分類（地域ページ・都道府県ページの「主な指標」「となりと比べる」） */
+.count { margin-left: 8px; padding: 1px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.8rem; vertical-align: middle; }
+.stat-cat > summary {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 8px 4px; border-bottom: 1px solid var(--line);
+}
+.stat-cat > summary::-webkit-details-marker { display: none; }
+.stat-cat > summary::after {
+  content: ""; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+  transform: translateY(-2px) rotate(45deg); transition: transform .15s;
+}
+.stat-cat[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+.stat-cat > summary:hover { background: #fafcfe; }
+.stat-cat h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.98rem; }
+.stat-cat .count { margin-left: 0; }
+.stat-cat .table-scroll { margin: 10px 0 12px; }

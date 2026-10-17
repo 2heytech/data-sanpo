@@ -1,0 +1,46 @@
+---
+// 「データで見る〇〇」の中身。特徴を一言で表す題名、概要の文、テーマごとの「データから考えられること」。
+// 地域ページと都道府県ページで使う（設計変更記録 #113・#116・#140）
+import type { AreaProfile } from "../lib/areaInsights";
+
+interface Props { name: string; profile: AreaProfile; summary: string[] }
+const { name, profile, summary } = Astro.props;
+---
+<h2>データで見る{name}</h2>
+{profile.title && <p class="catch">{profile.title}</p>}
+{summary.map((line) => <p>{line}</p>)}
+{profile.lines.length > 0 && (
+  <>
+    <h3>データから考えられること</h3>
+    <div class="insight-groups">
+      {profile.groups.map((g) => (
+        <section class="insight-group">
+          <h4>{g.theme}</h4>
+          <ul class="insights">{g.lines.map((line) => <li>{line}</li>)}</ul>
+        </section>
+      ))}
+    </div>
+  </>
+)}
+<p class="muted">順位は値の大きい順で、大きいほど良い・悪いという意味ではありません。
+  {profile.lines.length > 0 && "「考えられること」はデータの組み合わせから推測したもので、実際の理由を確かめたものではありません。"}</p>
+
+<style>
+  h2:first-child { margin-top: 0; }
+  .catch {
+    margin: 0.2em 0 0.9em; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft);
+    color: var(--accent-ink); font-size: 1.12rem; font-weight: 700; line-height: 1.5;
+  }
+  .insight-groups { display: grid; gap: 14px; margin-top: 4px; }
+  .insight-group { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 4px 14px; align-items: start; }
+  .insight-group h4 {
+    margin: 2px 0 0; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink);
+    font-size: 0.8rem; font-weight: 700; text-align: center; white-space: nowrap;
+  }
+  .insights { margin: 0; padding-left: 1.2em; }
+  .insights li + li { margin-top: 0.5em; }
+  @media (max-width: 640px) {
+    .insight-group { grid-template-columns: 1fr; }
+    .insight-group h4 { justify-self: start; }
+  }
+</style>

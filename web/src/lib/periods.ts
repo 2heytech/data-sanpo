@@ -21,3 +21,20 @@ export function municipalityPeriods(ind: Indicator): string[] {
     : undefined;
   return [...newer, ind.default_period, ...(fallback ? [fallback] : [])];
 }
+
+/**
+ * 都道府県の値を見るときの時点の候補（先に使う方から）。市区町村と同じく、国勢調査の新しい回（2025年など）を先に、次に既定の時点を使う。
+ * 既定の時点に都道府県の値がない指標は、都道府県の値がある最も新しい時点を最後に置く
+ */
+export function prefecturePeriods(ind: Indicator): string[] {
+  const has = (p: Indicator["periods"][number]) => p.levels.includes("prefecture");
+  const newer = ind.periods
+    .filter((p) => p.period > ind.default_period && !p.aggregate && has(p)
+      && p.source_ids.length > 0 && p.source_ids.every((s) => s.startsWith("census")))
+    .map((p) => p.period)
+    .sort()
+    .reverse();
+  const current = ind.periods.find((p) => p.period === ind.default_period);
+  const latest = ind.periods.filter((p) => !p.aggregate && has(p)).map((p) => p.period).sort().at(-1);
+  return [...new Set([...newer, ...(current && has(current) ? [current.period] : []), ...(latest ? [latest] : [])])];
+}

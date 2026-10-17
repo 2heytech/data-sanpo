@@ -115,11 +115,11 @@ const ID_THEME: Record<string, Theme> = {
   life_expectancy_male: "安全と健康",
   life_expectancy_female: "安全と健康",
 };
-const themeOf = (ind: Indicator): Theme => ID_THEME[ind.id] ?? CATEGORY_THEME[ind.category] ?? "安全と健康";
+export const themeOf = (ind: Indicator): Theme => ID_THEME[ind.id] ?? CATEGORY_THEME[ind.category] ?? "安全と健康";
 
 /** w は見出しに選ぶときの目立ち方（小さいほど目立つ。全国の中の位置など） */
 /** lead: 土地・財政の文で、全国の上位・下位2%に入るときのその位置（全国順位の考察のすぐ後に置き、ほかの文より先に選ぶ） */
-type Line = { text: string; strong: boolean; tone?: Tone; tag?: Tag; w: number; theme?: Theme; topic?: string; lead?: number };
+export type Line = { text: string; strong: boolean; tone?: Tone; tag?: Tag; w: number; theme?: Theme; topic?: string; lead?: number };
 /**
  * テーマの中の話の順（人口 → 年齢 → 世帯 → 外国人 → 住まい → 地価、のように話がつながる順）。
  * 考察を出す処理の名前と、全国順位の考察の指標の id（国籍別・政党別は名前の頭）で並べる。ないものはテーマの最後
@@ -130,7 +130,7 @@ const TOPIC_ORDER = [
   // 交通
   "airport", "port", "station", "commute", "commute_walk_share", "commute_bicycle_share", "commute_bus_share", "commute_car_share",
   // 住む人
-  "evacuation", "populationChange", "ageStructure", "total_fertility_rate", "foreignGap", "foreignShare", "census_foreign", "households",
+  "evacuation", "populationChange", "history", "ageStructure", "total_fertility_rate", "foreignGap", "foreignShare", "census_foreign", "households",
   "persons_per_household", "households_with_children_share", "university_graduate_share", "taxable_income_per_taxpayer",
   "income_levy_taxpayer_share", "income",
   // 住まい
@@ -160,6 +160,108 @@ const placeCache = new WeakMap<PlacePoints, Map<string, MuniPlaces>>();
 
 /** 「データで見る〇〇」の見出し（特徴を一言で表す文）と考察（テーマごとのまとまりと、その順に並べた文） */
 export interface AreaProfile { title: string | null; groups: { theme: Theme; lines: string[] }[]; lines: string[] }
+
+/**
+ * 考察の候補（all。目立つ順）から、ページに出す考察と題名を選び、テーマごとに並べる（市区町村・都道府県のページで共通）。
+ * extra は題名の候補に加える考察（全国で目立つ指標の考察）、bright は課題に当たる文が多いときに入れる良いところの文、
+ * place は題名の最後に付ける言葉（市区町村は「まち」、都道府県はその名前）
+ */
+export function composeProfile(all: Line[], opts: { extra: Line[]; bright: Line[]; place: string }): AreaProfile {
+  // ほかに考察が十分あるときは、どの地域にも出やすいありきたりな考察を外す
+  const lines = all.filter((l) => !isFiller(l)).length >= MIN_WITHOUT_FILLER ? all.filter((l) => !isFiller(l)) : all;
+  // 強い考察を先に（並びは上の順のまま）、一般的な考察で埋める
+  const ordered = [...lines.filter((l) => l.strong), ...lines.filter((l) => !l.strong)];
+  const picked = balance(ordered.filter((l) => l.tone !== "neg" || ordered.filter((x) => x.tone === "neg").indexOf(l) < MAX_NEGATIVE)
+    .slice(0, MAX_INSIGHTS));
+  const titleLines: Line[] = [];
+  const title = headline(picked);
+  const groups = arrange(picked);
+  return { title, groups: groups.map((g) => ({ theme: g.theme, lines: g.lines.map((l) => l.text) })),
+    lines: groups.flatMap((g) => g.lines.map((l) => l.text)) };
+
+  /**
+   * 読む順に並べる。同じテーマの考察はまとめ、題名の元になった考察のテーマを先頭に（題名のすぐ下で理由が分かるように）、
+   * あとは最初の文が目立つテーマから。課題に当たる文は目立ち方を割り引き、地域の特徴から読み始められるようにする。
+   * 政党の得票率などの選挙は、まちの第一印象が支持政党にならないよう、最後の方にする。
+   * テーマの中は、題名の元になった考察を先に、あとは話がつながる順（TOPIC_ORDER）にする
+   */
+  function arrange(list: Line[]): { theme: Theme; lines: Line[] }[] {
+    const score = (l: Line) => {
+      // 避難指示などの対象になった市町村は、ほかの値を読む前提になるので、その文を最初に置く
+      if (l.topic === "evacuation") return -20;
+      const t = titleLines.indexOf(l);
+      if (t >= 0) return t - 10;
+      // 住む人の国籍の文は、題名と同じく、まちの第一印象にしない
+      const origin = l.topic === "foreignShare" || l.topic?.startsWith("census_foreign_");
+      // 財政は自治体の評価として読まれないよう、まちの特徴（土地・人・産業）の後にする
+      return l.w + (l.tone === "neg" ? 0.5 : 0) + (origin ? 0.5 : 0) + (l.theme === "選挙" ? 1 : 0) + (l.theme === "まちの財政" ? 0.5 : 0);
+    };
+    const topic = (l: Line) => {
+      if (l.topic === "evacuation") return -2;
+      if (titleLines.includes(l)) return -1;
+      const t = l.topic ?? "";
+      // 指標の系統（国籍別の外国人・政党別の得票率）は名前の頭で見る
+      const i = TOPIC_ORDER.indexOf(t) >= 0 ? TOPIC_ORDER.indexOf(t) : TOPIC_ORDER.findIndex((x) => t.startsWith(`${x}_`));
+      return i < 0 ? TOPIC_ORDER.length : i;
+    };
+    const byTheme = new Map<Theme, Line[]>();
+    for (const l of list) {
+      const theme = l.theme ?? "安全と健康";
+      byTheme.set(theme, [...(byTheme.get(theme) ?? []), l]);
+    }
+    // テーマは、その最初の文（読む人が最初に目にする文）の目立ち方で並べる
+    return [...byTheme].map(([theme, lines]) => ({ theme, lines: [...lines].sort((a, b) => topic(a) - topic(b) || score(a) - score(b)) }))
+      .sort((a, b) => score(a.lines[0]) - score(b.lines[0]) || THEMES.indexOf(a.theme) - THEMES.indexOf(b.theme));
+  }
+
+  /**
+   * 特徴を一言で表す見出し。表示する考察のうち全国の中で目立つものから、課題に当たらない言い回しを2つまで選んで
+   * 「雪が多く、米どころのまち」のようにつなぐ。選んだ考察にないときは、ほかの考察からも探す
+   */
+  function headline(list: Line[]): string | null {
+    const extra = opts.extra.filter((f) => !list.some((l) => l.text === f.text));
+    const usable = (ls: Line[]) => ls.filter((l) => l.tag && l.tone !== "neg").sort((a, b) => a.w - b.w);
+    let candidates = usable([...list, ...extra, ...lines.filter((l) => !list.includes(l))]);
+    // ほかに言い回しがないときだけ、外したありきたりな考察（職場と住まいが近いなど）からも作る
+    if (!candidates.length) candidates = usable(all.filter((l) => !lines.includes(l)));
+    const chosen: Line[] = [];
+    for (const l of candidates) {
+      if (chosen.some((x) => x.tag!.key === l.tag!.key)) continue;
+      // 「盛ん」が2回続くなど、同じ言葉が重なる組み合わせは避ける
+      if (chosen.length === 1 && ["盛ん", "多く", "多い"].some((w) => chosen[0].tag!.renyou.includes(w) && l.tag!.rentai.includes(w))) continue;
+      chosen.push(l);
+      if (chosen.length === 2) break;
+    }
+    if (!chosen.length) return null;
+    // 見出しの元になった考察が表示する考察にないときは、いちばん後ろの一般的な考察と入れ替えて加える
+    for (const l of chosen) {
+      if (list.includes(l)) continue;
+      if (list.length >= MAX_INSIGHTS) {
+        // 良いところの文（ネガティブな文だけにしないために入れたもの）は残す
+        const drop = list.findLastIndex((x) => !x.strong && x.tone !== "pos");
+        if (drop < 0) continue;
+        list.splice(drop, 1);
+      }
+      list.splice(list.filter((x) => x.strong).length, 0, l);
+    }
+    titleLines.push(...chosen);
+    const [a, b] = chosen.map((l) => l.tag!);
+    return b ? `${a.renyou}、${b.rentai}${opts.place}` : `${a.rentai}${opts.place}`;
+  }
+
+  /** 課題に当たる文が半分以上なら、良いところの文を1つ入れる（最後の課題の文と入れ替える） */
+  function balance(list: Line[]): Line[] {
+    const negatives = list.filter((l) => l.tone === "neg");
+    if (negatives.length * 2 < list.length || list.some((l) => l.tone === "pos")) return list;
+    const used = new Set(list.map((l) => l.text));
+    const bright = [...lines, ...opts.bright].find((l) => l.tone === "pos" && !used.has(l.text))
+      ?? lines.find((l) => l.tone !== "neg" && !used.has(l.text));
+    if (!bright) return list;
+    if (list.length < MAX_INSIGHTS) return [...list, bright];
+    const last = list.lastIndexOf(negatives[negatives.length - 1]);
+    return list.map((l, i) => (i === last ? bright : l));
+  }
+}
 
 export function areaInsights(muniId: string, data: InsightData): string[] {
   return areaProfile(muniId, data).lines;
@@ -227,102 +329,10 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     .filter((l): l is Line => !!l && !(evacuated && EVACUATION_SKIP.has(l.topic ?? "")))
     // 同じことを言う考察は1つにする（持ち家が少ない方の全国順位があれば、借家が多いという文は出さない）
     .filter((l, _, list) => !(l.topic === "housing" && l.text.startsWith("民営の借家") && list.some((x) => x.topic === "owner_occupied_share")));
-  // ほかに考察が十分あるときは、どの地域にも出やすいありきたりな考察を外す
-  const lines = all.filter((l) => !isFiller(l)).length >= MIN_WITHOUT_FILLER ? all.filter((l) => !isFiller(l)) : all;
-  // 強い考察を先に（並びは上の順のまま）、一般的な考察で埋める
-  const ordered = [...lines.filter((l) => l.strong), ...lines.filter((l) => !l.strong)];
-  const picked = balance(ordered.filter((l) => l.tone !== "neg" || ordered.filter((x) => x.tone === "neg").indexOf(l) < MAX_NEGATIVE)
-    .slice(0, MAX_INSIGHTS));
-  const titleLines: Line[] = [];
-  const title = headline(picked);
-  const groups = arrange(picked);
-  return { title, groups: groups.map((g) => ({ theme: g.theme, lines: g.lines.map((l) => l.text) })),
-    lines: groups.flatMap((g) => g.lines.map((l) => l.text)) };
-
-  /**
-   * 読む順に並べる。同じテーマの考察はまとめ、題名の元になった考察のテーマを先頭に（題名のすぐ下で理由が分かるように）、
-   * あとは最初の文が目立つテーマから。課題に当たる文は目立ち方を割り引き、地域の特徴から読み始められるようにする。
-   * 政党の得票率などの選挙は、まちの第一印象が支持政党にならないよう、最後の方にする。
-   * テーマの中は、題名の元になった考察を先に、あとは話がつながる順（TOPIC_ORDER）にする
-   */
-  function arrange(list: Line[]): { theme: Theme; lines: Line[] }[] {
-    const score = (l: Line) => {
-      // 避難指示などの対象になった市町村は、ほかの値を読む前提になるので、その文を最初に置く
-      if (l.topic === "evacuation") return -20;
-      const t = titleLines.indexOf(l);
-      if (t >= 0) return t - 10;
-      // 住む人の国籍の文は、題名と同じく、まちの第一印象にしない
-      const origin = l.topic === "foreignShare" || l.topic?.startsWith("census_foreign_");
-      // 財政は自治体の評価として読まれないよう、まちの特徴（土地・人・産業）の後にする
-      return l.w + (l.tone === "neg" ? 0.5 : 0) + (origin ? 0.5 : 0) + (l.theme === "選挙" ? 1 : 0) + (l.theme === "まちの財政" ? 0.5 : 0);
-    };
-    const topic = (l: Line) => {
-      if (l.topic === "evacuation") return -2;
-      if (titleLines.includes(l)) return -1;
-      const t = l.topic ?? "";
-      // 指標の系統（国籍別の外国人・政党別の得票率）は名前の頭で見る
-      const i = TOPIC_ORDER.indexOf(t) >= 0 ? TOPIC_ORDER.indexOf(t) : TOPIC_ORDER.findIndex((x) => t.startsWith(`${x}_`));
-      return i < 0 ? TOPIC_ORDER.length : i;
-    };
-    const byTheme = new Map<Theme, Line[]>();
-    for (const l of list) {
-      const theme = l.theme ?? "安全と健康";
-      byTheme.set(theme, [...(byTheme.get(theme) ?? []), l]);
-    }
-    // テーマは、その最初の文（読む人が最初に目にする文）の目立ち方で並べる
-    return [...byTheme].map(([theme, lines]) => ({ theme, lines: [...lines].sort((a, b) => topic(a) - topic(b) || score(a) - score(b)) }))
-      .sort((a, b) => score(a.lines[0]) - score(b.lines[0]) || THEMES.indexOf(a.theme) - THEMES.indexOf(b.theme));
-  }
-
-  /**
-   * 特徴を一言で表す見出し。表示する考察のうち全国の中で目立つものから、課題に当たらない言い回しを2つまで選んで
-   * 「雪が多く、米どころのまち」のようにつなぐ。選んだ考察にないときは、ほかの考察からも探す
-   */
-  function headline(list: Line[]): string | null {
-    // 表示する考察のほか、全国の上位・下位10%に入る指標の考察も候補にする（選んだときは考察にも加える）
-    const extra = ranked.filter((f) => f.pos <= 0.1 && f.tag && f.tone !== "neg" && !list.some((l) => l.text === f.text))
-      .map((f) => ({ ...strong(f.text, f.tone, f.tag, f.pos), theme: f.theme, topic: f.id }));
-    const usable = (ls: Line[]) => ls.filter((l) => l.tag && l.tone !== "neg").sort((a, b) => a.w - b.w);
-    let candidates = usable([...list, ...extra, ...lines.filter((l) => !list.includes(l))]);
-    // ほかに言い回しがないときだけ、外したありきたりな考察（職場と住まいが近いなど）からも作る
-    if (!candidates.length) candidates = usable(all.filter((l) => !lines.includes(l)));
-    const chosen: Line[] = [];
-    for (const l of candidates) {
-      if (chosen.some((x) => x.tag!.key === l.tag!.key)) continue;
-      // 「盛ん」が2回続くなど、同じ言葉が重なる組み合わせは避ける
-      if (chosen.length === 1 && ["盛ん", "多く", "多い"].some((w) => chosen[0].tag!.renyou.includes(w) && l.tag!.rentai.includes(w))) continue;
-      chosen.push(l);
-      if (chosen.length === 2) break;
-    }
-    if (!chosen.length) return null;
-    // 見出しの元になった考察が表示する考察にないときは、いちばん後ろの一般的な考察と入れ替えて加える
-    for (const l of chosen) {
-      if (list.includes(l)) continue;
-      if (list.length >= MAX_INSIGHTS) {
-        // 良いところの文（ネガティブな文だけにしないために入れたもの）は残す
-        const drop = list.findLastIndex((x) => !x.strong && x.tone !== "pos");
-        if (drop < 0) continue;
-        list.splice(drop, 1);
-      }
-      list.splice(list.filter((x) => x.strong).length, 0, l);
-    }
-    titleLines.push(...chosen);
-    const [a, b] = chosen.map((l) => l.tag!);
-    return b ? `${a.renyou}、${b.rentai}まち` : `${a.rentai}まち`;
-  }
-
-  /** 課題に当たる文が半分以上なら、良いところの文を1つ入れる（最後の課題の文と入れ替える） */
-  function balance(list: Line[]): Line[] {
-    const negatives = list.filter((l) => l.tone === "neg");
-    if (negatives.length * 2 < list.length || list.some((l) => l.tone === "pos")) return list;
-    const used = new Set(list.map((l) => l.text));
-    const bright = [...lines, ...brightSide()].find((l) => l.tone === "pos" && !used.has(l.text))
-      ?? lines.find((l) => l.tone !== "neg" && !used.has(l.text));
-    if (!bright) return list;
-    if (list.length < MAX_INSIGHTS) return [...list, bright];
-    const last = list.lastIndexOf(negatives[negatives.length - 1]);
-    return list.map((l, i) => (i === last ? bright : l));
-  }
+  // 題名の候補には、表示する考察のほか、全国の上位・下位10%に入る指標の考察も加える（選んだときは考察にも加える）
+  const extra = ranked.filter((f) => f.pos <= 0.1 && f.tag && f.tone !== "neg")
+    .map((f) => ({ ...strong(f.text, f.tone, f.tag, f.pos), theme: f.theme, topic: f.id }));
+  return composeProfile(all, { extra, bright: brightSide(), place: "まち" });
 
   /**
    * 全国の中で比較的よい位置にある、良いところに当たる指標を1つ。上位・下位25%までは考察の文も付け、

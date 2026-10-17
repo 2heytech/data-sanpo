@@ -29,14 +29,21 @@ const indexable = ALLOW_INDEXING;
 // 決まらないページ（トップ・全国を見ているとき）は出さない。1つの都道府県だけの公開版では常にその名前
 const { prefectures } = loadAreas();
 const areaLabel = prefecture ?? (prefectures.length === 1 ? prefectures[0].name : "");
-// 3つ目は、スマホで省く先頭の文字（6項目を390px幅の1行に収めるため。global.css の 720px 以下）
-const nav = [
-  ["/#indicators", "指標"],
-  ["/prefectures/", "都道府県"],
-  ["/areas/", "市区町村"],
-  ["/articles/", "寄り道"],
-  ["/sources/", "出典"],
-  ["/about/", "サイトについて", "この"],
+// wide は、狭い画面で省く先頭の文字（6項目を390px幅の1行に収めるため。global.css の 1180px 以下）。
+// icon は 24×24 のピクトグラム（色はロゴの藍。設計変更記録 #141）
+const nav: { href: string; label: string; wide?: string; icon: string }[] = [
+  // 棒グラフ
+  { href: "/#indicators", label: "指標", icon: '<path d="M4 3.5v17h16.5"/><path d="M8.5 16.5v-4M13 16.5V7M17.5 16.5v-6.5"/>' },
+  // 日本の形（線では細すぎて読めないので塗る）
+  { href: "/prefectures/", label: "都道府県", icon: '<g fill="currentColor" stroke-width="1"><path d="M18.6 8 19 11.2 17.6 14 14.6 15.6 11 16.2 7.4 16.6 5.4 16.4 5.4 14 8.2 13.4 11.4 12.6 13.6 11.2 15.2 9.6 16 7.6z"/><path d="M15.8 4.2 18.8 1.8 22 3.6 21 6 18 6.8z"/><path d="M8 17.8 11.6 17.6 11 19.4 8.6 19.6z"/><path d="M2.6 17.4 5.6 17.6 5.8 20.4 4 22 2.4 20.4z"/></g>' },
+  // 町の建物
+  { href: "/areas/", label: "市区町村", icon: '<path d="M3 20.5h18"/><path d="M5 20.5V10h5"/><path d="M10 20.5V4h9v16.5"/><path d="M7.5 13.5v.1M7.5 17v.1M13.5 8h2M13.5 11.5h2M13.5 15h2"/>' },
+  // 道しるべ
+  { href: "/articles/", label: "寄り道", icon: '<path d="M12 21V3"/><path d="M12 5.5h6l2.2 2.2L18 10h-6"/><path d="M12 12.5H6l-2.2 2.2L6 17h6"/><path d="M9 21h6"/>' },
+  // 書類
+  { href: "/sources/", label: "出典", icon: '<path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14.5 3v4.5H19"/><path d="M9 12h7M9 15.5h7"/>' },
+  // 案内の i
+  { href: "/about/", label: "サイトについて", wide: "この", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/>' },
 ];
 const onMap = Astro.url.pathname.startsWith("/map/");
 // 検索結果のサイト名に「データさんぽ」を使ってもらうため、トップページにだけ WebSite の構造化データを置く（設計変更記録 #85）
@@ -116,8 +123,12 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
            「地図をひらく」はロゴの行に置いて切れないようにする（global.css の 720px 以下） -->
       <div class="header-links">
         <nav aria-label="サイト内">
-          {nav.map(([href, label, wide]) => (
-            <a href={href} aria-current={Astro.url.pathname.startsWith(href) ? "page" : undefined}>{wide && <span class="nav-wide">{wide}</span>}{label}</a>
+          {nav.map(({ href, label, wide, icon }) => (
+            <a href={href} aria-current={Astro.url.pathname.startsWith(href) ? "page" : undefined}>
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={icon} />
+              <span>{wide && <span class="nav-wide">{wide}</span>}{label}</span>
+            </a>
           ))}
         </nav>
         <a class="nav-cta" href="/map/" aria-current={onMap ? "page" : undefined}>地図をひらく</a>

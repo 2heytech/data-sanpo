@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { prefRanking, prefectureLead, wardCitiesOf } from "../src/lib/prefecturePage";
+import { prefRanking, prefectureDescription, prefectureLead, prefectureNeighbors, wardCitiesOf } from "../src/lib/prefecturePage";
 import { areaDescription } from "../src/lib/areaSummary";
 import { breadcrumbList, indicatorDataset } from "../src/lib/structured";
 import type { Indicator, Municipality, Source, ValueRow } from "../src/lib/types";
@@ -58,7 +58,7 @@ describe("prefectureLead", () => {
     expect(prefectureLead("A県", { text: "1 人", label: "2025年", rank: 2, total: 47 }, { value: -0.02, label: "2025年" }, 3, [])[0])
       .toMatch(/5年前からほとんど変わっていません。$/);
     expect(prefectureLead("北海道", null, null, 188, ["札幌市"])).toEqual([
-      "北海道には188の市区町村があります（札幌市は区ごとに数えています）。下の表では、それぞれの人口と、データから見た特徴の一言を並べています。市区町村名から、くわしいデータと順位のページを開けます。",
+      "北海道には188の市区町村があります（札幌市は区ごとに数えています）。",
     ]);
   });
 });
@@ -106,5 +106,26 @@ describe("structured data", () => {
     });
     // Google は説明に50字以上を求める
     expect((d.description as string).length).toBeGreaterThanOrEqual(50);
+  });
+});
+
+describe("prefectureNeighbors", () => {
+  const m = (id: string, neighbors: string[]) => ({ id, prefecture: id.slice(5, 7), neighbors }) as unknown as Municipality;
+  it("市区町村の隣からほかの都道府県を拾い、海をへだてた組を加える", () => {
+    const munis = [m("muni-01100", []), m("muni-02201", ["muni-03201"]), m("muni-03201", ["muni-02201"]), m("muni-04100", [])];
+    const n = prefectureNeighbors(munis);
+    expect(n.get("01")).toEqual([{ code: "02", sea: true }]);
+    expect(n.get("02")).toEqual([{ code: "01", sea: true }, { code: "03", sea: false }]);
+    expect(n.get("04")).toEqual([]);
+  });
+  it("公開版にない都道府県は加えない", () => {
+    expect(prefectureNeighbors([m("muni-01100", [])]).get("01")).toEqual([]);
+  });
+});
+
+describe("prefectureDescription", () => {
+  it("特徴の一言と、いちばん目立つ考察から始める", () => {
+    expect(prefectureDescription({ name: "北海道", title: "面積の広い北海道", firstInsight: "面積は全国の都道府県で最も広くなっています。", muniCount: 188, top3: "札幌市中央区・旭川市", statCount: 150 }))
+      .toBe("北海道をデータで見ると「面積の広い北海道」。面積は全国の都道府県で最も広くなっています。188の市区町村を人口の多い順に特徴の一言と並べ（札幌市中央区・旭川市など）、全国の順位など150の指標を隣の都道府県との比較と出典つきで紹介。");
   });
 });
