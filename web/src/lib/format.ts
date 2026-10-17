@@ -6,7 +6,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   derived: "算出値",
   missing: "データなし",
   suppressed: "秘匿（公表されていません）",
-  withheld: "非表示（対象人数が少ないため）",
+  withheld: "非表示（もとになる数が少ないため）",
   not_applicable: "対象外",
 };
 

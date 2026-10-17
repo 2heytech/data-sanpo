@@ -25,7 +25,7 @@ from . import fixture
 from .config import DEFAULT_PATHS, Paths, load_censuses, load_indicators, load_sources
 from .db import (connect, create_secondary_indexes, drop_secondary_indexes, init_schema, tune_for_bulk_load,
                  upsert_indicators)
-from .derive import derive_change, derive_density, derive_multi_year_sum, derive_rate
+from .derive import derive_change, derive_density, derive_land_median, derive_multi_year_sum, derive_rate
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
 from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
@@ -106,6 +106,10 @@ def ingest_all(paths: Paths, overrides: dict | None = None, prefs: list[str] | N
         result.update(_ingest_other_sources(conn, paths, sources, catalog, overrides,
                                             latest_version, prefs))
         progress("国勢調査以外の出典を取り込んだ")
+        # 地価公示・地価調査の地点の価格を、市区町村・都道府県の中央値にまとめる（#137）
+        for indicator_id, d in catalog.items():
+            if d.get("land_median"):
+                result[indicator_id] = derive_land_median(conn, indicator_id, d, catalog)
         # 複数年の合計（例: 犯罪の5年合計）は率より先に作り、率も合計から計算する
         for indicator_id, d in catalog.items():
             if d.get("multi_year_total"):
