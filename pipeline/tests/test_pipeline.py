@@ -920,7 +920,7 @@ def test_stations_are_per_operator_and_keep_duplicates_apart(built):
 
 def test_schools_are_located_from_addresses(built):
     sc = load(built, "places/school_enrollment.json")
-    # 東京都はカタログに載っている年度だけ。2025年度は神奈川県の一覧（年度は出典ごとに違う。#137）
+    # 東京都はカタログに載っている年度だけ。2025年度は神奈川県の一覧（年度は出典ごとに違う。#138）
     assert [p["label"] for p in sc["periods"]] == ["2023年5月1日現在", "2025年5月1日現在"]
     by = {s["id"]: s for s in sc["schools"]}
     # 通信制の課程は学校の点にしない（同じ学校番号の中学校の値に混ぜない）
@@ -1053,7 +1053,7 @@ def test_isj_locate_address_forms():
     assert g.locate("千代田区", "麹町２ー８ー１").town == "麹町二丁目"        # 長音符の区切り
     assert g.locate("千代田区", "麹町2丁目8番1号 麹町ビル3階").precision == "街区"   # 丁目を数字で書く・建物名
     assert g.locate("千代田区", "存在しない町1-1") is None
-    # ここdeサーチの町名・番地に都道府県・郡・区名を重ねて書いた住所（#137）
+    # ここdeサーチの町名・番地に都道府県・郡・区名を重ねて書いた住所（#138）
     g.blocks |= {("長泉町", "下土狩"): {"87": (138.9, 35.1, 1)}, ("静岡市葵区", "古庄四丁目"): {"2": (138.4, 35.0, 1)},
                  ("佐賀市", "川副町大字西古賀"): {"320": (130.3, 33.2, 1)}, ("鹿島市", "三河内"): {"1189": (130.1, 33.1, 1)},
                  ("佐賀市", "鍋島町蛎久"): {"646": (130.2, 33.2, 1)}}

@@ -1,4 +1,4 @@
-"""学校ごとの児童・生徒数の、都道府県・市ごとの表の読み方（school_counts.py が使う。docs/design-changes.md #137）。
+"""学校ごとの児童・生徒数の、都道府県・市ごとの表の読み方（school_counts.py が使う。docs/design-changes.md #138）。
 
 sources.toml の school_counts の出典は reader で関数を選ぶ。どの関数も（ファイルの一覧, 出典の設定）を受け取り、
 SchoolCount の一覧を返す。ファイルは出典の download_files の保存名（例: elementary.csv）で受け取るので、学校の種類は

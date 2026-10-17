@@ -4451,7 +4451,7 @@ attribution = "出典：東京都福祉局「都内の保育サービスの状�
 modification_note = "区市町村別の待機児童数を抜き出し、保育サービス利用児童数と就学前児童人口から利用率を算出して作成"
 redistributable = true
 
-# こども家庭庁「保育所等関連状況取りまとめ」の（参考）定員・申込者の状況（市区町村別、#137）。令和5年は申込者の状況だけ
+# こども家庭庁「保育所等関連状況取りまとめ」の（参考）定員・申込者の状況（市区町村別、#138）。令和5年は申込者の状況だけ
 [cfa_childcare_2026]
 kind = "cfa_childcare"
 year = 2026
@@ -4878,7 +4878,7 @@ attribution = "出典：国土交通省 国土数値情報（学校データ）"
 modification_note = "東京都以外の公立の小学校・中学校・義務教育学校の名称・所在地・位置を抜き出して作成"
 redistributable = true
 
-# 東京都以外の公立小中学校の学校ごとの児童・生徒数（#137）。学校ごとの数を CC BY・PDL1.0 で公開している道県・市だけ。
+# 東京都以外の公立小中学校の学校ごとの児童・生徒数（#138）。学校ごとの数を CC BY・PDL1.0 で公開している道県・市だけ。
 # reader で表の読み方を選ぶ（pipeline/tdm/ingest/school_readers/）。学校の点は国土数値情報 学校データ（mlit_p29_2023）に付ける
 [school_counts_kanagawa_2025]
 kind = "school_counts"
@@ -5469,7 +5469,7 @@ redistributable = true
 "elementary.csv" = "https://data.bodik.jp/dataset/2e803c90-aab8-4eaa-a9a4-b93af1b10840/resource/ba93d757-c171-4188-9378-8a792813af2f/download/12-6.csv"
 "junior_high.csv" = "https://data.bodik.jp/dataset/2e803c90-aab8-4eaa-a9a4-b93af1b10840/resource/bf3af326-c0ba-46e2-b03e-9bac5e9226f6/download/12-8.csv"
 
-# 子ども・子育て支援情報公表システム「ここdeサーチ」の全国施設CSV（#137）。決まった URL がなく、画面のボタン（フォームの
+# 子ども・子育て支援情報公表システム「ここdeサーチ」の全国施設CSV（#138）。決まった URL がなく、画面のボタン（フォームの
 # POST）で ZIP を取る（fetch.fetch_kokode）。法人の代表者・施設の管理者の氏名の列があるので、元ファイルは公開の Release に上げない
 [kokode_nurseries]
 kind = "kokode_nurseries"
@@ -5486,7 +5486,7 @@ attribution = "出典：子ども・子育て支援情報公表システム（ht
 modification_note = "子ども・子育て支援情報公表システム（https://www.wam.go.jp/kokodesearch/）の認可保育所・認定こども園・小規模保育・事業所内保育の名称・所在地・利用定員・利用者数を抜き出し、所在地から位置を求めて作成"
 redistributable = true
 
-# 全国の位置参照情報（街区レベル）。ここdeサーチの保育所などと、P29 にない学校の所在地の位置を求める（#137）。
+# 全国の位置参照情報（街区レベル）。ここdeサーチの保育所などと、P29 にない学校の所在地の位置を求める（#138）。
 # 1県で数十MBの CSV になるので、ZIP を展開せずに置く（extract = false）。東京都は mlit_isj_2025 を使う
 [mlit_isj_block_national]
 kind = "isj_block_points"

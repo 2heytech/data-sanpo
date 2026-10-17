@@ -222,7 +222,7 @@ export interface School {
   values: (number | null)[];
   status: (Status | null)[];
   by_grade?: Record<string, (number | null)[]>;
-  /** 学校ごとの出典（人数の出典、位置の出典の順）。年度は出典ごとに違う（#137） */
+  /** 学校ごとの出典（人数の出典、位置の出典の順）。年度は出典ごとに違う（#138） */
   sources?: string[];
   /** 出典の最新の年度の一覧にない（閉校・統合など） */
   closed?: boolean;
@@ -289,7 +289,7 @@ export interface NurseryPoint {
   id: string;
   name: string;
   municipality_id: string;
-  /** 認可保育所・認定こども園・小規模保育・事業所内保育（#137） */
+  /** 認可保育所・認定こども園・小規模保育・事業所内保育（#138） */
   facility_type?: string;
   /** 認可定員（東京都の一覧）か利用定員（ここdeサーチ） */
   capacity_kind?: string;

@@ -569,7 +569,7 @@ def export_stations(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pat
 def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
                    release_id: str, ok_sources: set[str]) -> set[str]:
     """学校の点（places/<指標>.json）。位置のない学校も一覧には含め、coord を null にする。
-    年度は出典ごとに違う（東京都は2023年度まで、ほかの道県・市は2025・2026年度。#137）ので、学校ごとに出典の
+    年度は出典ごとに違う（東京都は2023年度まで、ほかの道県・市は2024〜2026年度。#138）ので、学校ごとに出典の
     最新の年度に値がない学校（閉校・統合など）を closed にし、学校ごとの出典（sources）を書く。"""
     used: set[str] = set()
     for indicator_id, d in catalog.items():
@@ -822,7 +822,7 @@ def export_transport(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pa
 def export_nurseries(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
                      release_id: str, ok_sources: set[str]) -> set[str]:
     """保育所などの点（places/<指標>.json）。位置のない施設も一覧には含め、coord を null にする。
-    東京都の認可保育所（都の一覧、認可定員）と、ここdeサーチの施設（利用定員・利用者数、#137）で時点が違うので、
+    東京都の認可保育所（都の一覧、認可定員）と、ここdeサーチの施設（利用定員・利用者数、#138）で時点が違うので、
     施設ごとに値のある時点（status）と出典（sources）を書く。利用者数は users、年齢別は by_age（各時点の配列）。"""
     used: set[str] = set()
     for indicator_id, d in catalog.items():
