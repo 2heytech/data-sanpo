@@ -9,7 +9,7 @@ import SmallAreaRanking from "../../components/SmallAreaRanking.astro";
 import StatList from "../../components/StatList.astro";
 import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
 import { formatValue, rankIfVaried } from "../../lib/format";
-import { areaDescription, areaSummary } from "../../lib/areaSummary";
+import { areaDescription, areaSummary, formerWard } from "../../lib/areaSummary";
 import { loadAreaProfile } from "../../lib/profiles";
 import { breadcrumbList } from "../../lib/structured";
 import { municipalityPeriods } from "../../lib/periods";
@@ -62,9 +62,11 @@ const profile = loadAreaProfile(muni.id);
 const insights = profile.lines;
 const place = [pref, muni.region].filter(Boolean).join("・");
 const statCount = stats.filter((s) => s.row?.value != null).length;
+// 浜松市の旧区など、今はない区（設計変更記録 #144）
+const former = formerWard(muni.id);
 const description = areaDescription({
-  name: muni.name, place, pref, title: profile.title, firstInsight: insights[0], statCount,
-  population: pop?.row?.value != null ? `${formatValue(pop.row, pop.ind)}（${pop.period.label}）` : null,
+  name: muni.name, pref, title: profile.title, insights, statCount, note: former?.note,
+  population: pop?.row?.value != null ? { text: formatValue(pop.row, pop.ind, { inText: true }), label: pop.period.label } : null,
 });
 // パンくず（データさんぽ ＞ 市区町村の一覧 ＞ 都道府県 ＞ 市区町村）。都道府県のページから県内の市区町村へたどれるようにする（設計変更記録 #130）
 const structured = breadcrumbList(Astro.site, [
@@ -72,7 +74,8 @@ const structured = breadcrumbList(Astro.site, [
   ...(prefPath ? [{ name: pref, path: prefPath }] : []), { name: muni.name },
 ]);
 // 検索結果で同じ名前の市区町村（府中市・伊達市など）を見分けられるよう、題名に都道府県名を入れる
-const pageTitle = pref ? `${muni.name}（${pref}）の人口・統計データと順位` : `${muni.name}の人口・統計データと順位`;
+const pageTitle = pref || former
+  ? `${muni.name}（${[pref, former?.label].filter(Boolean).join("・")}）の人口・統計データと順位` : `${muni.name}の人口・統計データと順位`;
 // 表に出すのは値のある指標だけ（データなしの行は出さない）。ジャンル・カテゴリごとにまとめる
 const groups = statGroups(stats);
 ---
@@ -81,7 +84,7 @@ const groups = statGroups(stats);
   <header class="page-head area-head">
     <AreaShape muni={muni} variant="mark" />
     <div>
-      <p class="eyebrow">{place}</p>
+      <p class="eyebrow">{place}{former && `（${former.label}）`}</p>
       <h1>{muni.name}のデータ</h1>
     </div>
     <div class="actions">

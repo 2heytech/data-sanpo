@@ -23,9 +23,10 @@ const regions = REGIONS.map((r, i) => ({
     .filter((p) => p.munis.length > 0),
 })).filter((r) => r.prefs.length > 0);
 const total = areas.municipalities.length;
-const description = `全国${total.toLocaleString("ja-JP")}の市区町村の一覧。都道府県ごとに並べ、名前でも探せます。各市区町村の人口・年齢構成など公開データの指標と、都道府県内・全国の順位を見られます。`;
+// 説明文は、検索結果で開きたくなるよう、各まちのページで分かることを書く（設計変更記録 #144）
+const description = `全国${total.toLocaleString("ja-JP")}の市区町村を都道府県ごとに一覧に。名前で探せます。各まちのページでは「データで見た特徴」と、人口・暮らし・産業などの指標の全国順位、となりのまちとの違いが分かります。`;
 ---
-<Base title="市区町村の一覧" description={description}>
+<Base menu="市区町村" description={description}>
   <header class="page-head">
     <p class="eyebrow">市区町村から探す</p>
     <h1>市区町村の一覧</h1>

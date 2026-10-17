@@ -14,6 +14,10 @@ describe("formatValue", () => {
     expect(formatValue({ value: 12345, status: "observed" }, people)).toBe("12,345 人");
     expect(formatValue({ value: 23.456, status: "derived" }, pct)).toBe("23.5%");
   });
+  it("文章の中では単位を詰める（表は間をあける）", () => {
+    expect(formatValue({ value: 12345, status: "observed" }, people, { inText: true })).toBe("12,345人");
+    expect(formatValue({ value: 23.456, status: "derived" }, pct, { inText: true })).toBe("23.5%");
+  });
   it("表示の桁で0になる値に符号を付けない（-0.0% と出さない）", () => {
     const change = { unit: "%", digits: 1, kind: "change" } as Indicator;
     expect(formatValue({ value: -0.036, status: "derived" }, change)).toBe("0.0%");

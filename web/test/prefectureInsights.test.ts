@@ -31,7 +31,7 @@ function makeData(values: Record<string, (number | null)[]>, extra: Indicator[] 
 describe("prefectureProfile", () => {
   it("全国で最も広い都道府県は、日本の面積に占める割合とともに書き、題名に使う", () => {
     const p = prefectureProfile("01", "北海道", makeData({ area: spread({ 1: 1000 }) }));
-    expect(p.lines[0]).toMatch(/^面積は1,000\.00 km²で、全国の都道府県で最も広く、日本の面積の約\d+%を占めます（2025年）。$/);
+    expect(p.lines[0]).toMatch(/^面積は1,000\.00km²で、全国の都道府県で最も広く、日本の面積の約\d+%を占めます（2025年）。$/);
     expect(p.title).toBe("面積の広い北海道");
   });
 
@@ -42,7 +42,7 @@ describe("prefectureProfile", () => {
 
   it("犯罪が少ない方は、指標の名前を言い換えて書く。多い方は書かない", () => {
     const few = prefectureProfile("05", "秋田県", makeData({ crime_npa_total_per_100_residents: spread({ 5: 0.1 }, (i) => 0.5 + i / 100) }));
-    expect(few.lines.join("")).toContain("住民100人当たりの犯罪の認知件数は0.10 件/100人で、全国47都道府県の中で最も低い値です");
+    expect(few.lines.join("")).toContain("住民100人当たりの犯罪の認知件数は0.10件/100人で、全国47都道府県の中で最も低い値です");
     expect(few.title).toBe("落ち着いた秋田県");
     const many = prefectureProfile("13", "東京都", makeData({ crime_npa_total_per_100_residents: spread({ 13: 2 }, (i) => 0.5 + i / 100) }));
     expect(many.lines.join("")).not.toContain("犯罪");

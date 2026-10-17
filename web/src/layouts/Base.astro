@@ -7,7 +7,10 @@ import { ALLOW_INDEXING } from "../lib/indexing";
 import "../styles/global.css";
 
 interface Props {
-  title: string;
+  /** ページの題名。後ろに「 | データさんぽ」を付ける（menu か titleIsFull のときは付けない） */
+  title?: string;
+  /** ヘッダー・フッターのメニューから開くページの名前。題名を「データさんぽ | 〇〇」にする（設計変更記録 #144） */
+  menu?: string;
   description: string;
   wide?: boolean;
   preload?: string;
@@ -19,16 +22,20 @@ interface Props {
   structuredData?: Record<string, unknown> | Record<string, unknown>[];
   /** SNS で共有されたときの画像（都道府県ページ・寄り道の地図の画像。設計変更記録 #142）。ないときはサイト共通の画像 */
   image?: { path: string; alt: string };
+  /** og:type。寄り道の記事は article、ほかは website（設計変更記録 #144） */
+  ogType?: "website" | "article";
+  /** 検索に出さないページ（見つからないページ）。noindex にし、canonical と og:url を付けない（#144） */
+  noindex?: boolean;
 }
-const { title, description, wide = false, preload, prefecture, titleIsFull = false, structuredData, image } = Astro.props;
+const { title = "", menu, description, wide = false, preload, prefecture, titleIsFull = false, structuredData, image, ogType = "website", noindex = false } = Astro.props;
 const SITE_NAME = "データさんぽ";
-const fullTitle = titleIsFull || title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
+const fullTitle = menu ? `${SITE_NAME} | ${menu}` : titleIsFull || title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
 // SNS で共有されたときの画像（1200×630）。ページの画像がなければ全ページ共通の画像（作り方は scripts/og-image.mjs）
 const ogPath = image?.path ?? "/og.png";
 const ogImage = Astro.site ? new URL(ogPath, Astro.site).href : ogPath;
 const ogAlt = image?.alt ?? `${SITE_NAME} — 全国の市区町村・町丁目を公開データで色分けした地図`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
-const indexable = ALLOW_INDEXING;
+const indexable = ALLOW_INDEXING && !noindex;
 // ロゴの横の都道府県名。見ている都道府県が決まるページ（地域ページ、地図で選んだ・拡大したとき）だけ出し、
 // 決まらないページ（トップ・全国を見ているとき）は出さない。1つの都道府県だけの公開版では常にその名前
 const { prefectures } = loadAreas();
@@ -65,19 +72,20 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
+    {/* 旧アドレス（workers.dev）と www で開かれたら独自ドメインへ移す（設計変更記録 #61）。
+        www は Cloudflare の Redirect Rules でも転送する。workers.dev はそこで扱えないのでここで移す。
+        is:inline のスクリプトはそのままページに出るので、説明はここに書き、workers.dev はアカウント名を含めずに末尾で見る（#143） */}
     <script is:inline define:vars={{ siteHost: Astro.site?.host ?? "" }}>
-      // 旧アドレス（workers.dev）と www で開かれたら独自ドメインへ移す（設計変更記録 #61）。
-      // www は Cloudflare の Redirect Rules でも転送する。workers.dev はそこで扱えないのでここで移す。
-      if (siteHost && (location.hostname === "tokyo-data-map.2heytech.workers.dev" || location.hostname === "www." + siteHost)) {
+      if (siteHost && (location.hostname.endsWith(".workers.dev") || location.hostname === "www." + siteHost)) {
         location.replace("https://" + siteHost + location.pathname + location.search + location.hash);
       }
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
-    {!indexable && <meta name="robots" content="noindex, nofollow" />}
-    <!-- 検索結果やおすすめに、地図の画像を大きく出してよいことを伝える（設計変更記録 #142） -->
+    {!noindex && <link rel="canonical" href={canonical} />}
+    {!indexable && <meta name="robots" content={ALLOW_INDEXING ? "noindex" : "noindex, nofollow"} />}
+    {/* 検索結果やおすすめに、地図の画像を大きく出してよいことを伝える（設計変更記録 #142） */}
     {indexable && <meta name="robots" content="max-image-preview:large" />}
     <meta property="og:site_name" content={SITE_NAME} />
     {websiteLd && <script type="application/ld+json" set:html={websiteLd} />}
@@ -86,8 +94,8 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     ))}
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content={ogType} />
+    {!noindex && <meta property="og:url" content={canonical} />}
     <meta property="og:locale" content="ja_JP" />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />
@@ -123,10 +131,10 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     <a class="skip" href="#main">本文へ移動</a>
     <header class="site-header">
       <a class="brand" href="/"><img src="/logo.svg" alt={SITE_NAME} width="164" height="34" /></a>
-      <!-- 見ている都道府県。地図では地図の動きに合わせて書き換える（map/app.ts） -->
+      {/* 見ている都道府県。地図では地図の動きに合わせて書き換える（map/app.ts） */}
       <span class="area-chip" id="area-chip" title="見ている都道府県" hidden={!areaLabel}>{areaLabel}</span>
-      <!-- パソコンではメニューの右端に「地図をひらく」を並べる。スマホではメニューを2行目に回し、
-           「地図をひらく」はロゴの行に置いて切れないようにする（global.css の 720px 以下） -->
+      {/* パソコンではメニューの右端に「地図をひらく」を並べる。スマホではメニューを2行目に回し、
+           「地図をひらく」はロゴの行に置いて切れないようにする（global.css の 720px 以下） */}
       <div class="header-links">
         <nav aria-label="サイト内">
           {nav.map(({ href, label, wide, icon }) => (

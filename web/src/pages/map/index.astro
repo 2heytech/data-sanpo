@@ -59,10 +59,10 @@ const RELIEF_STOPS = [
 const reliefGradient = `linear-gradient(to right, ${RELIEF_STOPS.map((s, i) => `${s.color} ${(i / (RELIEF_STOPS.length - 1)) * 100}%`).join(", ")})`;
 const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "天気"])];
 ---
-<Base title="地図" preload={maplibreUrl} description="全国の都道府県・市区町村・町丁目の人口や年齢構成などを色分けした地図。地域名で検索し、指標と時点を切り替えて比べられます。" wide>
+<Base menu="地図" preload={maplibreUrl} description="全国の市区町村・町丁目を、人口・高齢化・年収・地価などで色分けした地図。地名で探して拡大すれば、となりのまちとの違いや年ごとの移り変わりがひと目で分かります。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl} data-official-sites={officialSitesUrl}>
     <aside class="panel panel-conditions" aria-label="表示する条件">
-      <!-- 範囲と地域の検索はあまり使わないので、最初は畳んでおく（開いた状態は覚えない、#103） -->
+      {/* 範囲と地域の検索はあまり使わないので、最初は畳んでおく（開いた状態は覚えない、#103） */}
       <details class="move-tools">
         <summary>範囲・地域を検索</summary>
         <div class="move-tools-body">
@@ -70,7 +70,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
             <label for="region-jump">範囲</label>
             <div class="region-row">
               <select id="region-jump">
-                <!-- 公開版の都道府県から地図の処理で作る（都道府県コードの順） -->
+                {/* 公開版の都道府県から地図の処理で作る（都道府県コードの順） */}
                 <option value="mainland">東京都（区部・多摩）</option>
               </select>
               <button type="button" id="locate" class="locate" aria-label="現在地へ移動" title="現在地へ移動">
@@ -88,15 +88,15 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
       </details>
       <div class="field">
         <label for="indicator-open">指標</label>
-        <!-- 押すと指標の選択画面を開く。選んだ指標は下の select に入れる（select は状態の保持用） -->
+        {/* 押すと指標の選択画面を開く。選んだ指標は下の select に入れる（select は状態の保持用） */}
         <button type="button" id="indicator-open" class="indicator-open" aria-haspopup="dialog">
           <span class="io-icon" aria-hidden="true"></span><span class="io-name"></span><span class="io-change">変更</span>
         </button>
         <select id="indicator-select" hidden aria-hidden="true" tabindex="-1"></select>
       </div>
-      <!-- 選んだ指標で見られる単位（都道府県・市区町村・町丁目）と対象の都道府県 -->
+      {/* 選んだ指標で見られる単位（都道府県・市区町村・町丁目）と対象の都道府県 */}
       <div id="indicator-scope" class="scope small" aria-live="polite"></div>
-      <!-- 犯罪など、種別と基準（件数・人口当たり）を切り替える指標 -->
+      {/* 犯罪など、種別と基準（件数・人口当たり）を切り替える指標 */}
       <div id="facets" class="field facets" hidden>
         <label id="facet-type-wrap" class="inline">種別 <select id="facet-type"></select></label>
         <label id="facet-basis-wrap" class="inline">基準 <select id="facet-basis"></select></label>
@@ -116,8 +116,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
           <span id="aggregate-label">直近5年の合計で見る</span></label>
       </div>
       <div id="legend" class="legend" aria-live="polite"></div>
-      <!-- 表示に関する切替（色分け・地名・数値）は1行のアイコン、地図に重ねるものはアイコンの並び。
-           細かい説明は地図の右上の凡例に出す（#97・#139）。チェックボックスは見えないだけで、id と動きはそのまま -->
+      {/* 表示に関する切替（色分け・地名・数値）は1行のアイコン、地図に重ねるものはアイコンの並び。
+           細かい説明は地図の右上の凡例に出す（#97・#139）。チェックボックスは見えないだけで、id と動きはそのまま */}
       <fieldset class="field view-options">
         <legend>表示</legend>
         <div class="icon-toggles three">
@@ -143,8 +143,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     </aside>
     <div class="map-wrap">
       <div id="map" role="region" aria-label="地図"></div>
-      <!-- 背景: 地図・航空写真（昔の写真も）・標高・土地利用のどれか1つを地図の左上で選ぶ。航空写真の撮影年代・土地利用の年度・
-           標高の色の見本は、選んだものだけ地図の上のパネルに出す（ふだんは地図の下側、地図の幅が狭いときは切替のすぐ下。#128） -->
+      {/* 背景: 地図・航空写真（昔の写真も）・標高・土地利用のどれか1つを地図の左上で選ぶ。航空写真の撮影年代・土地利用の年度・
+           標高の色の見本は、選んだものだけ地図の上のパネルに出す（ふだんは地図の下側、地図の幅が狭いときは切替のすぐ下。#128） */}
       <div class="base-switch" role="group" aria-label="背景">
         {BASES.map((b) => (
           <button type="button" data-basemap={b.id} aria-pressed={b.id === "pale" ? "true" : "false"} title={b.title}>
@@ -191,8 +191,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         <div id="landuse-legend" class="land-bins"></div>
         <p id="landuse-note" class="muted small" hidden></p>
       </section>
-      <!-- 地図に重ねている点・土地利用の凡例（左の欄のアイコンでオンにしたものだけ出す）。地図の右上（地図の幅が狭いときは左下）に置き、
-           見出しのボタンで畳める（#139） -->
+      {/* 地図に重ねている点・土地利用の凡例（左の欄のアイコンでオンにしたものだけ出す）。地図の右上（地図の幅が狭いときは左下）に置き、
+           見出しのボタンで畳める（#139） */}
       <section class="overlay-notes" aria-label="地図に重ねているものの凡例">
         <button type="button" id="overlay-notes-toggle" class="overlay-notes-toggle" aria-expanded="true" aria-controls="overlay-notes-body">凡例</button>
         <div id="overlay-notes-body" class="overlay-notes-body">
@@ -203,14 +203,14 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
               <p id={t.note} class="muted small" hidden></p>
             </div>
           ))}
-          <!-- 土地利用図の読み方（年度・色の凡例は地図の上のパネル） -->
+          {/* 土地利用図の読み方（年度・色の凡例は地図の上のパネル） */}
           <div class="overlay-note">
             <h3><svg viewBox="0 0 24 24" aria-hidden="true" set:html={ICON.landuse} />土地利用（100m四方のマス）</h3>
             <p id="landuse-info" class="muted small" hidden>100m四方のマスごとに、その中で最も広い土地利用の色で塗っています。年度によって判読の方法が違います。</p>
           </div>
         </div>
       </section>
-      <!-- 地点の情報（点を押したとき）。地図の処理がこの要素ごと地図の上のポップアップに移して、押した点から出す（#139） -->
+      {/* 地点の情報（点を押したとき）。地図の処理がこの要素ごと地図の上のポップアップに移して、押した点から出す（#139） */}
       <div id="point-popup" class="point-popup" aria-label="地点の情報" hidden>
         <section id="pick-detail" class="detail station-detail" aria-live="polite" hidden></section>
         <section id="station-detail" class="detail station-detail" aria-live="polite" hidden></section>
@@ -221,7 +221,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         <section id="nursery-detail" class="detail station-detail" aria-live="polite" hidden></section>
         <section id="weather-detail" class="detail station-detail" aria-live="polite" hidden></section>
       </div>
-      <!-- 左右の欄の表示・非表示（地図を広く見る） -->
+      {/* 左右の欄の表示・非表示（地図を広く見る） */}
       <button type="button" class="panel-toggle left" data-panel="left" aria-pressed="false" aria-label="条件の欄を隠す" title="条件の欄を隠す">‹</button>
       <button type="button" class="panel-toggle right" data-panel="right" aria-pressed="false" aria-label="情報の欄を隠す" title="情報の欄を隠す">›</button>
     </div>
@@ -235,7 +235,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
       </p>
       <AdSlot name="map" />
     </aside>
-    <!-- 指標の選択画面（地図の上に重ねて開く。スマホでは全画面） -->
+    {/* 指標の選択画面（地図の上に重ねて開く。スマホでは全画面） */}
     <dialog id="indicator-picker" class="picker" aria-labelledby="picker-title">
       <div class="picker-head">
         <h2 id="picker-title">指標をえらぶ</h2>

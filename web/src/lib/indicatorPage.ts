@@ -1,3 +1,4 @@
+import { fitDescription } from "./areaSummary";
 import type { Indicator } from "./types";
 
 // 指標ページの題名と説明文（検索結果に出る文）。設計変更記録 #142
@@ -48,6 +49,19 @@ function electionNames(ind: Indicator): string {
     .join("・");
 }
 
+/**
+ * 説明文の書き出し（「全国1位の市区町村はどこ？ 」）。検索結果で、開いて確かめたくなるように問いかけで始める（設計変更記録 #144）。
+ * 答え（1位の地域名）は書かない（犯罪など、地域を悪く言うように読める指標もあるため）
+ */
+function hook(scope: IndicatorPageScope): string {
+  const allPrefs = scope.nationwide && !scope.partial;
+  if (scope.muniCount > 0) return `${allPrefs ? "全国" : ""}1位の市区町村はどこ？ `;
+  return `${scope.nationwide ? "全国" : ""}1位の都道府県はどこ？ `;
+}
+
+/** 指標の説明は、検索結果で途中で切れないよう、120字に収まるときだけ後ろに付ける（#144） */
+const withExplanation = (text: string, ind: Indicator) => fitDescription(text, [ind.description]);
+
 export function indicatorPageText(ind: Indicator, scope: IndicatorPageScope): { title: string; description: string } {
   const allPrefs = scope.nationwide && !scope.partial;
   const year = rankingYear(ind);
@@ -61,24 +75,33 @@ export function indicatorPageText(ind: Indicator, scope: IndicatorPageScope): { 
       ? `${scope.hasPrefRows ? "都道府県別と" : ""}${allPrefs ? "全国の" : ""}市区町村別のランキング`
       : "都道府県別の値";
     const elections = electionNames(ind);
-    const description = `${party.full}${party.short !== party.full ? `（${party.short}）` : ""}の比例代表の得票率を、`
-      + `${where}で紹介${elections ? `（${elections}）` : ""}。意味・計算方法・出典つき。${ind.description}`;
+    // 問いかけに略称、続く文に正式名を書く（同じなら繰り返さない）
+    const description = withExplanation(`${party.short}の得票率が${hook(scope)}`
+      + `${party.short !== party.full ? party.full + "の" : ""}比例代表の得票率を、`
+      + `${where}で紹介${elections ? `（${elections}）` : ""}。意味・計算方法・出典つき。`, ind);
     return { title, description };
   }
   // 「〇〇 都道府県別」「〇〇 市区町村 ランキング 2025」のように探されるので、都道府県別の表があればそう書き、
-  // ランキングの時点の年を添える。市区町村の値がない指標は名前だけ
+  // ランキングの時点の年を添える。都道府県の値だけの指標は「〇〇 都道府県別ランキング（年）」（#144）、どちらもなければ名前だけ
   let title = ind.name;
   if (scope.muniCount > 0 && scope.hasPrefRows) {
     title = `${ind.name} 都道府県別・市区町村別ランキング${year ? `（${year}）` : ""}`;
   } else if (scope.muniCount > 0) {
     const notes = [allPrefs ? "全国" : null, year].filter((x) => !!x);
     title = `${ind.name}の市区町村ランキング${notes.length ? `（${notes.join("・")}）` : ""}`;
+  } else if (scope.hasPrefRows) {
+    title = `${ind.name} 都道府県別ランキング${year ? `（${year}）` : ""}`;
   }
   const where = scope.hasMuniValues
     ? `${allPrefs ? "全国の" : ""}市区町村ランキング${scope.hasPrefRows ? "と都道府県別の値" : ""}`
     : "都道府県別の値";
-  const label = rankingPeriod(ind)?.label;
-  const description = `${ind.name}${ind.unit ? `（${ind.unit}）` : ""}の${where}${label ? `（${label}）` : ""}。`
-    + `意味・計算方法・出典つき。${ind.description}`;
+  // 名前が「（住民100人当たり）」のように括弧で終わる指標が多いので、単位は名前の後ろでなく時点の括弧に入れ、
+  // 時点の中の括弧（「2025年度（4月実施）」）は「・」にして、括弧が重ならないようにする（#144）
+  const label = rankingPeriod(ind)?.label.replace(/（([^（）]+)）/g, "・$1");
+  const notes = [label, ind.unit ? `単位: ${ind.unit}` : null].filter((x) => !!x);
+  const paren = notes.length ? `（${notes.join("、")}）` : "";
+  const description = withExplanation(scope.muniCount > 0 || scope.hasPrefRows
+    ? `${ind.name}が${hook(scope)}${scope.hasMuniValues ? where : "都道府県別のランキング"}${paren}を、意味・計算方法・出典つきで紹介。`
+    : `${ind.name}の${where}${paren}。意味・計算方法・出典つき。`, ind);
   return { title, description };
 }

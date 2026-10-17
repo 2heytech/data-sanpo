@@ -131,7 +131,7 @@ export function prefectureProfile(prefCode: string, name: string, data: PrefInsi
       const le = values.filter((x) => x <= v).length;
       const n = values.length;
       return {
-        ind, period: p, value: v, text: formatValue(row, ind), label: ind.periods.find((x) => x.period === p)?.label ?? "",
+        ind, period: p, value: v, text: formatValue(row, ind, { inText: true }), label: ind.periods.find((x) => x.period === p)?.label ?? "",
         rankTop: n - le + 1, rankBottom: lt + 1, total: n, count: listed.length, same: le - lt, top: (n - lt) / n, bottom: le / n, varied: le - lt < n,
       };
     }

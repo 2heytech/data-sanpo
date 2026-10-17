@@ -30,27 +30,30 @@ export function compactNumber(value: number, digits: number): string {
   return new Intl.NumberFormat("ja-JP", { maximumFractionDigits: Math.abs(x) < 10 ? 1 : 0 }).format(x) + unit;
 }
 
-/** 値の後ろに付ける単位（「%」は詰め、ほかは間をあける。財政力指数のように単位のない指標は何も付けない）。 */
-export function unitSuffix(unit: string): string {
-  return unit === "%" || !unit ? unit : ` ${unit}`;
+/**
+ * 値の後ろに付ける単位（「%」は詰め、ほかは間をあける。財政力指数のように単位のない指標は何も付けない）。
+ * 文章の中（あらまし・考察・説明文）では inText で詰める（「954,737人」。設計変更記録 #144）
+ */
+export function unitSuffix(unit: string, inText = false): string {
+  return unit === "%" || !unit || inText ? unit : ` ${unit}`;
 }
 
 /** 区分で公表された値の表記。値は区分の上の端（15 →「10%以上15%未満」、5 →「5%未満」、0 →「0%」）。 */
-export function bandLabel(value: number, band: number, unit: string): string {
-  const u = unitSuffix(unit);
+export function bandLabel(value: number, band: number, unit: string, inText = false): string {
+  const u = unitSuffix(unit, inText);
   if (value <= 0) return `0${u}`;
   const lo = value - band;
   return lo <= 0 ? `${formatNumber(value, 0)}${u}未満` : `${formatNumber(lo, 0)}${u}以上${formatNumber(value, 0)}${u}未満`;
 }
 
-/** 値と単位。値がない場合はゼロではなく理由を返す。 */
-export function formatValue(row: Pick<ValueRow, "value" | "status"> | undefined, ind: Indicator): string {
+/** 値と単位。値がない場合はゼロではなく理由を返す。文章の中に入れるときは inText で単位を詰める */
+export function formatValue(row: Pick<ValueRow, "value" | "status"> | undefined, ind: Indicator, opts: { inText?: boolean } = {}): string {
   if (!row) return "データなし";
   if (row.value === null) return STATUS_LABEL[row.status] || "データなし";
-  if (ind.legend?.band) return bandLabel(row.value, ind.legend.band, ind.unit);
+  if (ind.legend?.band) return bandLabel(row.value, ind.legend.band, ind.unit, opts.inText);
   // 増減率は増加に「+」を付ける（減少は「−」が付く）
   const sign = ind.kind === "change" && row.value > 0 && !roundsToZero(row.value, ind.digits) ? "+" : "";
-  return `${sign}${formatNumber(row.value, ind.digits)}${unitSuffix(ind.unit)}`;
+  return `${sign}${formatNumber(row.value, ind.digits)}${unitSuffix(ind.unit, opts.inText)}`;
 }
 
 /** 率の内訳（例: 1,234 / 5,678）。 */

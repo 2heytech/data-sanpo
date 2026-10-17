@@ -37,24 +37,71 @@ export function areaSummary(name: string, pref: string, stats: SummaryStat[], ex
     const city = cities.size === 1 ? [...cities][0] : null;
     const scope = !excluded.length ? `${jp(prefRank?.total ?? 0)}市区町村`
       : city?.endsWith("市") ? `${jp(prefRank?.total ?? 0)}市区町村（${city}の区を除く）` : `値のある${jp(prefRank?.total ?? 0)}市区町村`;
-    lines.push(`${name}の人口は${formatValue(pop.row, pop.ind)}（${pop.periodLabel}）` +
+    lines.push(`${name}の人口は${formatValue(pop.row, pop.ind, { inText: true })}（${pop.periodLabel}）` +
       (prefRank && pref ? `で、${pref}の${scope}のうち${popRank(prefRank)}市区町村です。` : "です。"));
   }
   // 人口の増減・年齢構成・全国順位で目立つ指標は「データから考えられること」（areaInsights）で考察と一緒に書く
   return lines;
 }
 
+/** 説明文の長さの目安。検索結果に出るのはおおむね120字までなので、締めの文は収まるときだけ付ける（寄り道の説明文と同じ。設計変更記録 #144） */
+export const DESCRIPTION_MAX = 120;
+/** 説明文の最初の事実に使わない、同じ値の数（件数0の市区町村が並ぶときなど、そのまちの特徴とは言いにくいため） */
+const DESCRIPTION_MAX_SAME = 10;
+
+/** 考察が「〇市区町村が同じ値」の順位で、同じ値が多すぎるか */
+const manySame = (s: string) => {
+  const m = /、([\d,]+)(?:市区町村|都道府県)が同じ値/.exec(s);
+  return !!m && Number(m[1].replace(/,/g, "")) >= DESCRIPTION_MAX_SAME;
+};
+
 /**
- * 地域ページの説明文（検索結果に出る文）。特徴の一言と、いちばん目立つ考察から始め、まちごとに違う文にする（設計変更記録 #130）。
- * 考察が長いときは最初の文（数字と順位）だけを使う
+ * 説明文に使う考察を選び、最初の文（数字と順位）だけを短くして返す。
+ * 「全国1,887市区町村のうち5位」→「全国5位」、「2020年10月1日現在」→「2020年」、同じ値の数は省く（本文の考察は変えない）
+ */
+export function descriptionFact(insights: string[]): string {
+  const s = insights.find((x) => !manySame(x)) ?? "";
+  const i = s.indexOf("。");
+  return (i < 0 ? s : s.slice(0, i + 1))
+    .replace(/全国[\d,]+(?:市区町村|都道府県)のうち/g, "全国")
+    .replace(/全国[\d,]+(?:市区町村|都道府県)の中で/g, "全国で")
+    .replace(/(\d{4}年)\d{1,2}月\d{1,2}日現在/g, "$1")
+    .replace(/、[\d,]+(?:市区町村|都道府県)が同じ値/g, "");
+}
+
+/** 説明文の締め。長い順に試し、120字に収まる最初のものを付ける（どれも収まらなければ付けない） */
+export function fitDescription(body: string, tails: string[]): string {
+  const tail = tails.find((x) => (body + x).length <= DESCRIPTION_MAX);
+  return tail ? body + tail : body;
+}
+
+/** 時点の見出しの年（「2025年10月1日現在」→「2025年」） */
+export const periodYear = (label: string) => /^\d{4}年(?:度)?/.exec(label)?.[0] ?? label;
+
+/**
+ * 地域ページの説明文（検索結果に出る文）。特徴の一言と、いちばん目立つ考察の数字から始め、まちごとに違う文にする（設計変更記録 #130・#144）。
+ * 「特徴の一言＋数字の1文＋（注記）＋人口＋締め」で、120字前後に収める。締めは、開くと何が分かるかを、収まる長さで書く
  */
 export function areaDescription(a: {
-  name: string; place: string; pref: string; title: string | null; firstInsight?: string;
-  population: string | null; statCount: number;
+  name: string; pref: string; title: string | null; insights: string[];
+  population: { text: string; label: string } | null; statCount: number; note?: string;
 }): string {
-  const head = a.title ? `${a.name}（${a.place}）をデータで見ると「${a.title}」。` : `${a.name}（${a.place}）のデータ。`;
-  const s = a.firstInsight ?? "";
-  const insight = s.length <= 110 ? s : s.slice(0, s.indexOf("。") + 1);
-  return head + insight + (a.population ? `人口は${a.population}。` : "") +
-    `${a.pref ? `${a.pref}内・` : ""}全国の順位など${a.statCount}の指標を、となりの市区町村との比較と出典つきで紹介。`;
+  const where = a.pref ? `（${a.pref}）` : "";
+  const head = a.title ? `${a.name}${where}をデータで見ると「${a.title}」。` : `${a.name}${where}のデータ。`;
+  const body = head + descriptionFact(a.insights) + (a.note ?? "") +
+    (a.population ? `人口${a.population.text}（${periodYear(a.population.label)}）。` : "");
+  return fitDescription(body, [
+    `人口・暮らし・産業など${a.statCount}の指標の全国順位を、となりのまちと比べられます。`,
+    `${a.statCount}の指標の全国順位を、となりのまちと比べられます。`,
+    `${a.statCount}の指標の全国順位を紹介。`,
+  ]);
+}
+
+/**
+ * 区を再編して今はない区。地図と地域ページは2020年国勢調査の境界なので残っている。
+ * 題名・説明文・見出しで、今の区と取り違えないように書く（設計変更記録 #144）。
+ * 浜松市は2024年1月に7区（22131〜22137）を中央区・浜名区・天竜区の3区にした
+ */
+export function formerWard(id: string): { label: string; note: string } | null {
+  return /^muni-2213[1-7]$/.test(id) ? { label: "2024年再編前の区", note: "2024年1月の区の再編の前の区です。" } : null;
 }
