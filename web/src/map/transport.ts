@@ -34,7 +34,7 @@ interface Options {
   municipalityName: (id: string) => string;
   beforeLayer: string;
   labelFont: string[];
-  /** 右の欄の表示が変わったとき（開いた・閉じた） */
+  /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
 }
 
@@ -51,7 +51,7 @@ export function changeText(prev: number | null | undefined, v: number | null | u
   return `${r >= 0.05 ? "+" : r <= -0.05 ? "−" : "±"}${formatNumber(Math.abs(r), 1)}%`;
 }
 
-/** 地図・右の欄に出す名前。表の名前は「東京国際」「東京」なので「空港」「港」を付ける（飛行場・ヘリポートはそのまま） */
+/** 地図・ポップアップに出す名前。表の名前は「東京国際」「東京」なので「空港」「港」を付ける（飛行場・ヘリポートはそのまま） */
 export function displayName(kind: TransportKind, name: string): string {
   if (kind === "airport") return /(空港|飛行場|ヘリポート)$/.test(name) ? name : `${name}空港`;
   return name.endsWith("港") ? name : `${name}港`;
@@ -140,9 +140,12 @@ export function initTransport(o: Options): PointLayer {
   // 表の中は単位を見出しにまとめる
   const num = (x: number | null | undefined) => (x == null ? "−" : formatNumber(x, 0));
 
+  /** 情報を出している地点の位置 */
+  let at: [number, number] | null = null;
   function showPoint(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, ["==", ["get", "id"], id ?? ""]);
     const p = id ? byId.get(id) : undefined;
+    at = p && data ? p.coord : null;
     if (!p || !data) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -151,7 +154,7 @@ export function initTransport(o: Options): PointLayer {
     }
     const i = latestIndex(p);
     const per = data.periods;
-    // 右の欄の幅に収まるよう、合計の推移と国内・国際の内訳を別の表にする
+    // ポップアップの幅に収まるよう、合計の推移と国内・国際の内訳を別の表にする
     const has = (n: number) => p.values[n] != null || p.domestic[n] != null || p.international[n] != null;
     const cur = (n: number) => (n === i ? ' aria-current="true"' : "");
     const rows = per.map((x, n) => has(n) ? `<tr${cur(n)}><td>${esc(x.label)}</td><td class="num">${num(p.values[n])}</td>
@@ -202,5 +205,6 @@ export function initTransport(o: Options): PointLayer {
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     show: showPoint,
     isOpen: () => !o.panel.hidden,
+    coord: () => (o.panel.hidden ? null : at),
   };
 }

@@ -1,5 +1,5 @@
 // 点レイヤー（駅・学校・地価・保育所）の共通の形。クリックは app.ts でまとめて受け、
-// 直前にクリックした1地点だけを右の欄に出す（重なっている地点は一覧から選ぶ）。
+// 直前にクリックした1地点だけを地図の上のポップアップに出す（重なっている地点は一覧から選ぶ。#139）。
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { esc } from "../lib/html";
 import type { PlacePrefecture, Source } from "../lib/types";
@@ -12,11 +12,13 @@ export interface PointLayer {
   visible(): boolean;
   /** 地点を選ぶ（null で閉じる） */
   show(id: string | null): void;
-  /** 右の欄に地点の情報を出しているか */
+  /** 地点の情報を出しているか */
   isOpen(): boolean;
+  /** 情報を出している地点の位置（ポップアップを出す所）。位置が分からない地点や、閉じているときは null */
+  coord(): [number, number] | null;
 }
 
-/** 右の欄の出典の行（出典表記を重複なく「／」で並べる） */
+/** 地点の情報の出典の行（出典表記を重複なく「／」で並べる） */
 export function sourcesHtml(ids: string[], sources: Map<string, Source>): string {
   const names = [...new Set(ids.map((id) => sources.get(id)?.attribution ?? id))];
   return `<p class="muted small">${names.map(esc).join("／")}</p>`;

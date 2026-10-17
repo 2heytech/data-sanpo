@@ -31,7 +31,7 @@ interface Options {
   municipalityName: (id: string) => string;
   beforeLayer: string;
   labelFont: string[];
-  /** 右の欄の表示が変わったとき（開いた・閉じた） */
+  /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
 }
 
@@ -212,5 +212,6 @@ export function initWeather(o: Options): PointLayer {
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     show: showStation,
     isOpen: () => !o.panel.hidden,
+    coord: () => (o.panel.hidden || !selected ? null : byId.get(selected)?.coord ?? null),
   };
 }

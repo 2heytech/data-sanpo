@@ -27,7 +27,7 @@ const LAYERS = [
 const PLAY_INTERVAL_MS = 2200;
 // 地図の幅がこれ以下（スマホなど）のときは、凡例を畳んだ状態で始める（パネルが地図を隠しすぎないように）。
 // 地図の画面の CSS（@container）でパネルを地図の上側に置く幅と同じ
-const NARROW_MAP_PX = 560;
+export const NARROW_MAP_PX = 560;
 
 interface Options {
   maplibregl: typeof MapLibre;
@@ -47,7 +47,7 @@ interface Options {
   legendToggle: HTMLButtonElement;
   /** パネルの下の一言（縮小しすぎて見えないときなど） */
   note: HTMLElement;
-  /** 右の欄の説明（表示しているときだけ出す） */
+  /** 地図の凡例の説明（表示しているときだけ出す） */
   info: HTMLElement;
   /** 出典（地図の右下の表示に使う） */
   source: Source | undefined;
