@@ -5,7 +5,7 @@ import release from "../generated/release.json";
 import type { PlacePoints } from "./placeStats";
 import type { Geometry } from "./shape";
 import type {
-  AreasFile, IndicatorCatalog, ReleaseInfo, SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
+  AreasFile, IndicatorCatalog, LegendFile, ReleaseInfo, SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
 } from "./types";
 
 export const RELEASE = release as ReleaseInfo;
@@ -38,6 +38,15 @@ export const loadSources = () => read<{ sources: Source[] }>("sources.json").sou
 export function loadValues(indicatorId: string, period: string, chunk: string): ValuesFile | null {
   try {
     return read<ValuesFile>(`values/${indicatorId}/${period}/${chunk}.json`);
+  } catch {
+    return null;
+  }
+}
+
+/** 色分けの区切り（地図と同じ。地図の画像に使う）。ないときは null */
+export function loadLegend(indicatorId: string, period: string): LegendFile | null {
+  try {
+    return read<LegendFile>(`values/${indicatorId}/${period}/legend.json`);
   } catch {
     return null;
   }
@@ -79,6 +88,27 @@ export function loadSmallAreaRows(indicatorId: string, period: string, prefectur
     }
   }
   return out;
+}
+
+// 地域ページの町丁目別ランキング用。都道府県のファイルを市区町村ごとに分けて、直近に読んだ数件だけとっておく
+// （地域ページは市区町村コードの順に作られるので、同じ都道府県のファイルを続けて使う。全国分をとっておくと大きすぎる）
+const smallAreaByMuni = new Map<string, Map<string, ValueRow[]>>();
+const SMALL_AREA_KEEP = 6;
+
+/** 町丁・字等の値（値のある行だけ）を、市区町村コードごとに分けて返す。ファイルがないときは空 */
+export function loadSmallAreaRowsByMunicipality(indicatorId: string, period: string, prefecture: string): Map<string, ValueRow[]> {
+  const key = `${indicatorId}/${period}/${prefecture}`;
+  const hit = smallAreaByMuni.get(key);
+  if (hit) return hit;
+  const byMuni = new Map<string, ValueRow[]>();
+  for (const r of loadSmallAreaRows(indicatorId, period, [prefecture])) {
+    const code = r.entity_id.slice(5, 10);
+    if (!byMuni.has(code)) byMuni.set(code, []);
+    byMuni.get(code)!.push(r);
+  }
+  smallAreaByMuni.set(key, byMuni);
+  if (smallAreaByMuni.size > SMALL_AREA_KEEP) smallAreaByMuni.delete(smallAreaByMuni.keys().next().value!);
+  return byMuni;
 }
 
 /** 境界（GeoJSON）。name は boundaries/<版>/ の下のパス（"prefectures"・"municipalities/13" など）。ないときは null */
