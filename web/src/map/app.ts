@@ -400,7 +400,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
 
   async function paintChunk(code: string) {
     const key = shownKey();
-    const v = await loadValues(code.slice(0, 2));
+    // 町丁目の値がない時点（国勢調査の外国人の2010年など）は、ないファイルを読みにいかない
+    const v = hasLevel(indicator, period, "small_area") ? await loadValues(code.slice(0, 2)) : null;
     if (key !== shownKey()) return;
     const ids = areaFeatures.features
       .filter((f) => municipalityCodeOf(f.properties.id) === code)
@@ -1424,10 +1425,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     map.setPaintProperty("pref-fill", "fill-opacity", on ? MUNI_OPACITY : 0);
     map.setPaintProperty("area-fill", "fill-opacity", on ? AREA_OPACITY : 0);
     legendEl.classList.toggle("dimmed", !on);
-    // 色分けを消したときは背景地図の彩度を落とし、駅・学校などの点や文字と混ざらないようにする
+    // 色分けを消したときは背景地図の彩度を落とし、駅・学校などの点や文字と混ざらないようにする。
+    // 航空写真・標高は色そのものが見るもので、出すと色分けが消えるので、彩度は落とさない（#127）
     map.setPaintProperty("pale", "raster-saturation", on ? 0 : -1);
     map.setPaintProperty("pale", "raster-contrast", on ? 0 : -0.15);
-    for (const b of BASEMAPS) map.setPaintProperty(b.id, "raster-saturation", on ? 0 : -0.8);
   });
   const labelsToggle = $<HTMLInputElement>("#labels-toggle");
   labelsToggle.addEventListener("change", () => {
