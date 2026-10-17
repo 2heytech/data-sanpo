@@ -1,6 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import { loadSources, RELEASE } from "../lib/data";
+import officialSites from "../data/official-sites.json";
 const sources = loadSources();
 ---
 <Base title="出典と利用条件" description="データさんぽで使用している統計データ・地図の出典、利用条件、加工方法。">
@@ -35,6 +36,13 @@ const sources = loadSources();
           <td>国土地理院</td>
           <td><a href="https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html" target="_blank" rel="noopener">国土地理院コンテンツ利用規約</a></td>
           <td class="num">—</td>
+        </tr>
+        <tr>
+          <td><strong><a href="https://www.wikidata.org/wiki/Property:P856" target="_blank" rel="noopener">Wikidata「公式ウェブサイト」</a></strong>
+            <div class="small">地図の右の欄の、都道府県・市区町村の公式サイトへのリンク（開いて確かめたものだけ）</div></td>
+          <td>Wikidata</td>
+          <td><a href="https://creativecommons.org/publicdomain/zero/1.0/deed.ja" target="_blank" rel="noopener">CC0 1.0</a></td>
+          <td class="num">{officialSites.retrieved}</td>
         </tr>
       </tbody>
     </table>
