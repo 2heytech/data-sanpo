@@ -175,9 +175,11 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
      メニューの右端に置くと画面からはみ出して切れていた */
   .header-links { display: contents; }
   .site-header .nav-cta { order: 1; margin-left: auto; padding: 4px 12px; font-size: 0.9rem; }
-  /* メニューの5項目（寄り道を加えた。#126）が390px幅で1行に収まるよう、文字と余白を少し詰める */
-  .site-header nav { order: 2; width: 100%; gap: 2px; font-size: 0.85rem; overflow-x: auto; flex-wrap: nowrap; }
-  .site-header nav a { padding: 4px 7px; white-space: nowrap; }
+  /* メニューの6項目（寄り道 #126、都道府県 #135 を加えた）が360〜390px幅で1行に収まるよう、文字と余白を詰め、
+     「このサイトについて」は「サイトについて」にする */
+  .site-header nav { order: 2; width: 100%; gap: 0; font-size: 0.85rem; overflow-x: auto; flex-wrap: nowrap; }
+  .site-header nav a { padding: 4px 5px; white-space: nowrap; }
+  .site-header nav .nav-wide { display: none; }
   main { padding: 16px 12px 32px; }
   .sheet { padding: 20px 16px; border-radius: 10px; }
   h1 { font-size: 1.45rem; }
@@ -189,7 +191,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   .site-header { gap: 6px 8px; }
   .brand img { height: 26px; }
   .site-header nav { font-size: 0.8rem; }
-  .site-header nav a { padding: 4px 6px; }
+  .site-header nav a { padding: 4px 4px; }
 }
 h2[id], h3[id] { scroll-margin-top: 100px; }
 

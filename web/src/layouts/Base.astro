@@ -29,12 +29,14 @@ const indexable = ALLOW_INDEXING;
 // 決まらないページ（トップ・全国を見ているとき）は出さない。1つの都道府県だけの公開版では常にその名前
 const { prefectures } = loadAreas();
 const areaLabel = prefecture ?? (prefectures.length === 1 ? prefectures[0].name : "");
+// 3つ目は、スマホで省く先頭の文字（6項目を390px幅の1行に収めるため。global.css の 720px 以下）
 const nav = [
   ["/#indicators", "指標"],
+  ["/prefectures/", "都道府県"],
   ["/areas/", "市区町村"],
   ["/articles/", "寄り道"],
   ["/sources/", "出典"],
-  ["/about/", "このサイトについて"],
+  ["/about/", "サイトについて", "この"],
 ];
 const onMap = Astro.url.pathname.startsWith("/map/");
 // 検索結果のサイト名に「データさんぽ」を使ってもらうため、トップページにだけ WebSite の構造化データを置く（設計変更記録 #85）
@@ -114,8 +116,8 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
            「地図をひらく」はロゴの行に置いて切れないようにする（global.css の 720px 以下） -->
       <div class="header-links">
         <nav aria-label="サイト内">
-          {nav.map(([href, label]) => (
-            <a href={href} aria-current={Astro.url.pathname.startsWith(href) ? "page" : undefined}>{label}</a>
+          {nav.map(([href, label, wide]) => (
+            <a href={href} aria-current={Astro.url.pathname.startsWith(href) ? "page" : undefined}>{wide && <span class="nav-wide">{wide}</span>}{label}</a>
           ))}
         </nav>
         <a class="nav-cta" href="/map/" aria-current={onMap ? "page" : undefined}>地図をひらく</a>
@@ -139,6 +141,7 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
             <ul>
               <li><a href="/map/">地図</a></li>
               <li><a href="/#indicators">指標の一覧</a></li>
+              <li><a href="/prefectures/">都道府県の一覧</a></li>
               <li><a href="/areas/">市区町村の一覧</a></li>
               <li><a href="/articles/">寄り道</a></li>
               <li><a href="/guide/">使い方</a></li>
