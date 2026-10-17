@@ -89,6 +89,11 @@ interface FeatureCollection {
   features: { type: "Feature"; properties: { id: string; name: string; value?: string }; geometry: unknown }[];
 }
 
+// 右の欄のリンクの印（サイト内のページは「›」、別のタブで開く外のサイトは矢印つきの四角）
+const ICON_NEXT = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"/></svg>';
+const ICON_EXTERNAL = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true">' +
+  '<path d="M9.5 2.5h4v4M13.5 2.5 7.5 8.5M12 9.5v3.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-8a.5.5 0 0 1 .5-.5H7"/></svg>';
+
 const shortLabel = (label: string) => label.replace(/(\d+年).*/, "$1");
 // 推移の表の時点。年度の指標は「2024年度」のまま（「2024年」と書くと暦年と取り違える）
 const trendLabel = (label: string) => label.replace(/(\d+年度?).*/, "$1");
@@ -129,6 +134,18 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     return cache.get(rel) as Promise<T>;
   };
 
+  // 都道府県・市区町村の公式サイト（Wikidata から集めた URL、設計変更記録 #135）。初めて地域を選んだときに読む。
+  // 開発用の架空データでは地名が実在しないので読まない（地図のページが data-official-sites を空にする）
+  const sitesUrl = root.dataset.officialSites;
+  let officialSites: Promise<Record<string, string>> | null = null;
+  const officialSite = async (id: string): Promise<string | undefined> => {
+    if (!sitesUrl) return undefined;
+    officialSites ??= fetch(sitesUrl)
+      .then((r) => (r.ok ? r.json() as Promise<{ sites?: Record<string, string> }> : null))
+      .then((j) => j?.sites ?? {}, () => ({}));
+    return (await officialSites)[id];
+  };
+
   const $ = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const indicatorSelect = $<HTMLSelectElement>("#indicator-select");
   const periodRange = $<HTMLInputElement>("#period-range");
@@ -149,7 +166,6 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const colorsToggle = $<HTMLInputElement>("#colors-toggle");
   const scopeEl = $("#indicator-scope");
   const detailEl = $("#detail");
-  const listEl = $("#list");
 
   const [catalog, areas, sourcesFile] = await Promise.all([
     fetchJSON<IndicatorCatalog>("indicators.json"),
@@ -449,7 +465,6 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     await Promise.all([paintPrefectures(), paintMunicipalities(), ...[...loadedChunks].map(paintChunk)]);
     renderLegend();
     renderDetail();
-    renderList();
   }
 
   // --- 町丁目の追加読み込み -----------------------------------------------------------
@@ -514,22 +529,19 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       visibleMunicipalities()
         .sort((a, b) => dist(a.center, c) - dist(b.center, c))
         .slice(0, MAX_CHUNKS_PER_MOVE)
-        .forEach((m) => void ensureChunk(m.id.slice(5)).then(renderList));
+        .forEach((m) => void ensureChunk(m.id.slice(5)));
     }
     renderLegend();
-    renderList();
     renderAreaChip();
   });
   const dist = (p: [number, number], c: { lng: number; lat: number }) => (p[0] - c.lng) ** 2 + (p[1] - c.lat) ** 2;
 
   // --- 選択 ---------------------------------------------------------------------
-  function entityName(id: string): { name: string; context: string } {
-    if (isPref(id)) return { name: prefName(prefectureCodeOf(id)), context: "都道府県" };
+  function entityName(id: string): { name: string } {
+    if (isPref(id)) return { name: prefName(prefectureCodeOf(id)) };
     const m = munis.get(id);
-    if (m) return { name: m.name, context: [prefName(m.prefecture), m.region].filter(Boolean).join("・") };
-    const a = smallAreas.get(id);
-    const parent = munis.get(`muni-${municipalityCodeOf(id)}`);
-    return { name: a?.name ?? id, context: parent?.name ?? "" };
+    if (m) return { name: m.name };
+    return { name: smallAreas.get(id)?.name ?? id };
   }
 
   // 地域を選んだら、地点（駅・学校など）の情報は閉じる（点レイヤーの準備ができてから差し替える）
@@ -561,7 +573,6 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     updateUrl();
     renderLegend();
     renderDetail();
-    renderList();
     renderAreaChip();
   }
 
@@ -784,7 +795,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         <strong>${esc(formatValue(row, o))}</strong></li>`;
     }));
     const body = items.filter(Boolean).join("");
-    return body ? `<div class="compare-with"><p class="small">あわせて見る（同じ時点）</p><ul class="small">${body}</ul></div>` : "";
+    return body ? `<section class="detail-compare"><h3>あわせて見る<span>同じ時点</span></h3><ul>${body}</ul></section>` : "";
   }
 
   // 政令指定都市の区を選んだときは、市全体の値も出す（区の分子・分母または人数を合計。1区でも値がなければ出さない）
@@ -817,19 +828,15 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       (basis.note ? `<p class="note small">${esc(basis.note)}</p>` : "");
   }
 
-  // 順位: 範囲ごとの文と、1位（左）から最下位（右）までの横バー上の位置
+  // 順位: 範囲ごとに「〇〇の市区町村 19のうち」と順位を1行ずつ並べた表にする
+  // （横バーと丸の印は動かせるつまみに見えたので使わない。設計変更記録 #135）
   type Rank = { scope: string; rank: number; total: number };
   function rankHtml(ranks: Rank[]): string {
     if (!ranks.length) return "";
-    const items = ranks.map(({ scope, rank, total }) => {
-      const pos = total > 1 ? ((rank - 1) / (total - 1)) * 100 : 50;
-      const text = `${scope} ${total.toLocaleString("ja-JP")} のうち`;
-      return `<li><p>${esc(text)} <strong>${rank.toLocaleString("ja-JP")}位</strong></p>
-        <div class="rank-bar" role="img" aria-label="${esc(text)} ${rank}位">
-          <span class="rank-mark" style="left:${pos.toFixed(1)}%"></span></div></li>`;
-    }).join("");
-    return `<div class="rank"><ul>${items}</ul>
-      <div class="rank-ends small muted"><span>1位（大きい）</span><span>最下位（小さい）</span></div></div>`;
+    const items = ranks.map(({ scope, rank, total }) => `<div>
+      <dt>${esc(scope)}<span class="of">${total.toLocaleString("ja-JP")}のうち</span></dt>
+      <dd><strong>${rank.toLocaleString("ja-JP")}</strong>位</dd></div>`).join("");
+    return `<section class="rank" aria-label="順位"><h3>順位<span>値の大きい順</span></h3><dl>${items}</dl></section>`;
   }
 
   // 順位は都道府県は全国の中、市区町村は都道府県内と全国、町丁・字等は区市町村内・都道府県内・全国で数える。
@@ -879,10 +886,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     // 都道府県だけの指標では、市区町村・町丁目を選んでもその都道府県の値を出す
     const within = prefectureOnly() && !isPref(selected) && prefectureCodeOf(selected) ? selected : null;
     const id = within ? `pref-${prefectureCodeOf(within)}` : selected;
-    const [rows, trend, compare] = await Promise.all([rowsFor(id), trendHtml(id), compareHtml(id)]);
+    // 公式サイトは、町丁・字等ではその市区町村のもの
+    const homeId = isPref(id) || munis.has(id) ? id : `muni-${municipalityCodeOf(id)}`;
+    const [rows, trend, compare, site] = await Promise.all([rowsFor(id), trendHtml(id), compareHtml(id), officialSite(homeId)]);
     if (token !== detailToken) return;
     const row = rows.find((r) => r.entity_id === id);
-    const { name, context } = entityName(id);
+    const { name } = entityName(id);
     const isMuni = munis.has(id);
     const pref = isPref(id);
     const ranks = await ranksFor(id, rows, row);
@@ -899,72 +908,44 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     }
     const srcHtml = [...srcs].map(([text, url]) => (url
       ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text))).join("／");
-    const parentId = pref ? null : isMuni ? id : `muni-${municipalityCodeOf(id)}`;
+    // 題名は、その地域のページ（都道府県・市区町村）へのリンク。町丁・字等はページがないのでリンクにしない
+    const page = pref ? `/prefectures/${prefectureCodeOf(id)}/` : isMuni ? `/areas/${id}/` : null;
+    const title = page
+      ? `<a href="${esc(page)}" title="${esc(name)}のデータをまとめたページへ">${esc(name)}${ICON_NEXT}</a>`
+      : esc(name);
     detailEl.innerHTML = `
-      <p class="muted">${esc(context)}</p>
-      <h2>${esc(name)}</h2>
-      <div>${esc(indicator.name)}（${esc(p.label)}）</div>
-      <div class="value">${esc(formatValue(row, indicator))}</div>
-      ${calcHtml(row, fraction)}
-      ${rankHtml(ranks)}
+      ${crumbsHtml(id)}
+      <h2 class="detail-title">${title}</h2>
+      <div class="detail-figure">
+        <p class="detail-indicator">${esc(indicator.name)}<span>${esc(p.label)}</span></p>
+        <div class="value">${esc(formatValue(row, indicator))}</div>
+        ${calcHtml(row, fraction)}
+      </div>
       ${city}
       ${within ? `<p class="note small">この指標は都道府県別の値だけです（${esc(entityName(within).name)}を含む${esc(name)}の値）。</p>` : ""}
       ${!pref && !covers(prefectureCodeOf(id)) ? `<p class="note small">この指標は${esc(indicator.prefectures!.map(prefName).join("・"))}だけの値です。</p>` : ""}
+      ${rankHtml(ranks)}
       ${compare}
       ${trend}
-      <p class="small"><a href="/indicators/${esc(indicator.id)}/">この指標の意味と注意点</a>
-        ${parentId ? `・<a href="/areas/${esc(parentId)}/">${esc(entityName(parentId).name)}のページ</a>` : ""}</p>
-      <p class="muted small sources">${srcHtml}（<a href="/sources/">出典の一覧</a>）</p>`;
+      <ul class="detail-links">
+        ${site ? `<li><a href="${esc(site)}" target="_blank" rel="noopener">
+          <span>${esc(entityName(homeId).name)}の公式サイト<small>別のタブで開きます</small></span>${ICON_EXTERNAL}</a></li>` : ""}
+        <li><a href="/indicators/${esc(indicator.id)}/"><span>「${esc(indicator.name)}」の意味と注意点</span>${ICON_NEXT}</a></li>
+      </ul>
+      <p class="detail-sources">${srcHtml}<span aria-hidden="true">・</span><a href="/sources/">出典の一覧</a></p>`;
   }
 
-  let listToken = 0;
-  async function renderList() {
-    const token = ++listToken;
-    const level = levelNow();
-    let ids: string[];
-    let title: string;
-    let rows: ValueRow[];
-    if (level === "prefecture") {
-      ids = areas.prefectures.map((p) => p.id);
-      rows = (await loadValues("prefectures"))?.rows ?? [];
-      title = "都道府県";
-    } else if (level === "municipality") {
-      // 全国の市区町村を並べると長すぎるので、選んだ地域（なければ地図の中心）の都道府県だけにする
-      const pref = focusPrefecture();
-      ids = areas.municipalities.filter((m) => m.prefecture === pref).map((m) => m.id);
-      rows = (await loadValues("municipalities"))?.rows ?? [];
-      title = `${prefName(pref)}の市区町村`;
-    } else {
-      const code = (selected && municipalityCodeOf(selected)) ||
-        visibleMunicipalities().sort((a, b) => dist(a.center, map.getCenter()) - dist(b.center, map.getCenter()))[0]?.id.slice(5);
-      if (!code || !loadedChunks.has(code)) {
-        listEl.innerHTML = `<p class="muted">読み込み中…</p>`;
-        return;
-      }
-      ids = [...smallAreas.keys()].filter((id) => municipalityCodeOf(id) === code);
-      rows = (await loadValues(code.slice(0, 2)))?.rows ?? [];
-      title = `${munis.get(`muni-${code}`)?.name ?? ""}の町丁・字等`;
-    }
-    if (token !== listToken) return;   // 読んでいる間に次の一覧を書き始めた
-    const byId = new Map(rows.map((r) => [r.entity_id, r]));
-    const sorted = ids
-      .map((id) => ({ id, row: byId.get(id) }))
-      .sort((a, b) => (b.row?.value ?? -Infinity) - (a.row?.value ?? -Infinity));
-    listEl.innerHTML = `<p class="small"><strong>${esc(title)}</strong>（値の大きい順）</p>
-      <table><thead><tr><th>地域</th><th class="num">${esc(indicator.name)}</th></tr></thead><tbody>
-      ${sorted.map(({ id, row }) => `<tr${id === selected ? ' aria-current="true"' : ""}>
-        <td><a href="?a=${esc(id)}" data-select="${esc(id)}">${esc(entityName(id).name)}</a></td>
-        <td class="num">${esc(formatValue(row, indicator))}</td></tr>`).join("")}
-      </tbody></table>`;
+  // 題名の上の「都道府県 › 郡・市」。都道府県名は都道府県のページ、町丁・字等の市区町村名は市区町村のページへのリンク
+  function crumbsHtml(id: string): string {
+    if (isPref(id)) return `<p class="detail-crumbs">都道府県</p>`;
+    const code = prefectureCodeOf(id)!;
+    const items = [`<a href="/prefectures/${esc(code)}/">${esc(prefName(code))}</a>`];
+    const m = munis.get(id);
+    const parent = `muni-${municipalityCodeOf(id)}`;
+    if (m?.region) items.push(esc(m.region));
+    else if (!m && munis.has(parent)) items.push(`<a href="/areas/${esc(parent)}/">${esc(entityName(parent).name)}</a>`);
+    return `<p class="detail-crumbs">${items.join('<span class="sep" aria-hidden="true">›</span>')}</p>`;
   }
-
-  listEl.addEventListener("click", (e) => {
-    const a = (e.target as HTMLElement).closest<HTMLAnchorElement>("a[data-select]");
-    if (a) {
-      e.preventDefault();
-      void select(a.dataset.select!, true);
-    }
-  });
 
   function updateUrl() {
     const qs = serializeState({ indicator: indicator.id, period, area: selected ?? undefined });

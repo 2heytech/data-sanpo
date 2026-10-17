@@ -69,11 +69,11 @@ const top3 = table.filter((t) => t.rank !== null).slice(0, 3).map((t) => t.muni.
 const description = `${pref.name}の${munis.length}市区町村を人口の多い順に、データから見た特徴の一言と並べました` +
   (top3 ? `（${top3}など）` : "") + `。人口の増え方・子どもの割合・所得・面積などの${pref.name.slice(-1)}内の上位と、各市区町村のくわしいデータへのリンクつき。`;
 const structured = breadcrumbList(Astro.site, [
-  { name: "データさんぽ", path: "/" }, { name: "市区町村の一覧", path: "/areas/" }, { name: pref.name },
+  { name: "データさんぽ", path: "/" }, { name: "都道府県の一覧", path: "/prefectures/" }, { name: pref.name },
 ]);
 ---
 <Base title={title} description={description} prefecture={pref.name} structuredData={structured}>
-  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/areas/">市区町村の一覧</a></nav>
+  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/prefectures/">都道府県の一覧</a></nav>
   <header class="page-head">
     <p class="eyebrow">{region}</p>
     <h1>{pref.name}のデータ</h1>

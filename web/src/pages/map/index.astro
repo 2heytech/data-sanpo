@@ -4,9 +4,11 @@ import AdSlot from "../../components/AdSlot.astro";
 import FeedbackLink from "../../components/FeedbackLink.astro";
 import CategoryIcon from "../../components/CategoryIcon.astro";
 import { readFileSync } from "node:fs";
-import { DATA_BASE, loadIndicators } from "../../lib/data";
+import { DATA_BASE, RELEASE, loadIndicators } from "../../lib/data";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
+// 右の欄の「〇〇の公式サイト」の URL 一覧（pages/official-sites.json.ts）。架空の地名を使う開発用データでは出さない
+const officialSitesUrl = RELEASE.is_fixture ? "" : "/official-sites.json";
 // 指標の選択画面で使う分類のアイコン（地図の処理が複製して使う）。点レイヤーのカテゴリも含める
 // 左の欄の切替アイコン（24×24 の線画）。name は短い名前、title は説明つきの名前（右の欄の見出しにも使う）
 const ICON: Record<string, string> = {
@@ -58,7 +60,7 @@ const reliefGradient = `linear-gradient(to right, ${RELIEF_STOPS.map((s, i) => `
 const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "天気"])];
 ---
 <Base title="地図" preload={maplibreUrl} description="全国の都道府県・市区町村・町丁目の人口や年齢構成などを色分けした地図。地域名で検索し、指標と時点を切り替えて比べられます。" wide>
-  <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl}>
+  <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl} data-official-sites={officialSitesUrl}>
     <aside class="panel panel-conditions" aria-label="表示する条件">
       <!-- 範囲と地域の検索はあまり使わないので、最初は畳んでおく（開いた状態は覚えない、#103） -->
       <details class="move-tools">
@@ -220,11 +222,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
       <section id="detail" class="detail" aria-live="polite">
         <p class="muted">地図をクリックするか、地域名で検索してください。</p>
       </section>
-      <details id="list-wrap">
-        <summary>一覧で見る</summary>
-        <div id="list"></div>
-      </details>
-      <p class="muted small">
+      <p class="muted small panel-foot">
         背景地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>。
         <a href="/sources/">統計の出典</a>・<a href="/about/#terms">利用規約</a>・<FeedbackLink />
       </p>
@@ -535,6 +533,48 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .legend.dimmed { opacity: 0.45; }
   .detail .value { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .detail h2 { margin: 0.2em 0; font-size: 1.2rem; }
+  /* 地域の情報（#detail）: 上の地域 → 題名 → 値 → 順位・推移 → リンク・出典の順に並べる（設計変更記録 #135） */
+  .detail .icon { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .detail-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; margin: 0; font-size: 0.82rem; color: var(--muted); }
+  .detail-crumbs a { text-decoration: none; }
+  .detail-crumbs a:hover { text-decoration: underline; }
+  .detail-crumbs .sep { color: var(--line-strong); }
+  #detail h2.detail-title { margin: 2px 0 10px; font-size: 1.35rem; line-height: 1.4; }
+  .detail-title a { color: var(--ink); text-decoration: none; }
+  .detail-title a .icon { width: 0.8em; height: 0.8em; margin-left: 4px; vertical-align: -0.02em; color: var(--accent); stroke-width: 2.2; }
+  .detail-title a:hover { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; }
+  .detail-figure { padding: 10px 14px 12px; border-radius: 10px; background: var(--panel); }
+  .detail-indicator { margin: 0; font-size: 0.9rem; font-weight: 700; color: #33414f; line-height: 1.5; }
+  .detail-indicator span { margin-left: 8px; font-weight: 400; font-size: 0.8rem; color: var(--muted); }
+  .detail-figure .value { line-height: 1.3; margin: 2px 0; }
+  .rank h3, .detail-compare h3, .detail .trend caption {
+    margin: 0 0 4px; font-size: 0.85rem; font-weight: 700; color: #33414f; text-align: left;
+  }
+  .rank h3 span, .detail-compare h3 span { margin-left: 8px; font-weight: 400; font-size: 0.78rem; color: var(--muted); }
+  .rank, .detail-compare { margin: 16px 0 0; }
+  .rank dl, .detail-compare ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+  .rank dl > div, .detail-compare li {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: 0.88rem;
+  }
+  .rank dt .of { margin-left: 6px; font-size: 0.78rem; color: var(--muted); }
+  .rank dd { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .rank dd strong { font-size: 1.1rem; margin-right: 1px; }
+  .detail-compare strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #detail .trend { margin: 16px 0 0; }
+  .detail-links { margin: 18px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+  .detail-links a {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 9px 4px; border-bottom: 1px solid var(--line); text-decoration: none; font-size: 0.9rem; line-height: 1.5;
+  }
+  .detail-links a:hover { background: var(--panel); }
+  .detail-links a span { min-width: 0; }
+  .detail-links small { display: block; font-size: 0.75rem; color: var(--muted); }
+  .detail-links .icon { width: 16px; height: 16px; color: var(--muted); }
+  .detail-sources { margin: 10px 0 0; font-size: 0.75rem; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
+  .detail-sources a { color: inherit; }
+  .detail-sources > span { margin: 0 2px; }
+  .panel-foot { margin: 18px 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
   .station-detail { position: relative; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px; }
   .station-detail .close {
     position: absolute; top: 0; right: 0; border: 0; background: none; font-size: 1.2rem; cursor: pointer; color: var(--muted);
@@ -548,10 +588,6 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   }
   .land-bins .sw.sq { border-radius: 2px; border: 0; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
   .trend-scroll { max-height: 260px; overflow-y: auto; }
-  .rank { margin: 10px 0; }
-  .rank ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-  .rank p { margin: 0 0 6px; }
-  .rank-ends { display: flex; justify-content: space-between; margin-top: 4px; }
   .city-total { margin: 10px 0; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--panel);
     display: flex; flex-direction: column; gap: 2px; }
   .city-total strong { font-size: 1.15rem; }
@@ -566,7 +602,6 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .trend tr[aria-current="true"] td { font-weight: 700; background: var(--panel); }
   .small { font-size: 0.8rem; }
   .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  #list table { font-size: 0.85rem; }
   @media (max-width: 1100px) {
     .map-app { grid-template-columns: 260px minmax(0, 1fr) 300px; }
     .map-app.hide-left { grid-template-columns: 0 minmax(0, 1fr) 300px; }
