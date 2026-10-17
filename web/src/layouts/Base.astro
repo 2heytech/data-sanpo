@@ -65,10 +65,11 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
+    {/* 旧アドレス（workers.dev）と www で開かれたら独自ドメインへ移す（設計変更記録 #61）。
+        www は Cloudflare の Redirect Rules でも転送する。workers.dev はそこで扱えないのでここで移す。
+        is:inline のスクリプトはそのままページに出るので、説明はここに書き、workers.dev はアカウント名を含めずに末尾で見る（#143） */}
     <script is:inline define:vars={{ siteHost: Astro.site?.host ?? "" }}>
-      // 旧アドレス（workers.dev）と www で開かれたら独自ドメインへ移す（設計変更記録 #61）。
-      // www は Cloudflare の Redirect Rules でも転送する。workers.dev はそこで扱えないのでここで移す。
-      if (siteHost && (location.hostname === "tokyo-data-map.2heytech.workers.dev" || location.hostname === "www." + siteHost)) {
+      if (siteHost && (location.hostname.endsWith(".workers.dev") || location.hostname === "www." + siteHost)) {
         location.replace("https://" + siteHost + location.pathname + location.search + location.hash);
       }
     </script>
@@ -77,7 +78,7 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     {!indexable && <meta name="robots" content="noindex, nofollow" />}
-    <!-- 検索結果やおすすめに、地図の画像を大きく出してよいことを伝える（設計変更記録 #142） -->
+    {/* 検索結果やおすすめに、地図の画像を大きく出してよいことを伝える（設計変更記録 #142） */}
     {indexable && <meta name="robots" content="max-image-preview:large" />}
     <meta property="og:site_name" content={SITE_NAME} />
     {websiteLd && <script type="application/ld+json" set:html={websiteLd} />}
@@ -123,10 +124,10 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     <a class="skip" href="#main">本文へ移動</a>
     <header class="site-header">
       <a class="brand" href="/"><img src="/logo.svg" alt={SITE_NAME} width="164" height="34" /></a>
-      <!-- 見ている都道府県。地図では地図の動きに合わせて書き換える（map/app.ts） -->
+      {/* 見ている都道府県。地図では地図の動きに合わせて書き換える（map/app.ts） */}
       <span class="area-chip" id="area-chip" title="見ている都道府県" hidden={!areaLabel}>{areaLabel}</span>
-      <!-- パソコンではメニューの右端に「地図をひらく」を並べる。スマホではメニューを2行目に回し、
-           「地図をひらく」はロゴの行に置いて切れないようにする（global.css の 720px 以下） -->
+      {/* パソコンではメニューの右端に「地図をひらく」を並べる。スマホではメニューを2行目に回し、
+           「地図をひらく」はロゴの行に置いて切れないようにする（global.css の 720px 以下） */}
       <div class="header-links">
         <nav aria-label="サイト内">
           {nav.map(({ href, label, wide, icon }) => (
