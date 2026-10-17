@@ -1,0 +1,1 @@
+{"indicator_id":"crime_violent_per_100_daytime","period":"2022-01-01","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":7,"levels":{"municipality":{"breaks":[0.002,0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.01,0.011],"min":0.0,"max":0.01402,"count":62},"prefecture":{"breaks":[0.004,0.005,0.006],"min":0.00375,"max":0.00375,"count":1}}}

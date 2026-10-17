@@ -1,0 +1,1 @@
+{"indicator_id":"crime_npa_theft","period":"2021-2025","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":1,"levels":{"prefecture":{"breaks":[9500.0,10000.0,11000.0,15000.0,20000.0,25000.0,30000.0,35000.0,40000.0,100000.0,200000.0],"min":6114.0,"max":283803.0,"count":47}}}

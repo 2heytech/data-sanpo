@@ -1,0 +1,1 @@
+{"indicator_id":"crime_burglary_per_100_daytime","period":"2024-01-01","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":7,"levels":{"municipality":{"breaks":[0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05],"min":0.0,"max":0.05629,"count":62},"prefecture":{"breaks":[0.013,0.014,0.015,0.017,0.018,0.02,0.025],"min":0.01382,"max":0.01382,"count":1}}}
