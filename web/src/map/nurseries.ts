@@ -1,6 +1,7 @@
-// 認可保育所の点レイヤー（東京都福祉局「社会福祉施設等一覧」）。認可定員が多いほど円を大きくする。
-// 「認可保育所を表示」をオンにしたときに初めて places/nursery_capacity.json を読み込み、施設の一覧は地図に映っている
-// 都道府県の分だけ読む（createPrefLoader）。東京都以外は定員の公開データがなく、国土数値情報の位置だけを小さな点で出す。
+// 保育所などの点レイヤー（東京都の認可保育所は東京都福祉局「社会福祉施設等一覧」の認可定員、それ以外の認可保育所・
+// 認定こども園・小規模保育・事業所内保育は「ここdeサーチ」の利用定員と利用者数。#137）。定員が多いほど円を大きくする。
+// 「保育所」をオンにしたときに初めて places/nursery_capacity.json を読み込み、施設の一覧は地図に映っている
+// 都道府県の分だけ読む（createPrefLoader）。時点は出典ごとに違うので、施設ごとに値のある時点を出す。
 // 定員は受け入れの上限で、通っている子どもの数ではないことを凡例と詳細に明記する。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { createPrefLoader, type PointLayer, sourcesHtml } from "./points";
@@ -31,8 +32,11 @@ interface Options {
 export function initNurseries(o: Options): PointLayer {
   let data: NurseryFile | null = null;
   let byId = new Map<string, NurseryPoint>();
-  let counts = { valued: 0, only: 0 };
-  const latest = () => (data ? data.periods.length - 1 : 0);
+  /** 施設ごとの時点（値か状態のある最後の時点。ない施設は -1） */
+  const lastIndex = (p: NurseryPoint) => {
+    for (let i = p.values.length - 1; i >= 0; i--) if (p.values[i] != null || p.status?.[i] != null) return i;
+    return -1;
+  };
   const loader = createPrefLoader<NurseryPoint>({
     map: o.map, fetchJSON: o.fetchJSON, id: "nursery_capacity", key: "points",
     active: () => o.toggle.checked,
@@ -45,14 +49,14 @@ export function initNurseries(o: Options): PointLayer {
       data = await o.fetchJSON<NurseryFile>("places/nursery_capacity.json");
     } catch {
       o.legend.hidden = false;
-      o.legend.textContent = "この公開版には認可保育所のデータがありません。";
+      o.legend.textContent = "この公開版には保育所のデータがありません。";
       return false;
     }
     loader.init(data);
     o.map.addSource("nurseries", { type: "geojson", data: { type: "FeatureCollection", features: [] } as never });
     const v = ["get", "v"];
     // 定員（人）に応じた大きさ。ズームに合わせて全体を大きくする
-    // 定員のない施設（東京都以外、v = -1）は小さな点
+    // 定員のない施設（公表していない施設、v = -1）は小さな点
     const size = (z: number) => ["case", ["<", v, 0], 1.6 * z,
       ["interpolate", ["linear"], v, 20, 2 * z, 60, 3 * z, 120, 4.2 * z, 250, 6 * z]];
     const radius = ["interpolate", ["linear"], ["zoom"], 9, size(0.8), 12, size(1.2), 15, size(1.8)];
@@ -92,23 +96,21 @@ export function initNurseries(o: Options): PointLayer {
     if (!data) return;
     const only = loader.locationOnlyInView().length > 0;
     o.legend.innerHTML =
-      `${esc(data.periods[latest()].label)}の認可保育所${counts.valued ? `（東京都 ${formatNumber(counts.valued, 0)}か所）` : ""}。` +
-      `円が大きいほど認可定員が多い施設です。定員は受け入れの上限で、通っている子どもの数ではありません。` +
-      (only ? "定員は東京都だけです。ほかの道府県は保育所の位置だけを小さな点で表示しています（利用条件で商用利用を認めていない自治体の施設は表示していません）。" : "") +
+      `認可保育所・認定こども園・小規模保育など。円が大きいほど定員が多い施設です。` +
+      `定員は受け入れの上限で、通っている子どもの数ではありません。定員を公表していない施設は小さな点で表示しています。` +
+      (only ? "位置だけの施設があります。" : "") +
       (loader.tooFar() ? "保育所は地図を拡大すると表示します。" : "");
   }
 
   /** 読み込んだ施設（都道府県の分が増えるたびに全体）を地図に描き直す */
   function render(items: NurseryPoint[]) {
     byId = new Map(items.map((p) => [p.id, p]));
-    const i = latest();
-    const shown = items.filter((p) => p.coord && (p.location_only || p.values[i] != null));
-    counts = { valued: shown.filter((p) => !p.location_only).length, only: shown.filter((p) => p.location_only).length };
+    const shown = items.filter((p) => p.coord && (p.location_only || lastIndex(p) >= 0));
     (o.map.getSource("nurseries") as GeoJSONSource | undefined)?.setData({
       type: "FeatureCollection",
       features: shown.map((p) => ({
         type: "Feature",
-        properties: { id: p.id, name: p.name, v: p.values[i] ?? -1 },
+        properties: { id: p.id, name: p.name, v: p.values[lastIndex(p)] ?? -1 },
         geometry: { type: "Point", coordinates: p.coord! },
       })),
     } as never);
@@ -138,22 +140,31 @@ export function initNurseries(o: Options): PointLayer {
       o.onPanel();
       return;
     }
-    const i = latest();
-    const v = p.values[i];
+    const i = lastIndex(p);
+    const v = i >= 0 ? p.values[i] : null;
+    const kind = p.capacity_kind ?? "認可定員";
+    // ここdeサーチの値は、各施設が公表している内容を取得した日の時点
+    const when = i < 0 ? "" : kind === "利用定員"
+      ? `${data.periods[i].label.replace("現在", "")}に取得` : data.periods[i].label;
+    const users = i >= 0 ? p.users?.[i] : null;
+    const ages = Object.entries(p.by_age ?? {}).filter(([, vals]) => vals[i] != null);
     o.panel.hidden = false;
     o.panel.innerHTML = `
-      <button type="button" class="close" data-close aria-label="認可保育所の情報を閉じる">×</button>
-      <p class="muted">${esc(o.municipalityName(p.municipality_id))}・認可保育所</p>
+      <button type="button" class="close" data-close aria-label="保育所の情報を閉じる">×</button>
+      <p class="muted">${esc(o.municipalityName(p.municipality_id))}・${esc(p.facility_type ?? "認可保育所")}</p>
       <h2>${esc(p.name)}</h2>
       <p class="muted small">${esc(p.address ?? "")}${p.founder ? `（設置: ${esc(p.founder)}）` : ""}</p>
       ${p.location_only ? `<div>${esc(data.name)}</div>
-      <div class="value">公開データなし</div>
-      <p class="note small">定員は東京都の保育所だけです。ほかの道府県は、国土数値情報「福祉施設データ」（${esc(p.as_of ?? "")}）の保育所の位置だけを表示しています。</p>`
-      : `<div>${esc(data.name)}（${esc(data.periods[i].label)}）</div>
-      <div class="value">${v != null ? `${formatNumber(v, 0)}人` : "値なし"}</div>`}
-      ${p.precision === "町丁目" ? `<p class="note small">所在地の街区が見つからないため、町丁目の代表点に表示しています。</p>` : ""}
+      <div class="value">公開データなし</div>`
+      : `<div>${esc(kind)}${when ? `（${esc(when)}）` : ""}</div>
+      <div class="value">${v != null ? `${formatNumber(v, 0)}人` : "公表なし"}</div>
+      ${users != null ? `<p>通っている子ども（利用者数）: ${formatNumber(users, 0)}人</p>` : ""}
+      ${ages.length ? `<p class="small">年齢別: ${ages.map(([a, vals]) => `${esc(a)} ${formatNumber(vals[i]!, 0)}人`).join("、")}</p>` : ""}
+      ${kind === "利用定員" ? `<p class="note small">子ども・子育て支援情報公表システム「ここdeサーチ」で施設が公表している内容です。施設ごとに更新の時期が違います。</p>` : ""}`}
+      ${!p.coord ? `<p class="note small">所在地から位置を求められなかったため、地図には表示していません。</p>`
+        : p.precision === "町丁目" ? `<p class="note small">所在地の街区が見つからないため、町丁目の代表点に表示しています。</p>` : ""}
       <p class="muted small">${data.caveats.map(esc).join(" ")}</p>
-      ${sourcesHtml(data.source_ids, o.sources)}`;
+      ${sourcesHtml(p.sources ?? data.source_ids, o.sources)}`;
     o.onPanel();
   }
 
@@ -169,7 +180,7 @@ export function initNurseries(o: Options): PointLayer {
 
   return {
     layer: LAYER,
-    kind: "認可保育所",
+    kind: "保育所",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     show: showPoint,
     isOpen: () => !o.panel.hidden,

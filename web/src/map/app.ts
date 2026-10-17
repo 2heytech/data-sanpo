@@ -565,7 +565,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     renderAreaChip();
   }
 
-  // 点レイヤー（駅・空港・港・学校・地価（地価公示・都道府県地価調査）・認可保育所・天気の観測所）。オンにしたときだけ読み込む
+  // 点レイヤー（駅・空港・港・学校・地価（地価公示・都道府県地価調査）・保育所・天気の観測所）。オンにしたときだけ読み込む
   const pickEl = $("#pick-detail");
   const pointOptions = (toggle: string, legendSel: string, panel: string) => ({
     map, fetchJSON, sources, beforeLayer: "area-label", labelFont: LABEL_FONT,

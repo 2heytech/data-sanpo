@@ -28,11 +28,11 @@ from .db import (connect, create_secondary_indexes, drop_secondary_indexes, init
 from .derive import derive_change, derive_density, derive_multi_year_sum, derive_rate
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
-from .ingest import (estat_boundary, estat_census_history, estat_census_municipal, estat_foreign, estat_housing,
-                     derived_towns, estat_commerce, estat_economic_census, estat_school_basic, estat_school_municipal,
+from .ingest import (cfa_childcare, estat_boundary, estat_census_history, estat_census_municipal, estat_foreign,
+                     estat_housing, derived_towns, estat_commerce, estat_economic_census, estat_school_basic, estat_school_municipal,
                      gsi_area, jma_normals,
                      estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
-                     keishicho_crime, mext_school_aid,
+                     keishicho_crime, kokode_nurseries, mext_school_aid, school_counts, school_readers,
                      mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, mlit_transport, nier_gakuryoku,
                      npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_finance, soumu_furusato,
                      soumu_tax, tokyo_childcare,
@@ -212,13 +212,16 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
     airport_tables: list[tuple] = []   # 空港・港は位置の出典と合わせて、すべての年を読んでから取り込む
     port_tables: list[tuple] = []
     transport_locations: dict = {}
+    count_sources: list[tuple] = []   # 東京都以外の学校の児童・生徒数（P29 の点を取り込んでから付ける）
+    kokode: tuple | None = None        # ここdeサーチの保育所など（位置参照情報をそろえてから取り込む）
+    block_points: tuple | None = None  # 全国の位置参照情報（街区レベル、都道府県ごと）
     for key, cfg in sources.items():
         kind = cfg.get("kind")
         if kind not in ("keishicho_crime", "mlit_stations", "tokyo_schools",
                         "isj_gazetteer", "tokyo_foreign", "npa_traffic", "mlit_landprice",
                         "soumu_tax", "tokyo_childcare", "tokyo_street_trees", "tokyo_election",
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
-                        "nier_gakuryoku", "estat_school_basic", "estat_school_classes", "estat_school_progress", "mlit_schools", "mlit_nurseries",
+                        "nier_gakuryoku", "estat_school_basic", "estat_school_classes", "estat_school_progress", "mlit_schools",
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
@@ -226,7 +229,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
                         "gsi_airports", "gsi_ports", "soumu_election", "soumu_fiscal_indicators",
                         "soumu_settlement", "gsi_area", "land_use_cells", "urban_land_use_cells",
-                        "town_elevation", "land_use_tiles", "farmland_areas", "vegetation_areas"):
+                        "town_elevation", "land_use_tiles", "farmland_areas", "vegetation_areas",
+                        "school_counts", "kokode_nurseries", "cfa_childcare", "isj_block_points"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -250,6 +254,14 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             transport_locations.setdefault("port", []).extend((f, src, kind) for f in files)
         elif kind == "tokyo_schools":
             school_tables += tokyo_schools.tables_of(files, cfg, src)
+        elif kind == "school_counts":
+            count_sources.append((key, files, src, cfg))
+        elif kind == "kokode_nurseries":
+            kokode = (key, _prefecture_files(paths, key, cfg, prefs), src)
+        elif kind == "isj_block_points":
+            block_points = (_prefecture_files(paths, key, cfg, prefs), src)
+        elif kind == "cfa_childcare":
+            result[key] = cfa_childcare.ingest(conn, files[0], src, catalog, int(cfg["year"]), prefs)
         elif kind == "isj_gazetteer":
             gazetteers[cfg.get("level", "block")] = (files[0], src)
         elif kind == "keishicho_crime":
@@ -378,10 +390,6 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "mlit_schools":
             result[key] = mlit_facilities.ingest_schools(conn, files, src, boundary_version,
                                                          source_prefectures(cfg, prefs), cfg["as_of"])
-        elif kind == "mlit_nurseries":
-            result[key] = mlit_facilities.ingest_nurseries(
-                conn, files, src, boundary_version, source_prefectures(cfg, prefs), cfg["as_of"],
-                cfg.get("exclude_codes", []), cfg.get("include_codes", []))
         elif kind == "mlit_stations":
             for indicator_id, d in catalog.items():
                 if d.get("source_kind") == kind:
@@ -410,7 +418,45 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             if d.get("source_kind") == "tokyo_schools":
                 result[indicator_id] = tokyo_schools.ingest(
                     conn, school_tables, gazetteers, indicator_id, d, boundary_version)
+    national = _national_gazetteers(conn, paths, sources, overrides, prefs, block_points)
+    if count_sources:
+        batches = []
+        for key, files, src, cfg in count_sources:
+            schools = school_readers.READERS[cfg["reader"]](files, cfg)
+            batches.append((schools, src))
+            result[key] = f"{len(schools)} 校"
+        for indicator_id, d in catalog.items():
+            if d.get("source_kind") == "tokyo_schools":
+                result[f"school_counts {indicator_id}"] = school_counts.ingest(
+                    conn, batches, indicator_id, d, boundary_version, national)
+    if kokode:
+        key, files, src = kokode
+        gaz = {**national, "13": gazetteers} if gazetteers else national
+        for indicator_id, d in catalog.items():
+            if d.get("source_kind") == "tokyo_nurseries":
+                result[f"{key} {indicator_id}"] = kokode_nurseries.ingest(
+                    conn, files, src, gaz, indicator_id, d, boundary_version)
     return result
+
+
+def _national_gazetteers(conn, paths: Paths, sources: dict, overrides: dict | None, prefs: list[str],
+                         block_points: tuple | None) -> dict[str, dict]:
+    """東京都以外の都道府県の位置参照情報（街区レベル・大字町丁目レベル）。都道府県コード → {"block"|"oaza": (ファイル, 出典)}。
+    大字町丁目レベルは犯罪オープンデータの照合に使っている全国版（kind = isj_town_points）を使う。"""
+    out: dict[str, dict] = {}
+    if block_points:
+        files, src = block_points
+        for pref, fs in files.items():
+            out.setdefault(pref, {})["block"] = (fs[0], src)
+    key = next((k for k, c in sources.items() if c.get("kind") == "isj_town_points"), None)
+    if key:
+        oaza = _prefecture_files(paths, key, sources[key], prefs)
+        if oaza:
+            src = register_source(conn, key, sources[key], [f for fs in oaza.values() for f in fs], overrides)
+            for pref, fs in oaza.items():
+                out.setdefault(pref, {})["oaza"] = (fs[0], src)
+    out.pop("13", None)   # 東京都は東京都の位置参照情報（kind = isj_gazetteer）を使う
+    return out
 
 
 def _prefecture_files(paths: Paths, key: str, cfg: dict, prefs: list[str]) -> dict[str, list]:

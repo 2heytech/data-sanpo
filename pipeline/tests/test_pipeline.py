@@ -920,7 +920,8 @@ def test_stations_are_per_operator_and_keep_duplicates_apart(built):
 
 def test_schools_are_located_from_addresses(built):
     sc = load(built, "places/school_enrollment.json")
-    assert [p["label"] for p in sc["periods"]] == ["2023年5月1日現在"]   # カタログに載っている年度だけ
+    # 東京都はカタログに載っている年度だけ。2025年度は神奈川県の一覧（年度は出典ごとに違う。#137）
+    assert [p["label"] for p in sc["periods"]] == ["2023年5月1日現在", "2025年5月1日現在"]
     by = {s["id"]: s for s in sc["schools"]}
     # 通信制の課程は学校の点にしない（同じ学校番号の中学校の値に混ぜない）
     assert by["school-990110"]["name"] == "見本中学校"
@@ -935,7 +936,7 @@ def test_schools_are_located_from_addresses(built):
     assert by["school-990120"]["municipality_id"] == "muni-13299"
     # 学年別の合計が総数。「-」は該当なし（0人）
     k = by["school-990210"]
-    assert k["values"][-1] == sum(v[-1] for v in k["by_grade"].values()) and k["by_grade"]["2年"][-1] == 0
+    assert k["values"][0] == sum(v[0] for v in k["by_grade"].values()) and k["by_grade"]["2年"][0] == 0
     # 街区レベルにない大字は大字・町丁目レベルで補う。大字を書かない住所は大字が1つの町村だけ
     assert by["school-990050"]["precision"] == "町丁目" and by["school-990050"]["coord"] == [139.68, 35.7]
     assert by["school-990060"]["coord"] == [139.37, 34.71]
@@ -944,51 +945,97 @@ def test_schools_are_located_from_addresses(built):
     assert "school_enrollment" not in {i["id"] for i in load(built, "indicators.json")["indicators"]}
 
 
-def test_schools_outside_tokyo_are_locations_only(built):
+def test_schools_outside_tokyo(built):
     sc = load(built, "places/school_enrollment.json")
     others = {s["name"]: s for s in sc["schools"] if s["municipality_id"].startswith("muni-14")}
-    # 公立の小学校・中学校・義務教育学校だけ（私立・高校・休校は除く）。児童・生徒数はないので値なし（0 にしない）
-    assert set(others) == {"みほん市立標本小学校", "みほん市立標本中学校", "みほん市立標本学園"}
+    # 公立の小学校・中学校・義務教育学校だけ（私立・高校・休校は除く）。P29 にない新しい学校も一覧から加える
+    assert set(others) == {"みほん市立標本小学校", "みほん市立標本中学校", "みほん市立標本学園", "新標本小学校"}
+    # 学校コードで P29 の点に人数を付ける（位置は P29。設置者は P29 の学校名から）
     s = others["みほん市立標本学園"]
-    assert s["location_only"] and s["values"] == [None] and s["school_type"] == "compulsory"
-    assert s["coord"] == [139.63, 35.47] and s["as_of"] == "2023年度"
+    assert s["values"] == [None, 450] and s["status"] == [None, "observed"] and not s.get("location_only")
+    assert s["coord"] == [139.63, 35.47] and s["founder"] == "みほん市立" and len(s["by_grade"]) == 9
+    assert s["sources"][0].startswith("school_counts_kanagawa_2025@") and not s.get("closed")
+    # 一覧にない P29 の学校は位置だけ。どの一覧に見つからなかったかを残す（値は 0 にしない）
+    s = others["みほん市立標本中学校"]
+    assert s["location_only"] and s["values"] == [None, None] and s["as_of"] == "2023年度"
+    assert s["unlisted"]["year"] == 2025 and s["unlisted"]["source_id"].startswith("school_counts_kanagawa_2025@")
+    # P29 にない学校は所在地（神奈川県は所在市区町村だけ）から市区町村を決め、番地がなければ位置なし
+    s = others["新標本小学校"]
+    assert s["coord"] is None and s["municipality_id"] == "muni-14199" and s["values"] == [None, 120]
     # 東京都は都教委の一覧だけを使う（国土数値情報の東京都の学校は取り込まない）
     assert "サンプル区立見本小学校" not in {x["name"] for x in sc["schools"]}
     assert not any(x.get("location_only") for x in sc["schools"] if x["municipality_id"].startswith("muni-13"))
     meta = json.loads((built.releases / "test" / "places/school_enrollment.json").read_text(encoding="utf-8"))
-    assert meta["prefectures"]["14"]["location_only"] == 3 and "location_only" not in meta["prefectures"]["13"]
+    assert meta["prefectures"]["14"]["location_only"] == 1 and "location_only" not in meta["prefectures"]["13"]
     assert any(x.startswith("mlit_p29_2023@") for x in sc["source_ids"])
+    # 東京都の学校は都の一覧の最新の年度（2023年度）にあれば閉校ではない
+    tokyo = [x for x in sc["schools"] if x["municipality_id"].startswith("muni-13")]
+    assert any(x["values"][0] is not None and not x.get("closed") for x in tokyo)
 
 
-def test_nurseries_outside_tokyo_follow_terms(built):
+def test_school_matching():
+    from tdm.ingest.school_counts import Matcher, Point29, SchoolCount, core_name
+    pts = [Point29("school-B1", "みほん市立天栄中学校", "junior_high", {"みほん市"}, {}),
+           Point29("school-B2", "みほん市立旭小学校", "elementary", {"みほん市"}, {}),
+           Point29("school-B3", "名西郡かみ町広野小学校", "elementary", {"かみ町"}, {}),
+           Point29("school-B4", "小松島市立江小学校", "elementary", {"小松島市"}, {}),
+           Point29("school-B5", "みほん市立第二小学校", "elementary", {"みほん市"}, {})]
+    sc = [SchoolCount("14", "みほん市", "天栄", "elementary", 2026, 100),   # 新しい小学校（中学校の点は取らない）
+          SchoolCount("14", "みほん市", "天栄中学校", "junior_high", 2026, 50),
+          SchoolCount("14", "みほん市", "旭", "elementary", 2026, 80),            # 略称（「小学校」なし）
+          SchoolCount("14", "かみ町", "広野", "elementary", 2026, 10),      # P29 は郡名付きで「立」がない
+          SchoolCount("14", "小松島市", "立江", "elementary", 2026, 30),    # P29 は「小松島市立江小学校」
+          SchoolCount("14", "みほん市", "第２義務教育学校", "compulsory", 2026, 300)]   # 小学校が義務教育学校になった
+    got = [p.entity_id if p else None for p in Matcher(pts).match_all(sc)]
+    assert got == [None, "school-B1", "school-B2", "school-B3", "school-B4", "school-B5"]
+    assert core_name("みほん市立第２小学校", "みほん市") == "第二"
+
+
+def test_kokode_nurseries(built):
     nc = load(built, "places/nursery_capacity.json")
-    # 神奈川県の所管の保育所は利用条件（商用利用不可）で除く。東京都は都の一覧だけ
-    assert not any(p["municipality_id"].startswith("muni-14") for p in nc["points"])
-    assert "見本保育園" not in {p["name"] for p in nc["points"]}
-    from tdm.ingest.mlit_facilities import _matches
-    assert _matches("14199", ["14"]) and not _matches("13101", ["14"])
+    assert [p["period"] for p in nc["periods"]] == ["2025-10-01", "2026-10-17"]   # 都の一覧と、ここdeサーチの取得日
+    by = {p["name"]: p for p in nc["points"]}
+    # 通常営業の認可保育所・認定こども園・小規模保育だけ（家庭的保育・休止中・幼稚園は除く）
+    assert {n for n, p in by.items() if p["municipality_id"].startswith("muni-14")} == {
+        "標本保育園", "標本こども園", "どこか小規模保育室"}
+    p = by["標本保育園"]
+    assert p["facility_type"] == "認可保育所" and p["capacity_kind"] == "利用定員" and p["values"] == [None, 60]
+    assert p["users"] == [None, 55] and p["by_age"]["0歳"] == [None, 6] and p["precision"] == "街区"
+    assert p["coord"] == [139.607, 35.457] and p["founder"] == "社会福祉法人"
+    assert any(s.startswith("mlit_isj_block_national@") for s in p["sources"])
+    # 利用定員を公表していない施設は値なし（0人にしない）。年齢別の合計が合わなければ年齢別は出さない
+    p = by["標本こども園"]
+    assert p["facility_type"] == "認定こども園" and p["values"] == [None, None] and p["status"] == [None, "missing"]
+    assert p["users"] == [None, 100] and "by_age" not in p
+    assert by["どこか小規模保育室"]["coord"] is None and "users" not in by["どこか小規模保育室"]
+    # 東京都は認可保育所を都の一覧（認可定員）から、それ以外の施設をここdeサーチから
+    assert by["見本ほいくえん"]["capacity_kind"] == "認可定員" and by["見本ほいくえん"]["values"] == [87, None]
+    assert by["見本ちいさな保育室"]["facility_type"] == "小規模保育" and by["見本ちいさな保育室"]["values"] == [None, 12]
+    # 都の一覧にある施設（保育所型の認定こども園）は、ここdeサーチから重ねて取り込まない
+    assert [p["capacity_kind"] for p in nc["points"] if p["name"] == "見本第二保育園"] == ["認可定員"]
+    # 代表者の氏名は読まない
+    assert "見本 太郎" not in json.dumps(nc, ensure_ascii=False)
 
 
-def test_nursery_terms_exceptions(tmp_path):
-    from tdm.ingest import mlit_facilities
-    conn = connect(":memory:")
-    init_schema(conn)
-    conn.execute("""INSERT INTO sources (source_id, dataset_key, title, provider, license,
-                    attribution, retrieved_at, file_sha256) VALUES ('s','s','s','s','s','s','t','h')""")
-    for code in ("14131", "14199"):
-        conn.execute("INSERT INTO entities VALUES (?, 'municipality', ?, NULL, NULL, NULL, NULL, NULL)",
-                     (f"muni-{code}", code))
-    feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [139.7, 35.5]},
-              "properties": {"P14_001": "神奈川県", "P14_002": name, "P14_003": code, "P14_004": "1-1",
-                             "P14_007": "050401", "P14_008": f"{name}保育園"}}
-             for code, name in (("14131", "川崎市川崎区"), ("14199", "みほん市中区"))]
-    path = tmp_path / "P14-23_14.geojson"
-    path.write_text(json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False),
-                    encoding="utf-8")
-    r = mlit_facilities.ingest_nurseries(conn, [path], "s", "none", ["14"], "2023年度", ["14"], ["1413"])
-    assert r["nurseries"] == 1 and r["excluded_by_terms"] == 1
-    assert [x["name"] for x in conn.execute("SELECT name FROM entities WHERE entity_type = 'nursery'")] == [
-        "川崎市川崎区保育園"]
+def test_cfa_childcare(built):
+    for indicator in ("childcare_capacity", "childcare_users", "childcare_occupancy", "waiting_children"):
+        assert indicator in {i["id"] for i in load(built, "indicators.json")["indicators"]}
+    munis = {r["entity_id"]: r for r in load(built, "values/childcare_capacity/2026-04-01/municipalities.json")["rows"]}
+    # 国の「保育所等」の定員（保育所・幼保連携型・幼稚園型等・地域型保育事業の合計。企業主導型・地方単独は含めない）
+    assert munis["muni-13199"]["value"] == 1100
+    # 政令指定都市は市全体の値だけなので、区には割り振らない
+    assert munis["muni-14199"]["value"] is None and munis["muni-14199"]["status"] == "not_applicable"
+    prefs = {r["entity_id"]: r for r in load(built, "values/childcare_capacity/2026-04-01/prefectures.json")["rows"]}
+    assert prefs["pref-14"]["value"] == 7200 and prefs["pref-13"]["value"] == 1570
+    # 割合は分子・分母から（都道府県も合計した分子・分母から）
+    occ = {r["entity_id"]: r for r in load(built, "values/childcare_occupancy/2026-04-01/prefectures.json")["rows"]}
+    assert occ["pref-14"]["numerator"] == 6920 and occ["pref-14"]["denominator"] == 7200
+    assert abs(occ["pref-14"]["value"] - 6920 / 7200 * 100) < 0.01
+    # 待機児童数: 東京都は都の発表を使い、国の取りまとめの東京都の行は取り込まない（同じ時点を二重にしない）
+    w = load(built, "values/waiting_children/2026-04-01/municipalities.json")["rows"]
+    assert sum(1 for r in w if r["entity_id"] == "muni-13199") == 1
+    wp = {r["entity_id"]: r for r in load(built, "values/waiting_children/2026-04-01/prefectures.json")["rows"]}
+    assert wp["pref-14"]["value"] == 7
 
 
 def test_isj_locate_address_forms():
@@ -1006,6 +1053,16 @@ def test_isj_locate_address_forms():
     assert g.locate("千代田区", "麹町２ー８ー１").town == "麹町二丁目"        # 長音符の区切り
     assert g.locate("千代田区", "麹町2丁目8番1号 麹町ビル3階").precision == "街区"   # 丁目を数字で書く・建物名
     assert g.locate("千代田区", "存在しない町1-1") is None
+    # ここdeサーチの町名・番地に都道府県・郡・区名を重ねて書いた住所（#137）
+    g.blocks |= {("長泉町", "下土狩"): {"87": (138.9, 35.1, 1)}, ("静岡市葵区", "古庄四丁目"): {"2": (138.4, 35.0, 1)},
+                 ("佐賀市", "川副町大字西古賀"): {"320": (130.3, 33.2, 1)}, ("鹿島市", "三河内"): {"1189": (130.1, 33.1, 1)},
+                 ("佐賀市", "鍋島町蛎久"): {"646": (130.2, 33.2, 1)}}
+    assert g.locate("駿東郡長泉町", "静岡県駿東郡長泉町下土狩８７－１　２階").precision == "街区"
+    assert g.locate("静岡市葵区", "葵区古庄４－２－１１").town == "古庄四丁目"
+    assert g.locate("佐賀市", "川副町大字西古賀３２０‐１").precision == "街区"      # 「大字」は「字」で分けない
+    assert g.locate("佐賀市", "川副町西古賀320-1").town == "川副町大字西古賀"     # 住所に「大字」がない
+    assert g.locate("佐賀市", "鍋島町大字蛎久６４６‐３").town == "鍋島町蛎久"      # 位置参照情報に「大字」がない
+    assert g.locate("鹿島市", "大字三河内乙１１８９").town == "三河内"             # 地番の前の「乙」
 
 
 def test_isj_oaza_level_drops_county_name(tmp_path):
@@ -1943,12 +2000,11 @@ def test_estat_file_ids_follow_the_step_between_prefectures(tmp_path):
 
 def test_nurseries(built):
     nc = load(built, "places/nursery_capacity.json")
-    assert [p["period"] for p in nc["periods"]] == ["2025-10-01"]
-    by = {p["name"]: p for p in nc["points"]}
+    by = {p["name"]: p for p in nc["points"] if p["capacity_kind"] == "認可定員"}   # 東京都の認可保育所（都の一覧）
     assert set(by) == {"見本ほいくえん", "見本第二保育園", "ためし保育園", "かりの保育所"}
     # 全角の住所・街区から位置を求める。街区がなければ町丁目の代表点
     assert by["見本ほいくえん"]["precision"] == "街区" and by["見本ほいくえん"]["coord"] == [139.705, 35.665]
-    assert by["見本ほいくえん"]["values"] == [87] and by["見本ほいくえん"]["municipality_id"] == "muni-13199"
+    assert by["見本ほいくえん"]["values"] == [87, None] and by["見本ほいくえん"]["municipality_id"] == "muni-13199"
     assert by["見本第二保育園"]["precision"] == "町丁目"
     # 見つからない住所は位置なし（区市町村はコードから）
     assert by["ためし保育園"]["coord"] is None and by["ためし保育園"]["municipality_id"] == "muni-13299"
