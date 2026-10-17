@@ -84,10 +84,8 @@ export const RANK_TEMPLATES: Record<string, RankTemplate> = {
   taxable_income_per_taxpayer: { high: "所得の高い人が多く住む地域と考えられます。" },
   income_levy_taxpayer_share: { high: "働いて所得を得ている人の割合が高い、現役世代の多い地域と思われます。" },
   vacant_house_rate: { lowTag: tag("demand", "住まいの需要が高く", "住まいの需要が高い"), low: "空き家が少なく、住まいの需要が高い地域のようです。", lowTone: "pos" },
-  // 安全（犯罪が多い方は、住む人が悪く見られかねないので文にしない。少ない方だけ）
+  // 安全（犯罪・事故が多い方は、住む人が悪く見られかねないので文にしない。少ない方だけ。設計変更記録 #133）
   traffic_accidents_per_100_residents: { lowTag: tag("calm", "交通事故が少なく", "交通事故の少ない"),
-    high: "住民の数に比べて事故が多く、通過する車や観光客の多い道路があると考えられます。",
-    highTone: "neg",
     low: "住民の数に比べて事故が少ない、落ち着いた地域のようです。",
     lowTone: "pos",
   },

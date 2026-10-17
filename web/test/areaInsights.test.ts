@@ -11,8 +11,8 @@ const ind = (id: string, unit: string, digits: number, periods: string[], kind: 
 }) as unknown as Indicator;
 const fiscalYear = (p: string) => `${p.slice(0, 4)}年度`;
 
-// 2つの都道府県の市区町村 20 個。対象は muni-01001
-function makeData(values: Record<string, Record<string, (number | null)[]>>, places?: PlacePoints): InsightData {
+// 2つの都道府県の市区町村 200 個。対象は muni-01001（first で別の id にできる）
+function makeData(values: Record<string, Record<string, (number | null)[]>>, places?: PlacePoints, first = "muni-01001"): InsightData {
   const inds = new Map<string, Indicator>([
     ["foreign_resident_share", ind("foreign_resident_share", "%", 1, ["2025-10-01"])],
     ["foreign_residents_share", ind("foreign_residents_share", "%", 1, ["2026-01-01"])],
@@ -42,7 +42,7 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>, pla
     ["fiscal_strength_index", ind("fiscal_strength_index", "", 2, ["2024-04-01"], "ratio", fiscalYear)],
     ["manufacturing_shipments", ind("manufacturing_shipments", "億円", 1, ["2024-01-01"], "count")],
   ]);
-  const ids = Array.from({ length: 200 }, (_, i) => `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`);
+  const ids = Array.from({ length: 200 }, (_, i) => (i === 0 ? first : `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`));
   return {
     indicator: (id) => inds.get(id),
     indicators: () => [...inds.values()],
@@ -178,6 +178,24 @@ describe("areaInsights", () => {
   });
   it("値がない指標は使わない（0 として扱わない）", () => {
     expect(areaInsights("muni-01001", makeData({ daytime_night_ratio: { "2020-10-01": fill(null, 100) } }))).toEqual([]);
+  });
+  it("同じ値の市区町村が多いときは、その数を添え、最も低い値と書く（件数0の市区町村が並ぶときに「1番目」とだけ書かない）", () => {
+    const lines = areaInsights("muni-01001", makeData({ street_crime_total_per_100_residents: { "2020-10-01": [0, 0, 0, ...Array(197).fill(1)] } }));
+    expect(lines[0]).toMatch(/^street_crime_total_per_100_residentsは0.00 件\/100人で、全国200市区町村の中で最も低い値です（2020年10月1日現在、同じ値の市区町村が3あります）。/);
+  });
+  it("避難指示などの対象になった福島県の12市町村は、国勢調査の人口の移り変わりを書き、ほかの地域と同じ読み方の人口・昼間人口の考察は出さない", () => {
+    const values = {
+      daytime_night_ratio: { "2020-10-01": fill(590, 100) },
+      population_change_rate: { "2020-10-01": fill(81, -2) },
+      population_total: { "2010-10-01": fill(11515, 1000), "2025-10-01": fill(1533, 1000) },
+    };
+    const p = areaProfile("muni-07545", makeData(values, undefined, "muni-07545"));
+    expect(p.lines[0]).toBe("2011年の東京電力福島第一原子力発電所の事故で、避難指示などの対象になった12市町村の1つです。" +
+      "国勢調査の人口は2010年が11,515 人、2025年は1,533 人です。住む人の年齢や世帯、住み始めた時期などの値も、避難と帰還の影響を大きく受けていると考えられます。");
+    expect(p.lines.join("")).not.toMatch(/住宅の開発|職場や学校の多い/);
+    expect(p.title ?? "").not.toMatch(/人口|人が集まる/);
+    // ほかの市区町村は今までどおり
+    expect(areaInsights("muni-01001", makeData(values)).join("")).toMatch(/住宅の開発.*|職場や学校の多い/);
   });
 });
 

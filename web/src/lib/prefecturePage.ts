@@ -1,5 +1,6 @@
 // 都道府県ページ（/prefectures/<コード>/）の文と表を作る処理（設計変更記録 #130）。
 // 県内の市区町村へのリンクの入口として、人口の順と、主な指標の県内の上位を並べる
+import { popRank } from "./areaSummary";
 import { formatNumber, formatValue, ranked } from "./format";
 import { municipalityPeriods } from "./periods";
 import type { Indicator, Municipality, Period, ValueRow } from "./types";
@@ -51,7 +52,7 @@ export function prefectureLead(name: string, pop: PrefPopulation | null, change:
   muniCount: number, wardCities: string[]): string[] {
   const lines: string[] = [];
   if (pop) {
-    const rank = pop.rank === 1 ? "最も多い" : `${pop.rank}番目に多い`;
+    const rank = popRank(pop);
     let line = `${name}の人口は${pop.text}（${pop.label}）で、全国${pop.total}都道府県のうち${rank}都道府県です。`;
     if (change) {
       const amount = formatNumber(Math.abs(change.value), 1);
