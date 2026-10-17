@@ -949,14 +949,19 @@ def test_schools_outside_tokyo(built):
     sc = load(built, "places/school_enrollment.json")
     others = {s["name"]: s for s in sc["schools"] if s["municipality_id"].startswith("muni-14")}
     # 公立の小学校・中学校・義務教育学校だけ（私立・高校・休校は除く）。P29 にない新しい学校も一覧から加える
-    assert set(others) == {"みほん市立標本小学校", "みほん市立標本中学校", "みほん市立標本学園", "新標本小学校"}
+    assert set(others) == {"みほん市立標本小学校", "みほん市立標本中学校", "みほん市立標本学園", "みほん市立標本東中学校",
+                           "新標本小学校"}
     # 学校コードで P29 の点に人数を付ける（位置は P29。設置者は P29 の学校名から）
     s = others["みほん市立標本学園"]
     assert s["values"] == [None, 450] and s["status"] == [None, "observed"] and not s.get("location_only")
     assert s["coord"] == [139.63, 35.47] and s["founder"] == "みほん市立" and len(s["by_grade"]) == 9
     assert s["sources"][0].startswith("school_counts_kanagawa_2025@") and not s.get("closed")
-    # 一覧にない P29 の学校は位置だけ。どの一覧に見つからなかったかを残す（値は 0 にしない）
+    # 中学校（学校コード C1）も P29 の点に人数を付ける（点は1つだけ）
     s = others["みほん市立標本中学校"]
+    assert s["values"] == [None, 210] and s["coord"] == [139.625, 35.468] and len(s["by_grade"]) == 3
+    assert sum(1 for x in sc["schools"] if x["name"].endswith("標本中学校")) == 1
+    # 一覧にない P29 の学校は位置だけ。どの一覧に見つからなかったかを残す（値は 0 にしない）
+    s = others["みほん市立標本東中学校"]
     assert s["location_only"] and s["values"] == [None, None] and s["as_of"] == "2023年度"
     assert s["unlisted"]["year"] == 2025 and s["unlisted"]["source_id"].startswith("school_counts_kanagawa_2025@")
     # P29 にない学校は所在地（神奈川県は所在市区町村だけ）から市区町村を決め、番地がなければ位置なし
