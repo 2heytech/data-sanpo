@@ -1,4 +1,4 @@
-// 点レイヤー（駅・学校・地価公示・認可保育所）の共通の形。クリックは app.ts でまとめて受け、
+// 点レイヤー（駅・学校・地価・認可保育所）の共通の形。クリックは app.ts でまとめて受け、
 // 直前にクリックした1地点だけを右の欄に出す（重なっている地点は一覧から選ぶ）。
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { esc } from "../lib/html";
@@ -7,7 +7,7 @@ import type { PlacePrefecture, Source } from "../lib/types";
 export interface PointLayer {
   /** クリック判定に使う円のレイヤー */
   layer: string;
-  /** 一覧で見せる種類名（駅・学校・地価公示・認可保育所） */
+  /** 一覧で見せる種類名（駅・学校・地価・認可保育所） */
   kind: string;
   visible(): boolean;
   /** 地点を選ぶ（null で閉じる） */
@@ -96,6 +96,12 @@ export function createPrefLoader<T>(o: PrefLoaderOptions<T>) {
         if (hit) return hit;
       }
       return undefined;
+    },
+    /** 1つの都道府県の分を読む（共通地点の相手を探すときなど、地図に映っていなくても読む） */
+    async loadPrefecture(pref: string): Promise<void> {
+      if (!(pref in prefs) || loaded.has(pref)) return;
+      await loadPref(pref);
+      o.onChange(all());
     },
     items: all,
     /** 地図に映っている都道府県のうち、値がなく位置だけの点がある都道府県 */

@@ -170,7 +170,7 @@ describe("urlstate", () => {
   });
 });
 
-describe("地価公示の凡例", () => {
+describe("地価の凡例", () => {
   it("切りのよい価格で区切り、区分の数と色の数が合う", async () => {
     const { landBins, yenLabel, LAND_BREAKS, LAND_COLORS } = await import("../src/map/landprices");
     expect(LAND_COLORS.length).toBe(LAND_BREAKS.length + 1);
@@ -180,6 +180,46 @@ describe("地価公示の凡例", () => {
     expect(bins[1]).toBe("10万〜20万円");
     expect(bins[bins.length - 1]).toBe("1,000万円以上");
     expect(bins.length).toBe(LAND_COLORS.length);
+  });
+});
+
+describe("地価公示と地価調査の共通地点", () => {
+  const point = (id: string, coord: [number, number], address: string) => ({
+    id, name: id, municipality_id: "muni-13101", coord, use: "000", use_label: "住宅地", address,
+    residential_address: null, area_m2: null, current_use: null, station: null, station_distance_m: null,
+    zoning: null, change_rate: null, values: [],
+  });
+  it("所在地の丁目の書き方（漢数字・全角数字）と空白の違いをそろえる", async () => {
+    const { normalizeLandAddress } = await import("../src/map/landprices");
+    expect(normalizeLandAddress("東京都 中央区新富一丁目５番１")).toBe(normalizeLandAddress("東京都 中央区新富１丁目５番１"));
+    expect(normalizeLandAddress("東京都 港区芝二十三丁目１番")).toBe("東京都港区芝23丁目1番");
+    expect(normalizeLandAddress(null)).toBe("");
+  });
+  it("位置が同じか、所在地が同じで100m以内の地点を組にし、1つの標準地は1つの基準地とだけ組む", async () => {
+    const { pairLandPoints } = await import("../src/map/landprices");
+    const publics = [
+      point("land-a", [139.7, 35.6], "東京都 千代田区三番町６番２５"),
+      point("land-b", [139.71, 35.61], "東京都 中央区新富１丁目５番１"),
+      point("land-c", [139.72, 35.62], "東京都 中央区銀座１丁目１番"),
+    ];
+    const surveys = [
+      point("landsv-a", [139.7, 35.6], "東京都 千代田区三番町６番２５外"),          // 位置が同じ
+      point("landsv-b", [139.7101, 35.6101], "東京都 中央区新富一丁目５番１"),     // 所在地が同じで約14m
+      point("landsv-c", [139.73, 35.62], "東京都 中央区銀座１丁目１番"),           // 所在地は同じだが約900m離れている
+      point("landsv-a2", [139.7, 35.6], "東京都 千代田区三番町６番２５"),          // land-a はもう組んでいる
+    ];
+    const pairs = pairLandPoints(publics, surveys);
+    expect(Object.fromEntries(pairs)).toEqual({ "landsv-a": "land-a", "landsv-b": "land-b" });
+  });
+  it("推移の変化率は1つ前の行から求め、1年より前の行とは比べない", async () => {
+    const { withChanges } = await import("../src/map/landprices");
+    const rows = withChanges([
+      { period: "2020-01-01", kind: "land_price", value: 100 },
+      { period: "2022-01-01", kind: "land_price", value: 120 },      // 2021年は値なし
+      { period: "2022-07-01", kind: "land_survey_price", value: 126 }, // 半年後（共通地点）
+      { period: "2023-01-01", kind: "land_price", value: 130 },
+    ]);
+    expect(rows.map((r) => r.change === null ? null : Math.round(r.change * 10) / 10)).toEqual([null, null, 5, 3.2]);
   });
 });
 
