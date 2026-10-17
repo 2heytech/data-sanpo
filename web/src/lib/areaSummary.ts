@@ -36,3 +36,18 @@ export function areaSummary(name: string, pref: string, stats: SummaryStat[], ex
   // 人口の増減・年齢構成・全国順位で目立つ指標は「データから考えられること」（areaInsights）で考察と一緒に書く
   return lines;
 }
+
+/**
+ * 地域ページの説明文（検索結果に出る文）。特徴の一言と、いちばん目立つ考察から始め、まちごとに違う文にする（設計変更記録 #130）。
+ * 考察が長いときは最初の文（数字と順位）だけを使う
+ */
+export function areaDescription(a: {
+  name: string; place: string; pref: string; title: string | null; firstInsight?: string;
+  population: string | null; statCount: number;
+}): string {
+  const head = a.title ? `${a.name}（${a.place}）をデータで見ると「${a.title}」。` : `${a.name}（${a.place}）のデータ。`;
+  const s = a.firstInsight ?? "";
+  const insight = s.length <= 110 ? s : s.slice(0, s.indexOf("。") + 1);
+  return head + insight + (a.population ? `人口は${a.population}。` : "") +
+    `${a.pref ? `${a.pref}内・` : ""}全国の順位など${a.statCount}の指標を、となりの市区町村との比較と出典つきで紹介。`;
+}
