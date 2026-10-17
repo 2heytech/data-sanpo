@@ -1,0 +1,68 @@
+---
+import Article from "../../layouts/Article.astro";
+import ArticleRanking from "../../components/ArticleRanking.astro";
+import { check, nationalValue, ranking, raw, value } from "../../lib/articleData";
+
+const PADDY = "land_use_paddy_share";
+const PP = "2021-04-01";
+const BAMBOO = "vegetation_bamboo_share";
+const BP = "2024-04-01";
+// 本文の「8割近く」「2位の美里町、同じく2位の大潟村」を確かめる
+const top3 = ranking(PADDY, PP, "municipality", "high", 3, ["muni-01433", "muni-04505", "muni-05368"]);
+const moseushi = raw(PADDY, PP, "muni-01433");
+if (moseushi !== null) {
+  check(moseushi >= 75 && moseushi < 80, "妹背牛町の田の割合が8割近くではありません");
+  check(top3.filter((r) => r.entity_id === "muni-04505" || r.entity_id === "muni-05368").every((r) => r.rank === 2), "美里町・大潟村が2位ではありません");
+}
+---
+<Article slug="paddy-bamboo">
+  <p>
+    まちの土地は、どんなふうに使われているのでしょうか。国土交通省の土地利用のデータ（100m四方のマスごとの土地利用）で田んぼの多いまちを、
+    環境省の植生図で竹林の多いまちを見ていきます。
+  </p>
+
+  <h2>田んぼの多いまち</h2>
+  <p>
+    全国の陸地のうち田の割合は、1976年度の{nationalValue(PADDY, "1976-04-01")}から2021年度は{nationalValue(PADDY, PP)}になりました。
+    都道府県で最も高いのは佐賀県（{value(PADDY, PP, "pref-41")}）で、千葉県、茨城県、宮城県が続きます。
+    佐賀平野、関東平野、仙台平野など、広い平野のある県です。
+  </p>
+  <ArticleRanking id={PADDY} period={PP} level="prefecture" n={5} expect={["pref-41", "pref-12", "pref-08", "pref-04"]} caption="田の割合が高い都道府県（2021年度）" />
+  <p>
+    市区町村で最も高いのは北海道妹背牛町（{value(PADDY, PP, "muni-01433")}）で、町の陸地の8割近くが田んぼです。
+    石狩川の流域に広がる空知地方の米どころで、同じ空知地方の秩父別町も上位に入ります。
+  </p>
+  <p>
+    2位の宮城県美里町は大崎平野、同じく2位の秋田県大潟村は八郎潟を干拓した土地、福島県湯川村は会津盆地、山形県三川町は庄内平野、
+    佐賀県白石町は佐賀平野、青森県田舎館村は津軽平野と、上位には各地の平野や盆地の米どころが並びます。
+  </p>
+  <ArticleRanking id={PADDY} period={PP} n={10}
+    expect={["muni-01433", "muni-04505", "muni-05368", "muni-07422", "muni-06426", "muni-41425", "muni-01434", "muni-02367"]}
+    caption="田の割合が高い市区町村（2021年度）" />
+
+  <h2>竹林の多いまち</h2>
+  <p>
+    竹林の割合が高い都道府県は山口県（{value(BAMBOO, BP, "pref-35")}）と福岡県（{value(BAMBOO, BP, "pref-40")}）で、
+    佐賀県、熊本県、鹿児島県と九州の県が続きます。
+  </p>
+  <ArticleRanking id={BAMBOO} period={BP} level="prefecture" n={5} expect={["pref-35", "pref-40"]} caption="竹林の割合が高い都道府県" />
+  <p>
+    市区町村で最も高いのは山口県周防大島町（{value(BAMBOO, BP, "muni-35305")}）です。田布施町・平生町・柳井市と、
+    瀬戸内海に面した山口県の東部のまちが上位に多く並びます。
+  </p>
+  <p>
+    京都府の長岡京市・大山崎町は、昔からタケノコの産地として知られる地域です。竹林は手入れをしながら使われてきた一方、
+    竹は育つのが早く、人の手が入らなくなった山林や畑にも広がりやすいため、竹林の割合が高くなっている所もあると考えられます。
+  </p>
+  <ArticleRanking id={BAMBOO} period={BP} n={10}
+    expect={["muni-35305", "muni-35343", "muni-35344", "muni-35212", "muni-26209", "muni-26303"]}
+    caption="竹林の割合が高い市区町村" />
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>土地利用は、100m四方のマスごとに最も広い使い方でマス全体を数えた値です。マスより小さな田や畑は数に入らないことがあります。</li>
+    <li>年度によって土地利用の判読の方法が違うため、1976年度と2021年度の差には、判読の違いも含まれます。</li>
+    <li>植生図の調査の年は地域によって違います（2000〜2023年度）。竹林の割合の分母は、水面・市街地・農地も含む、植生図のある範囲の面積です。</li>
+  </ul>
+  <p><a class="button" href={`/map/?i=${PADDY}&p=${PP}`}>田の割合を地図で見る</a></p>
+</Article>

@@ -1,0 +1,78 @@
+---
+import Article from "../../layouts/Article.astro";
+import ArticleRanking from "../../components/ArticleRanking.astro";
+import { check, count, rankOf, ranking, raw, steadyGrowth, value } from "../../lib/articleData";
+import { loadAreas } from "../../lib/data";
+
+const P = "2025-10-01";
+const ID = "area";
+const CENSUS = ["2010-10-01", "2015-10-01", "2020-10-01", "2025-10-01"];
+// 本文で書いている比べ方を、実データで確かめる（崩れたらビルドを止める）
+const area = (id: string) => raw(ID, P, id) ?? NaN;
+const wards23 = loadAreas().municipalities.filter((m) => m.region === "区部").reduce((s, m) => s + area(m.id), 0);
+if (!Number.isNaN(area("muni-21203"))) {
+  check(area("pref-01") > 5 * area("pref-03"), "北海道が岩手県の5倍以上ではありません");
+  check(Math.abs(area("muni-21203") / area("pref-13") - 1) < 0.05, "高山市と東京都の面積が「ほぼ同じ」ではありません");
+  check(area("muni-21203") > area("pref-27") && area("muni-21203") > area("pref-37"), "高山市が大阪府・香川県より広くありません");
+  check(area("muni-29449") > wards23, "十津川村が東京23区の合計より広くありません");
+  check(steadyGrowth("population_total", CENSUS, "municipality").rows.some((r) => r.entity_id === "muni-16321"), "舟橋村の人口が増え続けていません");
+  check(ranking(ID, P, "municipality", "low", 2).at(-1)?.entity_id === "muni-47356", "渡名喜村が小さい方から2位ではありません");
+}
+---
+<Article slug="area-largest-smallest">
+  <p>
+    日本でいちばん広い市区町村と、いちばん小さい市区町村はどこでしょうか。国土地理院の「全国都道府県市区町村別面積調」の面積
+    （2025年10月1日現在。川や湖などの水面も含みます）で、都道府県と市区町村を比べます。
+  </p>
+
+  <h2>都道府県：北海道は2位の岩手県の5倍以上</h2>
+  <p>
+    最も広いのは北海道（{value(ID, P, "pref-01")}）で、2位の岩手県（{value(ID, P, "pref-03")}）の5倍以上あります。
+    最も小さいのは香川県（{value(ID, P, "pref-37")}）で、大阪府、東京都が続きます。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-01", "pref-03"]} caption="面積が広い都道府県（2025年）" />
+  <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-37", "pref-27", "pref-13"]} caption="面積が小さい都道府県（2025年）" />
+
+  <h2>いちばん広い市は、東京都とほぼ同じ広さの高山市</h2>
+  <p>
+    市区町村で最も広いのは岐阜県高山市で、{value(ID, P, "muni-21203")}あります。東京都（{value(ID, P, "pref-13")}）とほぼ同じ広さで、
+    大阪府や香川県よりも広い市です。2005年に周りの9町村と合併して、今の広さになりました。
+  </p>
+  <p>
+    2位以下にも、栃木県日光市、北海道北見市、北海道釧路市、山形県鶴岡市など、平成の合併で広くなった市が並びます。
+    北海道足寄町は、町の中では最も広い町です。
+  </p>
+  <ArticleRanking id={ID} period={P} n={10} expect={["muni-21203", "muni-09206", "muni-01208", "muni-01206", "muni-06203", "muni-01647"]} caption="面積が広い市区町村（2025年）" />
+  <ArticleRanking id={ID} period={P} n={1} kind="町" expect={["muni-01647"]} caption="面積が最も広い町（2025年）" />
+  <p>
+    村で最も広いのは奈良県十津川村（{value(ID, P, "muni-29449")}）です。紀伊山地の山あいにある村で、東京23区を合わせたよりも広い面積があります。
+  </p>
+  <ArticleRanking id={ID} period={P} n={1} kind="村" expect={["muni-29449"]} caption="面積が最も広い村（2025年）" />
+
+  <h2>いちばん小さいのは富山県舟橋村</h2>
+  <p>
+    最も小さい市区町村は富山県舟橋村で、{value(ID, P, "muni-16321")}です。富山市のとなりにあって富山市へ通いやすく、
+    人口は2010年の{value("population_total", "2010-10-01", "muni-16321")}から2025年は{value("population_total", P, "muni-16321")}と、国勢調査のたびに増えています。
+  </p>
+  <p>
+    2位の沖縄県渡名喜村と、東京都利島村は島の村で、島の広さがほぼそのまま村の広さです。
+  </p>
+  <ArticleRanking id={ID} period={P} order="low" n={10} expect={["muni-16321", "muni-47356", "muni-13362", "muni-27341"]} caption="面積が小さい市区町村（2025年）" />
+  <p>
+    町で最も小さいのは大阪府忠岡町、市で最も小さいのは埼玉県蕨市（{value(ID, P, "muni-11223")}）です。
+    蕨市は小さな市に{value("population_total", P, "muni-11223")}が住み、人口密度は{rankOf("population_density", P, "muni-11223")}です。
+  </p>
+  <ArticleRanking id={ID} period={P} order="low" n={1} kind="町" expect={["muni-27341"]} caption="面積が最も小さい町（2025年）" />
+  <ArticleRanking id={ID} period={P} order="low" n={3} kind="市" expect={["muni-11223"]} caption="面積が小さい市（2025年）" />
+  <p>
+    政令指定都市の区も1つの地域として数えているので、大阪市の区など、大きな市の区も小さい方に並びます。
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>境界の一部が決まっていない市区町村（全国で約160）の面積は、国土地理院が便宜上概算した参考値です。</li>
+    <li>川や湖などの水面も含む面積です。住める土地の広さとは違います。</li>
+    <li>北海道の面積は北方領土の6村を含むため、地図の市区町村（値のある市区町村は{count(ID, P, "municipality")}）の合計とは一致しません。</li>
+  </ul>
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}`}>面積を地図で見る</a></p>
+</Article>

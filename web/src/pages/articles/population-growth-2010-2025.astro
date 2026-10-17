@@ -1,0 +1,69 @@
+---
+import Article from "../../layouts/Article.astro";
+import ArticleGrowthRanking from "../../components/ArticleGrowthRanking.astro";
+import { check, nationalValue, ranking, raw, steadyGrowth, value } from "../../lib/articleData";
+import { formatNumber } from "../../lib/format";
+
+const ID = "population_total";
+const CENSUS = ["2010-10-01", "2015-10-01", "2020-10-01", "2025-10-01"];
+const P = "2025-10-01";
+const munis = steadyGrowth(ID, CENSUS, "municipality");
+const prefs = steadyGrowth(ID, CENSUS, "prefecture");
+// 本文の「都道府県で増え続けたのは東京都だけ」を確かめる
+// 熊本県は2010年の値がない（熊本市の区が2012年にできたため）ので、2015年より減っていることで確かめる
+check(prefs.rows.length === 1 && prefs.rows[0].entity_id === "pref-13", "人口が増え続けた都道府県が東京都だけではありません");
+const kumamoto = [raw(ID, "2015-10-01", "pref-43"), raw(ID, P, "pref-43")];
+if (kumamoto.every((v) => v !== null)) check(kumamoto[1]! < kumamoto[0]!, "熊本県の人口が2015年より減っていません");
+// 「全国の1割ほど」「沖縄県は子どもの割合が高い」を確かめる
+check(munis.total === 0 || (munis.rows.length / munis.total > 0.07 && munis.rows.length / munis.total < 0.13), "増え続けた市区町村が1割ほどではありません");
+ranking("children_0_14_share", P, "prefecture", "high", 1, ["pref-47"]);
+---
+<Article slug="population-growth-2010-2025">
+  <p>
+    日本の人口は、国勢調査で2015年の{nationalValue(ID, "2015-10-01")}から2025年は{nationalValue(ID, P)}に減りました。
+    そのなかで、2010年・2015年・2020年・2025年と、国勢調査のたびに人口が増え続けた市区町村があります。
+    どんなまちが増え続けたのかを見ていきます。
+  </p>
+
+  <h2>15年間増え続けたのは、全国の1割ほど</h2>
+  <p>
+    4回の国勢調査のどれにも値のある{formatNumber(munis.total, 0)}市区町村のうち、毎回増えたのは{formatNumber(munis.rows.length, 0)}です。
+    都道府県では、増え続けたのは東京都だけでした。
+  </p>
+  <ArticleGrowthRanking id={ID} periods={CENSUS} n={20} valueLabel="2010→2025年の増加率"
+    expect={["muni-27128", "muni-13102", "muni-27111", "muni-27106", "muni-23106", "muni-13103", "muni-12220", "muni-47328", "muni-08220", "muni-12231", "muni-40224", "muni-19384", "muni-47362", "muni-23238"]}
+    caption="2010年から人口が増え続けた市区町村（2010→2025年の増加率の大きい順）" />
+
+  <h2>大都市の真ん中</h2>
+  <p>
+    増加率の上位には、大阪市中央区、東京都中央区、大阪市浪速区・西区、名古屋市中区、東京都港区など、大都市の中心部が並びます。
+    大阪市中央区は2010年の{value(ID, "2010-10-01", "muni-27128")}から2025年は{value(ID, P, "muni-27128")}になりました。
+    都心に高層のマンションが多く建ち、職場の近くに住む人が増えたと考えられます。
+  </p>
+
+  <h2>新しい鉄道や住宅地のある郊外</h2>
+  <p>
+    千葉県流山市、茨城県つくば市は、2005年に開業したつくばエクスプレスの沿線です。千葉県印西市には、千葉ニュータウンの住宅地が広がります。
+    都心へ通いやすい新しい住宅地に、子育て中の家族などが移り住んできたと考えられます。
+  </p>
+
+  <h2>大きな都市に近いまち</h2>
+  <p>
+    名古屋市の東どなりの愛知県長久手市、甲府市のとなりの山梨県昭和町、福岡市と北九州市の間にある福岡県福津市など、
+    大きな都市に近いまちも増え続けています。都市へ通いやすく、住宅地として選ばれているようです。
+  </p>
+
+  <h2>沖縄県のまち</h2>
+  <p>
+    沖縄県中城村・八重瀬町など、那覇市から通える沖縄本島南部・中部の町村も上位に入ります。沖縄県は15歳未満の割合が全国で最も高く、
+    生まれる子どもの多さと、移り住む人の両方で増えてきたと考えられます。
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>平成の合併などで区域が変わった市区町村は、2010年・2015年の値を今の区域に組み替えて比べています。</li>
+    <li>2024年に区を再編した浜松市の旧区（2025年の値がない）と、2012年に区ができた熊本市の区（2010年の値がない）は数に入れていません。</li>
+    <li>増加率は2010年と2025年の人口から計算した値です。途中の年は「前の回より増えたか」だけを見ています。</li>
+  </ul>
+  <p><a class="button" href={`/map/?i=population_change_rate&p=${P}`}>人口増加率を地図で見る</a></p>
+</Article>

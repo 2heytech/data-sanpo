@@ -52,7 +52,8 @@ const description = `全国${total.toLocaleString("ja-JP")}の市区町村の一
         )}
         {r.prefs.map((p) => (
           <section class="pref" data-group>
-            <h3 id={`pref-${p.code}`}>{p.name}<span class="muted">{p.munis.length}</span></h3>
+            <h3 id={`pref-${p.code}`}>{p.name}<span class="muted">{p.munis.length}</span>
+              <a class="pref-page" href={`/prefectures/${p.code}/`}>{p.name}の人口ランキングと特徴 ›</a></h3>
             <ul class="area-links">
               {p.munis.map((m) => <li data-name={m.name}><a href={`/areas/${m.id}/`}>{m.name}</a></li>)}
             </ul>
@@ -97,7 +98,8 @@ const description = `全国${total.toLocaleString("ja-JP")}の市区町村の一
   .region { scroll-margin-top: 90px; }
   .region h2 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.4em; }
   .pref-jump { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 0.4em; font-size: 0.9rem; }
-  .pref h3 { scroll-margin-top: 90px; display: flex; align-items: baseline; gap: 8px; margin: 1.2em 0 0.5em; }
+  .pref h3 { scroll-margin-top: 90px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 1.2em 0 0.5em; }
+  .pref h3 .pref-page { margin-left: auto; font-size: 0.85rem; font-weight: 400; }
   .area-links { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .area-links a {
     display: inline-block; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px;

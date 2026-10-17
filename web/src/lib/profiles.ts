@@ -1,0 +1,25 @@
+// 地域ページの考察と特徴の一言（areaProfile）を、ビルドの間とっておく。
+// 地域ページと都道府県ページ（県内の市区町村の一覧に特徴の一言を出す）の両方で使うため、同じ市区町村を2回計算しない
+import { areaProfile, type AreaProfile, type InsightData } from "./areaInsights";
+import { loadIndicators, loadPlacePoints, loadValues } from "./data";
+
+let data: InsightData | null = null;
+const cache = new Map<string, AreaProfile>();
+
+export function loadAreaProfile(muniId: string): AreaProfile {
+  if (!data) {
+    const byId = new Map(loadIndicators().map((i) => [i.id, i]));
+    data = {
+      indicator: (id) => byId.get(id),
+      indicators: () => [...byId.values()],
+      rows: (id, period) => loadValues(id, period ?? byId.get(id)?.default_period ?? "", "municipalities")?.rows ?? [],
+      places: () => loadPlacePoints(),
+    };
+  }
+  let p = cache.get(muniId);
+  if (!p) {
+    p = areaProfile(muniId, data);
+    cache.set(muniId, p);
+  }
+  return p;
+}

@@ -15,8 +15,8 @@ interface Props {
   prefecture?: string;
   /** title をそのまま使う（サイト名を後ろに付けない）。トップページ用 */
   titleIsFull?: boolean;
-  /** ページの構造化データ（寄り道の Article など）。JSON-LD にして head に置く */
-  structuredData?: Record<string, unknown>;
+  /** ページの構造化データ（寄り道の Article、パンくずなど）。JSON-LD にして head に置く。複数あるときは配列で */
+  structuredData?: Record<string, unknown> | Record<string, unknown>[];
 }
 const { title, description, wide = false, preload, prefecture, titleIsFull = false, structuredData } = Astro.props;
 const SITE_NAME = "データさんぽ";
@@ -66,7 +66,9 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     {!indexable && <meta name="robots" content="noindex, nofollow" />}
     <meta property="og:site_name" content={SITE_NAME} />
     {websiteLd && <script type="application/ld+json" set:html={websiteLd} />}
-    {structuredData && <script type="application/ld+json" set:html={JSON.stringify(structuredData).replace(/</g, "\\u003c")} />}
+    {(Array.isArray(structuredData) ? structuredData : structuredData ? [structuredData] : []).map((d) => (
+      <script type="application/ld+json" set:html={JSON.stringify(d).replace(/</g, "\\u003c")} />
+    ))}
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />

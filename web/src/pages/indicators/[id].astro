@@ -2,8 +2,9 @@
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
 import RankingTable, { type RankingRow } from "../../components/RankingTable.astro";
-import { loadAreas, loadIndicators, loadSmallAreaRows, loadSmallAreas, loadSources, loadValues } from "../../lib/data";
+import { DATA_BASE, loadAreas, loadIndicators, loadSmallAreaRows, loadSmallAreas, loadSources, loadValues } from "../../lib/data";
 import { formatValue, ranked, splitRanking, STATUS_LABEL } from "../../lib/format";
+import { breadcrumbList, indicatorDataset } from "../../lib/structured";
 import type { Indicator } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -60,10 +61,21 @@ const prefRows = areas.prefectures.length > 1 && period.levels.includes("prefect
   : [];
 // 検索で「〇〇 ランキング」と探す人に届くよう、市区町村の値がある指標は題名にランキングと入れる
 const pageTitle = muniCount > 0 ? `${ind.name}の市区町村ランキング${nationwide && !partial ? "（全国）" : ""}` : ind.name;
+// 検索エンジン向けのパンくずと Dataset（Google のデータセット検索に載せる。設計変更記録 #130）。
+// データのファイルは、ランキングに使っている時点の市区町村（なければ都道府県）の値
+const sourceList = [...new Set(ind.periods.flatMap((p) => p.source_ids))].map((id) => sources.get(id)).filter((x) => !!x);
+const levels = levelOrder.filter((l) => ind.periods.some((p) => p.levels.includes(l))).map((l) => levelLabel[l]);
+const dataUrl = muniValues.length ? `${DATA_BASE}/values/${ind.id}/${period.period}/municipalities.json`
+  : prefRows.length ? `${DATA_BASE}/values/${ind.id}/${period.period}/prefectures.json` : null;
+const structured = [
+  breadcrumbList(Astro.site, [{ name: "データさんぽ", path: "/" }, { name: ind.name }]),
+  indicatorDataset(Astro.site, ind, `/indicators/${ind.id}/`, sourceList, dataUrl, levels),
+];
 ---
 <Base title={pageTitle} description={`${ind.name}${ind.unit ? `（${ind.unit}）` : ""}の${muniValues.length
   ? `${nationwide && !partial ? "全国の" : ""}市区町村ランキング${prefRows.length ? "と都道府県別の値" : ""}`
-  : "都道府県別の値"}。意味・計算方法・出典つき。${ind.description}`}>
+  : "都道府県別の値"}。意味・計算方法・出典つき。${ind.description}`} structuredData={structured}>
+  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/#indicators">指標の一覧</a></nav>
   <header class="page-head">
     <p class="eyebrow">{ind.category}</p>
     <h1>{ind.name}</h1>
@@ -114,7 +126,7 @@ const pageTitle = muniCount > 0 ? `${ind.name}の市区町村ランキング${na
           <tbody>
             {prefRows.map((r) => (
               <tr>
-                <td>{prefNames.get(r.entity_id.slice(5))}</td>
+                <td><a href={`/prefectures/${r.entity_id.slice(5)}/`}>{prefNames.get(r.entity_id.slice(5))}</a></td>
                 <td class="num">{formatValue(r, ind)}</td>
                 <td class="muted">{r.note ?? (r.value === null ? "" : STATUS_LABEL[r.status])}</td>
               </tr>

@@ -1,0 +1,170 @@
+---
+// 都道府県ページ。県内の市区町村を人口の順に、データから見た特徴の一言と並べ、主な指標の県内の上位をまとめる。
+// 「〇〇県 市町村 人口 ランキング」などで探す人の入口と、地域ページへの道にする（設計変更記録 #130）
+import Base from "../../layouts/Base.astro";
+import AdSlot from "../../components/AdSlot.astro";
+import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
+import { formatValue, ranked } from "../../lib/format";
+import { municipalityPeriods } from "../../lib/periods";
+import { PREF_RANKING_IDS, PREF_TOP, prefRanking, prefectureLead, wardCitiesOf } from "../../lib/prefecturePage";
+import { loadAreaProfile } from "../../lib/profiles";
+import { breadcrumbList } from "../../lib/structured";
+import type { Prefecture } from "../../lib/types";
+
+export function getStaticPaths() {
+  const areas = loadAreas();
+  // 1つの都道府県だけの公開版（開発用の架空データなど）でも作る
+  return areas.prefectures.map((p) => ({ params: { code: p.code }, props: { pref: p } }));
+}
+const { pref } = Astro.props as { pref: Prefecture };
+const areas = loadAreas();
+const munis = areas.municipalities.filter((m) => m.prefecture === pref.code);
+const indicators = new Map(loadIndicators().map((i) => [i.id, i]));
+const rows = (id: string, period: string, chunk: "municipalities" | "prefectures") => loadValues(id, period, chunk)?.rows ?? [];
+
+// 地方の区分（市区町村の一覧ページと同じ）
+const REGIONS: [string, number, number][] = [
+  ["北海道", 1, 1], ["東北", 2, 7], ["関東", 8, 14], ["中部", 15, 23], ["近畿", 24, 30], ["中国", 31, 35], ["四国", 36, 39], ["九州・沖縄", 40, 47],
+];
+const region = REGIONS.find(([, from, to]) => Number(pref.code) >= from && Number(pref.code) <= to)?.[0] ?? "";
+
+// 人口: 市区町村の値がある最も新しい国勢調査（2025年）で並べる。その年の値がない市区町村（区を再編した浜松市の旧区など）は
+// 順位を付けずに最後に置く（ほかの年の値と混ぜて並べない）
+const popInd = indicators.get("population_total");
+const changeInd = indicators.get("population_change_rate");
+const popPeriod = popInd ? municipalityPeriods(popInd)[0] : null;
+const popRows = popInd && popPeriod ? rows(popInd.id, popPeriod, "municipalities") : [];
+const changeRows = changeInd && popPeriod && changeInd.periods.some((p) => p.period === popPeriod) ? rows(changeInd.id, popPeriod, "municipalities") : [];
+const popLabel = popInd?.periods.find((p) => p.period === popPeriod)?.label ?? "";
+const byId = new Map(munis.map((m) => [m.id, m]));
+const rankedPop = ranked(popRows.filter((r) => byId.has(r.entity_id) && r.value !== null));
+const noPop = munis.filter((m) => !rankedPop.some((r) => r.entity_id === m.id));
+const table = [
+  ...rankedPop.map((r) => ({ muni: byId.get(r.entity_id)!, rank: r.rank as number | null, pop: formatValue(r, popInd!) })),
+  ...noPop.map((m) => ({ muni: m, rank: null, pop: "—" })),
+].map((t) => ({
+  ...t,
+  change: changeInd ? (() => {
+    const r = changeRows.find((x) => x.entity_id === t.muni.id);
+    return r && r.value !== null ? formatValue(r, changeInd) : "—";
+  })() : "—",
+  catch: loadAreaProfile(t.muni.id).title,
+}));
+
+// 都道府県の人口と全国の順位（都道府県の値は市区町村の合計。#45）
+const prefPopRows = popInd && popPeriod ? rows(popInd.id, popPeriod, "prefectures") : [];
+const prefRank = ranked(prefPopRows).find((r) => r.entity_id === `pref-${pref.code}`);
+const prefChange = changeInd && popPeriod ? rows(changeInd.id, popPeriod, "prefectures").find((r) => r.entity_id === `pref-${pref.code}`) : undefined;
+const lead = prefectureLead(pref.name,
+  prefRank && popInd ? { text: formatValue(prefRank, popInd), label: popLabel, rank: prefRank.rank, total: prefPopRows.filter((r) => r.value !== null).length } : null,
+  prefChange && prefChange.value !== null ? { value: prefChange.value, label: popLabel } : null,
+  munis.length, wardCitiesOf(munis));
+
+const rankings = PREF_RANKING_IDS.map((id) => indicators.get(id)).filter((i) => !!i)
+  .map((ind) => prefRanking(ind!, pref.code, munis, rows)).filter((r) => !!r);
+
+const others = areas.prefectures.filter((p) => p.code !== pref.code);
+const title = `${pref.name}の市区町村 人口ランキングと統計データ`;
+const top3 = table.filter((t) => t.rank !== null).slice(0, 3).map((t) => t.muni.name).join("・");
+const description = `${pref.name}の${munis.length}市区町村を人口の多い順に、データから見た特徴の一言と並べました` +
+  (top3 ? `（${top3}など）` : "") + `。人口の増え方・子どもの割合・所得・面積などの${pref.name.slice(-1)}内の上位と、各市区町村のくわしいデータへのリンクつき。`;
+const structured = breadcrumbList(Astro.site, [
+  { name: "データさんぽ", path: "/" }, { name: "市区町村の一覧", path: "/areas/" }, { name: pref.name },
+]);
+---
+<Base title={title} description={description} prefecture={pref.name} structuredData={structured}>
+  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/areas/">市区町村の一覧</a></nav>
+  <header class="page-head">
+    <p class="eyebrow">{region}</p>
+    <h1>{pref.name}のデータ</h1>
+    <div class="actions">
+      <a class="button" href={`/map/?a=pref-${pref.code}`}>地図で{pref.name}を見る</a>
+      <a class="button secondary" href={`/areas/#pref-${pref.code}`}>市区町村の一覧</a>
+    </div>
+  </header>
+
+  <section class="sheet">
+    <h2>{pref.name}の市区町村（人口の多い順）</h2>
+    {lead.map((line) => <p>{line}</p>)}
+    <div class="table-scroll">
+      <table class="pref-munis">
+        <thead><tr><th class="num col-rank">順位</th><th>市区町村と、データから見た特徴</th><th class="num col-pop">人口<span class="change-sm">5年間の増減</span></th><th class="num col-change">5年間の増減</th></tr></thead>
+        <tbody>
+          {table.map((t) => (
+            <tr>
+              <td class="num">{t.rank ?? "—"}</td>
+              <td><a href={`/areas/${t.muni.id}/`}><strong>{t.muni.name}</strong></a>{t.catch && <span class="catch-line">{t.catch}</span>}</td>
+              <td class="num">{t.pop}<span class="change-sm">{t.change}</span></td>
+              <td class="num col-change">{t.change}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small">人口と増減は{popLabel}の国勢調査{noPop.length > 0 && `（その年の値がない市区町村は順位を付けずに最後に並べています）`}。
+      特徴の一言は、各市区町村のページの「データで見る」と同じで、全国の中で目立つ指標から作った推測です。</p>
+  </section>
+
+  {rankings.length > 0 && (
+    <section class="sheet">
+      <h2>{pref.name}内の上位の市区町村</h2>
+      <p class="muted">値の大きい順に{PREF_TOP}位まで（同じ値は同じ順位）。大きいほど良い・悪いという意味ではありません。指標名から、意味・出典と全国のランキングを見られます。</p>
+      <div class="pref-rankings">
+        {rankings.map((r) => (
+          <section class="pref-ranking">
+            <h3><a href={`/indicators/${r!.ind.id}/`}>{r!.ind.name}</a></h3>
+            <p class="muted small">{r!.period.label}{r!.prefText && `・${pref.name}全体 ${r!.prefText}`}</p>
+            <ol>
+              {r!.items.map((it) => (
+                <li value={it.rank}><a href={`/areas/${it.muni.id}/`}>{it.muni.name}</a><span class="v">{it.text}</span></li>
+              ))}
+            </ol>
+          </section>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <AdSlot name="page" />
+
+  <section class="sheet">
+    <h2>ほかの都道府県</h2>
+    <ul class="pref-links">
+      {others.map((p) => <li><a href={`/prefectures/${p.code}/`}>{p.name}</a></li>)}
+    </ul>
+  </section>
+</Base>
+
+<style>
+  .pref-munis { min-width: 0; }
+  .pref-munis .col-rank { width: 4em; }
+  .pref-munis .col-pop { width: 9em; }
+  .pref-munis .col-change { width: 7.5em; }
+  .pref-munis td { vertical-align: top; }
+  .pref-munis td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .catch-line { display: block; font-size: 0.85rem; color: #33414f; margin-top: 2px; }
+  .pref-rankings { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px 20px; }
+  .pref-ranking { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  .pref-ranking h3 { margin: 0; font-size: 1rem; }
+  .pref-ranking > p { margin: 2px 0 6px; }
+  .pref-ranking ol { margin: 0; padding-left: 1.8em; list-style: decimal; }
+  .pref-ranking li { padding: 2px 0; }
+  .pref-ranking li::marker { color: var(--muted); }
+  .pref-ranking .v { float: right; margin-left: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink); font-weight: 600; }
+  .pref-links { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .pref-links a {
+    display: inline-block; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px;
+    text-decoration: none; font-size: 0.92rem; background: var(--surface);
+  }
+  .pref-links a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  .change-sm { display: none; }
+  /* スマホでは増減を人口の下に置き、市区町村名と特徴の一言の幅を広くとる */
+  @media (max-width: 640px) {
+    .pref-munis th, .pref-munis td { padding: 8px 6px; }
+    .pref-munis .col-rank { width: 2.4em; }
+    .pref-munis .col-pop { width: 6.6em; }
+    .pref-munis .col-change { display: none; }
+    .pref-munis td.num { font-size: 0.88rem; }
+    .change-sm { display: block; color: var(--muted); font-size: 0.8rem; }
+  }
+</style>

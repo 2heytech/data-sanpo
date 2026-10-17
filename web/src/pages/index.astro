@@ -204,12 +204,15 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
       const groups = pref.code === "13"
         ? regions.map((r) => ({ title: r, list: inPref.filter((m) => m.region === r) }))
         : [{ title: "", list: inPref }];
-      const body = groups.filter((g) => g.list.length > 0).map((g) => (
-        <section>
-          {g.title && <h4>{g.title}</h4>}
-          <ul class="area-links">{g.list.map((m) => <li><a href={`/areas/${m.id}/`}>{m.name}</a></li>)}</ul>
-        </section>
-      ));
+      const body = [
+        <p class="pref-page"><a href={`/prefectures/${pref.code}/`}>{pref.name}の市区町村を人口の順に、特徴と見る ›</a></p>,
+        ...groups.filter((g) => g.list.length > 0).map((g) => (
+          <section>
+            {g.title && <h4>{g.title}</h4>}
+            <ul class="area-links">{g.list.map((m) => <li><a href={`/areas/${m.id}/`}>{m.name}</a></li>)}</ul>
+          </section>
+        )),
+      ];
       return areas.prefectures.length > 1
         ? <details open={pref.code === "13"}><summary>{pref.name}（{inPref.length}）</summary>{body}</details>
         : <section><h3>{pref.name}</h3>{body}</section>;
@@ -241,6 +244,7 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
     background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 0.9rem;
   }
   .steps strong { display: block; color: var(--ink); }
+  .pref-page { margin: 0.2em 0 0.6em; font-size: 0.9rem; }
   .area-links { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .area-links a {
     display: inline-block; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px;

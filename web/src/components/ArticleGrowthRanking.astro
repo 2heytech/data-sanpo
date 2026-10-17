@@ -1,0 +1,41 @@
+---
+// 寄り道の中の「続けて増えた地域」の表。時点を追うごとに増えた地域を、最初の時点からの増加率の大きい順に並べる。
+// 増加率は2つの時点の値から計算し、本文で挙げた地域（expect）が表に入るかを確かめる（ArticleRanking と同じ）
+import RankingTable, { type RankingRow } from "./RankingTable.astro";
+import { check, indicator, steadyGrowth } from "../lib/articleData";
+import { loadAreas } from "../lib/data";
+import type { Indicator } from "../lib/types";
+
+interface Props {
+  id: string;
+  /** 古い順の時点 */
+  periods: string[];
+  n?: number;
+  expect?: string[];
+  caption: string;
+  /** 増加率の列の見出し（例: 2010→2025年の増加率） */
+  valueLabel: string;
+}
+const { id, periods, n = 10, expect = [], caption, valueLabel } = Astro.props;
+const ind = indicator(id);
+const areas = loadAreas();
+const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
+const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));
+const top = ind ? steadyGrowth(id, periods, "municipality").rows.slice(0, n) : [];
+const missing = expect.filter((e) => !top.some((r) => r.entity_id === e));
+check(missing.length === 0, `${id} の続けて増えた上位${n}に ${missing.join("・")} が入っていません`);
+const rows: RankingRow[] = top.map((r) => {
+  const m = munis.get(r.entity_id)!;
+  return { ...r, name: m.name, href: `/areas/${r.entity_id}/`, extra: [prefs.get(m.prefecture) ?? ""] };
+});
+// 表の値の書き方（増加は「+」、小数1桁の%）だけに使う
+const growth = ind ? ({ ...ind, name: valueLabel, unit: "%", kind: "change", digits: 1, legend: { ...ind.legend, band: undefined } } as Indicator) : null;
+---
+{growth && rows.length > 0 && (
+  <figure class="article-ranking">
+    <RankingTable ind={growth} rows={rows} areaLabel="市区町村" extraLabels={["都道府県"]} note={false} caption={caption} />
+    <figcaption class="muted">
+      増加率の大きい順です。<a href={`/indicators/${id}/`}>{ind!.name}のすべての順位</a>・<a href={`/map/?i=${id}`}>地図で見る</a>
+    </figcaption>
+  </figure>
+)}
