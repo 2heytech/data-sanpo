@@ -440,16 +440,25 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .play-button:disabled { opacity: 0.4; cursor: default; }
   .period-ticks { display: flex; justify-content: space-between; margin-left: 40px; font-size: 0.8rem; color: var(--muted); }
   .period-ticks span { cursor: pointer; }
-  /* 背景の切替（地図の左上）。アイコンと短い名前のボタンを白い台の上に並べ、選んでいるものを青くする（左の欄のアイコンの切替と同じ色） */
+  /* 背景の切替（地図の左上）。アイコンと短い名前のボタンを白い台の上に同じ幅で並べ、間に薄い区切り線を入れる。
+     選んでいるものを青くする（左の欄のアイコンの切替と同じ色） */
   .base-switch {
-    position: absolute; top: 10px; left: 32px; z-index: 3; display: flex; gap: 2px; padding: 3px;
+    position: absolute; top: 10px; left: 32px; z-index: 3;
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px;
     border: 1px solid var(--line); border-radius: 10px;
     background: rgba(255,255,255,.96); box-shadow: 0 1px 4px rgba(0,0,0,.15);
   }
   .base-switch button {
-    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border: 0; border-radius: 7px; background: none;
+    position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 5px 10px;
+    border: 0; border-radius: 7px; background: none;
     font: inherit; font-size: 0.86rem; font-weight: 600; line-height: 1.4; color: #3a4757; white-space: nowrap; cursor: pointer;
   }
+  /* 区切り線（選んでいるボタン・指を乗せたボタンの両隣では消す） */
+  .base-switch button + button::before {
+    content: ""; position: absolute; left: 0; top: 22%; bottom: 22%; width: 1px; background: var(--line-strong);
+  }
+  .base-switch button[aria-pressed="true"]::before, .base-switch button[aria-pressed="true"] + button::before,
+  .base-switch button:hover::before, .base-switch button:hover + button::before { opacity: 0; }
   .base-switch svg {
     width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8;
     stroke-linecap: round; stroke-linejoin: round; color: var(--accent);
@@ -459,11 +468,13 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .base-switch button[aria-pressed="true"] svg { color: #fff; }
   .base-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .base-switch button[hidden] { display: none; }
-  /* 背景ごとのパネル（航空写真の撮影年代・標高の色・土地利用の年度と凡例） */
+  /* 背景ごとのパネル（航空写真の撮影年代・標高の色・土地利用の年度と凡例）。下の地図が透けて見えるよう半透明にし、
+     文字が読みにくくならないよう少しぼかす */
   .base-panel {
     position: absolute; left: 50%; bottom: 40px; z-index: 3; transform: translateX(-50%);
-    width: min(460px, calc(100% - 96px)); padding: 8px 12px 6px; border: 1px solid var(--line); border-radius: 10px;
-    background: rgba(255,255,255,.96); box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    width: min(460px, calc(100% - 96px)); padding: 8px 12px 6px; border: 1px solid rgba(255,255,255,.6); border-radius: 10px;
+    background: rgba(255,255,255,.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
   }
   .base-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .base-panel-head output, .base-panel-title { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
