@@ -15,21 +15,29 @@ const regions = ["区部", "多摩", "島しょ"] as const;  // 東京都の地�
 
 // ジャンル（指標の category）の並びは lib/genres.ts（地図の指標の選択画面と共有）
 const GENRES = structuredClone(BASE_GENRES);
-// 地図の点で見るデータ（地域の塗り分けではなく、駅・学校・地点ごとの値）。地図で点の表示をオンにして開く
-const POINTS = [
-  { file: "station_passengers", category: "交通", show: "stations" },
-  { file: "airport_passengers", category: "交通", show: "airports" },
-  { file: "port_passengers", category: "交通", show: "ports" },
-  { file: "school_enrollment", category: "教育", show: "schools" },
-  { file: "land_price", category: "地価", show: "land" },
-  { file: "land_survey_price", category: "地価", show: "landsurvey" },
-  { file: "nursery_capacity", category: "子育て", show: "nurseries" },
-].flatMap((p) => {
-  const d = loadPlace(p.file);
-  if (!d) return [];
-  const first = d.periods[0]?.label.match(/\d{4}/)?.[0];
-  const last = d.periods[d.periods.length - 1]?.label.match(/\d{4}/)?.[0];
-  return [{ ...p, name: d.name, unit: d.unit, description: d.description, years: first === last ? `${last}年` : `${first}〜${last}年` }];
+// 地図の点で見るデータ（地域の塗り分けではなく、駅・学校・地点ごとの値）。地図で点の表示をオンにして開く。
+// 地価は地価公示と都道府県地価調査を地図で1つの「地価」の表示にまとめている（#134）ので、1行にする
+interface PointRow { files: string[]; category: string; show: string; name?: string; description?: string }
+const POINT_ROWS: PointRow[] = [
+  { files: ["station_passengers"], category: "交通", show: "stations" },
+  { files: ["airport_passengers"], category: "交通", show: "airports" },
+  { files: ["port_passengers"], category: "交通", show: "ports" },
+  { files: ["school_enrollment"], category: "教育", show: "schools" },
+  { files: ["land_price", "land_survey_price"], category: "地価", show: "land", name: "地価（地価公示・都道府県地価調査）",
+    description: "国が毎年1月1日時点で判定する地価公示の標準地と、都道府県が毎年7月1日時点で判定する都道府県地価調査の基準地の、1㎡あたりの価格。地点ごとの値です。" },
+  { files: ["nursery_capacity"], category: "子育て", show: "nurseries" },
+];
+const POINTS = POINT_ROWS.flatMap(({ files, ...p }) => {
+  const ds = files.flatMap((f) => loadPlace(f) ?? []);
+  if (!ds.length) return [];
+  const years = ds.flatMap((d) => d.periods.map((x) => Number(x.label.match(/\d{4}/)?.[0]))).filter((y) => y > 0);
+  const first = Math.min(...years);
+  const last = Math.max(...years);
+  // まとめた行でも、片方しかない公開版ではその指標の名前・説明にする
+  const merged = ds.length > 1;
+  return [{ ...p, name: (merged && p.name) || ds[0].name, unit: ds[0].unit,
+    description: (merged && p.description) || ds[0].description,
+    years: !years.length ? "" : first === last ? `${last}年` : `${first}〜${last}年` }];
 }).concat(weatherPoints());
 // 天気（気象庁の平年値）は1ファイルに日照時間・降水量などをまとめているので、指標ごとに1行にする（#94）
 function weatherPoints() {

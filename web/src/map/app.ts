@@ -565,7 +565,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     renderAreaChip();
   }
 
-  // 点レイヤー（駅・空港・港・学校・地価公示・都道府県地価調査・認可保育所・天気の観測所）。オンにしたときだけ読み込む
+  // 点レイヤー（駅・空港・港・学校・地価（地価公示・都道府県地価調査）・認可保育所・天気の観測所）。オンにしたときだけ読み込む
   const pickEl = $("#pick-detail");
   const pointOptions = (toggle: string, legendSel: string, panel: string) => ({
     map, fetchJSON, sources, beforeLayer: "area-label", labelFont: LABEL_FONT,
@@ -578,9 +578,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     initTransport({ kind: "airport", ...pointOptions("#airports-toggle", "#airports-legend", "#airport-detail") }),
     initTransport({ kind: "port", ...pointOptions("#ports-toggle", "#ports-legend", "#port-detail") }),
     initSchools(pointOptions("#schools-toggle", "#schools-legend", "#school-detail")),
-    initLandPrices({ kind: "land_price", ...pointOptions("#land-toggle", "#land-legend", "#land-detail") }),
-    initLandPrices({ kind: "land_survey_price",
-      ...pointOptions("#landsurvey-toggle", "#landsurvey-legend", "#landsurvey-detail") }),
+    initLandPrices(pointOptions("#land-toggle", "#land-legend", "#land-detail")),
     initNurseries(pointOptions("#nursery-toggle", "#nursery-legend", "#nursery-detail")),
     initWeather({ select: $<HTMLSelectElement>("#weather-select"),
       ...pointOptions("#weather-toggle", "#weather-legend", "#weather-detail") }),
@@ -1026,7 +1024,6 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     { toggle: "#ports-toggle", category: "交通" },
     { toggle: "#schools-toggle", category: "教育" },
     { toggle: "#land-toggle", category: "地価" },
-    { toggle: "#landsurvey-toggle", category: "地価" },
     { toggle: "#nursery-toggle", category: "子育て" },
     { toggle: "#weather-toggle", category: "天気" },
   ].filter((p) => root.querySelector(p.toggle));
