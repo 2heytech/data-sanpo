@@ -193,7 +193,8 @@ class Gazetteer:
     def locate(self, municipality: str, address: str) -> GeoResult | None:
         muni = normalize_municipality(municipality)
         a = normalize(address)
-        # 「字」のある住所（「大字恒久5-13-5」「鹿島町久保字於振2-6」）の数字は地番。丁目と読むのは「丁目」と書いたときだけ
+        # 「字」のある住所（「本宮字林崎1-2」「鹿島町久保字於振2番地の6」）の数字は地番として読み、丁目と読むのは
+        # 「丁目」と書いたときと、「番地」と書かずに3つの数字が続くとき（「大字乙女3-1-6」）だけにする
         raw = unicodedata.normalize("NFKC", address)
         aza = "字" in re.split(r"\d", raw, maxsplit=1)[0] and not re.search(r"\d\s*丁", raw)
         a = re.split(r"[(（]", a)[0]
@@ -256,7 +257,8 @@ class Gazetteer:
             candidates.append((town, nums))
             town, town_koaza = parts
         # 「町名＋丁目-街区」と「町名-街区（丁目なし）」の両方を試す
-        chome = town and len(nums) >= 2 and 0 < int(nums[0]) < 100 and not aza
+        chome = (town and len(nums) >= 2 and 0 < int(nums[0]) < 100
+                 and (not aza or len(nums) >= 3 and "番地" not in raw))
         if chome:
             candidates.append((town + kanji_number(int(nums[0])) + "丁目", nums[1:]))
         candidates.append((town, nums))
