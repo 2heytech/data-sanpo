@@ -134,7 +134,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     return cache.get(rel) as Promise<T>;
   };
 
-  // 都道府県・市区町村の公式サイト（Wikidata から集めた URL、設計変更記録 #134）。初めて地域を選んだときに読む。
+  // 都道府県・市区町村の公式サイト（Wikidata から集めた URL、設計変更記録 #135）。初めて地域を選んだときに読む。
   // 開発用の架空データでは地名が実在しないので読まない（地図のページが data-official-sites を空にする）
   const sitesUrl = root.dataset.officialSites;
   let officialSites: Promise<Record<string, string>> | null = null;
@@ -831,7 +831,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   // 順位: 範囲ごとに「〇〇の市区町村 19のうち」と順位を1行ずつ並べた表にする
-  // （横バーと丸の印は動かせるつまみに見えたので使わない。設計変更記録 #134）
+  // （横バーと丸の印は動かせるつまみに見えたので使わない。設計変更記録 #135）
   type Rank = { scope: string; rank: number; total: number };
   function rankHtml(ranks: Rank[]): string {
     if (!ranks.length) return "";
