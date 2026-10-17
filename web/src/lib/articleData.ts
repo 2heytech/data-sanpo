@@ -80,9 +80,10 @@ export function nationalValue(id: string, period: string): string {
   return formatValue({ value: (num / den) * (ind.scale ?? 1), status: "derived" }, ind);
 }
 
-/** 値のある地域の数と、条件に当てはまる地域の数 */
-export function count(id: string, period: string, level: ArticleLevel, test: (v: number) => boolean = () => true): string {
-  const vals = rows(id, period, level).filter((r) => r.value !== null).map((r) => r.value as number);
+/** 値のある地域の数と、条件に当てはまる地域の数（prefCode を渡すと、その都道府県の市区町村だけで数える） */
+export function count(id: string, period: string, level: ArticleLevel, test: (v: number) => boolean = () => true, prefCode?: string): string {
+  const vals = rows(id, period, level).filter((r) => r.value !== null && (!prefCode || r.entity_id.startsWith(`muni-${prefCode}`)))
+    .map((r) => r.value as number);
   if (vals.length === 0) return fail(`${id} の ${period} に値がありません`) ?? "—";
   return formatNumber(vals.filter(test).length, 0);
 }
@@ -91,12 +92,19 @@ export interface ArticleRankRow extends ValueRow {
   rank: number;
 }
 
+/** 市区町村の種類（名前の最後の字）。政令指定都市の区・東京都の特別区は「区」 */
+export type MuniKind = "市" | "町" | "村" | "区";
+
 /**
  * 順位の表の行。order="high" は大きい順、"low" は小さい順（順位も小さい方から数える）。
  * expect に挙げた地域が上から n 件に入っていなければ、実データでは止める（本文でその地域を挙げているため）。
+ * kind を渡すと、その種類の市区町村（市だけ・村だけなど）の中で数える。atLeast を渡すと、その値以上だけを並べる
  */
-export function ranking(id: string, period: string, level: ArticleLevel, order: "high" | "low", n: number, expect: string[] = []): ArticleRankRow[] {
-  const all = rows(id, period, level);
+export function ranking(id: string, period: string, level: ArticleLevel, order: "high" | "low", n: number, expect: string[] = [],
+  opts: { kind?: MuniKind; atLeast?: number } = {}): ArticleRankRow[] {
+  const names = opts.kind ? new Map(loadAreas().municipalities.map((m) => [m.id, m.name])) : null;
+  const all = rows(id, period, level).filter((r) => (!names || names.get(r.entity_id)?.endsWith(opts.kind!))
+    && (opts.atLeast === undefined || (r.value !== null && r.value >= opts.atLeast)));
   const list = order === "high"
     ? ranked(all)
     : ranked(all.map((r) => ({ ...r, value: r.value === null ? null : -r.value }))).map((r) => ({ ...r, value: r.value === null ? null : -r.value }));
@@ -126,4 +134,31 @@ export function raw(id: string, period: string, entityId: string): number | null
 export function oku(millionYen: number | null): string {
   if (millionYen === null) return "—";
   return millionYen >= 100 ? `約${formatNumber(Math.round(millionYen / 100), 0)}億円` : `${formatNumber(millionYen, 0)}百万円`;
+}
+
+/** 本文の前提（「AはBより広い」など）を確かめる。崩れていれば実データでは止める */
+export function check(condition: boolean, message: string): void {
+  if (!condition) fail(message);
+}
+
+/**
+ * 時点を追うごとに続けて増えた地域と、最初の時点から最後の時点までの増加率（%、2つの時点の値から計算）。
+ * どれかの時点に値のない地域は除き（0 にしない）、total はすべての時点に値のある地域の数
+ */
+export function steadyGrowth(id: string, periods: string[], level: ArticleLevel): { rows: ArticleRankRow[]; total: number } {
+  const byPeriod = periods.map((p) => new Map(rows(id, p, level).map((r) => [r.entity_id, r.value])));
+  const grew: ValueRow[] = [];
+  let total = 0;
+  for (const entity of byPeriod[0].keys()) {
+    const vals = byPeriod.map((m) => m.get(entity) ?? null);
+    if (vals.some((v) => v === null)) continue;
+    total++;
+    const v = vals as number[];
+    if (v[0] > 0 && v.every((x, i) => i === 0 || x > v[i - 1])) {
+      grew.push({ entity_id: entity, value: (v[v.length - 1] / v[0] - 1) * 100, status: "derived",
+        numerator: v[v.length - 1] - v[0], denominator: v[0] });
+    }
+  }
+  if (total === 0) fail(`${id} の ${periods.join("・")} に値がありません`);
+  return { rows: ranked(grew), total };
 }

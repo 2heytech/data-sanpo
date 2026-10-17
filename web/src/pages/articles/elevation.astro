@@ -1,0 +1,73 @@
+---
+import Article from "../../layouts/Article.astro";
+import ArticleRanking from "../../components/ArticleRanking.astro";
+import { check, count, raw, value } from "../../lib/articleData";
+
+const P = "2026-10-01";
+const ID = "elevation_mean";
+const RANGE = "elevation_range";
+const NAGANO = "20";
+// 本文の高さの書き方を、実データで確かめる
+const m = (id: string) => raw(ID, P, id) ?? NaN;
+if (!Number.isNaN(m("pref-20"))) {
+  check(m("pref-20") >= 1000, "長野県の平均標高が1,000m以上ではありません");
+  check(["muni-05368", "muni-23208", "muni-23425", "muni-27103"].every((id) => m(id) < 0), "海面より低いと書いたまちの平均標高が0m以上です");
+  check(m("muni-13107") < 1, "墨田区の平均標高が1m以上です");
+}
+---
+<Article slug="elevation">
+  <p>
+    まちの地面は、海面からどのくらいの高さにあるのでしょうか。国土地理院の標高データ（約30m間隔の点の標高）から、
+    市区町村ごとの地面の高さの平均（平均標高）と、いちばん高い所と低い所の差（高低差）を求め、高いまち・低いまちを比べます。
+  </p>
+
+  <h2>都道府県：長野県は平均でも1,000mを超える</h2>
+  <p>
+    平均標高が最も高いのは長野県（{value(ID, P, "pref-20")}）で、山梨県、群馬県、岐阜県が続きます。
+    低いのは千葉県（{value(ID, P, "pref-12")}）で、沖縄県、茨城県と続きます。千葉県は高い山がなく、県全体がなだらかな台地と平野です。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-20", "pref-19", "pref-10", "pref-21"]} caption="平均標高が高い都道府県" />
+  <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-12", "pref-47", "pref-08"]} caption="平均標高が低い都道府県" />
+
+  <h2>高いまち：上位は長野県の村</h2>
+  <p>
+    平均標高が1,000m以上の市区町村は{count(ID, P, "municipality", (v) => v >= 1000)}あり、
+    そのうち長野県が{count(ID, P, "municipality", (v) => v >= 1000, NAGANO)}を占めます。
+    最も高いのは長野県川上村（{value(ID, P, "muni-20304")}）です。千曲川の源流にある高原の村で、
+    すずしい夏を生かしたレタスなどの高原野菜の産地として知られます。
+  </p>
+  <p>
+    長野県大鹿村、山梨県鳴沢村、長野県南牧村、群馬県片品村、長野県王滝村など、高い山のふもとや高原の村が並びます。
+    平均標高は山の上も含めた平均なので、人が住む集落はこれより低い所にあることが多いと考えられます。
+  </p>
+  <ArticleRanking id={ID} period={P} n={10} expect={["muni-20304", "muni-20417", "muni-19429", "muni-20305", "muni-10443", "muni-20429"]} caption="平均標高が高い市区町村" />
+
+  <h2>低いまち：平均が海面より低いまちも</h2>
+  <p>
+    平均標高が海面より低い（マイナスの）市区町村は{count(ID, P, "municipality", (v) => v < 0)}あります。
+    最も低いのは秋田県大潟村（{value(ID, P, "muni-05368")}）で、湖だった八郎潟を干拓してできた村です。
+    村のほとんどが、もとの湖の底の土地にあります。
+  </p>
+  <p>
+    愛知県津島市・蟹江町など濃尾平野の南部のまちと、大阪市福島区も、平均が海面より低くなっています。
+    濃尾平野の南部は木曽川などの河口に近い低い土地で、「海抜ゼロメートル地帯」と呼ばれる地域です。
+    東京都墨田区など東京の東部にも、平均標高が1mに満たないまちがあります。
+  </p>
+  <ArticleRanking id={ID} period={P} order="low" n={10} expect={["muni-05368", "muni-23208", "muni-23425", "muni-27103", "muni-13107"]} caption="平均標高が低い市区町村" />
+
+  <h2>高低差が最も大きいのは富士宮市</h2>
+  <p>
+    まちの中の高低差が最も大きいのは静岡県富士宮市（{value(RANGE, P, "muni-22207")}）です。富士山の山頂近くから、
+    ふもとの低い土地までが市の中にあります。富士市、小山町、御殿場市と、富士山のまわりのまちが上位に並びます。
+    反対に、大潟村の高低差は{value(RANGE, P, "muni-05368")}しかなく、平らな土地が広がっています。
+  </p>
+  <ArticleRanking id={RANGE} period={P} n={5} expect={["muni-22207", "muni-22210", "muni-22344", "muni-22215"]} caption="高低差が大きい市区町村" />
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>約30m間隔の点の、地面の高さです。建物や木の高さは含みません。点の間の細かな起伏は反映されません。</li>
+    <li>平均標高は、山の上も平地もまとめた平均です。まちの中心や役場の高さとは違います。</li>
+    <li>高低差は、広い地域ほど大きくなりやすい値です。</li>
+  </ul>
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}`}>平均標高を地図で見る</a></p>
+</Article>

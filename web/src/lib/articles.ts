@@ -16,6 +16,41 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "area-largest-smallest",
+    title: "日本一広い市・いちばん小さい村：市区町村の面積ランキング",
+    description: "市区町村と都道府県の面積を比べます。東京都とほぼ同じ広さの岐阜県高山市から、最も小さい富山県舟橋村まで、広いまち・小さいまちの顔ぶれを見ます。",
+    published: "2026-10-17",
+    indicators: ["area", "population_density"],
+  },
+  {
+    slug: "fiscal-strength",
+    title: "財政力指数が1以上の市町村：自前の収入で行政サービスをまかなうまち",
+    description: "財政力指数が1以上の市町村は全国のごく一部です。工場の多いまち、発電所や空港のあるまち、住宅地や別荘地など、どんなまちが並ぶかを見ます。",
+    published: "2026-10-17",
+    indicators: ["fiscal_strength_index", "taxable_income_per_taxpayer"],
+  },
+  {
+    slug: "population-growth-2010-2025",
+    title: "2010年から15年間、人口が増え続けた市区町村",
+    description: "2010・2015・2020・2025年の国勢調査で毎回人口が増えた市区町村。大都市の中心部、新しい鉄道沿いの郊外、沖縄県の町村など、増え続けたまちを見ます。",
+    published: "2026-10-17",
+    indicators: ["population_total", "population_change_rate"],
+  },
+  {
+    slug: "elevation",
+    title: "標高の高いまち・海面より低いまち：市区町村の平均標高",
+    description: "地面の高さの平均（平均標高）が高い市区町村と低い市区町村。長野県の高原の村から、平均が海面より低い秋田県大潟村や濃尾平野のまちまでを比べます。",
+    published: "2026-10-17",
+    indicators: ["elevation_mean", "elevation_range"],
+  },
+  {
+    slug: "paddy-bamboo",
+    title: "田んぼの多いまち・竹林の多いまち",
+    description: "土地利用のデータで田の割合が高い市区町村と、植生図で竹林の割合が高い市区町村を見ます。各地の平野の米どころと、瀬戸内や京都の竹林のまちです。",
+    published: "2026-10-17",
+    indicators: ["land_use_paddy_share", "vegetation_bamboo_share"],
+  },
+  {
     slug: "population-change-2025",
     title: "人口が増えた市区町村・減った市区町村（2025年国勢調査）",
     description: "2025年国勢調査で、5年前より人口が増えた市区町村と減った市区町村。全国の約8割が減少するなか、増えたのはどんな地域か、都道府県と市区町村の順位から読みます。",

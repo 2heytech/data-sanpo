@@ -109,6 +109,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   .ranking { min-width: 0; }
   .ranking .col-rank { width: 4.2em; }
   .ranking .col-value { width: 7.5em; }
+  /* 「83,422.27 km²」など長い値は、数字と単位の間で折り返す（右端で切れて見えないようにする） */
+  .ranking td.num { white-space: normal; }
   .ranking .col-extra, .ranking .col-note { display: none; }
   .ranking .ranking-place { display: block; }
 }
