@@ -82,13 +82,14 @@ function countBelow(values: number[], v: number): { lt: number; le: number } {
  * 考察のまとまり（テーマ）。ページではテーマごとに小見出しを付けてまとめる。
  * 並びは、題名の元になった考察のテーマを先に、あとは目立つ考察のあるテーマから（同じなら下の順）
  */
-export const THEMES = ["気候と土地", "交通", "住む人", "住まい", "仕事と産業", "子育てと学び", "安全と健康", "選挙"] as const;
+export const THEMES = ["気候と土地", "交通", "住む人", "住まい", "仕事と産業", "まちの財政", "子育てと学び", "安全と健康", "選挙"] as const;
 export type Theme = (typeof THEMES)[number];
 /** 全国順位の考察（rankInsights）のテーマ。指標のカテゴリから決め、合わないものは指標ごとに決める */
 const CATEGORY_THEME: Record<string, Theme> = {
   "人口・世帯": "住む人", "年齢構成": "住む人", "外国人住民": "住む人", "学歴": "住む人", "所得・税": "住む人", "暮らし方": "住まい",
   "緑": "気候と土地", "通勤・通学": "交通", "働き方": "仕事と産業", "農業": "仕事と産業", "工業": "仕事と産業", "商業": "仕事と産業",
   "観光": "仕事と産業", "子育て": "子育てと学び", "教育": "子育てと学び", "交通事故": "安全と健康", "犯罪": "安全と健康", "選挙": "選挙",
+  "土地": "気候と土地", "財政": "まちの財政",
 };
 const ID_THEME: Record<string, Theme> = {
   population_density: "気候と土地",
@@ -100,14 +101,15 @@ const ID_THEME: Record<string, Theme> = {
 const themeOf = (ind: Indicator): Theme => ID_THEME[ind.id] ?? CATEGORY_THEME[ind.category] ?? "安全と健康";
 
 /** w は見出しに選ぶときの目立ち方（小さいほど目立つ。全国の中の位置など） */
-type Line = { text: string; strong: boolean; tone?: Tone; tag?: Tag; w: number; theme?: Theme; topic?: string };
+/** lead: 土地・財政の文で、全国の上位・下位2%に入るときのその位置（全国順位の考察のすぐ後に置き、ほかの文より先に選ぶ） */
+type Line = { text: string; strong: boolean; tone?: Tone; tag?: Tag; w: number; theme?: Theme; topic?: string; lead?: number };
 /**
  * テーマの中の話の順（人口 → 年齢 → 世帯 → 外国人 → 住まい → 地価、のように話がつながる順）。
  * 考察を出す処理の名前と、全国順位の考察の指標の id（国籍別・政党別は名前の頭）で並べる。ないものはテーマの最後
  */
 const TOPIC_ORDER = [
   // 気候と土地
-  "population_density", "weather", "altitude",
+  "area", "population_density", "terrain", "altitude", "landuse", "forest", "farmland", "landChange", "bamboo", "weather",
   // 交通
   "airport", "port", "station", "commute", "commute_walk_share", "commute_bicycle_share", "commute_bus_share", "commute_car_share",
   // 住む人
@@ -121,6 +123,8 @@ const TOPIC_ORDER = [
   "daytime", "industry", "manufacturing_shipments", "agri_output_rice", "agri_output_vegetables", "agri_output_fruits",
   "agri_output_livestock", "wholesale_sales", "shopping", "inbound_guest_nights", "inbound_guest_share",
   "self_employed_share", "professional_share", "manager_share", "furusato",
+  // まちの財政
+  "fiscal",
   // 子育てと学び
   "childcare_usage_rate", "preschool_kindergarten_share", "preschool_nursery_share", "preschool_kodomoen_share",
   "elem_class_size", "jhs_class_size", "jhs_students_private", "education", "hs_grad_vocational_rate",
@@ -188,14 +192,19 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     if (l) { l.theme ??= theme; l.topic ??= topic; }
     return l;
   };
-  const all = [on("住む人", "foreignGap", gap), ...rankNotables(), on("交通", "airport", airport()), on("交通", "port", port()),
+  // 面積・地形・土地利用・農地・財政の文。全国の上位・下位2%に入るものは、目立つ順に2つまで全国順位の考察と同じように先に選ぶ
+  const land = [on("気候と土地", "area", areaSize()), on("気候と土地", "terrain", terrain()), ...landUse().map((l) => on("気候と土地", "landuse", l)),
+    on("気候と土地", "farmland", farmland()), on("気候と土地", "landChange", landChange()), on("気候と土地", "bamboo", bamboo()),
+    on("まちの財政", "fiscal", fiscal())].filter((l): l is Line => !!l);
+  const leading = land.filter((l) => l.lead !== undefined).sort((a, b) => a.lead! - b.lead!).slice(0, 2);
+  const all = [on("住む人", "foreignGap", gap), ...rankNotables(), ...leading, on("交通", "airport", airport()), on("交通", "port", port()),
     on("交通", "station", station()), ...weather().map((l) => on("気候と土地", "weather", l)), on("住まい", "land", landPrice()),
     on("住む人", "foreignShare", gap ? null : foreignShare()), on("仕事と産業", "daytime", daytime()),
     on("住む人", "populationChange", populationChange()), on("住む人", "ageStructure", ageStructure()),
     on("住む人", "households", households()), on("住まい", "housing", housing()), on("交通", "commute", commute()),
     on("仕事と産業", "industry", industry()), on("仕事と産業", "shopping", shopping()), on("仕事と産業", "furusato", furusato()),
     on("住む人", "income", income()), on("住まい", "vacancy", vacancy()), on("子育てと学び", "education", education()),
-    on("住まい", "land", landGeneral()), on("交通", "station", stationGeneral())]
+    on("住まい", "land", landGeneral()), on("交通", "station", stationGeneral()), ...land.filter((l) => !leading.includes(l))]
     .filter((l): l is Line => !!l)
     // 同じことを言う考察は1つにする（持ち家が少ない方の全国順位があれば、借家が多いという文は出さない）
     .filter((l, _, list) => !(l.topic === "housing" && l.text.startsWith("民営の借家") && list.some((x) => x.topic === "owner_occupied_share")));
@@ -223,7 +232,8 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       if (t >= 0) return t - 10;
       // 住む人の国籍の文は、題名と同じく、まちの第一印象にしない
       const origin = l.topic === "foreignShare" || l.topic?.startsWith("census_foreign_");
-      return l.w + (l.tone === "neg" ? 0.5 : 0) + (origin ? 0.5 : 0) + (l.theme === "選挙" ? 1 : 0);
+      // 財政は自治体の評価として読まれないよう、まちの特徴（土地・人・産業）の後にする
+      return l.w + (l.tone === "neg" ? 0.5 : 0) + (origin ? 0.5 : 0) + (l.theme === "選挙" ? 1 : 0) + (l.theme === "まちの財政" ? 0.5 : 0);
     };
     const topic = (l: Line) => {
       if (titleLines.includes(l)) return -1;
@@ -413,23 +423,41 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     const s = stat("population_change_rate");
     if (!s) return null;
     const amount = s.text.replace(/^[+−-]/, "");
+    const since = sinceLong();
     if (isTop(s, 0.1) && s.value > 0) {
-      return strong(`人口は5年前から${amount}増えていて（${s!.label}）、全国の市区町村の中でも増え方が大きい方です。住宅の開発などで移り住む人が多いと考えられます。`, "pos", tag("grow", "人口が大きく増え", "人口が大きく増えている"), s.top!);
+      return strong(`人口は5年前から${amount}増えていて（${s!.label}）、全国の市区町村の中でも増え方が大きい方です。${since}住宅の開発などで移り住む人が多いと考えられます。`, "pos", tag("grow", "人口が大きく増え", "人口が大きく増えている"), s.top!);
     }
     if (isBottom(s, 0.1) && s.value < 0) {
       return strong(`人口は5年前から${amount}減っていて（${s!.label}）、全国の市区町村の中でも減り方が大きい方です。若い世代の転出や高齢化が進んでいると思われます。`, "neg");
     }
     if (s.value > 0) {
-      return general(`人口は5年前から${amount}増えています（${s!.label}）。全国で人口が減る市区町村が多い中、人が集まっている地域のようです。`, "pos", tag("grow", "人口が増え", "人口が増えている"), 0.4);
+      return general(`人口は5年前から${amount}増えています（${s!.label}）。${since}全国で人口が減る市区町村が多い中、人が集まっている地域のようです。`, "pos", tag("grow", "人口が増え", "人口が増えている"), 0.4);
     }
     if (s.value === 0) return general(`人口は5年前からほとんど変わっていません（${s!.label}）。`);
     if (isTop(s, 0.5)) {
-      return general(`人口は5年前から${amount}減っていますが（${s!.label}）、全国の市区町村の中では減り方が小さい方です。人口が比較的保たれている地域と考えられます。`, "pos");
+      return general(`人口は5年前から${amount}減っていますが（${s!.label}）、全国の市区町村の中では減り方が小さい方です。${since}人口が比較的保たれている地域と考えられます。`, "pos");
     }
     if (isBottom(s, 0.3)) {
       return general(`人口は5年前から${amount}減っていて（${s!.label}）、全国の市区町村の中では減り方がやや大きい方です。人口減少が進んでいる地域と考えられます。`, "neg");
     }
     return general(`人口は5年前から${amount}減っています（${s!.label}）。全国の多くの市区町村と同じく、少しずつ人口が減っているようです。`, "neg");
+  }
+
+  /**
+   * 最も古い時点（2010年。今の区域に組み替えた値）からの人口の増え方。増えているときだけ文に添える
+   * （人口の増減の文が減っている向きのときは、課題の文を重ねないため書かない）
+   */
+  function sinceLong(): string {
+    const pop = data.indicator("population_total");
+    const now = stat("population_total");
+    const first = pop?.periods.map((p) => p.period).sort()[0];
+    if (!now || !first || first >= now.period) return "";
+    const then = stat("population_total", first);
+    if (!then || then.value <= 0) return "";
+    const rate = ((now.value - then.value) / then.value) * 100;
+    const years = Number(now.period.slice(0, 4)) - Number(first.slice(0, 4));
+    if (years <= 5 || rate < 0.05) return "";
+    return `${first.slice(0, 4)}年からの${years}年では${formatNumber(rate, 1)}%増えています。`;
   }
 
   function ageStructure(): Line | null {
@@ -553,6 +581,8 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     // 空き家には別荘や入居者を募集中の賃貸住宅も含まれる。人口が減っていない地域（別荘地など）では、使われなくなった家とは書かない
     const change = stat("population_change_rate");
     const head = `空き家率が${s!.text}と全国でも高い方です（${s!.label}）。`;
+    // 4割を超えるのは別荘地・リゾート地（軽井沢町・熱海市など）。人口が減っていても、使われなくなった家とは書かない
+    if (s!.value >= 40) return strong(head + "別荘やリゾートマンションなど、ふだん人が住んでいない住宅が多い地域と考えられます。");
     if (!change) return strong(head + "別荘や入居者を募集中の賃貸住宅、長く使われていない家など、ふだん人が住んでいない住宅が多いようです。");
     if (change.value >= 0) {
       return strong(head + "人口は減っていないので、別荘や入居者を募集中の賃貸住宅など、ふだん人が住んでいない住宅が多いと考えられます。");
@@ -570,6 +600,148 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       return strong(`まちにある高校の卒業者のうち就職した人が${job!.text}と全国でも高い方です（${job!.label}、学校の所在地で数えています）。卒業後すぐに働き始める人の多い高校があると考えられます。`);
     }
     return null;
+  }
+
+  // --- 土地（面積・標高・土地利用・植生・農地の区画）と財政 ---
+
+  function jpn(n: number) { return n.toLocaleString("ja-JP"); }
+  /** 全国の上位・下位2%（全国順位の考察と同じ範囲）に入るときは、その位置を lead に記す */
+  function leadIf(l: Line, pos: number | null | undefined): Line {
+    if (pos !== null && pos !== undefined && pos <= RANK_SHARE) l.lead = pos;
+    return l;
+  }
+  function meters(n: number) { return `${jpn(Math.round(n))}m`; }
+
+  /** 面積。全国でも特に広い（上位1%）か、特に小さい（下位2%）とき */
+  function areaSize(): Line | null {
+    const s = stat("area");
+    if (!s || s.top === null) return null;
+    if (s.top <= 0.01) {
+      const rank = s.rankTop === 1 ? "最も広い市区町村です" : `${jpn(s.rankTop)}番目の広さです`;
+      return leadIf(strong(`面積は${s.text}で、全国の市区町村の中で${rank}（${s.label}）。広い市域に、まちの中心から山や農村まで、いろいろな土地を抱えていると考えられます。`,
+        undefined, tag("wide", "広い市域を持ち", "広い市域を持つ"), s.top * 3), s.top);
+    }
+    if (s.bottom! <= 0.02) {
+      return leadIf(strong(`面積は${s.text}で、全国の市区町村の中でも小さい方です（${s.label}）。まちの範囲がコンパクトにまとまっているようです。`,
+        "pos", tag("compact", "コンパクトにまとまり", "コンパクトにまとまった"), s.bottom! * 3), s.bottom);
+    }
+    return null;
+  }
+
+  /**
+   * 地形（平均標高と高低差。標高タイルの約30m間隔の点から）。高低差が全国で特に大きい（上位3%）、平均標高が500m以上、
+   * 平均標高が全国で特に低い（3m以下）のどれか1つ。観測所の標高が高いときだけ、夏のすずしさにふれる
+   */
+  function terrain(): Line | null {
+    const mean = stat("elevation_mean");
+    const range = stat("elevation_range");
+    if (!mean) return null;
+    const w = place.weather;
+    const cool = w && w.altitude !== null && w.altitude >= 500
+      ? `気象庁の観測所「${w.station}」も標高${meters(w.altitude)}にあり、夏も比較的すずしい気候と思われます。` : "";
+    if (range && range.top !== null && range.top <= 0.03) {
+      return leadIf(strong(`まちの中の高低差（いちばん低い所と高い所の差）は${meters(range.value)}と、全国の市区町村の中でも大きい方です（平均標高は${meters(mean.value)}）。` +
+        `平地から高い山々まで、変化に富んだ地形のまちと考えられます。${cool}`, undefined, tag("mountain", "高い山々を抱え", "高い山々を抱える"), range.top), range.top);
+    }
+    if (mean.value >= 500) {
+      // 平均は山の上も含み、まちの中心は低い谷や盆地にあることも多い（盛岡市など）。題名は「標高が高い」とは書かず、
+      // 平均が特に高い（700m以上）ときだけ「高原や山地が広がる」とする
+      const wide = mean.value >= 700;
+      const rank = mean.rankTop === 1 ? "全国の市区町村の中で最も高くなっています" : `全国の市区町村のうち${jpn(mean.rankTop)}番目の高さです`;
+      return leadIf(strong(`まちの土地の平均標高は${meters(mean.value)}で、${rank}。土地の多くが高原や山地にあるまちのようです。${cool}`,
+        undefined, wide ? tag("high", "高原や山地が広がり", "高原や山地の広がる") : undefined, wide ? Math.min(0.02, mean.top ?? 0.02) : 0.2), mean.top);
+    }
+    if (mean.value <= 3 && range && range.value <= 50) {
+      return strong(`まちの土地の平均標高は${formatNumber(mean.value, 1)}mと${mean.value < 0 ? "海面より低く" : "低く"}、高低差も${meters(range.value)}ほどの平らな土地です。` +
+        "低い平野に広がるまちのようです。", undefined, tag("flat", "平らな低地に広がり", "平らな低地に広がる"), 0.05);
+    }
+    return null;
+  }
+
+  /**
+   * 土地利用（土地利用細分メッシュ）と植生。森林・田・畑のうち全国で特に割合の高いものを1つ。
+   * 森林は、植生図で自然林か植林地が特に多いときにその違いも書く
+   */
+  function landUse(): Line[] {
+    const forest = stat("land_use_forest_share");
+    const paddy = stat("land_use_paddy_share");
+    const field = stat("land_use_field_share");
+    const options: { pos: number; line: () => Line }[] = [];
+    if (forest && forest.top !== null && forest.top <= 0.1) {
+      options.push({ pos: forest.top, line: () => {
+        const natural = stat("vegetation_natural_forest_share");
+        const planted = stat("vegetation_plantation_share");
+        const detail = natural && natural.top !== null && natural.top <= 0.05
+          ? `植生図では土地の${natural.text}が自然林で（${natural.label}）、昔からの森が多く残っている地域と考えられます。`
+          : planted && planted.top !== null && planted.top <= 0.05
+            ? `植生図では土地の${planted.text}が、スギ・ヒノキやカラマツなどを植えた植林地で（${planted.label}）、木材をとるために植えられた森が多い地域と考えられます。`
+            : "";
+        return leadIf(strong(`まちの土地の${forest.text}が森林で（${forest.label}）、全国の市区町村の中でも森林の多い方です。${detail}`,
+          undefined, tag("forest", "森に囲まれ", "森に囲まれた"), forest.top!), forest.top);
+      } });
+    }
+    if (paddy && paddy.top !== null && paddy.top <= 0.05) {
+      options.push({ pos: paddy.top, line: () => leadIf(strong(`まちの土地の${paddy.text}が田で（${paddy.label}）、全国の市区町村の中でも田の割合が高い方です。一面に田んぼが広がる地域と考えられます。`,
+        "pos", tag("agri", "田んぼが広がり", "田んぼの広がる"), paddy.top!), paddy.top) });
+    }
+    if (field && field.top !== null && field.top <= 0.05) {
+      options.push({ pos: field.top, line: () => leadIf(strong(`まちの土地の${field.text}が畑や果樹園、牧草地などで（${field.label}）、全国の市区町村の中でも割合が高い方です。` +
+        "畑作や酪農など、田んぼ以外の農業が盛んな地域と考えられます。", "pos", tag("agri", "畑や牧草地が広がり", "畑や牧草地の広がる"), field.top!), field.top) });
+    }
+    const best = options.sort((a, b) => a.pos - b.pos)[0];
+    return best ? [best.line()] : [];
+  }
+
+  /** 農地の1区画の平均面積（筆ポリゴン）。全国で特に広い（上位5%）とき */
+  function farmland(): Line | null {
+    const s = stat("farmland_parcel_area");
+    if (!s || s.top === null || s.top > 0.05) return null;
+    const share = (stat("farmland_paddy_share")?.value ?? 0) + (stat("farmland_field_share")?.value ?? 0);
+    if (share < 10) return null;
+    const ha = s.value >= 10_000 ? `約${formatNumber(s.value / 10_000, 1)}ha` : s.text;
+    return leadIf(strong(`農地の1区画の平均面積は${ha}と、全国の市区町村の中でも広い方です（${s.label}の筆ポリゴン）。大きな区画で機械を使う、規模の大きな農業が行われていると考えられます。`,
+      "pos", tag("bigfarm", "広い農地が広がり", "広い農地の広がる"), s.top), s.top);
+  }
+
+  /**
+   * 建物用地の割合の30年間の変化（1991→2021年度）。20ポイント以上増え、途中の年度も増え続け、
+   * 2010年からの人口も増えているときだけ（年度で判読の方法が違うため、ほかの裏付けがあるときに限る）
+   */
+  function landChange(): Line | null {
+    const ind = data.indicator("land_use_building_share");
+    if (!ind) return null;
+    const periods = ind.periods.map((p) => p.period).sort().filter((p) => p >= "1991");
+    const vals = periods.map((p) => stat("land_use_building_share", p));
+    if (vals.length < 3 || vals.some((v) => !v)) return null;
+    const first = vals[0]!, last = vals[vals.length - 1]!;
+    if (last.value - first.value < 20 || vals.some((v, i) => i > 0 && v!.value < vals[i - 1]!.value)) return null;
+    if (!sinceLong()) return null;
+    return strong(`建物の建つ土地（建物用地）の割合は、${first.label.slice(0, 4)}年度の${first.text}から${last.label.slice(0, 4)}年度は${last.text}に増えました。` +
+      "この30年で田畑や林が住宅地などに変わり、まちが広がってきたと考えられます（年度によって判読の方法が違うため、数字には判読の違いも含まれます）。",
+      "pos", tag("develop", "新しい街並みが広がり", "街並みが広がってきた"), 0.08);
+  }
+
+  /** 竹林（植生図）。全国で特に多い（上位2%）とき。どの地域にもある話題ではないので一般的な考察として */
+  function bamboo(): Line | null {
+    const s = stat("vegetation_bamboo_share");
+    if (!s || s.top === null || s.top > 0.02) return null;
+    return general(`植生図では土地の${s.text}が竹林で（${s.label}）、全国の市区町村の中でも竹林の多い方です。竹林のある里山の風景が身近な地域のようです。`, undefined, undefined, 0.3);
+  }
+
+  /**
+   * 財政力指数が1以上のときだけ（自前の収入で標準的な行政サービスの費用をまかなえる水準）。
+   * 自治体の良し悪しの評価にならないよう、指標の意味を書くだけにし、低い方・借金などの指標は書かない
+   */
+  function fiscal(): Line | null {
+    const s = stat("fiscal_strength_index");
+    if (!s || s.value < 1) return null;
+    // 理由は、ほかの指標で裏付けられるときだけ書く（工場が多い・昼に人が集まる職場が多い・住む人の所得が高い）
+    const why = isTop(stat("manufacturing_shipments"), 0.1) ? "工場など企業からの税収が多いことが表れていると考えられます。"
+      : (stat("daytime_night_ratio")?.value ?? 0) >= 130 ? "周りから人が通う職場が多く、企業や事業所からの税収が多いことが表れていると考えられます。"
+      : isTop(stat("taxable_income_per_taxpayer"), 0.1) ? "所得の高い住民が多く、住民税の収入が多いことが表れていると考えられます。"
+      : "税収など自前の収入が多いようです。";
+    return leadIf(strong(`財政力指数は${s.text}で（${s.label}、3年度の平均）、全国の市区町村のうち${jpn(s.rankTop)}位です。1以上は、標準的な行政サービスの費用を自前の収入でまかなえる水準とされ、` +
+      `国から普通交付税を受けないことが多くなります。${why}`, undefined, undefined, Math.max(0.03, s.top ?? 0.03)), s.top);
   }
 
   // --- 点のデータ（駅・空港・港・地価公示・天気） ---
@@ -649,7 +821,8 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     }
     const best = options.sort((a, b) => a.pos - b.pos)[0];
     if (best) out.push({ ...best.line(), topic: "weather" });
-    if (w.altitude !== null && w.altitude >= 500) {
+    // 市区町村の平均標高があるときは、そちら（terrain）で書く（観測所1地点より、まちの土地全体を表すため）
+    if (w.altitude !== null && w.altitude >= 500 && !stat("elevation_mean")) {
       out.push({ ...strong(`気象庁の観測所「${w.station}」は標高${fmt(w.altitude)}mにあり、高原や山あいのまちと考えられます。夏も比較的すずしい気候と思われます。`,
         undefined, tag("high", "標高が高く", "高原や山あいの"), 0.02), topic: "altitude" });
     }
