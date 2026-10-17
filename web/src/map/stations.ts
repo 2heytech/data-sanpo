@@ -117,7 +117,8 @@ export function initStations(o: Options): StationLayer {
       type: "FeatureCollection",
       features: live.map((s) => ({
         type: "Feature",
-        properties: { id: s.id, name: s.name, v: s.values[i] ?? -1 },
+        // pick: 重なった地点の一覧に出す名前（同じ駅の事業者を見分けられるように）
+        properties: { id: s.id, name: s.name, pick: `${s.name}（${s.operator}）`, v: s.values[i] ?? -1 },
         geometry: { type: "Point", coordinates: s.coord },
       })),
     } as never);

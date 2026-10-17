@@ -550,9 +550,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         map.fitBounds(m.bbox, { padding: 40, maxZoom: AREA_ZOOM - 0.5 });
       } else {
         const code = municipalityCodeOf(id);
-        if (code) await ensureChunk(code);
+        const muniId = code && munis.has(`muni-${code}`) ? `muni-${code}` : null;
+        if (muniId) await ensureChunk(code!).catch(() => {});
         const a = smallAreas.get(id);
         if (a) map.fitBounds(a.bbox, { padding: 60, maxZoom: 15, minZoom: AREA_ZOOM });
+        // 共有URLの地域が見つからないとき（ない地域ID、境界の更新でなくなった町丁目）は、その市区町村か、選ばない状態にする
+        else return select(muniId, fly);
       }
     }
     updateUrl();
@@ -621,7 +624,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const seen = new Set<string>();
     const hits = pointLayers.filter((p) => p.visible()).flatMap((layer) =>
       map.queryRenderedFeatures(box, { layers: [layer.layer] }).map((f) => ({
-        layer, id: String(f.properties.id), name: String(f.properties.name),
+        layer, id: String(f.properties.id), name: String(f.properties.pick ?? f.properties.name),
       }))).filter((h) => !seen.has(`${h.layer.kind}:${h.id}`) && !!seen.add(`${h.layer.kind}:${h.id}`));
     if (hits.length === 1) return showPoint(hits[0].layer, hits[0].id);
     if (hits.length > 1) return showPicker(hits);
@@ -669,8 +672,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       return;
     }
     // 市区町村の区切りは都道府県ごと。凡例は地図の中心（選んだ地域）の都道府県の区切りを出す
+    // 区分で公表された値（就学援助率など）は区切りが全国共通なので、都道府県の名前を出さない
     let breaks = info.breaks;
-    const pref = level === "municipality" && info.by_prefecture ? focusPrefecture() : undefined;
+    const pref = level === "municipality" && info.by_prefecture && !indicator.legend.band ? focusPrefecture() : undefined;
     if (pref && info.by_prefecture![pref]) {
       breaks = info.by_prefecture![pref];
       levelLabel = `${prefName(pref)}の${levelLabel}`;
@@ -734,11 +738,13 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     // 増減率はそれ自体が前回からの変化なので、さらに差を取る列は出さない
     // 区分で公表された値も、区分の端どうしの差は意味がないので出さない
     const withChange = indicator.kind !== "change" && !indicator.legend.band;
+    // 差は表に出している桁にそろえた値どうしで取る（94.4% → 94.5% が「±0.0」にならないように）
+    const shownValue = (x: number) => Number(x.toFixed(indicator.digits));
     const body = rows.map(({ p, row }) => {
       const v = row?.value ?? null;
       let change = "";
       if (withChange && v !== null && prev !== null) {
-        const diff = v - prev;
+        const diff = shownValue(v) - shownValue(prev);
         // 表示の桁で0になる差は「±」にする（−0.00 と出さない）
         const shown = Number(Math.abs(diff).toFixed(indicator.digits));
         const sign = shown === 0 ? "±" : diff > 0 ? "+" : "−";
@@ -849,7 +855,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const areasInPref = rows.filter((r) => !munis.has(r.entity_id) && !isPref(r.entity_id));
     const muniCode = municipalityCodeOf(id);
     const ranks = [
-      ...pick(`${entityName(`muni-${muniCode}`).name}内の地域`,
+      ...pick(`${entityName(`muni-${muniCode}`).name}の町丁・字等`,
         areasInPref.filter((r) => municipalityCodeOf(r.entity_id) === muniCode)),
       ...pick(`${prefName(prefCode)}の町丁・字等`, areasInPref),
     ];
