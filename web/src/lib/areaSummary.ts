@@ -57,7 +57,7 @@ const manySame = (s: string) => {
 
 /**
  * 説明文に使う考察を選び、最初の文（数字と順位）だけを短くして返す。
- * 「全国1,887市区町村のうち5位」→「全国5位」、「2020年10月1日現在」→「2020年」（本文の考察は変えない）
+ * 「全国1,887市区町村のうち5位」→「全国5位」、「2020年10月1日現在」→「2020年」、同じ値の数は省く（本文の考察は変えない）
  */
 export function descriptionFact(insights: string[]): string {
   const s = insights.find((x) => !manySame(x)) ?? "";
@@ -65,7 +65,14 @@ export function descriptionFact(insights: string[]): string {
   return (i < 0 ? s : s.slice(0, i + 1))
     .replace(/全国[\d,]+(?:市区町村|都道府県)のうち/g, "全国")
     .replace(/全国[\d,]+(?:市区町村|都道府県)の中で/g, "全国で")
-    .replace(/(\d{4}年)\d{1,2}月\d{1,2}日現在/g, "$1");
+    .replace(/(\d{4}年)\d{1,2}月\d{1,2}日現在/g, "$1")
+    .replace(/、[\d,]+(?:市区町村|都道府県)が同じ値/g, "");
+}
+
+/** 説明文の締め。長い順に試し、120字に収まる最初のものを付ける（どれも収まらなければ付けない） */
+export function fitDescription(body: string, tails: string[]): string {
+  const tail = tails.find((x) => (body + x).length <= DESCRIPTION_MAX);
+  return tail ? body + tail : body;
 }
 
 /** 時点の見出しの年（「2025年10月1日現在」→「2025年」） */
@@ -73,7 +80,7 @@ export const periodYear = (label: string) => /^\d{4}年(?:度)?/.exec(label)?.[0
 
 /**
  * 地域ページの説明文（検索結果に出る文）。特徴の一言と、いちばん目立つ考察の数字から始め、まちごとに違う文にする（設計変更記録 #130・#144）。
- * 「特徴の一言＋数字の1文＋（注記）＋人口＋締め」で、120字前後に収める。締めは収まるときだけ付ける
+ * 「特徴の一言＋数字の1文＋（注記）＋人口＋締め」で、120字前後に収める。締めは、開くと何が分かるかを、収まる長さで書く
  */
 export function areaDescription(a: {
   name: string; pref: string; title: string | null; insights: string[];
@@ -83,8 +90,11 @@ export function areaDescription(a: {
   const head = a.title ? `${a.name}${where}をデータで見ると「${a.title}」。` : `${a.name}${where}のデータ。`;
   const body = head + descriptionFact(a.insights) + (a.note ?? "") +
     (a.population ? `人口${a.population.text}（${periodYear(a.population.label)}）。` : "");
-  const tail = `${a.statCount}の指標と順位を紹介。`;
-  return (body + tail).length <= DESCRIPTION_MAX ? body + tail : body;
+  return fitDescription(body, [
+    `人口・暮らし・産業など${a.statCount}の指標の全国順位を、となりのまちと比べられます。`,
+    `${a.statCount}の指標の全国順位を、となりのまちと比べられます。`,
+    `${a.statCount}の指標の全国順位を紹介。`,
+  ]);
 }
 
 /**

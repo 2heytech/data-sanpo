@@ -5,7 +5,7 @@ import { ARTICLES, formatDate } from "../../lib/articles";
 
 const list = [...ARTICLES].sort((a, b) => (b.updated ?? b.published).localeCompare(a.updated ?? a.published));
 ---
-<Base title="寄り道" description="データさんぽの公開データを使って、人口の増減・高齢化・通勤・所得・外国人住民・空き家などを、都道府県と市区町村の数字で読む記事の一覧。">
+<Base menu="寄り道" description="人口が増え続けたまち、日本一広い市、標高の高いまち…。公開データの数字と地図から、全国の都道府県・市区町村の意外な姿を読み解く記事の一覧です。">
   <header class="page-head">
     <h1>寄り道</h1>
     <p class="lead">地図から少し寄り道して、数字から地域の特徴を読み解く記事です。数値はすべて掲載しているデータの値で、出典は各指標のページにあります。</p>

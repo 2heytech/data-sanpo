@@ -7,7 +7,10 @@ import { ALLOW_INDEXING } from "../lib/indexing";
 import "../styles/global.css";
 
 interface Props {
-  title: string;
+  /** ページの題名。後ろに「 | データさんぽ」を付ける（menu か titleIsFull のときは付けない） */
+  title?: string;
+  /** ヘッダー・フッターのメニューから開くページの名前。題名を「データさんぽ | 〇〇」にする（設計変更記録 #144） */
+  menu?: string;
   description: string;
   wide?: boolean;
   preload?: string;
@@ -24,9 +27,9 @@ interface Props {
   /** 検索に出さないページ（見つからないページ）。noindex にし、canonical と og:url を付けない（#144） */
   noindex?: boolean;
 }
-const { title, description, wide = false, preload, prefecture, titleIsFull = false, structuredData, image, ogType = "website", noindex = false } = Astro.props;
+const { title = "", menu, description, wide = false, preload, prefecture, titleIsFull = false, structuredData, image, ogType = "website", noindex = false } = Astro.props;
 const SITE_NAME = "データさんぽ";
-const fullTitle = titleIsFull || title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
+const fullTitle = menu ? `${SITE_NAME} | ${menu}` : titleIsFull || title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
 // SNS で共有されたときの画像（1200×630）。ページの画像がなければ全ページ共通の画像（作り方は scripts/og-image.mjs）
 const ogPath = image?.path ?? "/og.png";
 const ogImage = Astro.site ? new URL(ogPath, Astro.site).href : ogPath;

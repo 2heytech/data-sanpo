@@ -1,6 +1,6 @@
 // 都道府県ページ（/prefectures/<コード>/）の文と表を作る処理（設計変更記録 #130）。
 // 県内の市区町村へのリンクの入口として、人口の順と、主な指標の県内の上位を並べる
-import { DESCRIPTION_MAX, descriptionFact, popRank } from "./areaSummary";
+import { descriptionFact, fitDescription, popRank } from "./areaSummary";
 import { formatNumber, formatValue, ranked } from "./format";
 import { municipalityPeriods } from "./periods";
 import type { Indicator, Municipality, Period, ValueRow } from "./types";
@@ -68,15 +68,18 @@ export function prefectureLead(name: string, pop: PrefPopulation | null, change:
 
 /**
  * 都道府県ページの説明文（検索結果に出る文）。特徴の一言と、いちばん目立つ考察の数字から始め、都道府県ごとに違う文にする。
- * 地域ページの areaDescription と同じく120字前後に収め、人口の多い市区町村の名前は収まるときだけ入れる（設計変更記録 #144）
+ * 地域ページの areaDescription と同じく120字前後に収め、締め（開くと何が分かるか）は収まる長さのものを付ける（設計変更記録 #144）
  */
 export function prefectureDescription(a: { name: string; title: string | null; insights: string[]; muniCount: number; top3: string; statCount: number }): string {
   const head = a.title ? `${a.name}をデータで見ると「${a.title}」。` : `${a.name}のデータ。`;
-  const body = head + descriptionFact(a.insights);
-  const munis = `${a.muniCount.toLocaleString("ja-JP")}市区町村`;
-  const tail = (m: string) => `${m}の人口ランキングと${a.statCount}の指標を紹介。`;
-  const withNames = body + tail(a.top3 ? `${munis}（${a.top3}など）` : munis);
-  return withNames.length <= DESCRIPTION_MAX ? withNames : body + tail(munis);
+  // 「都内」「道内」「府内」「県内」
+  const inside = `${a.name.slice(-1)}内`;
+  const munis = `${inside}${a.muniCount.toLocaleString("ja-JP")}市区町村`;
+  return fitDescription(head + descriptionFact(a.insights), [
+    ...(a.top3 ? [`${munis}（${a.top3}など）の人口ランキングと、${a.statCount}の指標の全国順位が分かります。`] : []),
+    `${munis}の人口ランキングと、${a.statCount}の指標の全国順位が分かります。`,
+    `${a.statCount}の指標の全国順位が分かります。`,
+  ]);
 }
 
 /**

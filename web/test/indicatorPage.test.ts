@@ -38,27 +38,28 @@ describe("indicatorPageText", () => {
     const t = indicatorPageText(vote("れいわ新選組"), national);
     expect(t.title).toBe("れいわ新選組の得票率 都道府県別・市区町村別ランキング（2026年衆院選・比例代表）");
     expect(t.description).toBe(
-      "れいわ新選組の比例代表の得票率を、都道府県別と全国の市区町村別のランキングで紹介"
-      + "（2024年10月 衆院選・2025年7月 参院選・2026年2月 衆院選）。意味・計算方法・出典つき。有効投票のうちその政党が得た票の割合。",
+      "れいわ新選組の得票率が全国1位の市区町村はどこ？ 比例代表の得票率を、都道府県別と全国の市区町村別のランキングで紹介"
+      + "（2024年10月 衆院選・2025年7月 参院選・2026年2月 衆院選）。意味・計算方法・出典つき。",  // 指標の説明は120字を超えるので付けない
     );
   });
   it("正式名に略称を含まない政党は、題名に略称を使い、説明文に両方を書く", () => {
     const t = indicatorPageText(vote("自由民主党"), national);
     expect(t.title.startsWith("自民党の得票率 都道府県別・市区町村別ランキング")).toBe(true);
-    expect(t.description.startsWith("自由民主党（自民党）の比例代表の得票率を、")).toBe(true);
+    expect(t.description.startsWith("自民党の得票率が全国1位の市区町村はどこ？ 自由民主党の比例代表の得票率を、")).toBe(true);
     expect(indicatorPageText(vote("社会民主党"), national).title.startsWith("社民党の得票率")).toBe(true);
     expect(indicatorPageText(vote("日本共産党"), national).title.startsWith("日本共産党の得票率")).toBe(true);
   });
   it("市区町村の値がない得票率は都道府県別の題名にする", () => {
     const t = indicatorPageText(vote("参政党"), { ...national, muniCount: 0, hasMuniValues: false });
     expect(t.title).toBe("参政党の得票率 都道府県別（2026年衆院選・比例代表）");
+    expect(t.description.startsWith("参政党の得票率が全国1位の都道府県はどこ？ ")).toBe(true);
     expect(t.description).toContain("を、都道府県別の値で紹介");
   });
   it("ほかの指標は、都道府県別の表があればそう書き、ランキングの年を添える", () => {
     const pop = withPeriod("2020年10月1日現在");
     expect(indicatorPageText(pop, national)).toEqual({
       title: "人口 都道府県別・市区町村別ランキング（2020年）",
-      description: "人口の全国の市区町村ランキングと都道府県別の値（2020年10月1日現在、単位: 人）。意味・計算方法・出典つき。常住人口。",
+      description: "人口が全国1位の市区町村はどこ？ 全国の市区町村ランキングと都道府県別の値（2020年10月1日現在、単位: 人）を、意味・計算方法・出典つきで紹介。常住人口。",
     });
     expect(indicatorPageText(pop, { ...national, hasPrefRows: false }).title).toBe("人口の市区町村ランキング（全国・2020年）");
     expect(indicatorPageText(pop, { ...national, partial: true, hasPrefRows: false }).title).toBe("人口の市区町村ランキング（2020年）");
@@ -71,8 +72,11 @@ describe("indicatorPageText", () => {
   it("説明文で括弧を重ねない（単位は時点の括弧に入れ、時点の中の括弧は「・」にする）", () => {
     const crime = withPeriod("2025年度（4月実施）", { name: "認知件数（住民100人当たり）", unit: "件/100人" });
     expect(indicatorPageText(crime, { ...national, muniCount: 0, hasMuniValues: false }).description)
-      .toBe("認知件数（住民100人当たり）の都道府県別の値（2025年度・4月実施、単位: 件/100人）。意味・計算方法・出典つき。常住人口。");
+      .toBe("認知件数（住民100人当たり）が全国1位の都道府県はどこ？ 都道府県別のランキング（2025年度・4月実施、単位: 件/100人）を、意味・計算方法・出典つきで紹介。常住人口。");
     expect(indicatorPageText(withPeriod("2020年", { unit: "" }), national).description)
-      .toBe("人口の全国の市区町村ランキングと都道府県別の値（2020年）。意味・計算方法・出典つき。常住人口。");
+      .toBe("人口が全国1位の市区町村はどこ？ 全国の市区町村ランキングと都道府県別の値（2020年）を、意味・計算方法・出典つきで紹介。常住人口。");
+    expect(indicatorPageText(withPeriod("2020年"), { ...national, partial: true }).description.startsWith("人口が1位の市区町村はどこ？ ")).toBe(true);
+    expect(indicatorPageText(withPeriod("2020年"), { ...national, muniCount: 0, hasMuniValues: false, hasPrefRows: false }).description)
+      .toBe("人口の都道府県別の値（2020年、単位: 人）。意味・計算方法・出典つき。常住人口。");
   });
 });

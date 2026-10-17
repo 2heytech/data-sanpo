@@ -72,30 +72,29 @@ describe("wardCitiesOf", () => {
 
 describe("areaDescription", () => {
   const base = { name: "飛島村", pref: "愛知県", population: { text: "4,000人", label: "2025年10月1日現在" }, statCount: 120 };
+  const tail = "人口・暮らし・産業など120の指標の全国順位を、となりのまちと比べられます。";
   it("特徴の一言と、いちばん目立つ考察の数字から始め、人口と締めを付ける", () => {
-    expect(areaDescription({ ...base, title: "財政の豊かなまち", insights: ["財政力指数は2.10で、全国1,700市区町村のうち1位です（2023年度）。豊かなまちと考えられます。"] }))
-      .toBe("飛島村（愛知県）をデータで見ると「財政の豊かなまち」。財政力指数は2.10で、全国1位です（2023年度）。人口4,000人（2025年）。120の指標と順位を紹介。");
+    expect(areaDescription({ ...base, title: "財政の豊かなまち", insights: ["財政力指数は2.10で、全国1,700市区町村のうち1位です（2023年度、3市区町村が同じ値）。豊かなまちと考えられます。"] }))
+      .toBe(`飛島村（愛知県）をデータで見ると「財政の豊かなまち」。財政力指数は2.10で、全国1位です（2023年度）。人口4,000人（2025年）。${tail}`);
   });
   it("特徴の一言がないときは名前から始め、日付は年だけにする", () => {
     expect(areaDescription({ ...base, title: null, insights: ["大学・大学院卒の割合は67.1%で、全国1,895市区町村の中で低い方から3番目です（2020年10月1日現在）。"] }))
-      .toBe("飛島村（愛知県）のデータ。大学・大学院卒の割合は67.1%で、全国で低い方から3番目です（2020年）。人口4,000人（2025年）。120の指標と順位を紹介。");
+      .toBe(`飛島村（愛知県）のデータ。大学・大学院卒の割合は67.1%で、全国で低い方から3番目です（2020年）。人口4,000人（2025年）。${tail}`);
   });
   it("同じ値が10以上ある順位の考察は使わず、次の考察から始める", () => {
     const tie = "交通事故の件数は0.00件/100人で、全国1,895市区町村の中で最も低い値です（2025年、70市区町村が同じ値）。";
     expect(areaDescription({ ...base, title: null, insights: [tie, "面積は全国で最も小さい方です。"] }))
-      .toBe("飛島村（愛知県）のデータ。面積は全国で最も小さい方です。人口4,000人（2025年）。120の指標と順位を紹介。");
-    expect(areaDescription({ ...base, title: null, insights: [tie.replace("70市区町村", "3市区町村")] })).toContain("3市区町村が同じ値");
+      .toBe(`飛島村（愛知県）のデータ。面積は全国で最も小さい方です。人口4,000人（2025年）。${tail}`);
   });
-  it("120字を超えるときは締めを付けない。今はない区は注記を入れる", () => {
-    const long = `${"あ".repeat(80)}です。`;
-    const d = areaDescription({ ...base, title: "財政の豊かなまち", insights: [long] });
-    expect(d.endsWith("人口4,000人（2025年）。")).toBe(true);
+  it("締めは120字に収まるものを選び、どれも収まらなければ付けない。今はない区は注記を入れる", () => {
+    const d = areaDescription({ ...base, title: "財政の豊かなまち", insights: [`${"あ".repeat(48)}です。`] });
+    expect(d.endsWith("人口4,000人（2025年）。120の指標の全国順位を紹介。")).toBe(true);
+    expect(d.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+    const long = areaDescription({ ...base, title: "財政の豊かなまち", insights: [`${"あ".repeat(80)}です。`] });
+    expect(long.endsWith("人口4,000人（2025年）。")).toBe(true);
     expect(areaDescription({ ...base, name: "浜松市中区", pref: "静岡県", title: null, insights: [], note: formerWard("muni-22131")!.note }))
-      .toBe("浜松市中区（静岡県）のデータ。2024年1月の区の再編の前の区です。人口4,000人（2025年）。120の指標と順位を紹介。");
+      .toBe(`浜松市中区（静岡県）のデータ。2024年1月の区の再編の前の区です。人口4,000人（2025年）。${tail}`);
     expect(formerWard("muni-22138")).toBeNull();
-  });
-  it("全ページの説明文の長さの目安は120字", () => {
-    expect(DESCRIPTION_MAX).toBe(120);
   });
 });
 
@@ -140,12 +139,12 @@ describe("prefectureNeighbors", () => {
 });
 
 describe("prefectureDescription", () => {
-  it("特徴の一言と、いちばん目立つ考察から始める", () => {
+  it("特徴の一言と、いちばん目立つ考察から始め、県内の市区町村と指標の数で締める", () => {
     expect(prefectureDescription({ name: "北海道", title: "面積の広い北海道", insights: ["面積は83,422.27km²で、全国の都道府県で最も広くなっています（2025年10月1日現在）。広い土地です。"], muniCount: 188, top3: "札幌市中央区・旭川市", statCount: 150 }))
-      .toBe("北海道をデータで見ると「面積の広い北海道」。面積は83,422.27km²で、全国の都道府県で最も広くなっています（2025年）。188市区町村（札幌市中央区・旭川市など）の人口ランキングと150の指標を紹介。");
+      .toBe("北海道をデータで見ると「面積の広い北海道」。面積は83,422.27km²で、全国の都道府県で最も広くなっています（2025年）。道内188市区町村（札幌市中央区・旭川市など）の人口ランキングと、150の指標の全国順位が分かります。");
   });
   it("120字を超えるときは市区町村の名前を入れない", () => {
-    const d = prefectureDescription({ name: "北海道", title: "面積の広い北海道", insights: [`${"あ".repeat(60)}です。`], muniCount: 188, top3: "札幌市中央区・旭川市・札幌市北区", statCount: 150 });
-    expect(d.endsWith("188市区町村の人口ランキングと150の指標を紹介。")).toBe(true);
+    const d = prefectureDescription({ name: "東京都", title: "働く世代の多い東京都", insights: [`${"あ".repeat(50)}です。`], muniCount: 62, top3: "世田谷区・練馬区・大田区", statCount: 150 });
+    expect(d.endsWith("都内62市区町村の人口ランキングと、150の指標の全国順位が分かります。")).toBe(true);
   });
 });
