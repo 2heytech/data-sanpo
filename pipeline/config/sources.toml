@@ -4982,8 +4982,10 @@ attribution = "出典：千葉県教育委員会「令和7年版千葉県教育�
 modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
 redistributable = true
 
+# オープンデータサイトの取得口（resource_download/528）は GitHub Actions からだと 403 になるので、県のホームページに
+# 載っている同じファイル（教育便覧の 5-1、中身が同一なことを確かめた）から取る
 [school_counts_chiba_2025.download_files]
-"schools.xls" = "https://opendata.pref.chiba.lg.jp/resource_download/528"
+"schools.xls" = "https://www.pref.chiba.lg.jp/kyouiku/seisaku/kouhou/kyouikubinran/documents/5-1-r7.xls"
 
 [school_counts_niigata_2025]
 kind = "school_counts"
