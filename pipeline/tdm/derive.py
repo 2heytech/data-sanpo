@@ -1,10 +1,15 @@
 """観測値から別の指標を計算する（人口密度など）。"""
 from __future__ import annotations
 
+import json
+import math
+import re
 import sqlite3
+import statistics
 from collections import defaultdict
 
 from .db import insert_observation
+from .regions import prefecture_entity_id
 
 
 def derive_density(conn: sqlite3.Connection, indicator_id: str, definition: dict,
@@ -227,4 +232,143 @@ def derive_rate(conn: sqlite3.Connection, indicator_id: str, definition: dict,
                 obs.update(value=r["value"] / d["value"] * scale, status="derived")
         insert_observation(conn, **obs)
         result[r["period_start"][:4]] = result.get(r["period_start"][:4], 0) + 1
+    return result
+
+
+_KANJI_DIGITS = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+
+
+def _kanji_number(s: str) -> int:
+    """「二十三」→ 23（丁目の番号だけなので九十九まで）"""
+    tens, _, ones = s.partition("十") if "十" in s else ("", "", s)
+    return ((_KANJI_DIGITS[tens] if tens else 1) * 10 if "十" in s else 0) + (_KANJI_DIGITS.get(ones, 0) if ones else 0)
+
+
+def normalize_land_address(address: str | None) -> str:
+    """所在地を比べるための形にする（数字を半角に、漢数字の丁目を数字に、空白を除く）。
+    地価調査は「新富一丁目５番１」、地価公示は「新富１丁目５番１」のように書き方が違うことがある。
+    地図の web/src/map/landprices.ts の normalizeLandAddress と同じ。"""
+    if not address:
+        return ""
+    a = re.sub(r"\s", "", address.translate(str.maketrans("０１２３４５６７８９", "0123456789")))
+    return re.sub(r"([一二三四五六七八九十]+)丁目", lambda m: f"{_kanji_number(m.group(1))}丁目", a)
+
+
+def _distance_m(a: tuple[float, float], b: tuple[float, float]) -> float:
+    dx = (a[0] - b[0]) * math.cos(math.radians(a[1])) * 111_320
+    dy = (a[1] - b[1]) * 110_540
+    return math.hypot(dx, dy)
+
+
+def pair_land_points(publics: list[dict], surveys: list[dict], max_m: float = 100) -> dict[str, str]:
+    """地価公示の標準地と同じ土地を調べている地価調査の基準地（共通地点）。基準地のID → 標準地のID。
+    公開データに共通地点の印がないので、位置が同じか、所在地が同じで max_m 以内のものを同じ土地とみなす
+    （地図の web/src/map/landprices.ts の pairLandPoints と同じ決まり。#134）。
+    点は {"id", "coord": (経度, 緯度), "address"}。"""
+    by_coord = {p["coord"]: p for p in publics}
+    by_address: dict[str, list[dict]] = defaultdict(list)
+    for p in publics:
+        a = normalize_land_address(p["address"])
+        if a:
+            by_address[a].append(p)
+    used: set[str] = set()
+    out: dict[str, str] = {}
+    for s in surveys:
+        near = sorted((p for p in by_address.get(normalize_land_address(s["address"]), [])
+                       if _distance_m(p["coord"], s["coord"]) <= max_m),
+                      key=lambda p: _distance_m(p["coord"], s["coord"]))
+        hit = next((p for p in [by_coord.get(s["coord"]), *near] if p and p["id"] not in used), None)
+        if hit:
+            used.add(hit["id"])
+            out[s["id"]] = hit["id"]
+    return out
+
+
+def derive_land_median(conn: sqlite3.Connection, indicator_id: str, definition: dict,
+                       catalog: dict[str, dict]) -> dict[str, int]:
+    """地価公示・都道府県地価調査の地点の価格を、市区町村・都道府県ごとの中央値にまとめる（#137）。
+
+    各年1月1日の地価公示の価格に、前年7月1日の地価調査の価格（1月1日の時点でわかっている最新の価格）を合わせる。
+    共通地点（pair_land_points）は地価公示の価格だけを使い、2回数えない。用途（住宅地・商業地）は land_median.use。
+    地点が min_points 未満の地域は値を出さない（withheld）。地点のない市区町村は値なし（missing）。
+    元データには今ある地点の過去の価格しかなく、古い年ほど地点が少ないため、地点の数が最新の年の min_share に
+    満たない年は作らない（値が価格の動きより地点の入れ替わりで動くため）。
+    """
+    cfg = definition["land_median"]
+    use, use_label = cfg["use"], cfg["use_label"]
+    min_points = int(cfg.get("min_points", 3))
+    min_share = float(cfg.get("min_share", 0.8))
+    points: dict[str, dict] = {}
+    for r in conn.execute(
+            """SELECT e.entity_id, e.parent_id, a.attributes, l.lon, l.lat FROM entities e
+               JOIN entity_attributes a ON a.entity_id = e.entity_id
+               JOIN locations l ON l.entity_id = e.entity_id AND l.role = 'main'
+               WHERE e.entity_type = 'land_point'"""):
+        attrs = json.loads(r["attributes"])
+        if attrs.get("use") == use:
+            points[r["entity_id"]] = {"id": r["entity_id"], "muni": r["parent_id"], "coord": (r["lon"], r["lat"]),
+                                      "address": attrs.get("address")}
+
+    def values(source_indicator: str) -> tuple[dict[tuple[str, str], float], set[str]]:
+        d = catalog[source_indicator]
+        out, sources = {}, set()
+        for r in conn.execute(
+                """SELECT entity_id, period_start, value, source_id FROM observations
+                   WHERE indicator_id = ? AND definition_version = ? AND value IS NOT NULL""",
+                (source_indicator, d["definition_version"])):
+            if r["entity_id"] in points:
+                out[(r["entity_id"], r["period_start"])] = r["value"]
+                sources.add(r["source_id"])
+        return out, sources
+
+    pub, pub_sources = values(cfg["public"])
+    sur, sur_sources = values(cfg["survey"])
+    if not pub:
+        return {}
+    pub_ids = {e for e, _ in pub}
+    sur_ids = {e for e, _ in sur}
+    pairs = pair_land_points([points[i] for i in sorted(pub_ids)], [points[i] for i in sorted(sur_ids)])
+    pub_by_period: dict[str, list[tuple[str, float]]] = defaultdict(list)
+    for (e, p), v in pub.items():
+        pub_by_period[p].append((points[e]["muni"], v))
+    years = sorted({int(p[:4]) for p in pub_by_period})
+    by_year: dict[int, list[tuple[str, float]]] = {}
+    for y in years:
+        got = list(pub_by_period.get(f"{y}-01-01", []))
+        for s in sur_ids:
+            v = sur.get((s, f"{y - 1}-07-01"))
+            if v is None or (s in pairs and (pairs[s], f"{y}-01-01") in pub):
+                continue   # 共通地点は、その年の地価公示の価格があればそちらを使う
+            got.append((points[s]["muni"], v))
+        by_year[y] = got
+    latest = len(by_year[years[-1]])
+    munis = [r["entity_id"] for r in conn.execute(
+        "SELECT entity_id FROM entities WHERE entity_type = 'municipality' ORDER BY entity_id")]
+    prefs = sorted({m.split("-", 1)[1][:2] for m in (p["muni"] for p in points.values()) if m})
+    munis = [m for m in munis if m.split("-", 1)[1][:2] in prefs]
+    source_id = sorted(pub_sources)[0]
+    survey_source = sorted(sur_sources)[0] if sur_sources else None
+    result: dict[str, int] = {}
+    for y, got in by_year.items():
+        if len(got) < min_share * latest:
+            continue
+        groups: dict[str, list[float]] = defaultdict(list)
+        for muni, v in got:
+            groups[muni].append(v)
+            groups[prefecture_entity_id(muni.split("-", 1)[1][:2])].append(v)
+        for entity_id in munis + [prefecture_entity_id(p) for p in prefs]:
+            vals = groups.get(entity_id, [])
+            obs = dict(entity_id=entity_id, indicator_id=indicator_id,
+                       definition_version=definition["definition_version"],
+                       period_start=f"{y}-01-01", period_end=f"{y}-01-01", period_kind="point",
+                       source_id=source_id, denominator_source_id=survey_source)
+            if len(vals) >= min_points:
+                obs.update(value=statistics.median(vals), status="derived", method_note=f"{len(vals)}地点の中央値")
+            elif vals:
+                obs.update(value=None, status="withheld",
+                           method_note=f"{use_label}の地点が{len(vals)}つのため出していません（{min_points}地点以上の地域だけ）")
+            else:
+                obs.update(value=None, status="missing", method_note=f"{use_label}の地点がありません")
+            insert_observation(conn, **obs)
+        result[str(y)] = sum(1 for e in munis if len(groups.get(e, [])) >= min_points)
     return result

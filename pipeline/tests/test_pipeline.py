@@ -2499,7 +2499,7 @@ def test_commerce_sales(built):
 def test_land_survey_points(built):
     data = load(built, "places/land_survey_price.json")
     pts = {p["id"]: p for p in data["points"]}
-    assert set(pts) == {"landsv-13199-000-001", "landsv-13299-005-001"}
+    assert set(pts) == {"landsv-13199-000-001", "landsv-13199-000-002", "landsv-13299-005-001"}
     p = pts["landsv-13199-000-001"]
     assert p["name"] == "サンプル(都)-1" and pts["landsv-13299-005-001"]["name"] == "ためし(都)5-1"
     periods = [x["period"] for x in data["periods"]]
@@ -2508,6 +2508,61 @@ def test_land_survey_points(built):
     # 地価公示の点には混ざらない
     assert not any(x["id"].startswith("landsv-") for x in load(built, "places/land_price.json")["points"])
     assert data["source_ids"] != load(built, "places/land_price.json")["source_ids"]
+
+
+def test_land_price_medians(built):
+    """地価公示・地価調査の地点の価格を、市区町村・都道府県ごとの中央値にまとめる（#137）。"""
+    import statistics
+    pub, sur = load(built, "places/land_price.json"), load(built, "places/land_survey_price.json")
+
+    def price(data, point_id, period):
+        p = next(x for x in data["points"] if x["id"] == point_id)
+        return p["values"][[x["period"] for x in data["periods"]].index(period)]
+
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    res, com = by["land_price_residential"], by["land_price_commercial"]
+    # 住宅地の地点は最新の年に5つ（共通地点は1つに数える）。古い年は地点が少ないので、8割（4つ）以上ある1995年から
+    assert [p["period"] for p in res["periods"]] == [f"{y}-01-01" for y in range(1995, 2027)]
+    assert res["periods"][-1]["levels"] == ["municipality", "prefecture"]
+    assert {s.split("@")[0] for s in res["periods"][-1]["source_ids"]} == {"mlit_l01_2026", "mlit_l02_2025"}
+    # 商業地は地価調査の基準地が加わった2011年（前年7月の価格）から
+    assert com["periods"][0]["period"] == "2011-01-01"
+    rows = {r["entity_id"]: r for r in load(built, "values/land_price_residential/2026-01-01/municipalities.json")["rows"]}
+    # サンプル区: 地価公示2地点と地価調査1地点。地価調査のもう1地点は地価公示のサンプル-2 と同じ土地なので数えない
+    sample = [price(pub, "land-13199-000-001", "2026-01-01"), price(pub, "land-13199-000-002", "2026-01-01"),
+              price(sur, "landsv-13199-000-001", "2025-07-01")]
+    assert rows["muni-13199"]["value"] == pytest.approx(statistics.median(sample))
+    assert rows["muni-13199"]["status"] == "derived" and rows["muni-13199"]["note"] == "3地点の中央値"
+    assert "numerator" not in rows["muni-13199"]
+    assert rows["muni-13299"]["value"] is None and rows["muni-13299"]["status"] == "withheld"   # 1地点だけ
+    assert rows["muni-13499"]["value"] is None and rows["muni-13499"]["status"] == "missing"    # 地点なし（0円にしない）
+    old = {r["entity_id"]: r for r in load(built, "values/land_price_residential/2007-01-01/municipalities.json")["rows"]}
+    assert old["muni-13199"]["status"] == "withheld"   # サンプル-2 は2008年から
+    # 都道府県は市区町村の値からではなく、都道府県の中の地点すべての中央値
+    prefs = {r["entity_id"]: r for r in load(built, "values/land_price_residential/2026-01-01/prefectures.json")["rows"]}
+    tokyo = sample + [price(pub, "land-13299-000-001", "2026-01-01")]
+    assert prefs["pref-13"]["value"] == pytest.approx(statistics.median(tokyo))
+    assert prefs["pref-13"]["note"] == "4地点の中央値"
+    assert prefs["pref-14"]["value"] is None and prefs["pref-14"]["status"] == "withheld"
+
+
+def test_land_point_pairs():
+    """地価公示の標準地と地価調査の基準地の共通地点（地図の pairLandPoints と同じ決まり。#134）。"""
+    from tdm.derive import normalize_land_address, pair_land_points
+    assert normalize_land_address("東京都 中央区新富一丁目５番１") == "東京都中央区新富1丁目5番1"
+    assert normalize_land_address("港区赤坂二十三丁目") == "港区赤坂23丁目"
+
+    def point(i, coord, address):
+        return {"id": i, "coord": coord, "address": address}
+
+    publics = [point("land-a", (139.7, 35.6), "東京都 千代田区三番町６番２５外"),
+               point("land-b", (139.71, 35.61), "東京都 中央区新富１丁目５番１"),
+               point("land-c", (139.72, 35.62), "東京都 中央区銀座１丁目１番")]
+    surveys = [point("landsv-a", (139.7, 35.6), "東京都 千代田区三番町６番２５外"),          # 位置が同じ
+               point("landsv-b", (139.7101, 35.6101), "東京都 中央区新富一丁目５番１"),     # 所在地が同じで約14m
+               point("landsv-c", (139.73, 35.62), "東京都 中央区銀座１丁目１番"),           # 所在地は同じだが約900m
+               point("landsv-a2", (139.7, 35.6), "東京都 千代田区三番町６番２５")]          # land-a はもう組んでいる
+    assert pair_land_points(publics, surveys) == {"landsv-a": "land-a", "landsv-b": "land-b"}
 
 
 def test_npa_crime_stats_prefecture_values(built):
