@@ -1,7 +1,8 @@
-// 公立小中学校の点レイヤー（東京都教育委員会「東京都公立学校一覧」）。円の面積を最新年度の児童・生徒数に対応させる
+// 公立小中学校の点レイヤー（東京都教育委員会「東京都公立学校一覧」と、学校ごとの人数を公開している道県・市の一覧）。
+// 円の面積を学校ごとの最新年度の児童・生徒数に対応させる（年度は出典ごとに違う。#138）
 // （設計書 第6章「駅と学校: 点レイヤーとポップアップ。人数を円の面積に対応させ、集計単位を明記」）。
 // 「公立小中学校を表示」をオンにしたときに初めて places/school_enrollment.json を読み込み、学校の一覧は地図に映っている
-// 都道府県の分だけ読む（createPrefLoader）。東京都以外は児童・生徒数の公開データがなく、国土数値情報の位置だけを小さな点で出す。
+// 都道府県の分だけ読む（createPrefLoader）。人数の公開データがない学校は、国土数値情報の位置だけを小さな点で出す。
 // 学校に通う子どもの数で、周辺に住む子どもの数ではないことを凡例と詳細に明記する。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml } from "./points";
@@ -43,8 +44,16 @@ export function initSchools(o: Options): SchoolLayer {
     active: () => o.toggle.checked,
     onChange: (items) => render(items),
   });
-  // 最新年度の一覧にない（閉校した）学校は描かない。位置だけの学校（東京都以外）は値がなくても描く
-  const current = (s: School) => s.location_only || s.status[latest()] !== null;
+  // 出典の最新年度の一覧にない（閉校した）学校は描かない。位置だけの学校は値がなくても描く。
+  // 古い公開版（学校ごとの出典 sources がない、東京都だけ）は全体の最新年度で決める
+  const closed = (s: School) => (s.sources ? !!s.closed : s.status[latest()] === null);
+  const current = (s: School) => s.location_only || !closed(s);
+  /** 学校ごとの最新の年度（値のある最後の時点） */
+  const lastIndex = (s: School) => {
+    let i = s.values.length - 1;
+    while (i > 0 && s.values[i] == null) i--;
+    return i;
+  };
 
   async function load(): Promise<boolean> {
     if (data) return true;
@@ -104,17 +113,16 @@ export function initSchools(o: Options): SchoolLayer {
     if (!data) return;
     const only = loader.locationOnlyInView().length > 0;
     o.legend.innerHTML =
-      `円の面積は${esc(data.periods[latest()].label)}の児童・生徒数（学校に通う人数）。` +
+      `円の面積は児童・生徒数（学校に通う人数。学校ごとに最新の年度）。` +
       `<span style="color:${COLOR.elementary}">●</span>小学校 <span style="color:${COLOR.junior_high}">●</span>中学校・義務教育学校。` +
       (unlocated ? `住所から位置を求められなかった${unlocated}校は表示していません。` : "") +
-      (only ? "児童・生徒数は東京都だけです。ほかの道府県は学校の位置だけを小さな点で表示しています。" : "") +
+      (only ? "児童・生徒数は、学校ごとの人数をオープンデータで公開している都道県・市の学校だけです。ほかは学校の位置だけを小さな点で表示しています。" : "") +
       (loader.tooFar() ? "学校は地図を拡大すると表示します。" : "");
   }
 
   /** 読み込んだ学校（都道府県の分が増えるたびに全体）を地図に描き直す */
   function render(items: School[]) {
     byId = new Map(items.map((s) => [s.id, s]));
-    const i = latest();
     // 位置を求められなかった学校は描かない
     const shown = items.filter((s) => s.coord && current(s));
     unlocated = items.filter((s) => !s.coord && current(s)).length;
@@ -122,10 +130,9 @@ export function initSchools(o: Options): SchoolLayer {
       type: "FeatureCollection",
       features: shown.map((s) => ({
         type: "Feature",
-        properties: {
-          id: s.id, name: s.name, t: s.school_type, v: s.values[i] ?? -1,
-          n: s.values[i] != null ? `${formatNumber(s.values[i]!, 0)}人` : "",
-        },
+        properties: ((v) => ({
+          id: s.id, name: s.name, t: s.school_type, v: v ?? -1, n: v != null ? `${formatNumber(v, 0)}人` : "",
+        }))(s.values[lastIndex(s)]),
         geometry: { type: "Point", coordinates: s.coord },
       })),
     } as never);
@@ -162,9 +169,8 @@ export function initSchools(o: Options): SchoolLayer {
     }
     const p = data.periods;
     if (s.location_only) return showLocationOnly(s);
-    // 最新年度に一覧にない学校は、最後に載っていた年度を表示する
-    let i = latest();
-    while (i > 0 && s.values[i] == null) i--;
+    // 学校ごとの最新の年度（一覧にない学校は、最後に載っていた年度）を表示する
+    const i = lastIndex(s);
     let prev: number | null = null;
     const trend = p.map((per, k) => {
       const v = s.values[k];
@@ -195,19 +201,25 @@ export function initSchools(o: Options): SchoolLayer {
       <p class="muted small">${esc(s.type_label)}${s.address ? `・${esc(s.address)}` : ""}</p>
       <div>${esc(data.name)}（${esc(p[i].label)}）</div>
       <div class="value">${esc(valueText(s, i))}</div>
-      ${i !== latest() ? `<p class="note small">${esc(p[latest()].label)}の一覧には載っていません（閉校・統合など）。</p>` : ""}
+      ${closed(s) ? `<p class="note small">最新の年度の一覧には載っていません（閉校・統合など）。</p>` : ""}
       ${gradeHtml}
       ${where ? `<p class="note small">${esc(where)}</p>` : ""}
       <table class="trend"><caption>推移</caption>
         <thead><tr><th>時点</th><th class="num">児童・生徒数</th><th class="num">前年から</th></tr></thead>
         <tbody>${trend}</tbody></table>
       <p class="muted small">${data.caveats.map(esc).join(" ")}</p>
-      ${sourcesHtml(data.source_ids, o.sources)}`;
+      ${sourcesHtml(s.sources ?? data.source_ids, o.sources)}`;
     o.onPanel();
   }
 
-  /** 東京都以外の学校（国土数値情報の位置だけ。児童・生徒数の公開データがない） */
+  /** 児童・生徒数のない学校（国土数値情報の位置だけ） */
   function showLocationOnly(s: School) {
+    const list = s.unlisted ? o.sources.get(s.unlisted.source_id) : undefined;
+    const why = s.unlisted
+      ? `${list ? `${list.provider}「${list.title}」` : "人数の一覧"}（${s.unlisted.year}年度）に、この学校は見つかりませんでした`
+        + `（休校・閉校や、学校名の書き方の違いなど）。位置は国土数値情報「学校データ」（${s.as_of ?? ""}）によります。`
+      : `この学校のある都道府県・市は学校ごとの児童・生徒数をオープンデータで公開していないため、`
+        + `国土数値情報「学校データ」（${s.as_of ?? ""}）の学校の位置だけを表示しています。`;
     o.panel.hidden = false;
     o.panel.innerHTML = `
       <button type="button" class="close" data-close aria-label="学校の情報を閉じる">×</button>
@@ -215,9 +227,9 @@ export function initSchools(o: Options): SchoolLayer {
       <h2>${esc(s.name)}</h2>
       <p class="muted small">${esc(s.type_label)}${s.address ? `・${esc(s.address)}` : ""}</p>
       <div>${esc(data!.name)}</div>
-      <div class="value">公開データなし</div>
-      <p class="note small">児童・生徒数は東京都の学校だけです。ほかの道府県は、国土数値情報「学校データ」（${esc(s.as_of ?? "")}）の学校の位置だけを表示しています。</p>
-      ${sourcesHtml(data!.source_ids, o.sources)}`;
+      <div class="value">${s.unlisted ? "一覧になし" : "公開データなし"}</div>
+      <p class="note small">${esc(why)}</p>
+      ${sourcesHtml(s.sources ?? data!.source_ids, o.sources)}`;
     o.onPanel();
   }
 
@@ -230,8 +242,10 @@ export function initSchools(o: Options): SchoolLayer {
   if (initial) {
     o.toggle.checked = true;
     void setVisible(true).then(async () => {
-      // 国土数値情報の学校コード（例: B113210200138）は3〜4文字目が都道府県。都教委の学校番号は東京都
-      const s = await loader.find((x) => x.id === initial, /^school-[A-Z]\d(\d\d)/.exec(initial)?.[1] ?? "13");
+      // 国土数値情報の学校コード（例: B113210200138）は3〜4文字目が都道府県。P29 にない学校（school-01-…）は
+      // 先頭の2桁が都道府県。都教委の学校番号は東京都
+      const m = /^school-(?:[A-Z]\d(\d\d)|(\d\d)-)/.exec(initial);
+      const s = await loader.find((x) => x.id === initial, m?.[1] ?? m?.[2] ?? "13");
       if (!s) return;
       if (s.coord) o.map.jumpTo({ center: s.coord, zoom: Math.max(o.map.getZoom(), 14.5, PLACES_MIN_ZOOM) });
       showSchool(initial);

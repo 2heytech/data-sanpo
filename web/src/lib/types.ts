@@ -222,9 +222,15 @@ export interface School {
   values: (number | null)[];
   status: (Status | null)[];
   by_grade?: Record<string, (number | null)[]>;
-  /** 東京都以外: 児童・生徒数の公開データがなく、位置だけ（国土数値情報 学校データ） */
+  /** 学校ごとの出典（人数の出典、位置の出典の順）。年度は出典ごとに違う（#138） */
+  sources?: string[];
+  /** 出典の最新の年度の一覧にない（閉校・統合など） */
+  closed?: boolean;
+  /** 児童・生徒数の公開データがなく、位置だけ（国土数値情報 学校データ） */
   location_only?: boolean;
   as_of?: string | null;
+  /** 人数の一覧がある市区町村なのに、その一覧に見つからなかった学校（休校・閉校、名前の違いなど） */
+  unlisted?: { year: number; source_id: string };
 }
 
 export interface SchoolsFile {
@@ -283,12 +289,22 @@ export interface NurseryPoint {
   id: string;
   name: string;
   municipality_id: string;
+  /** 認可保育所・認定こども園・小規模保育・事業所内保育（#138） */
+  facility_type?: string;
+  /** 認可定員（東京都の一覧）か利用定員（ここdeサーチ） */
+  capacity_kind?: string;
   founder: string;
   address: string | null;
   coord: [number, number] | null;
   precision: string | null;
   values: (number | null)[];
-  /** 東京都以外: 定員の公開データがなく、位置だけ（国土数値情報 福祉施設データ） */
+  /** 値のある時点（定員を公表していない施設は "missing"）。施設ごとに時点が違う */
+  status?: (Status | null)[];
+  /** 利用者数（通っている子どもの数）と年齢別 */
+  users?: (number | null)[];
+  by_age?: Record<string, (number | null)[]>;
+  sources?: string[];
+  /** 定員の公開データがなく、位置だけ（古い公開版） */
   location_only?: boolean;
   as_of?: string | null;
 }

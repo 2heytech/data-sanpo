@@ -9,16 +9,26 @@
 街区が見つからなければ町丁目内の街区の代表点の平均を使う（精度は「町丁目」と記録する）。
 街区レベルのない町村は大字・町丁目レベル（19.0b: 大字町丁目名, 緯度, 経度）の代表点で補う。
 町丁目も見つからない住所は位置なしにする（区市町村の中心などには置かない）。
+東京都以外（全国の保育所・学校、#138）は都道府県ごとの ZIP を展開せずに置き、ZIP の中の CSV を読む。
 """
 from __future__ import annotations
 
 import csv
+import io
 import re
 import unicodedata
+import zipfile
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..regions import PREFECTURES
+
 KANJI_DIGITS = "〇一二三四五六七八九"
+# 市区町村名の字体の違い（ここdeサーチ・こども家庭庁の表の「梼原町」「須惠町」と境界の「檮原町」「須恵町」）
+MUNICIPALITY_VARIANTS = str.maketrans({"梼": "檮", "惠": "恵"})
+# 住所の先頭に重ねて書かれた都道府県名（ここdeサーチの「町名・番地」に「静岡県駿東郡長泉町…」と書く施設がある）
+PREFECTURE_PREFIX = re.compile("^(?:" + "|".join(map(re.escape, PREFECTURES.values())) + ")")
 
 
 def kanji_number(n: int) -> str:
@@ -41,7 +51,7 @@ def normalize(s: str) -> str:
 
 def normalize_municipality(s: str) -> str:
     """位置参照情報の市区町村名は郡名を含む（「西多摩郡瑞穂町」）ので、郡名を除く。"""
-    return re.sub(r"^.+?郡(?=.+[町村]$)", "", normalize(s))
+    return re.sub(r"^.+?郡(?=.+[町村]$)", "", normalize(s)).translate(MUNICIPALITY_VARIANTS)
 
 
 @dataclass
@@ -51,6 +61,19 @@ class GeoResult:
     precision: str   # "街区" | "町丁目"（町丁目・大字の代表点）
     town: str        # 位置参照情報の大字・丁目名
     level: str = "block"   # 使った位置参照情報（"block"=街区レベル、"oaza"=大字・町丁目レベル）
+
+
+@contextmanager
+def _open_csv(path: Path, encoding: str):
+    """CSV を開く。ZIP（展開せずに置いた全国の位置参照情報）なら中の CSV を開く。"""
+    if path.suffix.lower() == ".zip":
+        with zipfile.ZipFile(path) as z:
+            name = next(n for n in z.namelist() if n.lower().endswith(".csv") and not n.lower().startswith("md_"))
+            with z.open(name) as raw:
+                yield io.TextIOWrapper(raw, encoding=encoding, newline="")
+    else:
+        with path.open(encoding=encoding, newline="") as f:
+            yield f
 
 
 def _mean(pts) -> tuple[float, float]:
@@ -77,7 +100,7 @@ class Gazetteer:
         return g
 
     def _read_blocks(self, path: Path, encoding: str) -> None:
-        with path.open(encoding=encoding, newline="") as f:
+        with _open_csv(path, encoding) as f:
             reader = csv.reader(f)
             head = next(reader)
             col = {name: i for i, name in enumerate(head)}
@@ -99,7 +122,7 @@ class Gazetteer:
     def _read_oaza(self, path: Path, encoding: str) -> None:
         """大字・町丁目レベル（列: 都道府県コード, 都道府県名, 市区町村コード, 市区町村名,
         大字町丁目コード, 大字町丁目名, 緯度, 経度, 原典資料コード, 大字・字・丁目区分コード）。"""
-        with path.open(encoding=encoding, newline="") as f:
+        with _open_csv(path, encoding) as f:
             reader = csv.reader(f)
             head = next(reader)
             col = {name: i for i, name in enumerate(head)}
@@ -128,8 +151,15 @@ class Gazetteer:
         muni = normalize_municipality(municipality)
         a = normalize(address)
         a = re.split(r"[(（]", a)[0]
-        if a.startswith(muni):
-            a = a[len(muni):]
+        # 町名・番地の欄に都道府県・郡・市区町村名を重ねて書いた住所（「静岡県駿東郡長泉町下土狩87-1」）と、
+        # 政令指定都市の区名から書いた住所（市区町村が「静岡市葵区」で「葵区古庄4-2-11」）
+        a = PREFECTURE_PREFIX.sub("", a)
+        a = re.sub(rf"^[^\d]+?郡(?={re.escape(muni)})", "", a)
+        ward = re.match(r"^.+市(.+区)$", muni)
+        for head in (muni, ward[1] if ward else None):
+            if head and a.startswith(head):
+                a = a[len(head):]
+                break
         # 「3ー1ー5」（長音符を区切りに使う）、「1丁目10番5号」（丁目を数字で書く）も「3-1-5」「1-10-5」にそろえる
         a = re.sub(r"(?<=\d)[ー―─]", "-", a)
         a = re.sub(r"(\d+)丁目", r"\1-", a)
@@ -152,13 +182,23 @@ class Gazetteer:
         town = m["town"].rstrip("-")
         nums = m["nums"].split("-")
         town_koaza = None
-        if "字" in town:
-            town, town_koaza = town.split("字", 1)
+        # 「父島字宮之浜道」の「字」（「川副町大字西古賀」の「大字」は町名の一部なので分けない）
+        if len(parts := re.split(r"(?<!大)字", town, maxsplit=1)) == 2:
+            town, town_koaza = parts
         # 「町名＋丁目-街区」と「町名-街区（丁目なし）」の両方を試す
         candidates = []
         if town and len(nums) >= 2 and 0 < int(nums[0]) < 100:
             candidates.append((town + kanji_number(int(nums[0])) + "丁目", nums[1:]))
         candidates.append((town, nums))
+        # 地番の前の「甲」「乙」（「三河内乙1189」）は大字名ではない
+        if town[-1:] in ("甲", "乙", "丙") and len(town) > 2:
+            candidates.append((town[:-1], nums))
+        # 位置参照情報に「大字」がない町名（住所は「鍋島町大字蛎久」）と、住所に「大字」がない町名
+        # （位置参照情報は「川副町大字早津江」）も試す
+        if "大字" in town:
+            candidates.append((town.replace("大字", ""), nums))
+        elif m3 := re.match(r"^(.+?町)(.{2,})$", town):
+            candidates.append((f"{m3[1]}大字{m3[2]}", nums))
         for t, rest in candidates:
             blocks = self.blocks.get((muni, t))
             if blocks:
