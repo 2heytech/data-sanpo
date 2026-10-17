@@ -11,6 +11,7 @@
     - 応答がない・拒否された（海外からの接続を断る自治体が多い）ものは、自治体のドメインの形
       （lg.jp、または city./town./vill./pref. で始まる .jp）なら載せ、そうでなければ載せない
   取れない地域は載せない（地図にもリンクを出さない）。
+  Wikidata の値が古い・誤っているものは、各自治体のサイトで確かめた URL（MANUAL）を使う。
 """
 import json
 import re
@@ -42,6 +43,16 @@ SELECT ?item ?code ?label ?site ?rank ?lang ?until ?dissolved WHERE {
 # Wikidata の値が別の自治体のサイトや自治体以外のサイトを指していたもの（2026-10-17 に確かめた）。直るまで載せない
 EXCLUDE = {
     "muni-02381": "板柳町の項目に鶴田町のサイトが入っている",
+}
+# Wikidata の値が古い（移転前のドメイン）・誤っている、または海外から開けないことがあるもの。
+# 各自治体のサイトを開き、題名と役場の所在地で確かめた（2026-10-17）。--check の結果によらず、この URL を使う
+MANUAL = {
+    "muni-01633": "https://www.kamishihoro.jp/",              # 上士幌町（Wikidata と同じ。海外から開けないことがある）
+    "muni-02381": "https://www.town.itayanagi.aomori.jp/",    # 板柳町（Wikidata は鶴田町のサイト）
+    "muni-07368": "https://www.town.minamiaizu.lg.jp/",       # 南会津町（Wikidata は移転前の minamiaizu.org）
+    "muni-10383": "https://nanmoku.ne.jp/",                   # 南牧村（群馬県。題名はひらがなの「なんもく村」）
+    "muni-11233": "https://www.city.kitamoto.lg.jp/",         # 北本市（Wikidata は廃止された city.kitamoto.saitama.jp）
+    "muni-46492": "https://kimotsuki-town.jp/",               # 肝付町（Wikidata の www. 付きは別のページが出る）
 }
 # 題名に漢字の名前がないが、開いて自治体のサイトだと確かめたもの
 TITLE_OK = {
@@ -176,11 +187,12 @@ def main() -> None:
                 sites[eid] = url
             else:
                 del sites[eid]
+    sites.update({eid: url for eid, url in MANUAL.items() if eid in names})
     missing = sorted(set(names) - set(sites))
     print(f"{len(sites)} / {len(names)} 地域。載せない: {', '.join(names[m] for m in missing)}", file=sys.stderr)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({
-        "source": "Wikidata の「公式ウェブサイト」（P856）。CC0",
+        "source": "Wikidata の「公式ウェブサイト」（P856）。CC0。一部は各自治体のサイトで確かめた URL",
         "retrieved": date.today().isoformat(),
         "sites": dict(sorted(sites.items())),
     }, ensure_ascii=False, indent=0) + "\n", encoding="utf-8")
