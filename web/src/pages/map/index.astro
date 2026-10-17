@@ -59,7 +59,7 @@ const RELIEF_STOPS = [
 const reliefGradient = `linear-gradient(to right, ${RELIEF_STOPS.map((s, i) => `${s.color} ${(i / (RELIEF_STOPS.length - 1)) * 100}%`).join(", ")})`;
 const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "天気"])];
 ---
-<Base title="地図" preload={maplibreUrl} description="全国の都道府県・市区町村・町丁目の人口や年齢構成などを色分けした地図。地域名で検索し、指標と時点を切り替えて比べられます。" wide>
+<Base title="全国の統計地図（都道府県・市区町村・町丁目）" preload={maplibreUrl} description="全国の都道府県・市区町村・町丁目の人口や年齢構成などを色分けした地図。地域名で検索し、指標と時点を切り替えて比べられます。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl} data-official-sites={officialSitesUrl}>
     <aside class="panel panel-conditions" aria-label="表示する条件">
       {/* 範囲と地域の検索はあまり使わないので、最初は畳んでおく（開いた状態は覚えない、#103） */}

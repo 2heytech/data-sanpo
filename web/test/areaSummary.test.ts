@@ -20,16 +20,16 @@ describe("areaSummary", () => {
       stat(ind("d", "Dの割合", "ratio"), 1, null, [1890, 1900]),
       stat(ind("e", "Eの件数", "count", "件"), 999, null, [1, 1900]),
     ]);
-    expect(lines[0]).toBe("サンプル市の人口は12,345 人（2020年）で、東京都の62市区町村のうち3番目に多い市区町村です。");
+    expect(lines[0]).toBe("サンプル市の人口は12,345人（2020年）で、東京都の62市区町村のうち3番目に多い市区町村です。");
     // 増減・全国順位で目立つ指標は areaInsights で書く
     expect(lines).toHaveLength(1);
   });
   it("都道府県の一部の市区町村に値がない時点では、値のある市区町村の中の順位と書く", () => {
     const pop = stat(ind("population_total", "人口", "count", "人"), 237966, [1, 36], [60, 1889]);
     const hamamatsu = Array(7).fill({ region: "浜松市" });
-    expect(areaSummary("サンプル区", "静岡県", [pop], hamamatsu)[0]).toBe("サンプル区の人口は237,966 人（2020年）で、静岡県の36市区町村（浜松市の区を除く）のうち最も多い市区町村です。");
-    expect(areaSummary("サンプル区", "静岡県", [pop], [{ region: null }, { region: "浜松市" }])[0]).toBe("サンプル区の人口は237,966 人（2020年）で、静岡県の値のある36市区町村のうち最も多い市区町村です。");
-    expect(areaSummary("サンプル区", "静岡県", [pop])[0]).toBe("サンプル区の人口は237,966 人（2020年）で、静岡県の36市区町村のうち最も多い市区町村です。");
+    expect(areaSummary("サンプル区", "静岡県", [pop], hamamatsu)[0]).toBe("サンプル区の人口は237,966人（2020年）で、静岡県の36市区町村（浜松市の区を除く）のうち最も多い市区町村です。");
+    expect(areaSummary("サンプル区", "静岡県", [pop], [{ region: null }, { region: "浜松市" }])[0]).toBe("サンプル区の人口は237,966人（2020年）で、静岡県の値のある36市区町村のうち最も多い市区町村です。");
+    expect(areaSummary("サンプル区", "静岡県", [pop])[0]).toBe("サンプル区の人口は237,966人（2020年）で、静岡県の36市区町村のうち最も多い市区町村です。");
   });
   it("順位が半分より下のときは少ない方から数える", () => {
     const at = (rank: number) => areaSummary("サンプル町", "北海道", [stat(ind("population_total", "人口", "count", "人"), 3000, [rank, 188], [1000, 1900])])[0];

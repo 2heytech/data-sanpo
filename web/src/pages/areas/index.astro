@@ -23,9 +23,11 @@ const regions = REGIONS.map((r, i) => ({
     .filter((p) => p.munis.length > 0),
 })).filter((r) => r.prefs.length > 0);
 const total = areas.municipalities.length;
+// 題名は「市区町村 一覧」で探す人に合わせて数と並べ方を入れる。見出しは短いまま（設計変更記録 #144）
+const pageTitle = `全国${total.toLocaleString("ja-JP")}市区町村の一覧（都道府県別）`;
 const description = `全国${total.toLocaleString("ja-JP")}の市区町村の一覧。都道府県ごとに並べ、名前でも探せます。各市区町村の人口・年齢構成など公開データの指標と、都道府県内・全国の順位を見られます。`;
 ---
-<Base title="市区町村の一覧" description={description}>
+<Base title={pageTitle} description={description}>
   <header class="page-head">
     <p class="eyebrow">市区町村から探す</p>
     <h1>市区町村の一覧</h1>

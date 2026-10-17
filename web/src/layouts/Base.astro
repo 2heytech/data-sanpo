@@ -19,8 +19,12 @@ interface Props {
   structuredData?: Record<string, unknown> | Record<string, unknown>[];
   /** SNS で共有されたときの画像（都道府県ページ・寄り道の地図の画像。設計変更記録 #142）。ないときはサイト共通の画像 */
   image?: { path: string; alt: string };
+  /** og:type。寄り道の記事は article、ほかは website（設計変更記録 #144） */
+  ogType?: "website" | "article";
+  /** 検索に出さないページ（見つからないページ）。noindex にし、canonical と og:url を付けない（#144） */
+  noindex?: boolean;
 }
-const { title, description, wide = false, preload, prefecture, titleIsFull = false, structuredData, image } = Astro.props;
+const { title, description, wide = false, preload, prefecture, titleIsFull = false, structuredData, image, ogType = "website", noindex = false } = Astro.props;
 const SITE_NAME = "データさんぽ";
 const fullTitle = titleIsFull || title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
 // SNS で共有されたときの画像（1200×630）。ページの画像がなければ全ページ共通の画像（作り方は scripts/og-image.mjs）
@@ -28,7 +32,7 @@ const ogPath = image?.path ?? "/og.png";
 const ogImage = Astro.site ? new URL(ogPath, Astro.site).href : ogPath;
 const ogAlt = image?.alt ?? `${SITE_NAME} — 全国の市区町村・町丁目を公開データで色分けした地図`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
-const indexable = ALLOW_INDEXING;
+const indexable = ALLOW_INDEXING && !noindex;
 // ロゴの横の都道府県名。見ている都道府県が決まるページ（地域ページ、地図で選んだ・拡大したとき）だけ出し、
 // 決まらないページ（トップ・全国を見ているとき）は出さない。1つの都道府県だけの公開版では常にその名前
 const { prefectures } = loadAreas();
@@ -76,8 +80,8 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
-    {!indexable && <meta name="robots" content="noindex, nofollow" />}
+    {!noindex && <link rel="canonical" href={canonical} />}
+    {!indexable && <meta name="robots" content={ALLOW_INDEXING ? "noindex" : "noindex, nofollow"} />}
     {/* 検索結果やおすすめに、地図の画像を大きく出してよいことを伝える（設計変更記録 #142） */}
     {indexable && <meta name="robots" content="max-image-preview:large" />}
     <meta property="og:site_name" content={SITE_NAME} />
@@ -87,8 +91,8 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     ))}
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content={ogType} />
+    {!noindex && <meta property="og:url" content={canonical} />}
     <meta property="og:locale" content="ja_JP" />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />

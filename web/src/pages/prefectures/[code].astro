@@ -65,7 +65,7 @@ const prefPopRows = popInd && popPeriod ? rows(popInd.id, popPeriod, "prefecture
 const prefRank = ranked(prefPopRows).find((r) => r.entity_id === `pref-${pref.code}`);
 const prefChange = changeInd && popPeriod ? rows(changeInd.id, popPeriod, "prefectures").find((r) => r.entity_id === `pref-${pref.code}`) : undefined;
 const lead = prefectureLead(pref.name,
-  prefRank && popInd ? { text: formatValue(prefRank, popInd), label: popLabel, rank: prefRank.rank, total: prefPopRows.filter((r) => r.value !== null).length } : null,
+  prefRank && popInd ? { text: formatValue(prefRank, popInd, { inText: true }), label: popLabel, rank: prefRank.rank, total: prefPopRows.filter((r) => r.value !== null).length } : null,
   prefChange && prefChange.value !== null ? { value: prefChange.value, label: popLabel } : null,
   munis.length, wardCitiesOf(munis));
 
@@ -103,7 +103,7 @@ const others = areas.prefectures.filter((p) => p.code !== pref.code);
 const title = `${pref.name}の市区町村 人口ランキングと統計データ`;
 const top3 = table.filter((t) => t.rank !== null).slice(0, 3).map((t) => t.muni.name).join("・");
 const description = prefectureDescription({
-  name: pref.name, title: profile.title, firstInsight: profile.lines[0], muniCount: munis.length, top3, statCount,
+  name: pref.name, title: profile.title, insights: profile.lines, muniCount: munis.length, top3, statCount,
 });
 const structured = breadcrumbList(Astro.site, [
   { name: "データさんぽ", path: "/" }, { name: "都道府県の一覧", path: "/prefectures/" }, { name: pref.name },

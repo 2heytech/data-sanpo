@@ -66,19 +66,24 @@ export function indicatorPageText(ind: Indicator, scope: IndicatorPageScope): { 
     return { title, description };
   }
   // 「〇〇 都道府県別」「〇〇 市区町村 ランキング 2025」のように探されるので、都道府県別の表があればそう書き、
-  // ランキングの時点の年を添える。市区町村の値がない指標は名前だけ
+  // ランキングの時点の年を添える。都道府県の値だけの指標は「〇〇 都道府県別ランキング（年）」（#144）、どちらもなければ名前だけ
   let title = ind.name;
   if (scope.muniCount > 0 && scope.hasPrefRows) {
     title = `${ind.name} 都道府県別・市区町村別ランキング${year ? `（${year}）` : ""}`;
   } else if (scope.muniCount > 0) {
     const notes = [allPrefs ? "全国" : null, year].filter((x) => !!x);
     title = `${ind.name}の市区町村ランキング${notes.length ? `（${notes.join("・")}）` : ""}`;
+  } else if (scope.hasPrefRows) {
+    title = `${ind.name} 都道府県別ランキング${year ? `（${year}）` : ""}`;
   }
   const where = scope.hasMuniValues
     ? `${allPrefs ? "全国の" : ""}市区町村ランキング${scope.hasPrefRows ? "と都道府県別の値" : ""}`
     : "都道府県別の値";
-  const label = rankingPeriod(ind)?.label;
-  const description = `${ind.name}${ind.unit ? `（${ind.unit}）` : ""}の${where}${label ? `（${label}）` : ""}。`
+  // 名前が「（住民100人当たり）」のように括弧で終わる指標が多いので、単位は名前の後ろでなく時点の括弧に入れ、
+  // 時点の中の括弧（「2025年度（4月実施）」）は「・」にして、括弧が重ならないようにする（#144）
+  const label = rankingPeriod(ind)?.label.replace(/（([^（）]+)）/g, "・$1");
+  const notes = [label, ind.unit ? `単位: ${ind.unit}` : null].filter((x) => !!x);
+  const description = `${ind.name}の${where}${notes.length ? `（${notes.join("、")}）` : ""}。`
     + `意味・計算方法・出典つき。${ind.description}`;
   return { title, description };
 }

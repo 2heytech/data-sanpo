@@ -58,12 +58,21 @@ describe("indicatorPageText", () => {
     const pop = withPeriod("2020年10月1日現在");
     expect(indicatorPageText(pop, national)).toEqual({
       title: "人口 都道府県別・市区町村別ランキング（2020年）",
-      description: "人口（人）の全国の市区町村ランキングと都道府県別の値（2020年10月1日現在）。意味・計算方法・出典つき。常住人口。",
+      description: "人口の全国の市区町村ランキングと都道府県別の値（2020年10月1日現在、単位: 人）。意味・計算方法・出典つき。常住人口。",
     });
     expect(indicatorPageText(pop, { ...national, hasPrefRows: false }).title).toBe("人口の市区町村ランキング（全国・2020年）");
     expect(indicatorPageText(pop, { ...national, partial: true, hasPrefRows: false }).title).toBe("人口の市区町村ランキング（2020年）");
-    expect(indicatorPageText(pop, { ...national, muniCount: 0, hasMuniValues: false }).title).toBe("人口");
+    expect(indicatorPageText(pop, { ...national, muniCount: 0, hasMuniValues: false }).title).toBe("人口 都道府県別ランキング（2020年）");
+    expect(indicatorPageText(pop, { ...national, muniCount: 0, hasMuniValues: false, hasPrefRows: false }).title).toBe("人口");
     const plain = withPeriod("現存植生図2024");
     expect(indicatorPageText(plain, { ...national, hasPrefRows: false }).title).toBe("人口の市区町村ランキング（全国）");
+  });
+
+  it("説明文で括弧を重ねない（単位は時点の括弧に入れ、時点の中の括弧は「・」にする）", () => {
+    const crime = withPeriod("2025年度（4月実施）", { name: "認知件数（住民100人当たり）", unit: "件/100人" });
+    expect(indicatorPageText(crime, { ...national, muniCount: 0, hasMuniValues: false }).description)
+      .toBe("認知件数（住民100人当たり）の都道府県別の値（2025年度・4月実施、単位: 件/100人）。意味・計算方法・出典つき。常住人口。");
+    expect(indicatorPageText(withPeriod("2020年", { unit: "" }), national).description)
+      .toBe("人口の全国の市区町村ランキングと都道府県別の値（2020年）。意味・計算方法・出典つき。常住人口。");
   });
 });

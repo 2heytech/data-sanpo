@@ -285,7 +285,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     const nationwide = spans && values[0] !== values[values.length - 1];
     const { lt, le } = countBelow(values, row.value);
     return {
-      ind, period: p, value: row.value, text: formatValue(row, ind),
+      ind, period: p, value: row.value, text: formatValue(row, ind, { inText: true }),
       label: ind.periods.find((x) => x.period === p)?.label ?? "",
       // 同じ値の市区町村が多いとき（件数0など）は、その全部を数えた位置にする（同じ値の多くが「上位1件」に見えないように）
       top: nationwide ? (values.length - lt) / values.length : null,
@@ -369,7 +369,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       }
       const group = ind.family ?? ind.id;
       // 同じ値の市区町村がほかにもあるときは、その数を添える（件数0の市区町村が並ぶときに「1番目」とだけ書かない）
-      const same = s.same > 1 ? `、同じ値の市区町村が${jp(s.same)}あります` : "";
+      const same = s.same > 1 ? `、${jp(s.same)}市区町村が同じ値` : "";
       if (t.high && s.top <= 0.5 && (!t.low || s.top <= s.bottom)) {
         const fact = `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村のうち${jp(s.rankTop)}位です（${s.label}${same}）。`;
         found.push({ id: ind.id, pos: s.top, group, tone: t.highTone, tag: t.highTag, fact, high: true, text: fact + t.high, theme: themeOf(ind) });

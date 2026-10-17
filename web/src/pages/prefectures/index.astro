@@ -30,10 +30,12 @@ const regions = REGIONS.map(([name, from, to]) => ({
       };
     }),
 })).filter((r) => r.prefs.length > 0);
+// 題名は「都道府県 一覧」で探す人に合わせて数を入れる。見出しは短いまま（設計変更記録 #144）
+const pageTitle = `全国${areas.prefectures.length}都道府県の一覧`;
 const description = `全国${areas.prefectures.length}都道府県の一覧。都道府県ごとに、データから見た特徴と主な指標の全国の順位、隣の都道府県との比較、市区町村の人口ランキングを見られます。`;
 const structured = breadcrumbList(Astro.site, [{ name: "データさんぽ", path: "/" }, { name: "都道府県の一覧" }]);
 ---
-<Base title="都道府県の一覧" description={description} structuredData={structured}>
+<Base title={pageTitle} description={description} structuredData={structured}>
   <header class="page-head">
     <p class="eyebrow">都道府県から探す</p>
     <h1>都道府県の一覧</h1>
