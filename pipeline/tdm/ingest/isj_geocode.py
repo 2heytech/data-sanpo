@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import io
+import itertools
 import re
 import unicodedata
 import zipfile
@@ -27,6 +28,11 @@ from ..regions import PREFECTURES
 KANJI_DIGITS = "〇一二三四五六七八九"
 # 市区町村名の字体の違い（ここdeサーチ・こども家庭庁の表の「梼原町」「須惠町」と境界の「檮原町」「須恵町」）
 MUNICIPALITY_VARIANTS = str.maketrans({"梼": "檮", "惠": "恵"})
+# 町名の字体・かなの違い（住所の「弥富通」「蛍池西町」「久我森ノ宮町」と位置参照情報の「彌富通」「螢池西町」
+# 「久我森の宮町」）。比べるときだけそろえる
+TOWN_VARIANTS = str.maketrans({"彌": "弥", "螢": "蛍", "の": "ノ"})
+# 京都市の通り名で書いた住所（「新町通今出川上る元新在家町163-1」）の、町名の前までの部分
+KYOTO_STREET = re.compile(r"^.*(?:[上下][るル]|[東西]入[るル]?)(?=\D)")
 # 住所の先頭に重ねて書かれた都道府県名（ここdeサーチの「町名・番地」に「静岡県駿東郡長泉町…」と書く施設がある）
 PREFECTURE_PREFIX = re.compile("^(?:" + "|".join(map(re.escape, PREFECTURES.values())) + ")")
 
@@ -47,6 +53,12 @@ def normalize(s: str) -> str:
     s = s.replace("ヶ", "ケ").replace("ヵ", "カ").replace("之", "ノ").replace("　", "").replace(" ", "")
     s = re.sub(r"^大字", "", s)
     return s
+
+
+def town_key(s: str) -> str:
+    """町名を比べるための形。「大字」「字」の有無（位置参照情報の「字翁長」「門田町大字日吉」と住所の「翁長」
+    「門田町日吉」）と字体の違いを除く。"""
+    return s.translate(TOWN_VARIANTS).replace("大字", "").replace("字", "")
 
 
 def normalize_municipality(s: str) -> str:
@@ -88,6 +100,10 @@ class Gazetteer:
         self.koaza: dict[tuple[str, str, str], list[tuple[float, float]]] = {}
         # (市区町村, 大字・町丁目) → 代表点（大字・町丁目レベル。街区レベルのない町村を補う）
         self.oaza: dict[tuple[str, str], tuple[float, float]] = {}
+        # 市区町村 → town_key → 位置参照情報の町名（最初に使うときに作る）
+        self._town_index: dict[str, dict[str, set[str]]] | None = None
+        # (市区町村, 町名) → town_key(小字) → 小字
+        self._koaza_index: dict[tuple[str, str], dict[str, str]] = {}
 
     @classmethod
     def read(cls, path: Path | None, oaza_path: Path | None = None,
@@ -137,6 +153,33 @@ class Gazetteer:
         reps = [p for p in pts.values() if p[2]] or list(pts.values())
         return _mean(reps)
 
+    def _towns(self, muni: str) -> dict[str, set[str]]:
+        if self._town_index is None:
+            self._town_index = {}
+            for m, t in itertools.chain(self.blocks, self.oaza):
+                self._town_index.setdefault(m, {}).setdefault(town_key(t), set()).add(t)
+            for m, t, k in self.koaza:
+                self._koaza_index.setdefault((m, t), {})[town_key(k)] = k
+        return self._town_index.get(muni, {})
+
+    def _same_towns(self, muni: str, town: str) -> list[str]:
+        """住所の町名と、「字」の有無・字体の違いだけが違う位置参照情報の町名（そのものを先に）。"""
+        return [town] + sorted(self._towns(muni).get(town_key(town), set()) - {town})
+
+    def _by_prefix(self, muni: str, town: str) -> GeoResult | None:
+        """町名のあとに小字や地番の符号が続く住所（「寺中町リ10」「橘町久保38-3」「門田町日吉小金井63」）。
+        位置参照情報の町名で住所の町名の頭に合う最も長いものを探し、続きがその町の小字ならその小字の点、
+        続きが短く（2文字まで）町名が町・村・丁目・通で終わるならその町の代表点にする。"""
+        key, towns = town_key(town), self._towns(muni)
+        for n in range(len(key) - 1, 1, -1):
+            head, rest = key[:n], key[n:]
+            for t in sorted(towns.get(head, ())):
+                if (k := self._koaza_index.get((muni, t), {}).get(rest)) and len(rest) <= 6:
+                    return self._town(muni, t, k)
+                if len(rest) <= 2 and head.endswith(("町", "村", "丁目", "通")):
+                    return self._town(muni, t)
+        return None
+
     def _town(self, muni: str, town: str, koaza: str | None = None) -> GeoResult | None:
         """町丁目・大字の代表点（街区が見つからないとき）。"""
         if koaza and (pts := self.koaza.get((muni, town, koaza))):
@@ -160,10 +203,24 @@ class Gazetteer:
             if head and a.startswith(head):
                 a = a[len(head):]
                 break
+        # 町名の前の「字」（「字翁長665」）、京都市の通り名
+        a = re.sub(r"^大?字", "", a)
+        if muni.startswith("京都市"):
+            a = KYOTO_STREET.sub("", a)
+        # 札幌市などの「月寒東2条18丁目」の「条」は、位置参照情報では漢数字（「月寒東二条十八丁目」）
+        a = re.sub(r"(\d+)条", lambda m: (kanji_number(int(m[1])) if 0 < int(m[1]) < 100 else m[1]) + "条", a)
         # 「3ー1ー5」（長音符を区切りに使う）、「1丁目10番5号」（丁目を数字で書く）も「3-1-5」「1-10-5」にそろえる
         a = re.sub(r"(?<=\d)[ー―─]", "-", a)
+        # 番地のない「北11条西5丁目」と、札幌市白石区などの「南郷通1丁目南8-1」（位置参照情報は「南郷通一丁目南」）は
+        # 丁目を漢数字にして町名に含める。堺市の「東湊町1丁59-1」の「丁」は丁目と同じに扱う
+        a = re.sub(r"(\d+)丁目(?=$|[東西南北])",
+                   lambda m: (kanji_number(int(m[1])) if 0 < int(m[1]) < 100 else m[1]) + "丁目", a)
+        a = re.sub(r"(\d+)丁目?(?=\d)", r"\1-", a)
         a = re.sub(r"(\d+)丁目", r"\1-", a)
         a = re.sub(r"(\d+)番地?", r"\1-", a).replace("号", "")
+        # 「51の1」「22番地の1」の「の」と、文字化けした区切り（「2?3?24」）
+        a = re.sub(r"(?<=[\d-])の(?=\d)", "-", a)
+        a = re.sub(r"(?<=\d)[?\ufffd](?=\d)", "-", a)
         a = re.sub(r"[-‐－−]+", "-", a).rstrip("-")
         if not re.match(r"^\D", a):
             # 大字を書かない住所（「神津島村807」「御蔵島村」）は、大字が1つだけの町村ならその大字
@@ -172,8 +229,15 @@ class Gazetteer:
                 a = towns.pop() + a
         m = re.match(r"^(?P<town>.*?)(?P<nums>\d+(?:-\d+)*)", a)
         if not m:
-            if a in {t for (mm, t) in self.oaza if mm == muni}:
-                return self._town(muni, a)
+            # 番地のない住所。町名で見つからなければ末尾の丁目・条を外して引く（「南美唄町下五条二丁目」→「南美唄町下」）
+            t = a
+            while t:
+                for t2 in self._same_towns(muni, t):
+                    if r := self._town(muni, t2):
+                        return r
+                t, shorter = re.sub(r"[〇一二三四五六七八九十]+(?:丁目|条)$", "", t), t
+                if t == shorter:
+                    break
             # 番地のない住所（「父島字宮之浜道」「青ケ島村無番地」）
             m2 = re.match(r"^(?P<town>.+?)字(?P<koaza>.+)$", a)
             if m2:
@@ -182,14 +246,22 @@ class Gazetteer:
         town = m["town"].rstrip("-")
         nums = m["nums"].split("-")
         town_koaza = None
-        # 「父島字宮之浜道」の「字」（「川副町大字西古賀」の「大字」は町名の一部なので分けない）
+        candidates = []
+        # 「父島字宮之浜道」の「字」（「川副町大字西古賀」の「大字」は町名の一部なので分けない）。
+        # 位置参照情報の町名が「大里字稲嶺」のように「字」を含むこともあるので、分けない町名も先に試す
         if len(parts := re.split(r"(?<!大)字", town, maxsplit=1)) == 2:
+            candidates.append((town, nums))
             town, town_koaza = parts
         # 「町名＋丁目-街区」と「町名-街区（丁目なし）」の両方を試す
-        candidates = []
-        if town and len(nums) >= 2 and 0 < int(nums[0]) < 100:
+        chome = town and len(nums) >= 2 and 0 < int(nums[0]) < 100
+        if chome:
             candidates.append((town + kanji_number(int(nums[0])) + "丁目", nums[1:]))
         candidates.append((town, nums))
+        if chome:
+            # 堺市の「新堀町一丁」（丁目でなく丁）と、住所で「町」を省いた町名（「元桜田3丁目」→「元桜田町三丁目」）
+            candidates.append((town + kanji_number(int(nums[0])) + "丁", nums[1:]))
+            if not town.endswith("町"):
+                candidates.append((town + "町" + kanji_number(int(nums[0])) + "丁目", nums[1:]))
         # 地番の前の「甲」「乙」（「三河内乙1189」）は大字名ではない
         if town[-1:] in ("甲", "乙", "丙") and len(town) > 2:
             candidates.append((town[:-1], nums))
@@ -199,14 +271,19 @@ class Gazetteer:
             candidates.append((town.replace("大字", ""), nums))
         elif m3 := re.match(r"^(.+?町)(.{2,})$", town):
             candidates.append((f"{m3[1]}大字{m3[2]}", nums))
-        for t, rest in candidates:
-            blocks = self.blocks.get((muni, t))
-            if blocks:
-                for k in ("-".join(rest[:2]), rest[0]):
-                    if k in blocks:
-                        lon, lat, _ = blocks[k]
-                        return GeoResult(lon, lat, "街区", t)
-        for t, _ in candidates:
-            if t and (r := self._town(muni, t, town_koaza)):
-                return r
-        return None
+        # 住所どおりの町名で引けなければ、「字」の有無・字体だけが違う町名で引き直す
+        for variants in (False, True):
+            names = [(t, rest, self._same_towns(muni, t)[1:] if variants else [t]) for t, rest in candidates if t]
+            for _, rest, ts in names:
+                for t in ts:
+                    blocks = self.blocks.get((muni, t))
+                    if blocks:
+                        for k in ("-".join(rest[:2]), rest[0]):
+                            if k in blocks:
+                                lon, lat, _ = blocks[k]
+                                return GeoResult(lon, lat, "街区", t)
+            for _, _, ts in names:
+                for t in ts:
+                    if r := self._town(muni, t, town_koaza):
+                        return r
+        return self._by_prefix(muni, town) if town else None
