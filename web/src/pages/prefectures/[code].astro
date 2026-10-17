@@ -1,13 +1,20 @@
 ---
-// 都道府県ページ。県内の市区町村を人口の順に、データから見た特徴の一言と並べ、主な指標の県内の上位をまとめる。
+// 都道府県ページ。市区町村のページと同じく、特徴を一言で表す題名・概要・データから考えられること・主な指標の全国の順位・
+// 隣の都道府県との比較を載せ（設計変更記録 #140）、県内の市区町村を人口の順にデータから見た特徴の一言と並べ、主な指標の県内の上位をまとめる。
 // 「〇〇県 市町村 人口 ランキング」などで探す人の入口と、地域ページへの道にする（設計変更記録 #130）
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
+import NeighborCompare from "../../components/NeighborCompare.astro";
+import ProfileIntro from "../../components/ProfileIntro.astro";
+import StatList from "../../components/StatList.astro";
 import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
-import { formatValue, ranked } from "../../lib/format";
-import { municipalityPeriods } from "../../lib/periods";
-import { PREF_RANKING_IDS, PREF_TOP, prefRanking, prefectureLead, wardCitiesOf } from "../../lib/prefecturePage";
-import { loadAreaProfile } from "../../lib/profiles";
+import { formatValue, rankIfVaried, ranked } from "../../lib/format";
+import { municipalityPeriods, prefecturePeriods } from "../../lib/periods";
+import {
+  PREF_RANKING_IDS, PREF_TOP, prefRanking, prefectureDescription, prefectureLead, prefectureNeighbors, wardCitiesOf,
+} from "../../lib/prefecturePage";
+import { loadAreaProfile, loadPrefectureProfile } from "../../lib/profiles";
+import { statGroups, type StatItem } from "../../lib/statList";
 import { breadcrumbList } from "../../lib/structured";
 import type { Prefecture } from "../../lib/types";
 
@@ -60,14 +67,40 @@ const lead = prefectureLead(pref.name,
   prefChange && prefChange.value !== null ? { value: prefChange.value, label: popLabel } : null,
   munis.length, wardCitiesOf(munis));
 
+// 主な指標: 都道府県の値がある指標の値と、全国の都道府県の中の順位（値のない都道府県は数えない。すべて同じ値なら順位を出さない）。
+// 国勢調査の新しい回（2025年）を先に使い、その都道府県に値がないとき（2025年の静岡県など）は既定の時点で出す（#118 と同じ）
+const prefByCode = new Map(areas.prefectures.map((p) => [p.code, p]));
+const neighborPrefs = (prefectureNeighbors(areas.municipalities).get(pref.code) ?? [])
+  .map((n) => ({ ...n, pref: prefByCode.get(n.code)! })).filter((n) => n.pref);
+const entity = `pref-${pref.code}`;
+const stats: StatItem[] = [...indicators.values()].flatMap((ind) => {
+  const candidates = prefecturePeriods(ind).map((p) => ({ period: ind.periods.find((x) => x.period === p)!, rows: rows(ind.id, p, "prefectures") }));
+  const c = candidates.find((x) => x.rows.some((r) => r.entity_id === entity && r.value !== null));
+  if (!c) return [];
+  return [{
+    ind, period: c.period, row: c.rows.find((r) => r.entity_id === entity), ranks: [rankIfVaried(c.rows, entity)],
+    neighborRows: neighborPrefs.map((n) => c.rows.find((r) => r.entity_id === `pref-${n.code}`)),
+  }];
+});
+const groups = statGroups(stats);
+const statCount = stats.length;
+// 特徴を一言で表す題名と、データから考えられること（全国47都道府県の中の順位から。市区町村のページと同じ決まりで書く）
+const profile = loadPrefectureProfile(pref.code, pref.name);
+// 海をへだてた隣（北海道と青森県など）は、境界が接していないことを書き添える
+const seaNames = neighborPrefs.filter((n) => n.sea).map((n) => n.pref.name).join("・");
+const compareNote = (neighborPrefs.some((n) => !n.sea) ? "境界が接する都道府県と並べています。" : "") +
+  (seaNames ? `${seaNames}とは境界が接していませんが、海をへだてて向かい合う隣の都道府県として並べています。` : "") +
+  "値は「主な指標」と同じ時点です。";
+
 const rankings = PREF_RANKING_IDS.map((id) => indicators.get(id)).filter((i) => !!i)
   .map((ind) => prefRanking(ind!, pref.code, munis, rows)).filter((r) => !!r);
 
 const others = areas.prefectures.filter((p) => p.code !== pref.code);
 const title = `${pref.name}の市区町村 人口ランキングと統計データ`;
 const top3 = table.filter((t) => t.rank !== null).slice(0, 3).map((t) => t.muni.name).join("・");
-const description = `${pref.name}の${munis.length}市区町村を人口の多い順に、データから見た特徴の一言と並べました` +
-  (top3 ? `（${top3}など）` : "") + `。人口の増え方・子どもの割合・所得・面積などの${pref.name.slice(-1)}内の上位と、各市区町村のくわしいデータへのリンクつき。`;
+const description = prefectureDescription({
+  name: pref.name, title: profile.title, firstInsight: profile.lines[0], muniCount: munis.length, top3, statCount,
+});
 const structured = breadcrumbList(Astro.site, [
   { name: "データさんぽ", path: "/" }, { name: "都道府県の一覧", path: "/prefectures/" }, { name: pref.name },
 ]);
@@ -83,9 +116,35 @@ const structured = breadcrumbList(Astro.site, [
     </div>
   </header>
 
-  <section class="sheet">
+  <nav class="toc" aria-label="このページの内容">
+    {statCount > 0 && <a href="#stats">主な指標と全国の順位</a>}
+    {neighborPrefs.length > 0 && statCount > 0 && <a href="#compare">隣の都道府県と比べる</a>}
+    <a href="#munis">市区町村（人口の多い順）</a>
+    {rankings.length > 0 && <a href="#pref-top">{pref.name}内の上位</a>}
+  </nav>
+
+  <section class="sheet pref-intro">
+    <ProfileIntro name={pref.name} profile={profile} summary={lead} />
+  </section>
+
+  {statCount > 0 && (
+    <section class="sheet" id="stats">
+      <h2>主な指標と全国の順位<span class="count">{statCount}</span></h2>
+      <p>全国の順位は、都道府県どうしで比べた順位です（値のない都道府県は数えません）。</p>
+      <StatList groups={groups} rankLabels={["全国"]} />
+    </section>
+  )}
+
+  {neighborPrefs.length > 0 && statCount > 0 && (
+    <NeighborCompare title="隣の都道府県と比べる" selfName={pref.name} groups={groups}
+      neighbors={neighborPrefs.map((n) => ({ name: n.pref.name, href: `/prefectures/${n.code}/` }))}>
+      <p class="muted">{compareNote}</p>
+    </NeighborCompare>
+  )}
+
+  <section class="sheet" id="munis">
     <h2>{pref.name}の市区町村（人口の多い順）</h2>
-    {lead.map((line) => <p>{line}</p>)}
+    <p>それぞれの人口と、データから見た特徴の一言を並べています。市区町村名から、くわしいデータと順位のページを開けます。</p>
     <div class="table-scroll">
       <table class="pref-munis">
         <thead><tr><th class="num col-rank">順位</th><th>市区町村と、データから見た特徴</th><th class="num col-pop">人口<span class="change-sm">5年間の増減</span></th><th class="num col-change">5年間の増減</th></tr></thead>
@@ -106,7 +165,7 @@ const structured = breadcrumbList(Astro.site, [
   </section>
 
   {rankings.length > 0 && (
-    <section class="sheet">
+    <section class="sheet" id="pref-top">
       <h2>{pref.name}内の上位の市区町村</h2>
       <p class="muted">値の大きい順に{PREF_TOP}位まで（同じ値は同じ順位）。大きいほど良い・悪いという意味ではありません。指標名から、意味・出典と全国のランキングを見られます。</p>
       <div class="pref-rankings">
@@ -127,7 +186,7 @@ const structured = breadcrumbList(Astro.site, [
 
   <AdSlot name="page" />
 
-  <section class="sheet">
+  <section class="sheet" id="others">
     <h2>ほかの都道府県</h2>
     <ul class="pref-links">
       {others.map((p) => <li><a href={`/prefectures/${p.code}/`}>{p.name}</a></li>)}
@@ -136,6 +195,7 @@ const structured = breadcrumbList(Astro.site, [
 </Base>
 
 <style>
+  .pref-intro :global(h2) { margin-top: 0; }
   .pref-munis { min-width: 0; }
   .pref-munis .col-rank { width: 4em; }
   .pref-munis .col-pop { width: 9em; }

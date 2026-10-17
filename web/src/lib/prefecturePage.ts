@@ -44,7 +44,7 @@ export function prefRanking(ind: Indicator, prefCode: string, munis: Municipalit
 export interface PrefPopulation { text: string; label: string; rank: number; total: number }
 
 /**
- * 都道府県ページの冒頭の文。人口と全国の順位、5年前からの増減、市区町村の数。
+ * 都道府県ページ「データで見る〇〇県」の概要の文。人口と全国の順位、5年前からの増減、市区町村の数。
  * 増減は事実だけ書き、減っていることを課題として書き立てない。
  * wardCities は区ごとに分けて数えている政令指定都市（札幌市など）
  */
@@ -62,9 +62,53 @@ export function prefectureLead(name: string, pop: PrefPopulation | null, change:
     lines.push(line);
   }
   const wards = wardCities.length ? `（${wardCities.join("・")}は区ごとに数えています）` : "";
-  lines.push(`${name}には${muniCount.toLocaleString("ja-JP")}の市区町村があります${wards}。` +
-    "下の表では、それぞれの人口と、データから見た特徴の一言を並べています。市区町村名から、くわしいデータと順位のページを開けます。");
+  lines.push(`${name}には${muniCount.toLocaleString("ja-JP")}の市区町村があります${wards}。`);
   return lines;
+}
+
+/**
+ * 都道府県ページの説明文（検索結果に出る文）。特徴の一言と、いちばん目立つ考察から始め、都道府県ごとに違う文にする。
+ * 考察が長いときは最初の文（数字と順位）だけを使う（地域ページの areaDescription と同じ）
+ */
+export function prefectureDescription(a: { name: string; title: string | null; firstInsight?: string; muniCount: number; top3: string; statCount: number }): string {
+  const head = a.title ? `${a.name}をデータで見ると「${a.title}」。` : `${a.name}のデータ。`;
+  const s = a.firstInsight ?? "";
+  const insight = s.length <= 110 ? s : s.slice(0, s.indexOf("。") + 1);
+  return head + insight + `${a.muniCount.toLocaleString("ja-JP")}の市区町村を人口の多い順に特徴の一言と並べ` + (a.top3 ? `（${a.top3}など）` : "") +
+    `、全国の順位など${a.statCount}の指標を隣の都道府県との比較と出典つきで紹介。`;
+}
+
+/**
+ * 海をへだてて向かい合い、橋・トンネル・航路で結ばれている都道府県の組。境界は接していないが、隣の都道府県として比べる
+ * （北海道と沖縄県には境界の接する都道府県がないため。山口県と福岡県、兵庫県と徳島県も行き来が多い）
+ */
+export const SEA_NEIGHBORS: [string, string][] = [["01", "02"], ["28", "36"], ["35", "40"], ["46", "47"]];
+
+/**
+ * 隣の都道府県。市区町村の隣（境界が接する市区町村）のうち、ほかの都道府県のものから求める。
+ * 海をへだてた組（SEA_NEIGHBORS）は sea を付けて加える。都道府県コードの順
+ */
+export function prefectureNeighbors(munis: Municipality[]): Map<string, { code: string; sea: boolean }[]> {
+  const prefOf = new Map(munis.map((m) => [m.id, m.prefecture]));
+  const land = new Map<string, Set<string>>();
+  const add = (a: string, b: string) => land.set(a, (land.get(a) ?? new Set()).add(b));
+  for (const m of munis) {
+    for (const n of m.neighbors) {
+      const p = prefOf.get(n);
+      if (p && p !== m.prefecture) add(m.prefecture, p);
+    }
+  }
+  const codes = new Set(munis.map((m) => m.prefecture));
+  const out = new Map<string, { code: string; sea: boolean }[]>();
+  for (const code of codes) {
+    const list = [...(land.get(code) ?? [])].map((c) => ({ code: c, sea: false }));
+    for (const [a, b] of SEA_NEIGHBORS) {
+      const other = a === code ? b : b === code ? a : null;
+      if (other && codes.has(other) && !list.some((x) => x.code === other)) list.push({ code: other, sea: true });
+    }
+    out.set(code, list.sort((x, y) => x.code.localeCompare(y.code)));
+  }
+  return out;
 }
 
 /** 政令指定都市の区（札幌市中央区など）を区ごとに数えている市の名前（区部の東京23区は市区町村そのものなので含めない） */

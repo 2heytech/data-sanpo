@@ -1,0 +1,70 @@
+---
+// となりの地域と比べる表。比べる地域を選べる（スマホでは最初は1つだけ、広い画面ではすべて）。
+// 地域ページ（となりの市区町村）と都道府県ページ（隣の都道府県）で使う（設計変更記録 #140）
+import CategoryIcon from "./CategoryIcon.astro";
+import { formatValue } from "../lib/format";
+import type { StatGroup } from "../lib/statList";
+
+interface Props { title: string; selfName: string; neighbors: { name: string; href: string }[]; groups: StatGroup[] }
+const { title, selfName, neighbors, groups } = Astro.props;
+---
+<section class="sheet" data-compare id="compare">
+  <h2>{title}</h2>
+  <slot />
+  <div class="compare-pick" role="group" aria-label="比べる地域">
+    {neighbors.map((n, i) => <button type="button" data-col={String(i)} aria-pressed="false">{n.name}</button>)}
+    {neighbors.length > 1 && <button type="button" data-col="all" aria-pressed="true">すべて</button>}
+  </div>
+  {groups.flatMap((g, gi) => g.categories.map((c, ci) => (
+    <details class="stat-cat" open={gi === 0 && ci === 0}>
+      <summary><h4><CategoryIcon category={c.name} />{c.name}</h4><span class="count">{c.stats.length}</span></summary>
+      <div class="table-scroll">
+        <table class="compare">
+          <thead>
+            <tr><th>指標</th><th class="num">{selfName}</th>
+              {neighbors.map((n, i) => <th class="num" data-col={String(i)}><a href={n.href}>{n.name}</a></th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {c.stats.map(({ ind, row, neighborRows }) => (
+              <tr>
+                <td>{ind.name}</td>
+                <td class="num"><strong>{formatValue(row, ind)}</strong></td>
+                {neighborRows.map((r, i) => <td class="num" data-col={String(i)}>{formatValue(r, ind)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  )))}
+</section>
+
+<script>
+  // 比べる地域を選ぶ（スマホでは最初は1つだけ、広い画面ではすべて）
+  for (const root of document.querySelectorAll<HTMLElement>("[data-compare]")) {
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>("button[data-col]")];
+    const cells = [...root.querySelectorAll<HTMLElement>("table [data-col]")];
+    const show = (col: string) => {
+      for (const c of cells) c.hidden = col !== "all" && c.dataset.col !== col;
+      for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.col === col));
+    };
+    for (const b of buttons) b.addEventListener("click", () => show(b.dataset.col!));
+    show(buttons.length > 1 && !matchMedia("(max-width: 640px)").matches ? "all" : "0");
+  }
+</script>
+
+<style>
+  .compare-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .compare-pick button {
+    font: inherit; font-size: 0.9rem; padding: 4px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg);
+  }
+  .compare-pick button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .compare [hidden] { display: none; }
+  .compare td:first-child { white-space: normal; min-width: 10em; }
+  @media (max-width: 640px) {
+    .compare th, .compare td { padding: 8px 6px; }
+    .compare td:first-child { min-width: 0; width: 50%; }
+  }
+</style>

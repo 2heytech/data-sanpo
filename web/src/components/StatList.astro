@@ -1,0 +1,89 @@
+---
+// 「主な指標」の一覧。ジャンル・カテゴリごとに、値と順位（バーは左が1位）を並べる。
+// 地域ページ（都道府県内と全国の順位）と都道府県ページ（全国の順位）で使う（設計変更記録 #140）
+import CategoryIcon from "./CategoryIcon.astro";
+import { formatFraction, formatValue } from "../lib/format";
+import { markLeft, rankText, type StatGroup } from "../lib/statList";
+
+interface Props { groups: StatGroup[]; rankLabels: string[] }
+const { groups, rankLabels } = Astro.props;
+---
+{groups.length > 1 && <nav class="toc" aria-label="指標の分類">{groups.map((g) => <a href={`#${g.id}`}>{g.title}</a>)}</nav>}
+<p class="muted">順位は値の大きい順です（バーは左が1位）。大きいほど良い・悪いという意味ではありません。指標名を押すと、意味・注意点・出典と全国のランキングを見られます。</p>
+<div class="stat-head" aria-hidden="true" style={`--rank-cols:${rankLabels.length}`}><span>指標</span><span>値</span>{rankLabels.map((l) => <span>{l}の順位</span>)}</div>
+{groups.map((g, gi) => (
+  <section class="stat-genre" id={g.id}>
+    <h3>{g.title}</h3>
+    {g.categories.map((c, ci) => (
+      <details class="stat-cat" open={gi === 0 && ci < 2}>
+        <summary><h4><CategoryIcon category={c.name} />{c.name}</h4><span class="count">{c.stats.length}</span></summary>
+        <ul class="stat-list" style={`--rank-cols:${rankLabels.length}`}>
+          {c.stats.map(({ ind, period, row, ranks }) => (
+            <li>
+              <div class="stat-name">
+                <a href={`/indicators/${ind.id}/`}>{ind.name}</a>
+                <span class="muted">{period.label}{formatFraction(row, ind) && `・${formatFraction(row, ind)}`}</span>
+              </div>
+              <div class="stat-value">{formatValue(row, ind)}</div>
+              <div class="stat-ranks">
+              {ranks.map((rank, i) => (
+                <div class="stat-rank">
+                  <span class="rank-label">{rankLabels[i]}</span>
+                  {rank ? (
+                    <>
+                      <span class="rank-text">{rankText(rank)}</span>
+                      <span class="rank-bar" role="img" aria-label={`${rank.total} のうち ${rank.rank}位`}>
+                        <span class="rank-mark" style={`left:${markLeft(rank)}%`}></span>
+                      </span>
+                    </>
+                  ) : <span class="rank-text muted">—</span>}
+                </div>
+              ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </details>
+    ))}
+  </section>
+))}
+
+<script>
+  // 分類の目次から開くときは、閉じている分類を開く
+  const openTarget = () => {
+    const el = location.hash ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
+    const d = el?.querySelector("details");
+    if (d) d.open = true;
+  };
+  addEventListener("hashchange", openTarget);
+  openTarget();
+</script>
+
+<style>
+  .toc { position: sticky; top: calc(var(--header-h) + 4px); z-index: 2; padding: 6px 0; background: var(--surface); }
+  .stat-genre { scroll-margin-top: 130px; }
+  .stat-genre h3 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.4em; }
+  .stat-ranks { display: contents; }
+  .stat-head, .stat-list li { display: grid; grid-template-columns: minmax(0, 1fr) 9.5em repeat(var(--rank-cols, 2), 10em); gap: 4px 16px; align-items: center; }
+  .stat-head { margin-top: 12px; padding: 6px 10px; background: var(--panel); border-radius: 8px; font-size: 0.82rem; font-weight: 700; color: #33414f; }
+  .stat-head span:not(:first-child) { text-align: right; }
+  .stat-list { list-style: none; margin: 0; padding: 0; }
+  .stat-list li { padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  .stat-name a { font-weight: 600; }
+  .stat-name .muted { display: block; font-size: 0.8rem; line-height: 1.4; }
+  .stat-value { text-align: right; font-size: 1.08rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stat-rank { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.9rem; }
+  .stat-rank .rank-label { display: none; }
+  .stat-rank .rank-bar { width: 96px; margin: 4px 0 2px auto; height: 6px; }
+  .stat-rank .rank-mark { width: 11px; height: 11px; border-width: 2px; }
+  @media (max-width: 640px) {
+    .stat-head { display: none; }
+    .stat-list li { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 2px; align-items: start; }
+    .stat-value { font-size: 1.1rem; }
+    .stat-ranks { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    .stat-rank { text-align: left; font-size: 0.85rem; }
+    .stat-rank .rank-label { display: inline; color: var(--muted); margin-right: 6px; }
+    .stat-rank .rank-bar { width: 100%; margin: 4px 0 0; }
+    .toc { position: static; }
+  }
+</style>

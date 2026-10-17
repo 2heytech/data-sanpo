@@ -3,14 +3,16 @@
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
 import AreaShape from "../../components/AreaShape.astro";
-import CategoryIcon from "../../components/CategoryIcon.astro";
-import { genresFor } from "../../lib/genres";
+import NeighborCompare from "../../components/NeighborCompare.astro";
+import ProfileIntro from "../../components/ProfileIntro.astro";
+import StatList from "../../components/StatList.astro";
 import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
-import { formatFraction, formatValue, rankIfVaried } from "../../lib/format";
+import { formatValue, rankIfVaried } from "../../lib/format";
 import { areaDescription, areaSummary } from "../../lib/areaSummary";
 import { loadAreaProfile } from "../../lib/profiles";
 import { breadcrumbList } from "../../lib/structured";
 import { municipalityPeriods } from "../../lib/periods";
+import { statGroups } from "../../lib/statList";
 import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -40,7 +42,7 @@ const stats = loadIndicators().map((ind) => {
     ind, period, row,
     ranks: [rankIfVaried(rows.filter((r) => r.entity_id.startsWith(`muni-${muni.prefecture}`)), muni.id),
       spansPrefectures(rows) ? rankIfVaried(rows, muni.id) : null],
-    neighborRows: neighbors.map((n) => ({ n, row: rows.find((r) => r.entity_id === n.id) })),
+    neighborRows: neighbors.map((n) => rows.find((r) => r.entity_id === n.id)),
   };
 });
 const pop = stats.find((s) => s.ind.id === "population_total");
@@ -57,8 +59,6 @@ const summary = areaSummary(muni.name, pref, stats.map((s) => ({ ind: s.ind, per
 // 指標の順位に加えて、駅・空港・港・地価公示・天気の点のデータも見る。都道府県ページの一覧でも同じ一言を出すので、ビルドの間とっておく
 const profile = loadAreaProfile(muni.id);
 const insights = profile.lines;
-// 考察はテーマ（気候と土地・交通・住む人など）ごとにまとめ、目立つテーマから並べる（設計変更記録 #116）
-const insightGroups = profile.groups;
 const place = [pref, muni.region].filter(Boolean).join("・");
 const statCount = stats.filter((s) => s.row?.value != null).length;
 const description = areaDescription({
@@ -73,13 +73,7 @@ const structured = breadcrumbList(Astro.site, [
 // 検索結果で同じ名前の市区町村（府中市・伊達市など）を見分けられるよう、題名に都道府県名を入れる
 const pageTitle = pref ? `${muni.name}（${pref}）の人口・統計データと順位` : `${muni.name}の人口・統計データと順位`;
 // 表に出すのは値のある指標だけ（データなしの行は出さない）。ジャンル・カテゴリごとにまとめる
-const shown = stats.filter((s) => s.row?.value != null);
-const groups = genresFor(shown.map((s) => s.ind.category)).map((g, i) => ({
-  id: `g${i + 1}`, title: g.title,
-  categories: g.categories.map((c) => ({ name: c, stats: shown.filter((s) => s.ind.category === c) })),
-}));
-const rankText = (r: { rank: number; total: number }) => `${r.rank.toLocaleString("ja-JP")}位／${r.total.toLocaleString("ja-JP")}`;
-const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank - 1) / (r.total - 1)) * 100 : 50);
+const groups = statGroups(stats);
 ---
 <Base title={pageTitle} description={description} prefecture={pref || undefined} structuredData={structured}>
   <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/areas/">市区町村の一覧</a>{prefPath && <> › <a href={prefPath}>{pref}</a></>}</nav>
@@ -99,102 +93,19 @@ const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank
     <section class="sheet area-intro">
       <AreaShape muni={muni} variant="locator" prefName={pref} />
       <div>
-        <h2>データで見る{muni.name}</h2>
-        {profile.title && <p class="catch">{profile.title}</p>}
-        {summary.map((line) => <p>{line}</p>)}
-        {insights.length > 0 && (
-          <>
-            <h3>データから考えられること</h3>
-            <div class="insight-groups">
-              {insightGroups.map((g) => (
-                <section class="insight-group">
-                  <h4>{g.theme}</h4>
-                  <ul class="insights">{g.lines.map((line) => <li>{line}</li>)}</ul>
-                </section>
-              ))}
-            </div>
-          </>
-        )}
-        <p class="muted">順位は値の大きい順で、大きいほど良い・悪いという意味ではありません。
-          {insights.length > 0 && "「考えられること」はデータの組み合わせから推測したもので、実際の理由を確かめたものではありません。"}</p>
+        <ProfileIntro name={muni.name} profile={profile} summary={summary} />
       </div>
     </section>
   )}
 
   <section class="sheet" id="stats">
-    <h2>主な指標<span class="count">{shown.length}</span></h2>
-    {groups.length > 1 && <nav class="toc" aria-label="指標の分類">{groups.map((g) => <a href={`#${g.id}`}>{g.title}</a>)}</nav>}
-    <p class="muted">順位は値の大きい順です（バーは左が1位）。大きいほど良い・悪いという意味ではありません。指標名を押すと、意味・注意点・出典と全国のランキングを見られます。</p>
-    <div class="stat-head" aria-hidden="true"><span>指標</span><span>値</span><span>{pref}内の順位</span><span>全国の順位</span></div>
-    {groups.map((g, gi) => (
-      <section class="stat-genre" id={g.id}>
-        <h3>{g.title}</h3>
-        {g.categories.map((c, ci) => (
-          <details class="stat-cat" open={gi === 0 && ci < 2}>
-            <summary><h4><CategoryIcon category={c.name} />{c.name}</h4><span class="count">{c.stats.length}</span></summary>
-            <ul class="stat-list">
-              {c.stats.map(({ ind, period, row, ranks }) => (
-                <li>
-                  <div class="stat-name">
-                    <a href={`/indicators/${ind.id}/`}>{ind.name}</a>
-                    <span class="muted">{period.label}{formatFraction(row, ind) && `・${formatFraction(row, ind)}`}</span>
-                  </div>
-                  <div class="stat-value">{formatValue(row, ind)}</div>
-                  <div class="stat-ranks">
-                  {ranks.map((rank, i) => (
-                    <div class="stat-rank">
-                      <span class="rank-label">{i === 0 ? `${pref}内` : "全国"}</span>
-                      {rank ? (
-                        <>
-                          <span class="rank-text">{rankText(rank)}</span>
-                          <span class="rank-bar" role="img" aria-label={`${rank.total} のうち ${rank.rank}位`}>
-                            <span class="rank-mark" style={`left:${markLeft(rank)}%`}></span>
-                          </span>
-                        </>
-                      ) : <span class="rank-text muted">—</span>}
-                    </div>
-                  ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </details>
-        ))}
-      </section>
-    ))}
+    <h2>主な指標<span class="count">{statCount}</span></h2>
+    <StatList groups={groups} rankLabels={[`${pref}内`, "全国"]} />
   </section>
 
   {neighbors.length > 0 && (
-    <section class="sheet" data-compare>
-      <h2>となりの市区町村と比べる</h2>
-      <div class="compare-pick" role="group" aria-label="比べる市区町村">
-        {neighbors.map((n, i) => <button type="button" data-col={String(i)} aria-pressed="false">{n.name}</button>)}
-        {neighbors.length > 1 && <button type="button" data-col="all" aria-pressed="true">すべて</button>}
-      </div>
-      {groups.flatMap((g, gi) => g.categories.map((c, ci) => (
-        <details class="stat-cat" open={gi === 0 && ci === 0}>
-          <summary><h4><CategoryIcon category={c.name} />{c.name}</h4><span class="count">{c.stats.length}</span></summary>
-          <div class="table-scroll">
-            <table class="compare">
-              <thead>
-                <tr><th>指標</th><th class="num">{muni.name}</th>
-                  {neighbors.map((n, i) => <th class="num" data-col={String(i)}><a href={`/areas/${n.id}/`}>{n.name}</a></th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {c.stats.map(({ ind, row, neighborRows }) => (
-                  <tr>
-                    <td>{ind.name}</td>
-                    <td class="num"><strong>{formatValue(row, ind)}</strong></td>
-                    {neighborRows.map(({ row: r }, i) => <td class="num" data-col={String(i)}>{formatValue(r, ind)}</td>)}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      )))}
-    </section>
+    <NeighborCompare title="となりの市区町村と比べる" selfName={muni.name} groups={groups}
+      neighbors={neighbors.map((n) => ({ name: n.name, href: `/areas/${n.id}/` }))} />
   )}
 
   <section class="sheet">
@@ -205,28 +116,6 @@ const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank
   <AdSlot name="page" />
 </Base>
 
-<script>
-  // となりの市区町村の比較: 比べる市区町村を選ぶ（スマホでは最初は1つだけ、広い画面ではすべて）
-  for (const root of document.querySelectorAll<HTMLElement>("[data-compare]")) {
-    const buttons = [...root.querySelectorAll<HTMLButtonElement>("button[data-col]")];
-    const cells = [...root.querySelectorAll<HTMLElement>("table [data-col]")];
-    const show = (col: string) => {
-      for (const c of cells) c.hidden = col !== "all" && c.dataset.col !== col;
-      for (const b of buttons) b.setAttribute("aria-pressed", String(b.dataset.col === col));
-    };
-    for (const b of buttons) b.addEventListener("click", () => show(b.dataset.col!));
-    show(buttons.length > 1 && !matchMedia("(max-width: 640px)").matches ? "all" : "0");
-  }
-  // 分類の目次から開くときは、閉じている分類を開く
-  const openTarget = () => {
-    const el = location.hash ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
-    const d = el?.querySelector("details");
-    if (d) d.open = true;
-  };
-  addEventListener("hashchange", openTarget);
-  openTarget();
-</script>
-
 <style>
   .area-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
   .area-head h1 { margin: 0; }
@@ -234,73 +123,10 @@ const markLeft = (r: { rank: number; total: number }) => (r.total > 1 ? ((r.rank
   .area-intro:has(> figure) { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 8px 28px; }
   .area-intro > :global(figure) { grid-column: 2; grid-row: 1; align-self: start; }
   .area-intro:has(> figure) > div { grid-column: 1; grid-row: 1; }
-  .catch {
-    margin: 0.2em 0 0.9em; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft);
-    color: var(--accent-ink); font-size: 1.12rem; font-weight: 700; line-height: 1.5;
-  }
-  .insight-groups { display: grid; gap: 14px; margin-top: 4px; }
-  .insight-group { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 4px 14px; align-items: start; }
-  .insight-group h4 {
-    margin: 2px 0 0; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink);
-    font-size: 0.8rem; font-weight: 700; text-align: center; white-space: nowrap;
-  }
-  .insights { margin: 0; padding-left: 1.2em; }
-  .insights li + li { margin-top: 0.5em; }
-  .count { margin-left: 8px; padding: 1px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.8rem; vertical-align: middle; }
-  .toc { position: sticky; top: calc(var(--header-h) + 4px); z-index: 2; padding: 6px 0; background: var(--surface); }
-  .area-intro h2:first-child { margin-top: 0; }
-  .stat-genre { scroll-margin-top: 130px; }
-  .stat-genre h3 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.4em; }
-  .stat-cat > summary {
-    display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 8px 4px; border-bottom: 1px solid var(--line);
-  }
-  .stat-cat > summary::-webkit-details-marker { display: none; }
-  .stat-cat > summary::after {
-    content: ""; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
-    transform: translateY(-2px) rotate(45deg); transition: transform .15s;
-  }
-  .stat-cat[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
-  .stat-cat > summary:hover { background: #fafcfe; }
-  .stat-cat h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.98rem; }
-  .stat-cat .count { margin-left: 0; }
-  .stat-cat .table-scroll { margin: 10px 0 12px; }
-  .stat-ranks { display: contents; }
-  .stat-head, .stat-list li { display: grid; grid-template-columns: minmax(0, 1fr) 9.5em 10em 10em; gap: 4px 16px; align-items: center; }
-  .stat-head { margin-top: 12px; padding: 6px 10px; background: var(--panel); border-radius: 8px; font-size: 0.82rem; font-weight: 700; color: #33414f; }
-  .stat-head span:not(:first-child) { text-align: right; }
-  .stat-list { list-style: none; margin: 0; padding: 0; }
-  .stat-list li { padding: 9px 10px; border-bottom: 1px solid var(--line); }
-  .stat-name a { font-weight: 600; }
-  .stat-name .muted { display: block; font-size: 0.8rem; line-height: 1.4; }
-  .stat-value { text-align: right; font-size: 1.08rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .stat-rank { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.9rem; }
-  .stat-rank .rank-label { display: none; }
-  .stat-rank .rank-bar { width: 96px; margin: 4px 0 2px auto; height: 6px; }
-  .stat-rank .rank-mark { width: 11px; height: 11px; border-width: 2px; }
-  .compare-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
-  .compare-pick button {
-    font: inherit; font-size: 0.9rem; padding: 4px 14px; border-radius: 999px; cursor: pointer;
-    border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg);
-  }
-  .compare-pick button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
-  .compare [hidden] { display: none; }
-  .compare td:first-child { white-space: normal; min-width: 10em; }
   @media (max-width: 640px) {
     .area-intro:has(> figure) { grid-template-columns: 1fr; }
     .area-intro > :global(figure) { grid-column: 1; grid-row: 1; }
     .area-intro > :global(figure) :global(svg) { max-width: 120px; max-height: 120px; }
     .area-intro:has(> figure) > div { grid-row: 2; }
-    .insight-group { grid-template-columns: 1fr; }
-    .insight-group h4 { justify-self: start; }
-    .stat-head { display: none; }
-    .stat-list li { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 2px; align-items: start; }
-    .stat-value { font-size: 1.1rem; }
-    .stat-ranks { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-    .stat-rank { text-align: left; font-size: 0.85rem; }
-    .stat-rank .rank-label { display: inline; color: var(--muted); margin-right: 6px; }
-    .stat-rank .rank-bar { width: 100%; margin: 4px 0 0; }
-    .compare th, .compare td { padding: 8px 6px; }
-    .compare td:first-child { min-width: 0; width: 50%; }
-    .toc { position: static; }
   }
 </style>

@@ -226,3 +226,19 @@ td .rank-mark { width: 11px; height: 11px; border-width: 2px; }
 .guide-figure { margin: 12px 0 20px; }
 .guide-figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
 .guide-figure figcaption { margin-top: 4px; }
+
+/* 件数の札と、開け閉めできる指標の分類（地域ページ・都道府県ページの「主な指標」「となりと比べる」） */
+.count { margin-left: 8px; padding: 1px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 0.8rem; vertical-align: middle; }
+.stat-cat > summary {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 8px 4px; border-bottom: 1px solid var(--line);
+}
+.stat-cat > summary::-webkit-details-marker { display: none; }
+.stat-cat > summary::after {
+  content: ""; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+  transform: translateY(-2px) rotate(45deg); transition: transform .15s;
+}
+.stat-cat[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+.stat-cat > summary:hover { background: #fafcfe; }
+.stat-cat h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.98rem; }
+.stat-cat .count { margin-left: 0; }
+.stat-cat .table-scroll { margin: 10px 0 12px; }
