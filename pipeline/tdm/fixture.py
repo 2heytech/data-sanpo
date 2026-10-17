@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import gzip
+import io
 import json
 import math
 import random
@@ -151,6 +152,10 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_schools(directory, random.Random(f"{seed}-schools")))
     out["land_price"] = _write_land_prices(directory, random.Random(f"{seed}-land"))
     out.update(_write_mlit_facilities(directory))
+    out["school_counts"] = _write_school_counts(directory)
+    out["kokode"] = _write_kokode(directory)
+    out["isj_national"] = _write_isj_national(directory)
+    out["cfa_childcare"] = _write_cfa_childcare(directory)
     out["street_trees"] = _write_street_trees(directory, random.Random(f"{seed}-trees"))
     for year, years in CHILDCARE_FILES.items():
         out[f"childcare_{year}"] = _write_childcare(directory, year, years, random.Random(f"{seed}-childcare-{year}"))
@@ -1453,14 +1458,6 @@ MLIT_SCHOOLS = [   # (都道府県, 市区町村, 学校コード, 分類, 名�
     ("14", "14199", "B114199000006", "16001", "みほん市立旧標本小学校", "3", "9", 139.611, 35.466),  # 休校（除く）
     ("13", "13199", "B113199000001", "16001", "サンプル区立見本小学校", "3", "1", 139.705, 35.665),  # 東京都（除く）
 ]
-# 国土数値情報 福祉施設データ（P14）。保育所（050401）の位置だけを使う。14199 は神奈川県の所管として利用条件で除かれる
-MLIT_WELFARE = [   # (都道府県, 市区町村名, 市区町村, 小分類, 名称, 経度, 緯度)
-    ("14", "みほん市中区", "14199", "050401", "標本保育園", 139.617, 35.466),
-    ("14", "みほん市中区", "14199", "050400", "標本幼稚園", 139.619, 35.467),
-    ("13", "サンプル区", "13199", "050401", "見本保育園", 139.706, 35.666),
-]
-
-
 def _write_mlit_facilities(directory: Path) -> dict[str, Path]:
     schools: dict[str, list] = {}
     for pref, city5, code, kind, name, founder, open_, lon, lat in MLIT_SCHOOLS:
@@ -1470,15 +1467,132 @@ def _write_mlit_facilities(directory: Path) -> dict[str, Path]:
             "P29_008": "00", "P29_009": None}, lon, lat))
     for pref, feats in schools.items():
         _write_geojson(directory / "mlit_p29_2023" / pref / f"P29-23_{pref}_GML" / f"P29-23_{pref}.geojson", feats)
-    welfare: dict[str, list] = {}
-    for pref, city_name, city5, cls, name, lon, lat in MLIT_WELFARE:
-        welfare.setdefault(pref, []).append(_point({
-            "P14_001": PREF_NAMES[pref], "P14_002": city_name, "P14_003": city5, "P14_004": "標本町1-2",
-            "P14_005": "05", "P14_006": cls[:4], "P14_007": cls, "P14_008": name, "P14_009": 5, "P14_010": 1},
-            lon, lat))
-    for pref, feats in welfare.items():
-        _write_geojson(directory / "mlit_p14_2023" / pref / f"P14-23_{pref}_GML" / f"P14-23_{pref}.geojson", feats)
-    return {"mlit_schools": directory / "mlit_p29_2023", "mlit_welfare": directory / "mlit_p14_2023"}
+    return {"mlit_schools": directory / "mlit_p29_2023"}
+
+
+# 東京都以外の学校ごとの児童・生徒数（神奈川県「神奈川の教育統計」の学校別シートの形式、#138）。
+# 標本小は学校コードで P29 に対応、標本中は一覧にない（P29 の位置だけ）、新標本小は P29 にない新しい学校（番地がないので
+# 位置なし）、旧標本は休校（全列 0、学校名に「(注)」）
+SCHOOL_COUNTS = {   # 保存名 → (シート名, 学年数, [(学校コード, 学校名, 合計)])
+    "elementary.xlsx": ("Ｒ７公立小学校 児童数（学校別）", 6,
+                        [("B114199000001", "標本", 300), ("B114199000007", "新標本", 120),
+                         ("B114199000006", "旧標本(注)", 0)]),
+    "junior_high.xlsx": ("Ｒ７公立中学校 生徒数（学校別）", 3, []),
+    "compulsory.xlsx": ("Ｒ７公立義務教育学校 児童・生徒数（学校別）", 9, [("B114199000003", "標本学園", 450)]),
+}
+
+
+def _write_school_counts(directory: Path) -> Path:
+    from .xlsx import write_sheets
+    d = directory / "school_counts_kanagawa_2025" / "14"
+    d.mkdir(parents=True, exist_ok=True)
+    for name, (sheet, n, schools) in SCHOOL_COUNTS.items():
+        rows = [[None, "令和７年５月１日現在"],
+                [None, "学校コード", "設置者", "所在市区町村", "学校名", "児童数"] + [None] * n,
+                [None, None, None, None, None, "合計"] + [f"{g}学年".translate(FULLWIDTH) for g in range(1, n + 1)]]
+        for code, school, total in schools:
+            grades = [total // n] * n
+            grades[0] += total - sum(grades)
+            rows.append([None, code, "みほん市", "199みほん市中区", school, total] + grades)
+        rows.append([None, "(注)令和６年度より休校"])
+        write_sheets(d / name, {sheet.replace("（学校別）", "（市町村別）"): [[None, "市町村別"]], sheet: rows})
+    return d
+
+
+# 子ども・子育て支援情報公表システム「ここdeサーチ」の全国施設CSV（認可施設、cp932、#138）。使う列だけ
+KOKODE_HEAD = ["施設類型", "施設の名称", "事業所番号", "施設の所在地 都道府県", "施設の所在地 市区町村",
+               "施設の所在地 町名・番地", "営業状況", "法人等の種類", "法人等代表者の氏名", "合計_利用定員数",
+               "合計_利用者数"] + [f"{a}歳_利用者数" for a in range(6)]
+KOKODE = {   # 都道府県 → (施設類型, 名称, 事業所番号, 市区町村, 町名・番地, 営業状況, 利用定員, 利用者数, 0〜5歳の利用者数)
+    "14": [
+        ("保育所", "標本保育園", "1419900000001", "みほん市中区", "標本町１－２", "通常営業", "60", "55",
+         ["6", "9", "10", "10", "10", "10"]),
+        # 利用定員を公表していない（値なし。0人にしない）。年齢別の合計が合計と合わないので年齢別は使わない
+        ("認定こども園－幼保連携型", "標本こども園", "1419900000002", "みほん市中区", "標本町1-3", "通常営業", "",
+         "100", ["5", "5", "5", "5", "5", "5"]),
+        ("小規模保育事業者－Ａ型", "どこか小規模保育室", "1419900000003", "みほん市中区", "どこにもない町9-9",
+         "通常営業", "19", "", [""] * 6),                                          # 位置なし
+        ("家庭的保育事業者", "見本家庭保育室", "1419900000004", "みほん市中区", "標本町1-2", "通常営業", "5", "5",
+         ["1", "2", "2", "", "", ""]),                                            # 家庭的保育（除く）
+        ("保育所", "休止中保育園", "1419900000005", "みほん市中区", "標本町1-2", "休止中", "30", "0", [""] * 6),
+        ("幼稚園", "標本幼稚園", "1419900000006", "みほん市中区", "標本町1-2", "通常営業", "100", "80", [""] * 6),
+    ],
+    "13": [
+        ("保育所", "見本ほいくえん", "1319900000001", "サンプル区", "見本町1-2", "通常営業", "90", "87",
+         [""] * 6),                                                              # 東京都の保育所は都の一覧を使う
+        ("小規模保育事業者－Ｂ型", "見本ちいさな保育室", "1319900000002", "サンプル区", "見本町一丁目3",
+         "通常営業", "12", "11", ["3", "4", "4", "", "", ""]),
+        # 都の一覧の認可保育所にもある保育所型の認定こども園（二重にしない）
+        ("認定こども園－保育所型", "見本第二保育園", "1319900000003", "サンプル区", "見本町一丁目99番地", "通常営業",
+         "120", "100", [""] * 6),
+    ],
+}
+
+
+def _write_kokode(directory: Path) -> Path:
+    d = directory / "kokode_nurseries"
+    for pref, rows in KOKODE.items():
+        path = d / pref / "ninka_20261017.csv"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="cp932", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(KOKODE_HEAD)
+            for kind, name, code, muni, street, status, cap, users, ages in rows:
+                w.writerow([kind, name, code, PREF_NAMES[pref], muni, street, status, "社会福祉法人", "見本 太郎",
+                            cap, users, *ages])
+    return d
+
+
+# 全国の位置参照情報（街区レベル、ZIP を展開せずに置く）。神奈川県のみほん市中区
+ISJ_NATIONAL_ROWS = [("みほん市中区", "標本町一丁目", "2", 139.6070, 35.4570, "1"),
+                     ("みほん市中区", "標本町一丁目", "3", 139.6080, 35.4580, "0")]
+
+
+def _write_isj_national(directory: Path) -> Path:
+    d = directory / "mlit_isj_block_national" / "14"
+    d.mkdir(parents=True, exist_ok=True)
+    buf = io.StringIO()
+    w = csv.writer(buf, quoting=csv.QUOTE_ALL)
+    w.writerow(ISJ_HEAD)
+    for muni, town, block, lon, lat, rep in ISJ_NATIONAL_ROWS:
+        w.writerow(["神奈川県", muni, town, "", block, "9", "0", "0", f"{lat:.6f}", f"{lon:.6f}", "1", rep, "0", "0"])
+    with zipfile.ZipFile(d / "14000-24.0a.zip", "w") as z:
+        z.writestr(zipfile.ZipInfo("14000-24.0a/14_2025.csv", FIXED_ZIP_TIME), buf.getvalue().encode("cp932"))
+    return d
+
+
+# こども家庭庁「保育所等関連状況取りまとめ」（参考）定員・申込者の状況（#138）。政令指定都市（みほん市）は市全体の行だけ。
+# (都道府県, 市区町村, 定員（保育所, 幼保連携型, 幼稚園型等, 地域型, 特例, 企業主導型, 地方単独）,
+#  申込者（申込者数, 保育所, 幼保連携型, 幼稚園型等, 地域型, 特例, 企業主導型, 地方単独, 育休, 特定, 求職休止, 待機児童）)
+CFA_ROWS = [
+    ("東京都", "サンプル区", [800, 200, 0, 100, 0, 50, 300], [1200, 750, 190, 0, 95, 0, 40, 280, 10, 20, 5, 12]),
+    ("東京都", "ためし市", [400, 0, 0, 40, 0, 0, 0], [450, 380, 0, 0, 38, 0, 0, 0, 3, 4, 1, 0]),
+    ("東京都", "かりの村", [30, 0, 0, 0, 0, 0, 0], [12, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    ("神奈川県", "みほん市", [5000, 1500, 300, 400, 0, 200, 0], [7000, 4800, 1450, 290, 380, 0, 0, 0, 30, 25, 10, 7]),
+]
+
+
+def _write_cfa_childcare(directory: Path) -> Path:
+    from .xlsx import write_sheets
+    kinds = ["保育所", "幼保連携型認定こども園", "幼稚園型認定こども園等", "地域型保育事業", "特例保育等",
+             "企業主導型保育事業", "地方単独事業"]
+    apply_head = ["申込者数"] + [f"{k}を利用している者" for k in kinds] + [
+        "育児休業中の者", "特定の保育園等のみ希望している者", "求職活動を休止している者", "待機児童"]
+
+    def sheet(title: str, head: list[str], key: int) -> list[list]:
+        rows = [[None], [], [None, f"（参考）{title}（令和８年４月１日）"], [None],
+                [None, "＊市区町村からの報告に基づき単純に積み上げた数値である。"], [None],
+                [None, None, None, None, "合計"], [None, None, "都道府県", "市区町村", *head], [None]]
+        for no, row in enumerate(CFA_ROWS, 1):
+            rows.append([row[0] + row[1], float(no), row[0], row[1], *[float(v) for v in row[key]]])
+        rows.append(["計", "計", *[float(sum(r[key][i] for r in CFA_ROWS)) for i in range(len(head))]])
+        return rows
+
+    path = directory / "cfa_childcare_2026" / "cfa_childcare_2026.xlsx"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_sheets(path, {"定員の状況": sheet("定員の状況", kinds, 2),
+                        "申込者の状況": sheet("申込者の状況", apply_head, 3)})
+    return path
 
 
 # 公立学校一覧（東京都教育委員会の CSV 形式、cp932）と位置参照情報（街区レベル）。

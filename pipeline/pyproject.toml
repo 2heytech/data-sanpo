@@ -14,7 +14,7 @@ prepare = ["numpy>=1.24", "pillow>=10"]
 tdm = "tdm.cli:main"
 
 [tool.setuptools]
-packages = ["tdm", "tdm.ingest", "tdm.prepare"]
+packages = ["tdm", "tdm.ingest", "tdm.ingest.school_readers", "tdm.prepare"]
 
 [tool.setuptools.package-data]
 tdm = ["schema.sql"]

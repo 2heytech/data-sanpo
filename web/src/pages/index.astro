@@ -205,7 +205,8 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
 
   <section class="sheet">
     <h2 id="areas">地域から探す</h2>
-    <p><a class="button secondary" href="/areas/">市区町村の一覧（名前で探す）</a></p>
+    <p class="area-buttons"><a class="button secondary" href="/prefectures/">都道府県の一覧</a>
+      <a class="button secondary" href="/areas/">市区町村の一覧（名前で探す）</a></p>
     {areas.prefectures.map((pref) => {
       const inPref = areas.municipalities.filter((m) => m.prefecture === pref.code);
       // 東京都は区部・多摩・島しょに分け、ほかの道府県は政令指定都市の区をまとめずに並べる
@@ -237,6 +238,7 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
   .hero h1 { margin: 0; }
   .hero h1 img { width: min(520px, 92%); height: auto; }
   .lead { font-size: 1.12rem; margin: 18px 0 26px; color: #2c3a4a; }
+  .area-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
   .button.big { font-size: 1.3rem; padding: 16px 52px; box-shadow: 0 6px 18px rgba(11, 92, 173, .35); }
   .genre h3 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.8em; scroll-margin-top: 100px; }
   #indicators { scroll-margin-top: 100px; }

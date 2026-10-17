@@ -4451,6 +4451,71 @@ attribution = "出典：東京都福祉局「都内の保育サービスの状�
 modification_note = "区市町村別の待機児童数を抜き出し、保育サービス利用児童数と就学前児童人口から利用率を算出して作成"
 redistributable = true
 
+# こども家庭庁「保育所等関連状況取りまとめ」の（参考）定員・申込者の状況（市区町村別、#138）。令和5年は申込者の状況だけ
+[cfa_childcare_2026]
+kind = "cfa_childcare"
+year = 2026
+title = "保育所等関連状況取りまとめ（令和8年4月1日） （参考）定員・申込者の状況"
+provider = "こども家庭庁"
+url = "https://www.cfa.go.jp/policies/hoiku/torimatome/r8"
+download_url = "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/68234dca-5d01-4ec2-ac2f-86f598c55b5c/3e3cd95a/20260826_%20policies_hoiku_torimatome_r%EF%BC%98_02.xlsx"
+download_filename = "cfa_childcare_2026.xlsx"
+files = ["cfa_childcare_2026.xlsx"]
+cache = true
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠（こども家庭庁コピーライトポリシー）"
+license_url = "https://www.cfa.go.jp/copyright-policy"
+attribution = "出典：こども家庭庁「保育所等関連状況取りまとめ」"
+modification_note = "市区町村別の保育所等の利用定員・利用児童数・待機児童数を抜き出し、定員に対する利用児童の割合を算出して作成"
+redistributable = true
+
+[cfa_childcare_2025]
+kind = "cfa_childcare"
+year = 2025
+title = "保育所等関連状況取りまとめ（令和7年4月1日） （参考）定員・申込者の状況"
+provider = "こども家庭庁"
+url = "https://www.cfa.go.jp/policies/hoiku/torimatome/r7"
+download_url = "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/b0a8057b-34bf-4c20-84fb-ae592708ca9b/1aa96453/20250828_policies_hoiku_torimatome_r7_04.xlsx"
+download_filename = "cfa_childcare_2025.xlsx"
+files = ["cfa_childcare_2025.xlsx"]
+cache = true
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠（こども家庭庁コピーライトポリシー）"
+license_url = "https://www.cfa.go.jp/copyright-policy"
+attribution = "出典：こども家庭庁「保育所等関連状況取りまとめ」"
+modification_note = "市区町村別の保育所等の利用定員・利用児童数・待機児童数を抜き出し、定員に対する利用児童の割合を算出して作成"
+redistributable = true
+
+[cfa_childcare_2024]
+kind = "cfa_childcare"
+year = 2024
+title = "保育所等関連状況取りまとめ（令和6年4月1日） （参考）定員・申込者の状況"
+provider = "こども家庭庁"
+url = "https://www.cfa.go.jp/policies/hoiku/torimatome/r6"
+download_url = "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/4ddf7d00-3f9a-4435-93a4-8e6c204db16c/3b8b7af2/20250122_policies_hoiku_torimatome_r6_07.xlsx"
+download_filename = "cfa_childcare_2024.xlsx"
+files = ["cfa_childcare_2024.xlsx"]
+cache = true
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠（こども家庭庁コピーライトポリシー）"
+license_url = "https://www.cfa.go.jp/copyright-policy"
+attribution = "出典：こども家庭庁「保育所等関連状況取りまとめ」"
+modification_note = "市区町村別の保育所等の利用定員・利用児童数・待機児童数を抜き出し、定員に対する利用児童の割合を算出して作成"
+redistributable = true
+
+[cfa_childcare_2023]
+kind = "cfa_childcare"
+year = 2023
+title = "保育所等関連状況取りまとめ（令和5年4月1日） （参考）申込者の状況"
+provider = "こども家庭庁"
+url = "https://www.cfa.go.jp/policies/hoiku/torimatome/r5"
+download_url = "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/f699fe5b-bf3d-46b1-8028-c5f450718d1a/e28c52c6/20230901_policies_hoiku_torimatome_r5_04.xlsx"
+download_filename = "cfa_childcare_2023.xlsx"
+files = ["cfa_childcare_2023.xlsx"]
+cache = true
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠（こども家庭庁コピーライトポリシー）"
+license_url = "https://www.cfa.go.jp/copyright-policy"
+attribution = "出典：こども家庭庁「保育所等関連状況取りまとめ」"
+modification_note = "市区町村別の保育所等の利用定員・利用児童数・待機児童数を抜き出し、定員に対する利用児童の割合を算出して作成"
+redistributable = true
+
 [tokyo_childcare_2021]
 kind = "tokyo_childcare"
 years = [2021]
@@ -4813,31 +4878,634 @@ attribution = "出典：国土交通省 国土数値情報（学校データ）"
 modification_note = "東京都以外の公立の小学校・中学校・義務教育学校の名称・所在地・位置を抜き出して作成"
 redistributable = true
 
-# 東京都以外の認可保育所の位置（国土数値情報 福祉施設データ P14、2023年度、小分類 050401 保育所）。定員はないので位置だけ。
-# 自治体ごとの利用条件（R5_Terms_of_Use_WelfareInstitution.xlsx、2026-10-05 確認）で保育施設を商用利用不可・公開不可と
-# している自治体の所管分は取り込まない（広告のあるサイトのため）。exclude_codes は市区町村コードの先頭、include_codes はその例外:
-#   北海道（道の所管。HP掲載情報以外は商用不可）・札幌市（民間の保育施設は商用不可）→ 自ら所管する函館市・旭川市は含める
-#   神奈川県（県の所管。保育関係は商用不可）・横浜市（保育関係は公開不可）→ 川崎市・相模原市・横須賀市は含める
-#   和歌山県（商用不可）→ 和歌山市は含める。福岡県（児童福祉施設は条件付きで商用不可）→ 北九州市・福岡市・久留米市は含める
-#   堺市（市立以外は商用不可）・明石市（保育施設は商用不可）・松江市（一部のみ商用可）・那覇市（児童福祉施設は商用不可）
-# 元ファイルにはこれらの施設も入っているので、公開の Release（raw-sources）には上げない（public_raw = false）。
-[mlit_p14_2023]
-kind = "mlit_nurseries"
+# 東京都以外の公立小中学校の学校ごとの児童・生徒数（#138）。学校ごとの数を CC BY・PDL1.0 で公開している道県・市だけ。
+# reader で表の読み方を選ぶ（pipeline/tdm/ingest/school_readers/）。学校の点は国土数値情報 学校データ（mlit_p29_2023）に付ける
+[school_counts_kanagawa_2025]
+kind = "school_counts"
+reader = "kanagawa"
+school_year = 2025
+per_prefecture = true
+prefectures = ["14"]
+title = "神奈川の教育統計（令和７年度 公立小・中学校等の児童・生徒数、学級数、教職員数及び公立高等学校等の生徒数、学級数一覧）"
+provider = "神奈川県"
+url = "https://catalog.opendata.pref.kanagawa.jp/dataset/551dfe5896ce5628c9feefa6ffe177bb"
+files = ["*.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：神奈川県「神奈川の教育統計（令和７年度 公立小・中学校等の児童・生徒数、学級数、教職員数及び公立高等学校等（全日制・定時制）の生徒数、学級数一覧）」（神奈川県オープンデータカタログ）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_kanagawa_2025.download_files]
+"elementary.xlsx" = "https://catalog.opendata.pref.kanagawa.jp/dataset/7858f90b-760d-46bb-aa87-eadfa0f8a551/resource/026f95e8-78dc-420d-9974-41d79043e6e0/download/elementary_student-class_r07_1222.xlsx"
+"junior_high.xlsx" = "https://catalog.opendata.pref.kanagawa.jp/dataset/7858f90b-760d-46bb-aa87-eadfa0f8a551/resource/a27f6daf-9ee2-4b77-bbea-a1c5505f74ec/download/jr_high_student-class_r07_1222.xlsx"
+"compulsory.xlsx" = "https://catalog.opendata.pref.kanagawa.jp/dataset/7858f90b-760d-46bb-aa87-eadfa0f8a551/resource/21d594c6-b0c5-4766-af55-9b913f0587ca/download/compulsory_student-class_r07.xlsx"
+
+# 学校名が略称（「岩見沢中央」）で表だけでは正式名が決まらないので、文部科学省の学校コード一覧（東日本）と照らす
+[school_counts_hokkaido_2025]
+kind = "school_counts"
+reader = "hokkaido"
+school_year = 2025
+per_prefecture = true
+prefectures = ["01"]
+title = "令和7年度 北海道学校一覧（小学校・中学校・義務教育学校の部）、学校コード（令和7年5月1日時点）"
+provider = "北海道教育委員会・文部科学省"
+url = "https://www.dokyoi.pref.hokkaido.lg.jp/hk/ksk/chousatoukei/gakkou-ichiran/250667.html"
+files = ["*.csv", "*.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（北海道オープンデータ利用規約）、政府標準利用規約（文部科学省）"
+license_url = "https://www.pref.hokkaido.lg.jp/kz/dxs/opendata/hokkaido_od_kiyaku.html"
+attribution = "出典：北海道教育委員会「令和7年度 北海道学校一覧」、文部科学省「学校コード」（https://www.mext.go.jp/b_menu/toukei/mext_01087.html）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_hokkaido_2025.download_files]
+"elementary.xlsx" = "https://www.dokyoi.pref.hokkaido.lg.jp/fs/1/3/0/6/6/1/3/2/_/5%20%E5%B0%8F%E5%AD%A6%E6%A0%A1%E3%81%AE%E9%83%A8.xlsx"
+"junior_high.xlsx" = "https://www.dokyoi.pref.hokkaido.lg.jp/fs/1/3/0/6/6/1/3/3/_/6%20%E4%B8%AD%E5%AD%A6%E6%A0%A1%E3%81%AE%E9%83%A8.xlsx"
+"compulsory.xlsx" = "https://www.dokyoi.pref.hokkaido.lg.jp/fs/1/3/0/6/6/1/3/4/_/7%20%E7%BE%A9%E5%8B%99%E6%95%99%E8%82%B2%E5%AD%A6%E6%A0%A1%E3%81%AE%E9%83%A8.xlsx"
+"school_codes.csv" = "https://www.mext.go.jp/content/20251226-mxt_chousa01-000011635_2.csv"
+
+[school_counts_akita_2026]
+kind = "school_counts"
+reader = "akita"
+school_year = 2026
+per_prefecture = true
+prefectures = ["05"]
+title = "令和8年度 秋田県学校統計一覧（エクセル版）"
+provider = "秋田県教育委員会"
+url = "https://www.pref.akita.lg.jp/pages/archive/522"
+files = ["*.xlsx"]
+license = "秋田県オープンデータ利用規約（クリエイティブ・コモンズ 表示 4.0 国際と互換）"
+license_url = "https://www.pref.akita.lg.jp/pages/archive/36756"
+attribution = "出典：「令和8年度 秋田県学校統計一覧」（秋田県教育委員会）（https://www.pref.akita.lg.jp/pages/archive/522）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_akita_2026.download_files]
+"school_stats.xlsx" = "https://www.pref.akita.lg.jp/uploads/public/archive_0000000522_00/R8%E5%AD%A6%E6%A0%A1%E7%B5%B1%E8%A8%88%E4%B8%80%E8%A6%A7_%E3%82%A8%E3%82%AF%E3%82%BB%E3%83%AB%E4%BD%9C%E6%88%90%E3%83%87%E3%83%BC%E3%82%BF%EF%BC%88%E5%85%AC%E9%96%8B%E7%94%A8%EF%BC%89.xlsx"
+
+# カタログ（PDL1.0）のリソースは県サイトの便覧のページへのリンクなので、ファイルは県サイトから取る
+[school_counts_saitama_2026]
+kind = "school_counts"
+reader = "saitama"
+school_year = 2026
+per_prefecture = true
+prefectures = ["11"]
+title = "令和8年度 埼玉県学校便覧 名簿の部（公立学校）"
+provider = "埼玉県教育委員会"
+url = "https://opendata.pref.saitama.lg.jp/datasets/1036"
+files = ["*.xlsx"]
+license = "公共データ利用規約（第1.0版）（PDL1.0）"
+license_url = "https://www.digital.go.jp/resources/open_data/public_data_license_v1.0"
+attribution = "出典：埼玉県教育委員会「令和8年度埼玉県学校便覧」（埼玉県オープンデータポータルサイト https://opendata.pref.saitama.lg.jp/datasets/1036）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_saitama_2026.download_files]
+"elementary.xlsx" = "https://www.pref.saitama.lg.jp/documents/281199/08-02_01_kouritusyou4.xlsx"
+"junior_high.xlsx" = "https://www.pref.saitama.lg.jp/documents/281199/08-02_02_02_shichousonrituchuu3.xlsx"
+"junior_high_pref.xlsx" = "https://www.pref.saitama.lg.jp/documents/281199/08-02_02_01_kenrituchuu2.xlsx"
+"compulsory.xlsx" = "https://www.pref.saitama.lg.jp/documents/281199/08-02_03_gimukyouikugakkou2.xlsx"
+
+[school_counts_chiba_2025]
+kind = "school_counts"
+reader = "chiba"
+school_year = 2025
+per_prefecture = true
+prefectures = ["12"]
+title = "令和7年版千葉県教育便覧 5-1 国・公立学校名簿"
+provider = "千葉県教育委員会"
+url = "https://opendata.pref.chiba.lg.jp/datasets/21"
+files = ["*.xls"]
+license = "公共データ利用規約（第1.0版）（PDL1.0）"
+license_url = "https://www.digital.go.jp/resources/open_data/public_data_license_v1.0"
+attribution = "出典：千葉県教育委員会「令和7年版千葉県教育便覧 5-1国・公立学校名簿」（千葉県オープンデータサイト https://opendata.pref.chiba.lg.jp/resources/528）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_chiba_2025.download_files]
+"schools.xls" = "https://opendata.pref.chiba.lg.jp/resource_download/528"
+
+[school_counts_niigata_2025]
+kind = "school_counts"
+reader = "niigata"
+school_year = 2025
+per_prefecture = true
+prefectures = ["15"]
+title = "学校基本調査関連データ（令和7年度 小学校・中学校・義務教育学校 設置者別・学校別学級数、児童数（生徒数））"
+provider = "新潟県教育委員会"
+url = "https://www.pref.niigata.lg.jp/site/kyoiku/gakkoukihon2025.html"
+files = ["*.xls"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（新潟県オープンデータ利用規約）"
+license_url = "https://www.pref.niigata.lg.jp/site/userguide/od-kiyaku.html"
+attribution = "出典：新潟県「学校基本調査関連データ（令和7年度 小学校・中学校・義務教育学校 設置者別・学校別学級数、児童数）」（クリエイティブ・コモンズ・ライセンス 表示 4.0国際）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_niigata_2025.download_files]
+"elementary.xls" = "https://www.pref.niigata.lg.jp/uploaded/attachment/474525.xls"
+"junior_high.xls" = "https://www.pref.niigata.lg.jp/uploaded/attachment/481818.xls"
+"compulsory.xls" = "https://www.pref.niigata.lg.jp/uploaded/attachment/474534.xls"
+
+# PDF の表を pdftotext（poppler-utils）でテキストにして読む
+[school_counts_yamanashi_2026]
+kind = "school_counts"
+reader = "yamanashi"
+school_year = 2026
+per_prefecture = true
+prefectures = ["19"]
+title = "山梨県内の学校・学級・児童生徒数等（令和8年度） 学校別児童数・生徒数"
+provider = "山梨県教育委員会"
+url = "https://www.pref.yamanashi.jp/kyouiku/27458338247.html"
+files = ["*.pdf"]
+license = "山梨県オープンデータ利用規約（クリエイティブ・コモンズ 表示 4.0 国際と互換）"
+license_url = "https://www.pref.yamanashi.jp/opendata/kiyaku.html"
+attribution = "出典：山梨県教育委員会「山梨県内の学校・学級・児童生徒数等」（https://www.pref.yamanashi.jp/kyouiku/27458338247.html）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_yamanashi_2026.download_files]
+"elementary.pdf" = "https://www.pref.yamanashi.jp/documents/4146/r8kyouikutoukei_09.pdf"
+"junior_high.pdf" = "https://www.pref.yamanashi.jp/documents/4146/r8kyouikutoukei_10.pdf"
+"compulsory.pdf" = "https://www.pref.yamanashi.jp/documents/4146/r8kyouikutoukei_11.pdf"
+
+# 同じ URL の中身が毎年度書き換わる。年度は表の「令和８年５月１日現在」から読み、school_year と違えば止める
+[school_counts_mie_2026]
+kind = "school_counts"
+reader = "mie"
+school_year = 2026
+per_prefecture = true
+prefectures = ["24"]
+title = "学校名簿（令和8年度版）"
+provider = "三重県教育委員会"
+url = "https://data.bodik.jp/dataset/240001_school_all"
+files = ["*.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：三重県教育委員会「学校名簿」（令和8年度版）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_mie_2026.download_files]
+"meibo.xlsx" = "https://www.pref.mie.lg.jp/common/content/001153699.xlsx"
+
+[school_counts_shimane_2026]
+kind = "school_counts"
+reader = "shimane"
+school_year = 2026
+per_prefecture = true
+prefectures = ["32"]
+title = "【島根県】島根県公立小中学校児童生徒数学級数"
+provider = "島根県"
+url = "https://shimane-opendata.jp/datasets/39"
+files = ["*.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（しまねオープンデータカタログ利用規約）"
+license_url = "https://shimane-opendata.jp/pages/terms"
+attribution = "出典：島根県「【島根県】島根県公立小中学校児童生徒数学級数」（しまねオープンデータカタログ https://shimane-opendata.jp/datasets/39）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_shimane_2026.download_files]
+"elementary.xlsx" = "https://shimane-opendata.jp/resource_download/76377"
+"junior_high.xlsx" = "https://shimane-opendata.jp/resource_download/76376"
+
+[school_counts_okayama_2026]
+kind = "school_counts"
+reader = "okayama"
+school_year = 2026
+per_prefecture = true
+prefectures = ["33"]
+title = "令和8年度公立学校一覧【在学者数・教職員数】"
+provider = "岡山県教育委員会"
+url = "https://www.pref.okayama.jp/site/16/1053565.html"
+files = ["*.xlsx"]
+license = "公共データ利用規約（第1.0版）（PDL1.0）（岡山県サイトポリシー）"
+license_url = "https://www.pref.okayama.jp/page/detail-4318.html"
+attribution = "出典：「令和８年度公立学校一覧」（岡山県）（https://www.pref.okayama.jp/site/16/1053565.html）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_okayama_2026.download_files]
+"elementary.xlsx" = "https://www.pref.okayama.jp/uploaded/life/1053565_10209125_misc.xlsx"
+"junior_high.xlsx" = "https://www.pref.okayama.jp/uploaded/life/1053565_10209126_misc.xlsx"
+"compulsory.xlsx" = "https://www.pref.okayama.jp/uploaded/life/1053565_10209127_misc.xlsx"
+
+[school_counts_tokushima_2026]
+kind = "school_counts"
+reader = "tokushima"
+school_year = 2026
+per_prefecture = true
+prefectures = ["36"]
+title = "令和8年度公立学校関係データ（小学校・中学校）"
+provider = "徳島県教育委員会"
+url = "https://opendata.pref.tokushima.lg.jp/dataset/5184.html"
+files = ["*.xlsx"]
+license = "クリエイティブ・コモンズ 表示（CC BY）（徳島県オープンデータ利用規約）"
+license_url = "https://opendata.pref.tokushima.lg.jp/kiyaku.html"
+attribution = "出典：「令和8年度公立学校関係データ（小学校）」「同（中学校）」（徳島県）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_tokushima_2026.download_files]
+"elementary.xlsx" = "https://opendata.pref.tokushima.lg.jp/dataset/5184/resource/17405/R8_%E5%B0%8F%E5%AD%A6%E6%A0%A1%E3%83%87%E3%83%BC%E3%82%BF.xlsx"
+"junior_high.xlsx" = "https://opendata.pref.tokushima.lg.jp/dataset/5185/resource/17407/R8_%E4%B8%AD%E5%AD%A6%E6%A0%A1%E3%83%87%E3%83%BC%E3%82%BF.xlsx"
+
+[school_counts_kagawa_2026]
+kind = "school_counts"
+reader = "kagawa"
+school_year = 2026
+per_prefecture = true
+prefectures = ["37"]
+title = "令和８年度学校一覧（学校（園）数、幼児児童生徒数、本務教員数、本務職員数等）"
+provider = "香川県教育委員会"
+url = "https://opendata.pref.kagawa.lg.jp/dataset/986.html"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（かがわオープンデータ利用規約）"
+license_url = "https://opendata.pref.kagawa.lg.jp/privacy.html"
+attribution = "出典：「令和８年度学校一覧」（香川県）（https://opendata.pref.kagawa.lg.jp/dataset/986.html）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_kagawa_2026.download_files]
+"elementary.csv" = "https://opendata.pref.kagawa.lg.jp/dataset/986/resource/17809/03_R8%E5%B0%8F%E5%AD%A6%E6%A0%A1.csv"
+"junior_high.csv" = "https://opendata.pref.kagawa.lg.jp/dataset/986/resource/17810/04_R8%E4%B8%AD%E5%AD%A6%E6%A0%A1.csv"
+
+[school_counts_kumamoto_2025]
+kind = "school_counts"
+reader = "kumamoto"
+school_year = 2025
+per_prefecture = true
+prefectures = ["43"]
+title = "学校一覧（令和8年1月26日版。小学校・中学校・義務教育学校、令和7年5月1日現在）"
+provider = "熊本県教育庁"
+url = "https://data.bodik.jp/dataset/430005_00021"
+files = ["*.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：熊本県「学校一覧」（https://data.bodik.jp/dataset/430005_00021）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_kumamoto_2025.download_files]
+"elementary.xlsx" = "https://data.bodik.jp/dataset/7675f7c7-4187-448b-be4d-a857d6934c71/resource/dd5b7dd0-2e36-497e-88aa-51c44fe1dcc4/download/4_37_37_r8.1.261-4.xlsx"
+"junior_high.xlsx" = "https://data.bodik.jp/dataset/7675f7c7-4187-448b-be4d-a857d6934c71/resource/e472df21-877e-4e0e-9b5c-7bc12caf8de5/download/4_38_37_r8.1.261-3.xlsx"
+"compulsory.xlsx" = "https://data.bodik.jp/dataset/7675f7c7-4187-448b-be4d-a857d6934c71/resource/bc7e1bb2-5fee-4703-b926-fedef2c575c5/download/4_36_37_r8.1.261-5.xlsx"
+
+[school_counts_shizuoka_city_2026]
+kind = "school_counts"
+reader = "shizuoka_city"
+school_year = 2026
+per_prefecture = true
+prefectures = ["22"]
+title = "静岡市立の学校に在籍する児童及び生徒数（令和8年5月1日時点、速報値）"
+provider = "静岡市"
+url = "https://opendata.pref.shizuoka.jp/dataset/12472.html"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：静岡市「静岡市立の学校に在籍する児童及び生徒数」（静岡県オープンデータカタログ）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_shizuoka_city_2026.download_files]
+"elementary.csv" = "https://opendata.pref.shizuoka.jp/dataset/12472/resource/103628/%E5%B8%82%E7%AB%8B%E5%B0%8F%E5%AD%A6%E6%A0%A1%EF%BC%9A%E5%85%90%E7%AB%A5%E5%8F%8A%E3%81%B3%E5%AD%A6%E7%B4%9A%E6%95%B0.csv"
+"junior_high.csv" = "https://opendata.pref.shizuoka.jp/dataset/12472/resource/103631/%E5%B8%82%E7%AB%8B%E4%B8%AD%E5%AD%A6%E6%A0%A1%EF%BC%9A%E7%94%9F%E5%BE%92%E5%8F%8A%E3%81%B3%E5%AD%A6%E7%B4%9A%E6%95%B0.csv"
+
+# PDF の表を pdftotext（poppler-utils）でテキストにして読む
+[school_counts_nagoya_2025]
+kind = "school_counts"
+reader = "nagoya"
+school_year = 2025
+per_prefecture = true
+prefectures = ["23"]
+title = "教育調査統計 No.220（令和7年5月1日現在） 12 学校（園）別一覧"
+provider = "名古屋市教育委員会"
+url = "https://data.bodik.jp/dataset/231002_4401030000_03"
+files = ["*.pdf"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：名古屋市教育委員会「教育調査統計」No.220"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_nagoya_2025.download_files]
+"kyouiku_toukei.pdf" = "https://data.bodik.jp/dataset/3b91ce26-4bde-4544-b031-baaf1a91e99a/resource/21e353dd-c161-4c50-8164-734d104e4d3a/download/220_kyouikutyousatoukei.pdf"
+
+[school_counts_kurume_2026]
+kind = "school_counts"
+reader = "kurume"
+school_year = 2026
+per_prefecture = true
+prefectures = ["40"]
+title = "市立学校児童生徒数一覧（久留米市）"
+provider = "久留米市"
+url = "https://data.bodik.jp/dataset/402036_0001200_00011"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示（CC BY）"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：久留米市「市立学校児童生徒数一覧（久留米市）」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_kurume_2026.download_files]
+"schools.csv" = "https://data.bodik.jp/dataset/3cbc1648-9bdc-46c2-9470-bc6da046d898/resource/dd31ccd7-0d92-47ec-a25e-3844cd56c2ac/download/402036_1200_00011_00010.csv"
+
+[school_counts_ogori_2026]
+kind = "school_counts"
+reader = "ogori"
+school_year = 2026
+per_prefecture = true
+prefectures = ["40"]
+title = "児童生徒数（小郡市）（共通フォーマット）"
+provider = "小郡市"
+url = "https://data.bodik.jp/dataset/402168_jidou"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：小郡市「児童生徒数（小郡市）（共通フォーマット）」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_ogori_2026.download_files]
+"schools.csv" = "https://data.bodik.jp/dataset/e7fb66a8-aefb-4bb9-8d7a-f0c6ff8b02e4/resource/92ca40af-b6d2-4414-a409-d9af9df51490/download/10013_jidou_2026.csv"
+
+# 令和8年の中学校のファイルは令和7年と同じ内容なので、中学校は令和7年（2025年度）のファイルを使う
+[school_counts_chikushino_2026]
+kind = "school_counts"
+reader = "fukuoka_toshiken"
+school_year = 2026
+years = { "junior_high.csv" = 2025 }
+per_prefecture = true
+prefectures = ["40"]
+title = "筑紫野市 公立小中学校児童生徒数（学校別）（福岡都市圏共通フォーマット）"
+provider = "筑紫野市"
+url = "https://data.bodik.jp/dataset/402176_jidouseitosuu"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示（CC BY）"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：筑紫野市「筑紫野市 公立小中学校児童生徒数（学校別）（福岡都市圏共通フォーマット）」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_chikushino_2026.download_files]
+"elementary.csv" = "https://data.bodik.jp/dataset/8997bca3-767e-4eac-9afc-96eb55a76b5d/resource/b42162e4-3185-46fe-82af-96ae65f93c1c/download/40217fukuokachikushinojidousuu20260501.csv"
+"junior_high.csv" = "https://data.bodik.jp/dataset/8997bca3-767e-4eac-9afc-96eb55a76b5d/resource/ff8417be-6ba1-43f7-9be5-5c20e0a928e8/download/40217fukuokachikushinoseitosuu20250501.csv"
+
+[school_counts_kasuga_2025]
+kind = "school_counts"
+reader = "fukuoka_toshiken"
+school_year = 2025
+per_prefecture = true
+prefectures = ["40"]
+title = "春日市 公立小学校児童数・公立中学校生徒数（福岡都市圏共通フォーマット）"
+provider = "春日市"
+url = "https://data.bodik.jp/dataset/402184_syotyutosiken20180928"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：春日市「春日市 公立小学校児童数・公立中学校生徒数（福岡都市圏共通フォーマット）」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_kasuga_2025.download_files]
+"elementary.csv" = "https://data.bodik.jp/dataset/60acd941-a917-4add-a0f7-a844d9aa29f6/resource/a9639a32-c21a-4125-a40e-f961ba261db6/download/402184_elementaryschoolstudents_20250501.csv"
+"junior_high.csv" = "https://data.bodik.jp/dataset/60acd941-a917-4add-a0f7-a844d9aa29f6/resource/e8cea1b9-a5cd-43c9-9f45-4a492b4050de/download/402184_juniorhighschoolstudents_20250501.csv"
+
+# 同じ URL の中身が毎年度書き換わる（2026-10-17 の取得分の合計が県の令和8年度の値と一致）
+[school_counts_koga_2026]
+kind = "school_counts"
+reader = "fukuoka_toshiken"
+school_year = 2026
+per_prefecture = true
+prefectures = ["40"]
+title = "古賀市 公立小中学校児童生徒数（福岡都市圏共通フォーマット）"
+provider = "古賀市"
+url = "https://data.bodik.jp/dataset/402231_"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示（CC BY）"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：古賀市「公立小中学校児童生徒数（福岡都市圏共通フォーマット）」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_koga_2026.download_files]
+"elementary.csv" = "https://data.bodik.jp/dataset/fc7ae9ff-9b36-422e-8228-960da7f56f30/resource/1244b53b-9be7-4d10-b462-663845c48ac3/download/03-1.csv"
+"junior_high.csv" = "https://data.bodik.jp/dataset/fc7ae9ff-9b36-422e-8228-960da7f56f30/resource/b8c4a657-4fc0-49d6-8178-56c3c7e19d42/download/04.csv"
+
+[school_counts_fukutsu_2026]
+kind = "school_counts"
+reader = "fukuoka_toshiken"
+school_year = 2026
+per_prefecture = true
+prefectures = ["40"]
+title = "福津市 公立小中学校児童生徒数（学校別）（福岡都市圏共通フォーマット）"
+provider = "福津市"
+url = "https://data.bodik.jp/dataset/402249_0001200_00001"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：福津市「福津市 公立小中学校児童生徒数（学校別）（福岡都市圏共通フォーマット）」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_fukutsu_2026.download_files]
+"elementary.csv" = "https://data.bodik.jp/dataset/19125385-3987-47ad-bd1e-7e01d089e370/resource/389ce711-301c-44bd-9d12-f8d702e3b35b/download/402249.elementaryschool.jidosu.20260501.csv"
+"junior_high.csv" = "https://data.bodik.jp/dataset/19125385-3987-47ad-bd1e-7e01d089e370/resource/5d8d0ba5-7074-479f-b307-a339aae8901f/download/402249.juniorhighschool.seitosu.20260501.csv"
+
+[school_counts_kasuya_2025]
+kind = "school_counts"
+reader = "fukuoka_toshiken"
+school_year = 2025
+per_prefecture = true
+prefectures = ["40"]
+title = "粕屋町 公立小中学校児童生徒数（学校別）（福岡都市圏共通フォーマット）"
+provider = "粕屋町"
+url = "https://data.bodik.jp/dataset/403491_number_of_students_elementary_school_junior_high_school"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示（CC BY）"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：粕屋町「粕屋町 公立小中学校児童生徒数（学校別）（福岡都市圏共通フォーマット）」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_kasuya_2025.download_files]
+"elementary.csv" = "https://data.bodik.jp/dataset/e40f510d-bb65-4e23-830f-955b869e9322/resource/aac71810-c35c-4c58-87d6-5179e84f8b24/download/403491_number_of_students_elementary_school2025.csv"
+"junior_high.csv" = "https://data.bodik.jp/dataset/e40f510d-bb65-4e23-830f-955b869e9322/resource/15dc4b19-b015-45bb-b35a-63d56c48628e/download/403491_number_of_students_junior_high_school2025.csv"
+
+[school_counts_mizumaki_2024]
+kind = "school_counts"
+reader = "mizumaki"
+school_year = 2024
+per_prefecture = true
+prefectures = ["40"]
+title = "小・中学校の児童・生徒数及び学級数 令和6年度"
+provider = "水巻町"
+url = "https://data.bodik.jp/dataset/403822_sc2024"
+files = ["*.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：水巻町「小・中学校の児童・生徒数及び学級数 令和6年度」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_mizumaki_2024.download_files]
+"elementary.xlsx" = "https://data.bodik.jp/dataset/8226981b-acaf-41ac-88b3-4fd96adf4146/resource/85633c40-2a8e-4564-9486-7792c8d44ca7/download/sg2024.xlsx"
+"junior_high.xlsx" = "https://data.bodik.jp/dataset/8226981b-acaf-41ac-88b3-4fd96adf4146/resource/2cde1bbd-e58f-4374-b550-164e759c381f/download/cg2024.xlsx"
+
+[school_counts_saga_city_2026]
+kind = "school_counts"
+reader = "saga_city"
+school_year = 2026
+per_prefecture = true
+prefectures = ["41"]
+title = "佐賀市立小学校中学校児童生徒数（令和8年度）"
+provider = "佐賀市"
+url = "https://data.bodik.jp/dataset/412015_schoolstudent"
+files = ["*.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：佐賀市「佐賀市立小学校中学校児童生徒数」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_saga_city_2026.download_files]
+"students.xlsx" = "https://data.bodik.jp/dataset/7032be8e-2e26-4884-8772-a594b3600b7f/resource/a1308ac7-5163-456e-b271-51d331b6dd8b/download/412015_school_students_2026.xlsx"
+
+[school_counts_nagasaki_city_2026]
+kind = "school_counts"
+reader = "nagasaki_city"
+school_year = 2026
+per_prefecture = true
+prefectures = ["42"]
+title = "児童・生徒数一覧（市立小学校・市立中学校）（長崎市）"
+provider = "長崎市"
+url = "https://data.bodik.jp/dataset/422011_number_of_students_by_municipal_elementary_school"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：長崎市「児童・生徒数一覧（市立小学校）（長崎市）」「児童・生徒数一覧（市立中学校）（長崎市）」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_nagasaki_city_2026.download_files]
+"elementary.csv" = "https://data.bodik.jp/dataset/533543ea-796d-4a64-911f-ccd9b5be6af8/resource/43c6036d-9e43-4ae5-8909-8908d5a706fd/download/422011_number_of_students_by_municipal_elementary_school_2026.csv"
+"junior_high.csv" = "https://data.bodik.jp/dataset/f3470bb3-5a3b-413b-9283-6a04b5115fb9/resource/2292760c-212f-4195-a4ab-8e1971b205fe/download/422011_number_of_students_by_municipal_junior_high_school_2026.csv"
+
+[school_counts_matsuyama_2026]
+kind = "school_counts"
+reader = "matsuyama"
+school_year = 2026
+per_prefecture = true
+prefectures = ["38"]
+title = "児童数・学級数／生徒数・学級数（令和8年度）"
+provider = "松山市"
+url = "https://www.city.matsuyama.ehime.jp/shisei/opendata/metadata/toukeide-ta.html"
+files = ["*.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：松山市「児童数・学級数」「生徒数・学級数」（松山市オープンデータ）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_matsuyama_2026.download_files]
+"elementary.xlsx" = "https://www.city.matsuyama.ehime.jp/shisei/opendata/metadata/toukeide-ta.files/R08jidousuu.xlsx"
+"junior_high.xlsx" = "https://www.city.matsuyama.ehime.jp/shisei/opendata/metadata/toukeide--ta.files/R08chuuseitosuu.xlsx"
+
+[school_counts_hyuga_2024]
+kind = "school_counts"
+reader = "hyuga"
+school_year = 2024
+per_prefecture = true
+prefectures = ["45"]
+title = "日向市立小中学校 児童・生徒数（令和6年度 公立小・中学校の児童生徒数一覧）"
+provider = "日向市"
+url = "https://data.bodik.jp/dataset/452068_seito"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：日向市「日向市立小中学校 児童・生徒数」"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_hyuga_2024.download_files]
+"schools.csv" = "https://data.bodik.jp/dataset/c7f3187c-a1f8-44d3-8e88-48e52f32f588/resource/bab2fceb-b7c2-4eb1-9b2c-3da74d79fc12/download/452068_2024_student_numbers_in_public_elementary_and_junior_high_schools.csv"
+
+[school_counts_okinawa_city_2024]
+kind = "school_counts"
+reader = "okinawashi"
+school_year = 2024
+per_prefecture = true
+prefectures = ["47"]
+title = "沖縄市統計書 分野11 文教（小学校学年別学級数および児童数、市立中学校学年別学級数および生徒数）"
+provider = "沖縄市"
+url = "https://data.bodik.jp/dataset/472115_11_4_syougakkkougakunennbetugakkyuusuujidousuu_20220501"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：沖縄市「沖縄市統計書」（分野11 文教）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_okinawa_city_2024.download_files]
+"elementary.csv" = "https://data.bodik.jp/dataset/3ae9af9f-3556-4036-b647-3bd5a30ddbd4/resource/ee476cef-bddd-4cdc-b4f1-939105532418/download/upload"
+"junior_high.csv" = "https://data.bodik.jp/dataset/4ea9c59e-7b7c-41a6-bc9d-e99688493395/resource/18ca972d-53b1-4c7c-9a06-777c3c032600/download/upload"
+
+[school_counts_ishigaki_2024]
+kind = "school_counts"
+reader = "ishigaki"
+school_year = 2024
+per_prefecture = true
+prefectures = ["47"]
+title = "令和6年度統計いしがき 教育および文化（小学校別学年別、中学校別学年別）"
+provider = "石垣市"
+url = "https://data.bodik.jp/dataset/472077_r6_12"
+files = ["*.csv"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際"
+license_url = "https://creativecommons.org/licenses/by/4.0/deed.ja"
+attribution = "出典：石垣市「令和6年度統計いしがき」（教育および文化）"
+modification_note = "学校ごとの児童・生徒数を抜き出し、国土数値情報（学校データ）の学校の位置に対応させて作成"
+redistributable = true
+
+[school_counts_ishigaki_2024.download_files]
+"elementary.csv" = "https://data.bodik.jp/dataset/2e803c90-aab8-4eaa-a9a4-b93af1b10840/resource/ba93d757-c171-4188-9378-8a792813af2f/download/12-6.csv"
+"junior_high.csv" = "https://data.bodik.jp/dataset/2e803c90-aab8-4eaa-a9a4-b93af1b10840/resource/bf3af326-c0ba-46e2-b03e-9bac5e9226f6/download/12-8.csv"
+
+# 子ども・子育て支援情報公表システム「ここdeサーチ」の全国施設CSV（#138）。決まった URL がなく、画面のボタン（フォームの
+# POST）で ZIP を取る（fetch.fetch_kokode）。法人の代表者・施設の管理者の氏名の列があるので、元ファイルは公開の Release に上げない
+[kokode_nurseries]
+kind = "kokode_nurseries"
+fetch = "kokode"
+per_prefecture = true
+files = ["ninka_*.csv"]
+public_raw = false
+title = "子ども・子育て支援情報公表システム「ここdeサーチ」 全国施設CSV（認可施設）"
+provider = "こども家庭庁・独立行政法人福祉医療機構"
+url = "https://www.wam.go.jp/kokodesearch/"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
+license_url = "https://www.wam.go.jp/content/wamnet/pcpub/jidou/kdmsyspub/public/kd003.html"
+attribution = "出典：子ども・子育て支援情報公表システム（https://www.wam.go.jp/kokodesearch/）"
+modification_note = "子ども・子育て支援情報公表システム（https://www.wam.go.jp/kokodesearch/）の認可保育所・認定こども園・小規模保育・事業所内保育の名称・所在地・利用定員・利用者数を抜き出し、所在地から位置を求めて作成"
+redistributable = true
+
+# 全国の位置参照情報（街区レベル）。ここdeサーチの保育所などと、P29 にない学校の所在地の位置を求める（#138）。
+# 1県で数十MBの CSV になるので、ZIP を展開せずに置く（extract = false）。東京都は mlit_isj_2025 を使う
+[mlit_isj_block_national]
+kind = "isj_block_points"
 per_prefecture = true
 exclude_prefectures = ["13"]
-as_of = "2023年度"
-exclude_codes = ["01", "14", "30", "40", "2714", "28203", "32201", "47201"]
-include_codes = ["01202", "01204", "1413", "1415", "14201", "30201", "4010", "4013", "40203"]
-public_raw = false
-title = "国土数値情報 福祉施設データ（2023年度） 保育所"
+title = "位置参照情報 街区レベル（2025年版 24.0a）"
 provider = "国土交通省"
-url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P14-2023.html"
-download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/P14/P14-23/P14-23_{pref}_GML.zip"
-files = ["P14-23_??.geojson"]
-license = "クリエイティブ・コモンズ 表示 4.0 国際（国土数値情報 オープンデータ。自治体ごとの利用条件あり）"
-license_url = "https://nlftp.mlit.go.jp/ksj/gml/codelist/R5_Terms_of_Use_WelfareInstitution.xlsx"
-attribution = "出典：国土交通省 国土数値情報（福祉施設データ）"
-modification_note = "東京都以外の保育所の名称・所在地・位置を抜き出し、利用条件で商用利用を認めていない自治体の施設を除いて作成"
+url = "https://nlftp.mlit.go.jp/isj/index.html"
+download_url = "https://nlftp.mlit.go.jp/isj/dls/data/24.0a/{pref}000-24.0a.zip"
+download_filename = "{pref}000-24.0a.zip"
+files = ["*.zip"]
+extract = false
+cache = true
+public_raw = false
+encoding = "cp932"
+license = "位置参照情報ダウンロードサービス 利用約款"
+license_url = "https://nlftp.mlit.go.jp/isj/agreement.html"
+attribution = "出典：街区レベル位置参照情報 国土交通省（2025年版 24.0a）"
+modification_note = "保育所などと学校の所在地の位置を求めるために使用（加工して作成）"
 redistributable = true
 
 # ふるさと納税の受入額・受入件数（総務省「ふるさと納税に関する現況調査結果」令和8年度調査、平成20〜令和7年度）。

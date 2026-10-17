@@ -568,7 +568,9 @@ def export_stations(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pat
 
 def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
                    release_id: str, ok_sources: set[str]) -> set[str]:
-    """学校の点（places/<指標>.json）。位置のない学校も一覧には含め、coord を null にする。"""
+    """学校の点（places/<指標>.json）。位置のない学校も一覧には含め、coord を null にする。
+    年度は出典ごとに違う（東京都は2023年度まで、ほかの道県・市は2024〜2026年度。#138）ので、学校ごとに出典の
+    最新の年度に値がない学校（閉校・統合など）を closed にし、学校ごとの出典（sources）を書く。"""
     used: set[str] = set()
     for indicator_id, d in catalog.items():
         if "school" not in d.get("levels", []):
@@ -590,7 +592,11 @@ def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
             continue
         periods = sorted({(r["period_start"], r["period_end"], r["period_kind"]) for r in rows})
         index = {p[0]: i for i, p in enumerate(periods)}
+        source_latest: dict[str, str] = {}   # 出典ごとの最新の年度
+        for r in rows:
+            source_latest[r["source_id"]] = max(source_latest.get(r["source_id"], ""), r["period_start"])
         schools: dict[str, dict] = {}
+        last: dict[str, tuple[str, str]] = {}   # 学校ごとの最後の年度と、その出典
         srcs: set[str] = set()   # この指標の出典（同じ種類の点のほかの指標と混ぜない）
         for r in rows:
             e = info.get(r["entity_id"])
@@ -607,16 +613,24 @@ def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
                     "municipality_id": e["parent_id"],
                     "coord": _coord(e) if located else None,
                     "precision": attrs.get("precision") if located else None,
-                    "values": [None] * len(periods), "status": [None] * len(periods)}
+                    "values": [None] * len(periods), "status": [None] * len(periods), "sources": []}
                 if located:
                     srcs.add(e["loc_source"])
+                    sc["sources"].append(e["loc_source"])
             i = index[r["period_start"]]
             if r["dimension_key"] != "all":
                 sc.setdefault("by_grade", {}).setdefault(r["dimension_key"], [None] * len(periods))[i] = r["value"]
                 continue
             sc["values"][i] = None if r["value"] is None else round(r["value"])
             sc["status"][i] = r["status"]
+            if r["period_start"] >= last.get(r["entity_id"], ("", ""))[0]:
+                last[r["entity_id"]] = (r["period_start"], r["source_id"])
             srcs.add(r["source_id"])
+        for entity_id, (period, source_id) in last.items():
+            sc = schools[entity_id]
+            sc["sources"].insert(0, source_id)   # 人数の出典を先に
+            if period < source_latest[source_id]:
+                sc["closed"] = True   # 出典の最新の年度の一覧にない（閉校・統合など）
         for e in _location_only(info, ok_sources):
             attrs = json.loads(e["attributes"] or "{}")
             schools[e["entity_id"]] = {
@@ -626,7 +640,13 @@ def export_schools(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
                 "municipality_id": e["parent_id"],
                 "coord": _coord(e), "precision": None,
                 "values": [None] * len(periods), "status": [None] * len(periods),
-                "location_only": True, "as_of": attrs.get("as_of")}
+                "location_only": True, "as_of": attrs.get("as_of"), "sources": [e["loc_source"]]}
+            unlisted = attrs.get("unlisted")
+            if unlisted and unlisted["source_id"] in ok_sources:
+                # 人数の一覧がある市区町村なのに、その一覧に見つからなかった学校（休校・閉校など）
+                schools[e["entity_id"]]["unlisted"] = unlisted
+                schools[e["entity_id"]]["sources"].insert(0, unlisted["source_id"])
+                srcs.add(unlisted["source_id"])
             srcs.add(e["loc_source"])
         for sc in schools.values():
             if "by_grade" in sc:
@@ -801,16 +821,18 @@ def export_transport(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pa
 
 def export_nurseries(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
                      release_id: str, ok_sources: set[str]) -> set[str]:
-    """認可保育所の点（places/<指標>.json）。位置のない施設も一覧には含め、coord を null にする。"""
+    """保育所などの点（places/<指標>.json）。位置のない施設も一覧には含め、coord を null にする。
+    東京都の認可保育所（都の一覧、認可定員）と、ここdeサーチの施設（利用定員・利用者数、#138）で時点が違うので、
+    施設ごとに値のある時点（status）と出典（sources）を書く。利用者数は users、年齢別は by_age（各時点の配列）。"""
     used: set[str] = set()
     for indicator_id, d in catalog.items():
         if "nursery" not in d.get("levels", []):
             continue
         rows = conn.execute(
-            """SELECT o.entity_id, o.period_start, o.period_end, o.period_kind, o.value, o.source_id
+            """SELECT o.entity_id, o.period_start, o.period_end, o.period_kind, o.dimension_key, o.value,
+                      o.status, o.source_id
                FROM observations o JOIN entities e ON e.entity_id = o.entity_id
-               WHERE e.entity_type = 'nursery' AND o.indicator_id = ? AND o.definition_version = ?
-                 AND o.dimension_key = 'all'""",
+               WHERE e.entity_type = 'nursery' AND o.indicator_id = ? AND o.definition_version = ?""",
             (indicator_id, d["definition_version"])).fetchall()
         rows = [r for r in rows if r["source_id"] in ok_sources]
         info = {r["entity_id"]: r for r in conn.execute(
@@ -835,21 +857,37 @@ def export_nurseries(conn: sqlite3.Connection, catalog: dict[str, dict], out: Pa
                 located = e["lon"] is not None and e["loc_source"] in ok_sources
                 pt = points[r["entity_id"]] = {
                     "id": r["entity_id"], "name": e["name"], "municipality_id": e["parent_id"],
+                    "facility_type": attrs.get("facility_type", "認可保育所"),
+                    "capacity_kind": attrs.get("capacity_kind", "認可定員"),
                     "founder": attrs.get("founder", ""), "address": attrs.get("address"),
                     "coord": _coord(e) if located else None,
                     "precision": attrs.get("precision") if located else None,
-                    "values": [None] * len(periods)}
+                    "values": [None] * len(periods), "status": [None] * len(periods), "sources": []}
                 if located:
                     srcs.add(e["loc_source"])
-            pt["values"][index[r["period_start"]]] = None if r["value"] is None else round(r["value"])
+                    pt["sources"].append(e["loc_source"])
+            i = index[r["period_start"]]
+            value = None if r["value"] is None else round(r["value"])
+            if r["dimension_key"] == "users":
+                pt.setdefault("users", [None] * len(periods))[i] = value
+            elif r["dimension_key"].startswith("users:"):
+                age = r["dimension_key"].removeprefix("users:")
+                pt.setdefault("by_age", {}).setdefault(age, [None] * len(periods))[i] = value
+            else:
+                pt["values"][i] = value
+                pt["status"][i] = r["status"]
+            if r["source_id"] not in pt["sources"]:
+                pt["sources"].insert(0, r["source_id"])
             srcs.add(r["source_id"])
         for e in _location_only(info, ok_sources):
             attrs = json.loads(e["attributes"] or "{}")
             points[e["entity_id"]] = {
                 "id": e["entity_id"], "name": e["name"], "municipality_id": e["parent_id"],
+                "facility_type": attrs.get("facility_type", "認可保育所"),
                 "founder": attrs.get("founder", ""), "address": attrs.get("address"),
                 "coord": _coord(e), "precision": None,
-                "values": [None] * len(periods), "location_only": True, "as_of": attrs.get("as_of")}
+                "values": [None] * len(periods), "status": [None] * len(periods),
+                "location_only": True, "as_of": attrs.get("as_of"), "sources": [e["loc_source"]]}
             srcs.add(e["loc_source"])
         _write_places(out, indicator_id, _places_meta(release_id, indicator_id, d, periods, srcs),
             "points", sorted(points.values(), key=lambda s: s["id"]))

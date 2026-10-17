@@ -20,11 +20,13 @@ import sys
 import time
 import http.cookiejar
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
 from .db import now_iso
+from .regions import PREFECTURES as PREFECTURES_BY_CODE
 
 USER_AGENT = "data-sanpo/0.1 (+https://github.com/2heytech/data-sanpo)"
 TIMEOUT = 120
@@ -336,8 +338,82 @@ def resolve_file_ids(key: str, cfg: dict, dest: Path, prefs: list[str], download
     return ids
 
 
+KOKODE = "https://www.wam.go.jp/kokodesearch/"
+KOKODE_FILE = re.compile(r"公表施設情報_認可_(.+?)_(\d{8})\.csv$")
+
+
+def kokode_poster():
+    """ここdeサーチの画面と同じ順に要求を送る関数（クッキーを覚える）。post(画面のパス, フォームの値 | None) → 本文。"""
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def post(path: str, form: dict | None) -> bytes:
+        body = urllib.parse.urlencode(form).encode() if form is not None else None
+        req = urllib.request.Request(KOKODE + path, data=body, headers={
+            "User-Agent": USER_AGENT, "Referer": KOKODE + "ANN010100E00.do"})
+        with opener.open(req, timeout=600) as res:
+            return res.read()
+    return post
+
+
+def _kokode_form(page: bytes, form_id: str, extra: dict | None = None) -> dict:
+    """画面の隠しフィールド（_TOKEN は画面ごとに変わる）と同じ値を送る。"""
+    token = re.search(rb'name="_TOKEN" value="(\d+)"', page)
+    if token is None:
+        raise FetchError("ここdeサーチの画面に _TOKEN がありません（画面の作りが変わった可能性）")
+    return {"_FRAMEID": "root", "_TARGETID": "root", "_LUID": "", "_TOKEN": token.group(1).decode(),
+            "_FORMID": form_id, "_SUBINDEX": "", **(extra or {})}
+
+
+def fetch_kokode(key: str, cfg: dict, dest: Path, prefs: list[str], post=None) -> list[Path]:
+    """子ども・子育て支援情報公表システム「ここdeサーチ」の全国施設CSV（ZIP）。決まった URL がなく、画面の
+    「全国施設CSVファイルダウンロード」のボタン（フォームの POST）でしか取れないので、トップ画面 → ダウンロード画面
+    （ANN010104E00）→ ダウンロード（ANN010104E06）の順に送る（2026-10-17 に確認）。
+    ZIP の中のファイル名は cp932 なので、認可施設のファイルだけを <都道府県コード>/ninka_<取得日>.csv として保存する。
+    中身は毎日更新されるので毎回取り直し、取れないときは前回の取得分を使う。"""
+    post = post or kokode_poster()
+    codes = {name: code for code, name in PREFECTURES_BY_CODE.items()}
+    targets = source_prefectures(cfg, prefs)
+    try:
+        top = post("ANN010100E00.do", None)
+        page = post("ANN010104E00.do", _kokode_form(top, "ANN010100", {
+            "vo_headVO_keyword": "", "vo_headVO_lat": "", "vo_headVO_lng": ""}))
+        data = post("ANN010104E06.do", _kokode_form(page, "ANN010104"))
+        if not zipfile.is_zipfile(io.BytesIO(data)):
+            raise FetchError("ここdeサーチから ZIP ではない応答が返されました")
+    except (FetchError, OSError) as e:
+        prior = sorted(dest.glob("*/ninka_*.csv"))
+        if not prior:
+            raise
+        print(f"[{key}] 取得できないため前回の取得分を使います（{e}）", file=sys.stderr)
+        return [p for p in prior if p.parent.name in targets]
+    files = []
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        for info in z.infolist():
+            name = info.filename if info.flag_bits & 0x800 else info.filename.encode("cp437").decode("cp932")
+            m = KOKODE_FILE.search(name)
+            if not m or codes.get(m.group(1)) not in targets:
+                continue
+            sub = dest / codes[m.group(1)]
+            sub.mkdir(parents=True, exist_ok=True)
+            for old in sub.glob("ninka_*.csv"):
+                old.unlink()
+            target = sub / f"ninka_{m.group(2)}.csv"
+            target.write_bytes(z.read(info))
+            files.append(target)
+    if not files:
+        raise FetchError("ここdeサーチの ZIP に認可施設の CSV がありません")
+    (dest / "_fetch.json").write_text(json.dumps({
+        "url": KOKODE, "retrieved_at": now_iso(), "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "files": [f.relative_to(dest).as_posix() for f in files],
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    return files
+
+
 def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
                  prefs: list[str] | None = None) -> list[Path]:
+    if cfg.get("fetch") == "kokode":
+        return fetch_kokode(key, cfg, dest, prefs or [], None if downloader is download else downloader)
     if cfg.get("per_prefecture"):
         files: list[Path] = []
         targets = source_prefectures(cfg, prefs or [])
@@ -390,7 +466,8 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
     if _looks_like_html(data):
         raise FetchError(f"[{key}] ファイルではなくHTMLが返されました。URLを確認してください: {url}")
     dest.mkdir(parents=True, exist_ok=True)
-    if zipfile.is_zipfile(io.BytesIO(data)) and not _is_office_file(data):
+    # extract = false の出典（全国の位置参照情報など大きな CSV の ZIP）は展開せずに置き、読むときに ZIP の中を読む
+    if zipfile.is_zipfile(io.BytesIO(data)) and not _is_office_file(data) and cfg.get("extract", True):
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             files = _safe_extract(z, dest)
     else:

@@ -1,0 +1,75 @@
+---
+// 都道府県の一覧ページ。地方ごとに都道府県のページ（市区町村の人口ランキングと特徴）へのリンクを並べる。
+// ヘッダーのメニュー「都道府県」から開く（設計変更記録 #135）
+import Base from "../../layouts/Base.astro";
+import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
+import { formatValue } from "../../lib/format";
+import { municipalityPeriods } from "../../lib/periods";
+import { breadcrumbList } from "../../lib/structured";
+
+const areas = loadAreas();
+// 地方の区分（市区町村の一覧ページ・都道府県のページと同じ）
+const REGIONS: [string, number, number][] = [
+  ["北海道", 1, 1], ["東北", 2, 7], ["関東", 8, 14], ["中部", 15, 23], ["近畿", 24, 30], ["中国", 31, 35], ["四国", 36, 39], ["九州・沖縄", 40, 47],
+];
+// 人口は都道府県のページと同じ、市区町村の値がある最も新しい国勢調査（都道府県の値は市区町村の合計。#45）
+const popInd = loadIndicators().find((i) => i.id === "population_total");
+const popPeriod = popInd ? municipalityPeriods(popInd)[0] : null;
+const popRows = popInd && popPeriod ? loadValues(popInd.id, popPeriod, "prefectures")?.rows ?? [] : [];
+const popLabel = popInd?.periods.find((p) => p.period === popPeriod)?.label ?? "";
+const regions = REGIONS.map(([name, from, to]) => ({
+  name,
+  prefs: areas.prefectures
+    .filter((p) => Number(p.code) >= from && Number(p.code) <= to)
+    .map((p) => {
+      const row = popRows.find((r) => r.entity_id === `pref-${p.code}`);
+      return {
+        ...p,
+        munis: areas.municipalities.filter((m) => m.prefecture === p.code).length,
+        pop: row && row.value !== null && popInd ? formatValue(row, popInd) : null,
+      };
+    }),
+})).filter((r) => r.prefs.length > 0);
+const description = `全国${areas.prefectures.length}都道府県の一覧。都道府県ごとに、市区町村を人口の多い順に特徴と並べたページと、人口の増え方・子どもの割合・所得などの県内の上位を見られます。`;
+const structured = breadcrumbList(Astro.site, [{ name: "データさんぽ", path: "/" }, { name: "都道府県の一覧" }]);
+---
+<Base title="都道府県の一覧" description={description} structuredData={structured}>
+  <header class="page-head">
+    <p class="eyebrow">都道府県から探す</p>
+    <h1>都道府県の一覧</h1>
+    <p class="lead">都道府県ごとに、市区町村を人口の多い順に特徴と並べ、主な指標の上位をまとめたページがあります。</p>
+  </header>
+
+  <section class="sheet">
+    {regions.map((r) => (
+      <section class="region">
+        {regions.length > 1 && <h2>{r.name}</h2>}
+        <ul class="pref-cards">
+          {r.prefs.map((p) => (
+            <li>
+              <a href={`/prefectures/${p.code}/`}>
+                <strong>{p.name}</strong>
+                <span class="muted">{p.pop && `人口 ${p.pop}・`}{p.munis}市区町村</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+    {popLabel && <p class="muted small">人口は{popLabel}の国勢調査（市区町村の合計）。市区町村の数は、政令指定都市を区ごとに数えています。</p>}
+    <p><a class="button secondary" href="/areas/">市区町村の一覧（名前で探す）</a></p>
+  </section>
+</Base>
+
+<style>
+  .region h2 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.2em; }
+  .region:first-child h2 { margin-top: 0; }
+  .pref-cards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+  .pref-cards a {
+    display: flex; flex-direction: column; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px;
+    text-decoration: none; background: var(--surface); line-height: 1.5;
+  }
+  .pref-cards a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  .pref-cards strong { color: var(--ink); font-size: 1.02rem; }
+  .pref-cards .muted { font-size: 0.8rem; }
+</style>
