@@ -4,6 +4,7 @@
 // 「〇〇県 市町村 人口 ランキング」などで探す人の入口と、地域ページへの道にする（設計変更記録 #130）
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
+import MapFigure from "../../components/MapFigure.astro";
 import NeighborCompare from "../../components/NeighborCompare.astro";
 import ProfileIntro from "../../components/ProfileIntro.astro";
 import StatList from "../../components/StatList.astro";
@@ -14,6 +15,7 @@ import {
   PREF_RANKING_IDS, PREF_TOP, prefRanking, prefectureDescription, prefectureLead, prefectureNeighbors, wardCitiesOf,
 } from "../../lib/prefecturePage";
 import { loadAreaProfile, loadPrefectureProfile } from "../../lib/profiles";
+import { prefectureImage } from "../../lib/shareImages";
 import { statGroups, type StatItem } from "../../lib/statList";
 import { breadcrumbList } from "../../lib/structured";
 import type { Prefecture } from "../../lib/types";
@@ -95,6 +97,8 @@ const compareNote = (neighborPrefs.some((n) => !n.sea) ? "境界が接する都�
 const rankings = PREF_RANKING_IDS.map((id) => indicators.get(id)).filter((i) => !!i)
   .map((ind) => prefRanking(ind!, pref.code, munis, rows)).filter((r) => !!r);
 
+// 市区町村別の人口増加率の地図の画像（設計変更記録 #142）。市区町村の表の前に置き、共有画像にも使う
+const image = prefectureImage(pref);
 const others = areas.prefectures.filter((p) => p.code !== pref.code);
 const title = `${pref.name}の市区町村 人口ランキングと統計データ`;
 const top3 = table.filter((t) => t.rank !== null).slice(0, 3).map((t) => t.muni.name).join("・");
@@ -105,7 +109,7 @@ const structured = breadcrumbList(Astro.site, [
   { name: "データさんぽ", path: "/" }, { name: "都道府県の一覧", path: "/prefectures/" }, { name: pref.name },
 ]);
 ---
-<Base title={title} description={description} prefecture={pref.name} structuredData={structured}>
+<Base title={title} description={description} prefecture={pref.name} structuredData={structured} image={image ?? undefined}>
   <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/prefectures/">都道府県の一覧</a></nav>
   <header class="page-head">
     <p class="eyebrow">{region}</p>
@@ -145,6 +149,7 @@ const structured = breadcrumbList(Astro.site, [
   <section class="sheet" id="munis">
     <h2>{pref.name}の市区町村（人口の多い順）</h2>
     <p>それぞれの人口と、データから見た特徴の一言を並べています。市区町村名から、くわしいデータと順位のページを開けます。</p>
+    {image && <MapFigure image={image} />}
     <div class="table-scroll">
       <table class="pref-munis">
         <thead><tr><th class="num col-rank">順位</th><th>市区町村と、データから見た特徴</th><th class="num col-pop">人口<span class="change-sm">5年間の増減</span></th><th class="num col-change">5年間の増減</th></tr></thead>

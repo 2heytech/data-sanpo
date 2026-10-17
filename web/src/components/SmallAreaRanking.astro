@@ -1,0 +1,62 @@
+---
+// 地域ページの「〇〇の町丁目別ランキング」（設計変更記録 #142）。
+// 新しいページやファイルは作らず、地域ページの中に表を書く。名前から地図のその町丁目を開く
+import { loadIndicators, loadSmallAreaRowsByMunicipality, loadSmallAreas } from "../lib/data";
+import { formatValue } from "../lib/format";
+import { latestSmallAreaPeriod, SMALL_AREA_TABLES, topSmallAreas } from "../lib/smallAreaRanking";
+import type { Municipality } from "../lib/types";
+
+interface Props { muni: Municipality }
+const { muni } = Astro.props;
+const code = muni.id.slice(5);
+const names = new Map((loadSmallAreas(code) ?? []).map((a) => [a.id, a.name]));
+const indicators = new Map(loadIndicators().map((i) => [i.id, i]));
+const tables = SMALL_AREA_TABLES.flatMap((spec) => {
+  const ind = indicators.get(spec.id);
+  const period = ind && latestSmallAreaPeriod(ind);
+  if (!ind || !period) return [];
+  const rows = loadSmallAreaRowsByMunicipality(ind.id, period.period, muni.prefecture).get(code) ?? [];
+  const top = topSmallAreas(rows, spec.positiveOnly).filter((r) => names.has(r.entity_id));
+  return top.length ? [{ spec, ind, period, rows: top }] : [];
+});
+const labels = [...new Set(tables.map((t) => t.period.label))];
+const minDenominators = [...new Set(tables.map((t) => t.ind.min_denominator).filter((n) => n !== null))];
+---
+{tables.length > 0 && (
+  <section class="sheet small-area-ranking" id="small-areas">
+    <h2>{muni.name}の町丁目別ランキング</h2>
+    <p class="muted">国勢調査の町丁・字ごとの値（{labels.join("・")}）で、{muni.name}の中の上位を並べています。名前を選ぶと、地図でその場所を開きます。</p>
+    <div class="tables">
+      {tables.map((t) => (
+        <div class="table-scroll">
+          <table class="ranking">
+            <caption>{t.spec.title}</caption>
+            <thead><tr><th class="num col-rank">順位</th><th>町丁目</th><th class="num col-value">{t.ind.name}</th></tr></thead>
+            <tbody>
+              {t.rows.map((r) => (
+                <tr>
+                  <td class="num">{r.rank}位</td>
+                  <td><a href={`/map/?i=${t.ind.id}&p=${t.period.period}&a=${r.entity_id}`}>{names.get(r.entity_id)}</a></td>
+                  <td class="num">{formatValue(r, t.ind)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+    {minDenominators.length > 0 && (
+      <p class="muted small">人数が少ない町丁目（{minDenominators.map((n) => `${n.toLocaleString("ja-JP")}人未満`).join("・")}）は、割合と増加率を出していません。</p>
+    )}
+  </section>
+)}
+
+<style>
+  .small-area-ranking .tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px 16px; align-items: start; }
+  /* 3つの表を横に並べるので、ほかのランキングの表（横幅600px以上）より狭くする */
+  .small-area-ranking .ranking { min-width: 0; width: 100%; }
+  .small-area-ranking .table-scroll + .table-scroll { margin-top: 0; }
+  .small-area-ranking .ranking td.num { white-space: nowrap; }
+  .small-area-ranking .ranking .col-rank { width: 4em; }
+  .small-area-ranking .ranking .col-value { width: 7.5em; }
+</style>

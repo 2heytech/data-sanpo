@@ -2,8 +2,10 @@
 // 寄り道のページの枠。題名・日付・本文・関連する指標とほかの寄り道・広告枠（本文の後）を並べる。
 import Base from "./Base.astro";
 import AdSlot from "../components/AdSlot.astro";
+import MapFigure from "../components/MapFigure.astro";
 import { ARTICLES, articleBySlug, formatDate } from "../lib/articles";
 import { loadIndicators } from "../lib/data";
+import { articleImage } from "../lib/shareImages";
 
 interface Props { slug: string }
 const article = articleBySlug(Astro.props.slug);
@@ -12,6 +14,8 @@ const indicators = loadIndicators();
 const related = article.indicators.flatMap((id) => indicators.find((i) => i.id === id) ?? []);
 const others = ARTICLES.filter((a) => a.slug !== article.slug);
 const url = Astro.site ? new URL(`/articles/${article.slug}/`, Astro.site).href : undefined;
+// 記事の主な指標の全国の地図の画像（設計変更記録 #142）。本文の前に置き、共有画像にも使う
+const image = articleImage(article);
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
@@ -22,6 +26,7 @@ const structuredData = {
       datePublished: article.published,
       dateModified: article.updated ?? article.published,
       inLanguage: "ja",
+      ...(image && Astro.site ? { image: [new URL(image.path, Astro.site).href] } : {}),
       author: { "@type": "Organization", name: "へいてく" },
       publisher: { "@type": "Organization", name: "データさんぽ" },
       ...(url ? { mainEntityOfPage: url } : {}),
@@ -37,7 +42,7 @@ const structuredData = {
   ],
 };
 ---
-<Base title={article.title} description={article.description} structuredData={structuredData}>
+<Base title={article.title} description={article.description} structuredData={structuredData} image={image ?? undefined}>
   <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/articles/">寄り道</a></nav>
   <header class="page-head">
     <p class="eyebrow">寄り道</p>
@@ -48,6 +53,7 @@ const structuredData = {
     </p>
   </header>
   <article class="sheet article-body">
+    {image && <MapFigure image={image} eager />}
     <slot />
   </article>
   {related.length > 0 && (

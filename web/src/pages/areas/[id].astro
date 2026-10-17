@@ -5,6 +5,7 @@ import AdSlot from "../../components/AdSlot.astro";
 import AreaShape from "../../components/AreaShape.astro";
 import NeighborCompare from "../../components/NeighborCompare.astro";
 import ProfileIntro from "../../components/ProfileIntro.astro";
+import SmallAreaRanking from "../../components/SmallAreaRanking.astro";
 import StatList from "../../components/StatList.astro";
 import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
 import { formatValue, rankIfVaried } from "../../lib/format";
@@ -107,6 +108,8 @@ const groups = statGroups(stats);
     <NeighborCompare title="となりの市区町村と比べる" selfName={muni.name} groups={groups}
       neighbors={neighbors.map((n) => ({ name: n.name, href: `/areas/${n.id}/` }))} />
   )}
+
+  <SmallAreaRanking muni={muni} />
 
   <section class="sheet">
     <h2>データについて</h2>

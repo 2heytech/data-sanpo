@@ -5,6 +5,7 @@ import RankingTable, { type RankingRow } from "../../components/RankingTable.ast
 import { DATA_BASE, loadAreas, loadIndicators, loadSmallAreaRows, loadSmallAreas, loadSources, loadValues } from "../../lib/data";
 import { formatValue, ranked, splitRanking, STATUS_LABEL } from "../../lib/format";
 import { breadcrumbList, indicatorDataset } from "../../lib/structured";
+import { indicatorPageText } from "../../lib/indicatorPage";
 import type { Indicator } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -59,8 +60,10 @@ const prefRows = areas.prefectures.length > 1 && period.levels.includes("prefect
   ? [...(loadValues(ind.id, period.period, "prefectures")?.rows ?? [])]
       .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   : [];
-// 検索で「〇〇 ランキング」と探す人に届くよう、市区町村の値がある指標は題名にランキングと入れる
-const pageTitle = muniCount > 0 ? `${ind.name}の市区町村ランキング${nationwide && !partial ? "（全国）" : ""}` : ind.name;
+// 題名と説明文（選挙の得票率は政党名から始める。設計変更記録 #142）
+const pageText = indicatorPageText(ind, {
+  muniCount, hasMuniValues: muniValues.length > 0, hasPrefRows: prefRows.length > 0, nationwide, partial,
+});
 // 検索エンジン向けのパンくずと Dataset（Google のデータセット検索に載せる。設計変更記録 #130）。
 // データのファイルは、ランキングに使っている時点の市区町村（なければ都道府県）の値
 const sourceList = [...new Set(ind.periods.flatMap((p) => p.source_ids))].map((id) => sources.get(id)).filter((x) => !!x);
@@ -72,9 +75,7 @@ const structured = [
   indicatorDataset(Astro.site, ind, `/indicators/${ind.id}/`, sourceList, dataUrl, levels),
 ];
 ---
-<Base title={pageTitle} description={`${ind.name}${ind.unit ? `（${ind.unit}）` : ""}の${muniValues.length
-  ? `${nationwide && !partial ? "全国の" : ""}市区町村ランキング${prefRows.length ? "と都道府県別の値" : ""}`
-  : "都道府県別の値"}。意味・計算方法・出典つき。${ind.description}`} structuredData={structured}>
+<Base title={pageText.title} description={pageText.description} structuredData={structured}>
   <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/#indicators">指標の一覧</a></nav>
   <header class="page-head">
     <p class="eyebrow">{ind.category}</p>

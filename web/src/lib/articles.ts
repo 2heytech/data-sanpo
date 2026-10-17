@@ -12,6 +12,8 @@ export interface Article {
   updated?: string;
   /** 主に使った指標（一覧の見出しの下に並べる） */
   indicators: string[];
+  /** 記事の地図の画像に使う指標（ないときは indicators の最初。設計変更記録 #142） */
+  mapIndicator?: string;
 }
 
 export const ARTICLES: Article[] = [
@@ -35,6 +37,7 @@ export const ARTICLES: Article[] = [
     description: "2010・2015・2020・2025年の国勢調査で毎回人口が増えた市区町村。大都市の中心部、新しい鉄道沿いの郊外、沖縄県の町村など、増え続けたまちを見ます。",
     published: "2026-10-17",
     indicators: ["population_total", "population_change_rate"],
+    mapIndicator: "population_change_rate",
   },
   {
     slug: "elevation",
