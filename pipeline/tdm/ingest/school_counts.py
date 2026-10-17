@@ -118,7 +118,8 @@ class Point29:
 
 
 def p29_points(conn: sqlite3.Connection, pref: str) -> list[Point29]:
-    """都道府県の P29 の学校の点（位置だけの点として取り込んだもの）。"""
+    """都道府県の P29 の学校の点（位置だけの点として取り込んだもの）。ID は学校コード（小学校 B1、中学校 C1、
+    義務教育学校 C2 で始まる）。東京都の学校（都の一覧の番号）と P29 にない学校（school-<都道府県>-…）は含めない。"""
     names = {r["entity_id"]: (r["name"], r["region"]) for r in conn.execute(
         "SELECT entity_id, name, region FROM entities WHERE entity_type = 'municipality' AND entity_id LIKE ?",
         (f"muni-{pref}%",))}
@@ -126,7 +127,7 @@ def p29_points(conn: sqlite3.Connection, pref: str) -> list[Point29]:
     for r in conn.execute(
             """SELECT e.entity_id, e.name, e.parent_id, a.attributes FROM entities e
                JOIN entity_attributes a ON a.entity_id = e.entity_id
-               WHERE e.entity_type = 'school' AND e.entity_id LIKE 'school-B1%' AND e.parent_id LIKE ?""",
+               WHERE e.entity_type = 'school' AND e.entity_id GLOB 'school-[A-Z][0-9]*' AND e.parent_id LIKE ?""",
             (f"muni-{pref}%",)):
         attrs = json.loads(r["attributes"] or "{}")
         parent, region = names.get(r["parent_id"], ("", None))
@@ -329,6 +330,8 @@ def _add_school(conn, s: SchoolCount, munis: dict[str, str], gaz: Gazetteer | No
         return None
     digest = hashlib.sha1(f"{muni}|{s.school_type}|{core_name(s.name, muni_name)}".encode()).hexdigest()[:10]
     entity_id = f"school-{s.code}" if s.code else f"school-{s.pref}-{digest}"
+    if s.code and conn.execute("SELECT 1 FROM entities WHERE entity_id = ?", (entity_id,)).fetchone():
+        entity_id = f"school-{s.pref}-{digest}"   # 既にある P29 の点（位置）を上書きしない
     upsert_entity(conn, entity_id, "school", _display_name(s), parent_id=muni)
     attrs = {"school_type": s.school_type, "type_label": TYPES[s.school_type],
              "founder": _founder_label(s, None), "address": s.address}
