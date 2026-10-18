@@ -57,3 +57,11 @@ blocks = [
   "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/f4c7bb6e-a46b-4777-9c63-e25874f7a754/download/veg2024bk8a.gpkg",
   "https://www.geospatial.jp/ckan/dataset/a29def39-8ac8-48d8-8d81-f9504ae0ff71/resource/36b3cd1d-224f-4b56-a81e-22c4c6d15b01/download/veg2024bk8b.gpkg",
 ]
+
+# 文化庁「国指定文化財等データベース」の一覧（#149）。集計ではなく、検索結果の CSV を分けて取得してまとめたもの
+# （一括のダウンロードがなく、取得に数百回の検索がかかるため）。categories は検索の分類（register_sub_id）:
+# 102 国宝・重要文化財（建造物）、101 登録有形文化財（建造物）、401 史跡名勝天然記念物、103 重要伝統的建造物群保存地区。
+[cultural_properties]
+method = "cultural_properties"
+outputs = { list = "kunishitei_cultural_properties" }
+categories = ["102", "101", "401", "103"]

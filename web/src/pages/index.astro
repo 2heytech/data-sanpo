@@ -26,6 +26,8 @@ const POINT_ROWS: PointRow[] = [
   { files: ["land_price", "land_survey_price"], category: "地価", show: "land", name: "地価（地価公示・都道府県地価調査）",
     description: "国が毎年1月1日時点で判定する地価公示の標準地と、都道府県が毎年7月1日時点で判定する都道府県地価調査の基準地の、1㎡あたりの価格。地点ごとの値です。" },
   { files: ["nursery_capacity"], category: "子育て", show: "nurseries" },
+  { files: ["michi_no_eki"], category: "観光", show: "michi" },
+  { files: ["cultural_properties"], category: "観光", show: "bunka" },
 ];
 const POINTS = POINT_ROWS.flatMap(({ files, ...p }) => {
   const ds = files.flatMap((f) => loadPlace(f) ?? []);

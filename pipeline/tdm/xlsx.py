@@ -54,6 +54,52 @@ def sheet_names(path: Path) -> list[str]:
     return [s.get("name") for s in wb.iter(f"{{{NS['m']}}}sheet")]
 
 
+def iter_sheet_rows(source, sheet: int = 0):
+    """シートの行を順に返す（大きなファイル用。全体を読み込まずに1行ずつ XML を読む）。
+    source はファイルのパスか、バイト列を読めるファイルのようなもの。行の番号の飛び（空の行）は詰める。"""
+    def local(tag: str) -> str:
+        return tag.rsplit("}", 1)[-1]
+
+    with zipfile.ZipFile(source) as z:
+        wb = _xml(z, "xl/workbook.xml")
+        el = list(wb.iter(f"{{{NS['m']}}}sheet"))[sheet]
+        rid = el.get(f"{{{NS['r']}}}id")
+        rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
+        target = next(r.get("Target") for r in rels if r.get("Id") == rid).lstrip("/")
+        target = target if target.startswith("xl/") else f"xl/{target}"
+        shared = []
+        if "xl/sharedStrings.xml" in z.namelist():
+            shared = [_text(si) for si in _xml(z, "xl/sharedStrings.xml")]
+        with z.open(target) as f:
+            # Strict Open XML の名前空間でも読めるよう、タグは名前空間を除いた名前で見る
+            for _, row in ET.iterparse(f, events=("end",)):
+                if local(row.tag) != "row":
+                    continue
+                values: list[Cell] = []
+                for c in row:
+                    if local(c.tag) != "c":
+                        continue
+                    i = _col_index(c.get("r")) if c.get("r") else len(values)
+                    values += [None] * (i - len(values))
+                    kind = c.get("t")
+                    v = next((x for x in c if local(x.tag) == "v"), None)
+                    if kind == "inlineStr":   # ふりがな（rPh）の文字は含めない
+                        box = next((x for x in c if local(x.tag) == "is"), [])
+                        cell: Cell = "".join(t.text or "" for x in box for t in ([x] if local(x.tag) == "t" else
+                                             [y for y in x if local(y.tag) == "t"] if local(x.tag) == "r" else []))
+                    elif v is None or v.text is None:
+                        cell = None
+                    elif kind == "s":
+                        cell = shared[int(v.text)]
+                    elif kind in ("str", "e"):
+                        cell = v.text
+                    else:
+                        cell = float(v.text)
+                    values.append(cell)
+                row.clear()
+                yield values
+
+
 def read_sheet(path: Path, sheet: int | str = 0) -> list[list[Cell]]:
     """シートの各行をセルの値のリストで返す（空のセルは None、数値は float、文字列は str）。"""
     with zipfile.ZipFile(path) as z:

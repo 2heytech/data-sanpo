@@ -58,6 +58,13 @@ const shots = [
   ["51-map-debt-yokohama", "/map/?i=local_debt_per_capita&a=muni-14104", { width: 1280, height: 900 }],
   ["52-map-income-2016", "/map/?i=taxable_income_per_taxpayer&p=2016-04-01&a=muni-13112", { width: 1280, height: 900 }],
   ["53-indicator-fiscal-strength", "/indicators/fiscal_strength_index/", { width: 1280, height: 1200 }],
+  // 観光（#149）。都道府県の延べ宿泊者数、熱海市の入湯税と町丁目の宿泊業、道の駅と文化財の点（スマホも）
+  ["54-map-guest-nights", "/map/?i=guest_nights", { width: 1280, height: 900 }],
+  ["55-map-onsen-tax-atami", "/map/?i=onsen_tax&a=muni-22205", { width: 1280, height: 900 }],
+  ["56-map-accommodation-atami", "/map/?i=accommodation_establishments&l=small_area&a=muni-22205", { width: 1280, height: 900 }],
+  ["57-map-michi-no-eki", "/map/?i=roadside_stations&show=michi", { width: 1280, height: 900 }],
+  ["58-map-cultural-properties", "/map/?i=historic_sites&show=bunka&a=muni-22205", { width: 1280, height: 900 }],
+  ["59-map-michi-phone", "/map/?i=roadside_stations&show=michi", { width: 390, height: 844 }],
   ["90-about", "/about/", { width: 1280, height: 900 }],
 ];
 

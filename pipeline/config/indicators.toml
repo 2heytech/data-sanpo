@@ -4411,7 +4411,7 @@ not_additive = true
 levels = ["prefecture"]
 description = "その都道府県のホテル・旅館などに外国人が泊まった延べの人数（1人が2泊すれば2人泊）。訪日外国人の多さの目安。"
 method = "観光庁「宿泊旅行統計調査」の年の確定値（第2表）の外国人延べ宿泊者数（人泊）を万人泊に直したもの。"
-caveats = ["宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "日本に住む外国人の宿泊も含みます。", "従業者数10人未満の施設を含む全施設の推計値です。", "都道府県の値だけです（市区町村は公表されていません）。"]
+caveats = ["宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "外国人は日本に住所のない人です（住所の分からない施設は、日本国籍のない人を外国人として答えています）。", "従業者数10人未満の施設を含む全施設の推計値です。", "都道府県の値だけです（市区町村は公表されていません）。"]
 inbound_value = "foreign"
 family = "inbound"
 facets = { type = "外国人宿泊者", basis = "人数" }
@@ -4429,13 +4429,382 @@ scale = 100
 levels = ["prefecture"]
 description = "その都道府県の宿泊施設に泊まった延べ人数のうち、外国人の割合。"
 method = "外国人延べ宿泊者数 ÷ 延べ宿泊者数 × 100。観光庁「宿泊旅行統計調査」の年の確定値（第2表）。"
-caveats = ["宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "日本に住む外国人の宿泊も含みます。", "都道府県の値だけです（市区町村は公表されていません）。"]
+caveats = ["宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "外国人は日本に住所のない人です（住所の分からない施設は、日本国籍のない人を外国人として答えています）。", "都道府県の値だけです（市区町村は公表されていません）。"]
 inbound_value = "share"
 fraction_units = ["人泊", "人泊"]
 compare_with = ["inbound_guest_nights"]
 family = "inbound"
 facets = { type = "外国人宿泊者", basis = "割合" }
 source_kind = "mlit_inbound"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[guest_nights]
+name = "延べ宿泊者数"
+category = "観光"
+unit = "万人泊"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.0001
+not_additive = true
+levels = ["prefecture"]
+description = "その都道府県のホテル・旅館などに泊まった延べの人数（1人が2泊すれば2人泊）。日本人と外国人の合計で、観光と出張などの両方を含みます。"
+method = "観光庁「宿泊旅行統計調査」の年の確定値（第2表）の延べ宿泊者数（人泊）を万人泊に直したもの。"
+caveats = ["宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "観光だけでなく、出張などの仕事の宿泊も含みます。", "従業者数10人未満の施設を含む全施設の推計値です。", "都道府県の値だけです（市区町村は公表されていません）。"]
+inbound_value = "total"
+source_kind = "mlit_inbound"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[guest_nights_japanese]
+name = "日本人延べ宿泊者数"
+category = "観光"
+unit = "万人泊"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.0001
+not_additive = true
+levels = ["prefecture"]
+description = "その都道府県のホテル・旅館などに日本人が泊まった延べの人数（1人が2泊すれば2人泊）。国内の旅行や出張の多さの目安。"
+method = "観光庁「宿泊旅行統計調査」の年の確定値（第2表）の延べ宿泊者数 − 外国人延べ宿泊者数（人泊）を万人泊に直したもの。"
+caveats = ["宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "延べ宿泊者数から外国人延べ宿泊者数を引いた値です。外国人は日本に住所のない人なので、日本に住む外国人の宿泊はこちらに入ります（住所の分からない施設は国籍で分けています）。", "従業者数10人未満の施設を含む全施設の推計値です。", "都道府県の値だけです（市区町村は公表されていません）。"]
+inbound_value = "japanese"
+compare_with = ["guest_nights"]
+source_kind = "mlit_inbound"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[guest_outside_share]
+name = "県外からの宿泊者の割合"
+category = "観光"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+levels = ["prefecture"]
+description = "その都道府県の宿泊施設に泊まった延べ人数のうち、県外に住む人（外国人を含む）の割合。よそから泊まりに来る人の多さの目安。"
+method = "県外の延べ宿泊者数 ÷（県内 ＋ 県外の延べ宿泊者数）× 100。観光庁「宿泊旅行統計調査」の年の確定値（第9表）。"
+caveats = ["宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "外国人の宿泊者は「県外」に入ります。", "住んでいる所が分からない宿泊者は分母に入れません。", "都道府県の値だけです（市区町村は公表されていません）。"]
+inbound_value = "outside_share"
+fraction_units = ["人泊", "人泊"]
+compare_with = ["guest_nights"]
+source_kind = "mlit_inbound"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[guest_nights_ryokan]
+name = "旅館の延べ宿泊者数"
+category = "観光"
+unit = "万人泊"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.0001
+not_additive = true
+levels = ["prefecture"]
+description = "その都道府県の旅館（和式の構造・設備を主とする宿）に泊まった延べの人数。1人が2泊すれば2人泊。"
+method = "観光庁「宿泊旅行統計調査」の年の確定値（第4表）の宿泊施設タイプ「旅館」の延べ宿泊者数（人泊）を万人泊に直したもの。"
+caveats = ["宿泊施設のタイプは、施設が調査に答えた区分です。", "宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "従業者数10人未満の施設を含む全施設の推計値です。", "都道府県の値だけです（市区町村は公表されていません）。"]
+inbound_value = "facility"
+facility_type = "旅館"
+compare_with = ["guest_nights"]
+source_kind = "mlit_inbound"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[guest_nights_resort_hotel]
+name = "リゾートホテルの延べ宿泊者数"
+category = "観光"
+unit = "万人泊"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.0001
+not_additive = true
+levels = ["prefecture"]
+description = "その都道府県のリゾートホテル（行楽地・保養地にある、主に観光客向けのホテル）に泊まった延べの人数。1人が2泊すれば2人泊。"
+method = "観光庁「宿泊旅行統計調査」の年の確定値（第4表）の宿泊施設タイプ「リゾートホテル」の延べ宿泊者数（人泊）を万人泊に直したもの。"
+caveats = ["宿泊施設のタイプは、施設が調査に答えた区分です。", "宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "従業者数10人未満の施設を含む全施設の推計値です。", "都道府県の値だけです（市区町村は公表されていません）。"]
+inbound_value = "facility"
+facility_type = "リゾートホテル"
+compare_with = ["guest_nights"]
+source_kind = "mlit_inbound"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[guest_nights_business_hotel]
+name = "ビジネスホテルの延べ宿泊者数"
+category = "観光"
+unit = "万人泊"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.0001
+not_additive = true
+levels = ["prefecture"]
+description = "その都道府県のビジネスホテル（主に出張の人向けのホテル）に泊まった延べの人数。1人が2泊すれば2人泊。"
+method = "観光庁「宿泊旅行統計調査」の年の確定値（第4表）の宿泊施設タイプ「ビジネスホテル」の延べ宿泊者数（人泊）を万人泊に直したもの。"
+caveats = ["宿泊施設のタイプは、施設が調査に答えた区分です。", "宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "従業者数10人未満の施設を含む全施設の推計値です。", "都道府県の値だけです（市区町村は公表されていません）。"]
+inbound_value = "facility"
+facility_type = "ビジネスホテル"
+compare_with = ["guest_nights"]
+source_kind = "mlit_inbound"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[guest_nights_city_hotel]
+name = "シティホテルの延べ宿泊者数"
+category = "観光"
+unit = "万人泊"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.0001
+not_additive = true
+levels = ["prefecture"]
+description = "その都道府県のシティホテル（都市部にある、リゾートホテル・ビジネスホテル以外のホテル）に泊まった延べの人数。1人が2泊すれば2人泊。"
+method = "観光庁「宿泊旅行統計調査」の年の確定値（第4表）の宿泊施設タイプ「シティホテル」の延べ宿泊者数（人泊）を万人泊に直したもの。"
+caveats = ["宿泊施設のタイプは、施設が調査に答えた区分です。", "宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "従業者数10人未満の施設を含む全施設の推計値です。", "都道府県の値だけです（市区町村は公表されていません）。"]
+inbound_value = "facility"
+facility_type = "シティホテル"
+compare_with = ["guest_nights"]
+source_kind = "mlit_inbound"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[guest_nights_simple_lodging]
+name = "簡易宿所の延べ宿泊者数"
+category = "観光"
+unit = "万人泊"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.0001
+not_additive = true
+levels = ["prefecture"]
+description = "その都道府県の簡易宿所（宿泊する場所を多くの人で共用する宿。山小屋・カプセルホテルなど）に泊まった延べの人数。1人が2泊すれば2人泊。"
+method = "観光庁「宿泊旅行統計調査」の年の確定値（第4表）の宿泊施設タイプ「簡易宿所」の延べ宿泊者数（人泊）を万人泊に直したもの。"
+caveats = ["宿泊施設のタイプは、施設が調査に答えた区分です。", "宿泊施設の所在地で数えます。日帰りの観光客や、知人宅・民泊（届出住宅）への宿泊は含みません。", "従業者数10人未満の施設を含む全施設の推計値です。", "都道府県の値だけです（市区町村は公表されていません）。"]
+inbound_value = "facility"
+facility_type = "簡易宿所"
+compare_with = ["guest_nights"]
+source_kind = "mlit_inbound"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[onsen_tax]
+name = "入湯税の収入額"
+category = "観光"
+unit = "百万円"
+kind = "count"
+definition_version = "1"
+digits = 1
+scale = 0.001
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "温泉（鉱泉浴場）に入る人にかかる市区町村の税「入湯税」の年度の収入額。温泉の利用の多さの目安になります。"
+method = "総務省「地方財政状況調査」市町村分の「市町村税の徴収実績」の入湯税の収入済額（合計、千円）を百万円に直したもの。都道府県の値は県内の市区町村の合計。"
+caveats = ["税の額で、温泉の利用者数ではありません。税率は市区町村が決めていて（1人1日150円が標準）、日帰りの客を安くしたり免除したりするところもあります。", "温泉のない市区町村や、入湯税を課していない市区町村は0です（値がないのではありません）。", "年度は4月から翌年3月まで（例: 2024年度は2024年4月〜2025年3月）。前の年度の未納分の収入（滞納繰越分）も含みます。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません（都道府県の合計には含めます）。"]
+tax_item = "入湯税"
+source_kind = "soumu_tax_collection"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[accommodation_establishments]
+name = "宿泊業の事業所数"
+category = "観光"
+unit = "事業所"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+description = "その地域にある宿泊業の事業所（旅館・ホテル・民宿・簡易宿所・会社の保養所など）の数。宿の集まり具合の目安。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」第31表の産業（中分類）「75 宿泊業」の全事業所数（国・地方公共団体の事業所を含む）。2021年6月1日現在。"
+caveats = ["町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "経済センサスの産業の分類（事業所の主な事業）で数えたもので、旅館業法の営業許可の数とは違います。ほかの事業が主の事業所にある宿泊施設は含みません。", "国民宿舎など国・地方公共団体の宿泊施設も含みます。"]
+source_kind = "estat_economic_census_town_industry"
+column = "75_宿泊業|事業所数"
+compare_with = ["accommodation_employees"]
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[accommodation_employees]
+name = "宿泊業で働く人の数"
+category = "観光"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "small_area"]
+description = "その地域にある宿泊業の事業所（旅館・ホテル・民宿・簡易宿所など）で働いている人の数（その地域に住んでいる人ではなく、そこで働いている人）。大きな宿の多さの目安。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」第31表の産業（中分類）「75 宿泊業」の全事業所の従業者数（男女計）。2021年6月1日現在。"
+caveats = ["町丁・大字の名前で地図の町丁目に対応付けています。名前が合わない町丁目は値がありません（0ではありません）。市区町村の値は町丁・大字が分からない事業所も含めた合計です。", "経済センサスの産業の分類（事業所の主な事業）で数えたもので、ほかの事業が主の事業所にある宿泊施設で働く人は含みません。", "国民宿舎など国・地方公共団体の宿泊施設で働く人も含みます。", "事業所の所在地で数えます（従業者が住んでいる場所ではありません）。", "2021年6月は新型コロナウイルス感染症の流行中で、休業していた宿もあります。"]
+source_kind = "estat_economic_census_town_industry"
+column = "75_宿泊業|従業者数_男女計"
+compare_with = ["accommodation_establishments"]
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[ryokan_hotels]
+name = "旅館・ホテルの数"
+category = "観光"
+unit = "事業所"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "その地域にある旅館・ホテルの事業所の数。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」第9-1A表の産業（小分類）「751 旅館，ホテル」の全事業所数（国・地方公共団体の事業所を含む）。2021年6月1日現在。"
+caveats = ["経済センサスの産業の分類（事業所の主な事業）で数えたもので、旅館業法の営業許可の数とは違います。民宿は、旅館・ホテルの形のものはこちら、相部屋の形のものは簡易宿所に分類されます。", "国民宿舎など国・地方公共団体の宿泊施設も含みます。", "小分類の値は市区町村までしか公表されていないため、町丁目の値はありません。"]
+source_kind = "estat_economic_census_municipal_industry"
+column = "751_旅館，ホテル|事業所数"
+compare_with = ["accommodation_establishments"]
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[simple_lodgings]
+name = "簡易宿所の数"
+category = "観光"
+unit = "事業所"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "その地域にある簡易宿所（宿泊する場所を多くの人で共用する宿。山小屋・カプセルホテル・ベッドハウスなど）の事業所の数。"
+method = "総務省・経済産業省「令和3年経済センサス‐活動調査」第9-1A表の産業（小分類）「752 簡易宿所」の全事業所数（国・地方公共団体の事業所を含む）。2021年6月1日現在。"
+caveats = ["経済センサスの産業の分類（事業所の主な事業）で数えたもので、旅館業法の簡易宿所の営業許可の数とは違います。民宿は、相部屋の形のものはこちら、旅館・ホテルの形のものは旅館・ホテルに分類されます。", "国・地方公共団体の宿泊施設も含みます。", "小分類の値は市区町村までしか公表されていないため、町丁目の値はありません。"]
+source_kind = "estat_economic_census_municipal_industry"
+column = "752_簡易宿所|事業所数"
+compare_with = ["accommodation_establishments"]
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[roadside_stations]
+name = "道の駅の数"
+category = "観光"
+unit = "か所"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true
+levels = ["municipality", "prefecture"]
+description = "その地域にある道の駅（国土交通省に登録された、休憩所・情報コーナー・地域の店などのある道路沿いの施設）の数。"
+method = "国土交通省「道の駅」一覧（2026年9月4日更新）の所在地の市区町村ごとに数えたもの。政令指定都市は、道の駅の位置のある区で数えています。"
+caveats = ["一覧に載っているすべての道の駅を数えています。0は道の駅がない市区町村です。", "登録されたばかりで、まだ開業していない駅も含みます。", "2つの市にまたがる道の駅（宇津ノ谷峠）は、両方の市で1つずつ数えています（都道府県の数では1つ）。"]
+source_kind = "mlit_michi_no_eki"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[michi_no_eki]
+name = "道の駅"
+category = "観光"
+unit = "か所"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["roadside_station"]
+description = "国土交通省に登録された全国の道の駅。休憩所・情報コーナー・地域の店などのある道路沿いの施設です。"
+method = "国土交通省「道の駅」一覧（2026年9月4日更新）の駅。位置は国土地理院の地名検索の道の駅の位置で、そこにない駅は Wikidata の位置、どちらにもない新しい駅は登録の発表資料の所在地から求めた位置です。"
+caveats = ["上り線・下り線などで施設が2か所に分かれている駅は、1か所だけを点にしています。", "登録されたばかりで、まだ開業していない駅も含みます。", "位置がおおよその駅は、点を押すとその旨を表示します。"]
+source_kind = "michi_no_eki_points"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[important_cultural_buildings]
+name = "国宝・重要文化財（建造物）の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある国宝・重要文化財に指定された建造物（寺社・城・住宅・近代の建物など）の件数。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の国宝・重要文化財（建造物）を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["国宝を含みます。", "1件に複数の棟（本堂・山門など）があっても1件と数えます。データベースの一覧は棟ごとなので、名前・都道府県・市区町村が同じ棟を1件にまとめています。", "1件の棟が2つ以上の市区町村にあるときは、最初の棟のある市区町村で数えています。", "0は国宝・重要文化財の建造物がない市区町村です。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "重要文化財（建造物）"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[registered_cultural_buildings]
+name = "登録有形文化財（建造物）の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある登録有形文化財（建造物）の件数。築50年を過ぎた建物などのうち、国の文化財として登録されたもの。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の登録有形文化財（建造物）を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["登録は建物1棟ごとなので、同じ敷地の主屋と蔵などはそれぞれ1件です。", "0は登録有形文化財の建造物がない市区町村です。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "登録有形文化財（建造物）"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[historic_sites]
+name = "史跡の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある国の史跡（貝塚・古墳・城跡・旧宅など）の件数。特別史跡を含みます。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の史跡名勝天然記念物のうち史跡・特別史跡を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["「史跡及び名勝」のように2つの種類に指定されたものは、それぞれの種類で1件と数えます。", "2つ以上の市区町村にまたがる史跡は、データベースの点のある1つの市区町村だけで数えています。", "0は国の史跡がない市区町村です（都道府県・市区町村が指定した史跡は含みません）。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "史跡"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[scenic_places]
+name = "名勝の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある国の名勝（庭園・峡谷・海岸・山岳など）の件数。特別名勝を含みます。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の史跡名勝天然記念物のうち名勝・特別名勝を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["「史跡及び名勝」のように2つの種類に指定されたものは、それぞれの種類で1件と数えます。", "2つ以上の市区町村にまたがる名勝は、データベースの点のある1つの市区町村だけで数えています。", "0は国の名勝がない市区町村です（都道府県・市区町村が指定した名勝は含みません）。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "名勝"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[natural_monuments]
+name = "天然記念物の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある国の天然記念物（巨樹・動植物の生息地・地質など）の件数。特別天然記念物を含みます。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の史跡名勝天然記念物のうち天然記念物・特別天然記念物を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["場所を定めずに指定された動物の種（ニホンカモシカなど）は数えていません。", "2つ以上の市区町村にまたがるものは、データベースの点のある1つの市区町村だけで数えています。", "0は国の天然記念物がない市区町村です（都道府県・市区町村が指定したものは含みません）。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "天然記念物"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[preservation_districts]
+name = "重要伝統的建造物群保存地区の数"
+category = "観光"
+unit = "地区"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある重要伝統的建造物群保存地区（宿場町・城下町・港町など、歴史的な町並みとして国が選定した地区）の数。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の重要伝統的建造物群保存地区を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["0は重要伝統的建造物群保存地区がない市区町村です。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "重要伝統的建造物群保存地区"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[cultural_properties]
+name = "国指定文化財"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["cultural_property"]
+split_by_prefecture = true   # 全国で約2万件あるので、都道府県ごとのファイルに分ける
+description = "国が指定・登録・選定した文化財のうち、場所のあるもの（国宝・重要文化財と登録有形文化財の建造物、史跡・名勝・天然記念物、重要伝統的建造物群保存地区）。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）。位置はデータベースの緯度・経度で、ないものは所在地から位置参照情報で求めた位置です。"
+caveats = ["史跡・名勝などの広い範囲のものも、データベースの代表の1点で表示しています。", "国宝・重要文化財の建造物は、複数の棟を1件にまとめ、最初の棟の位置に表示しています。", "所在地から求めた位置のものは、点を押すとその旨を表示します。", "美術工芸品（仏像・絵画など）と、場所を定めずに指定された天然記念物（動物の種など）は含みません。"]
+source_kind = "cultural_property_points"
 legend = { method = "nice", classes = 12, scheme = "oranges" }
 
 [gakuryoku_elem_japanese]

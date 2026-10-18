@@ -2306,6 +2306,39 @@ def test_inbound_guests(built):
     assert share["pref-13"]["numerator"] == foreign and share["pref-13"]["denominator"] == total
     assert abs(nights["pref-14"]["value"] - fixture.inbound_values("14")[1] * 0.0001) < 0.01   # コードなしの行
 
+    # 延べ宿泊者数・日本人（延べ − 外国人）・県外の割合（県外 ÷（県内 ＋ 県外））
+    assert abs(pref("guest_nights")["pref-13"]["value"] - total * 0.0001) < 0.01
+    jp = pref("guest_nights_japanese")["pref-13"]
+    assert abs(jp["value"] - (total - foreign) * 0.0001) < 0.01 and jp["status"] == "derived"
+    inside, outside = fixture.inbound_residence("13")
+    out = pref("guest_outside_share")["pref-13"]
+    assert abs(out["value"] - outside / (inside + outside) * 100) < 0.01
+    assert out["numerator"] == outside and out["denominator"] == inside + outside
+    # 宿泊施設タイプ別（第4表）
+    fac = fixture.inbound_facilities("13")
+    assert abs(pref("guest_nights_ryokan")["pref-13"]["value"] - fac["旅館"] * 0.0001) < 0.01
+    assert abs(pref("guest_nights_simple_lodging")["pref-14"]["value"]
+               - fixture.inbound_facilities("14")["簡易宿所"] * 0.0001) < 0.01
+
+
+def test_onsen_tax(built):
+    from tdm.ingest.soumu_finance import WARD_NOTE
+
+    def rows(period, level):
+        return {r["entity_id"]: r for r in load(built, f"values/onsen_tax/{period}/{level}.json")["rows"]}
+    muni = rows("2024-04-01", "municipalities")
+    assert muni["muni-13199"]["value"] == 8.0   # 千円 → 百万円
+    assert muni["muni-13299"]["value"] == 0.0 and muni["muni-13299"]["status"] == "observed"   # 0円は0
+    assert muni["muni-13499"]["value"] == 650.0
+    # 政令指定都市は市全体の値だけなので区には入れない
+    assert muni["muni-14199"]["value"] is None and muni["muni-14199"]["status"] == "not_applicable"
+    assert muni["muni-14199"]["note"] == WARD_NOTE
+    pref = rows("2024-04-01", "prefectures")
+    assert abs(pref["pref-13"]["value"] - (8000 + 0 + 650000) / 1000) < 1e-9   # 一部事務組合は含めない
+    assert pref["pref-14"]["value"] == 12.0
+    # 2023年度（団体コードの先頭の0がない形）
+    assert rows("2023-04-01", "municipalities")["muni-13499"]["value"] == fixture.tax_collection_value(2023, "13499") / 1000
+
 
 def test_gakuryoku(built):
     def pref(ind):
@@ -2491,6 +2524,181 @@ def test_economic_census_matches_town_names(built):
     from tdm.ingest.estat_economic_census import town_key
     assert town_key("北三条東１５丁目") == town_key("北3条東15丁目")
     assert town_key("浅香山町１丁") == town_key("浅香山町一丁") and town_key("海澤") == town_key("海沢")
+
+
+def test_accommodation_industry(built):
+    """宿泊業の事業所数・従業者数（表31、町丁目まで）と旅館・ホテル、簡易宿所の数（表9-1A、市区町村）。"""
+    def rows(ind, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/2021-06-01/{level}.json")["rows"]}
+    est = rows("accommodation_establishments", "municipalities")
+    assert est["muni-13199"]["value"] == 3 + 0 + 1   # 「その他」も含めた合計。「1_うち民営」の行は使わない
+    assert est["muni-14199"]["value"] == 5           # 政令指定都市は区の行（市全体の行と二重に数えない）
+    emp = {r["entity_id"]: r for r in load(built, "values/accommodation_employees/2021-06-01/13199.json")["rows"]}
+    assert emp["area-13199001001"]["value"] == 120   # 「見本町１丁目」→ 見本町1丁目
+    assert emp["area-13199001002"]["value"] == 0     # 「-」は0
+    assert emp["area-13199001003"]["value"] is None  # 対応する行がない町丁目は値なし（0にしない）
+    t = {r["entity_id"]: r for r in load(built, "values/accommodation_establishments/2021-06-01/13299.json")["rows"]}
+    assert t["area-13299090000"]["value"] == 2       # 丁目に分かれていない町に丁目の行を合計
+    hotels = rows("ryokan_hotels", "municipalities")
+    assert hotels["muni-13199"]["value"] == 6 and hotels["muni-14199"]["value"] == 7
+    simple = rows("simple_lodgings", "municipalities")
+    assert simple["muni-13299"]["value"] == 0 and simple["muni-13299"]["status"] == "observed"
+    assert rows("ryokan_hotels", "prefectures")["pref-13"]["value"] == 400
+
+
+def test_reduce_xlsx_keeps_named_columns(tmp_path):
+    # 取得するときに Excel の表から必要な列・行だけの CSV にする
+    from tdm.fetch import FetchError, reduce_xlsx
+    from tdm.xlsx import write_sheet
+    rows = [["題名"], [], [None, None, "AS_全産業", "75_宿泊業", "75_宿泊業"], [None, None, "事業所数", "事業所数", "従業者数_男"],
+            ["コード", "経営組織"], ["13101_千代田区", "0_総数", 9.0, 2.0, "-"], ["13101_千代田区", "1_うち民営", 8.0, 1.0, 3.0],
+            [None, None, 1.0, 1.0, 1.0]]
+    write_sheet(tmp_path / "t.xlsx", rows)
+    data = (tmp_path / "t.xlsx").read_bytes()
+    out = reduce_xlsx(data, {"columns": ["75_宿泊業"], "measures": ["事業所数"], "label_columns": 2,
+                             "row_filter": {"column": 2, "values": ["0_総数"]}}).decode()
+    assert out.splitlines() == ["コード,経営組織,75_宿泊業|事業所数", "13101_千代田区,0_総数,2"]
+    with pytest.raises(FetchError):
+        reduce_xlsx(data, {"columns": ["76_飲食店"], "label_columns": 2})
+
+
+def test_michi_no_eki(built):
+    """道の駅の数（一覧の所在地で数える）と点（国土地理院の地名 → Wikidata → 手で書いた表の位置）。"""
+    def rows(level):
+        return {r["entity_id"]: r for r in load(built, f"values/roadside_stations/2026-09-04/{level}.json")["rows"]}
+    muni = rows("municipalities")
+    assert muni["muni-13199"]["value"] == 2 and muni["muni-13299"]["value"] == 2   # 2つにまたがる駅は両方で数える
+    assert muni["muni-13499"]["value"] == 1
+    assert muni["muni-14199"]["value"] == 1   # 政令指定都市は位置の区
+    pref = rows("prefectures")
+    assert pref["pref-13"]["value"] == 4      # 都道府県では駅の数（重ねて数えない）
+    assert pref["pref-14"]["value"] == 2      # 市区町村の決まらない駅も都道府県には入れる
+    places = load(built, "places/michi_no_eki.json")
+    by = {p["name"]: p for p in places["points"]}
+    assert len(by) == 6 and all(p["coord"] for p in by.values())
+    assert by["見本の里"]["registered"] == "1993年4月" and by["見本の里"]["url"] == "https://example.jp/mihon"
+    assert by["見本の里"]["round"] == 1 and by["かりの"]["round"] == 50   # 数値のセル（1.0）は第1回
+    assert by["ためし（試験）"]["coord"] == [139.66, 35.68] and by["ためし（試験）"]["registered"] == "2008年4月"
+    assert by["かりの"]["coord"] == [139.38, 34.72] and by["かりの"]["url"] == "https://example.jp/a"
+    assert by["ふたまた"]["coord"] == [139.71, 35.67]   # 上り線・下り線の2点は1つ目
+    assert by["みほん"]["municipality_id"] == "muni-14199"
+    yadoriki = by["やどりきテラス　清流の里"]
+    assert yadoriki["municipality_id"] is None and "おおよその位置" in yadoriki["location_note"]
+    assert places["periods"][0]["period"] == "2026-09-04"
+
+
+def test_cultural_properties(built):
+    """国指定文化財の種類別の件数（点の市区町村で数える）と点（棟をまとめた件、所在地から求めた位置）。"""
+    def rows(ind, level):
+        return {r["entity_id"]: r["value"] for r in load(built, f"values/{ind}/2026-10-18/{level}.json")["rows"]}
+    important = rows("important_cultural_buildings", "municipalities")
+    assert important["muni-13199"] == 1 and important["muni-13299"] == 1   # 棟は1件に。同じ名前の別の市の件は別
+    assert important["muni-13499"] == 0
+    registered = rows("registered_cultural_buildings", "municipalities")
+    assert registered["muni-13299"] == 1 and registered["muni-13199"] == 1   # 都道府県の欄が壊れた行は点の市区町村
+    sites = rows("historic_sites", "municipalities")
+    assert sites["muni-13499"] == 1 and sites["muni-13199"] == 2   # 史跡及び名勝・２県以上の史跡・点の誤った碑
+    assert rows("scenic_places", "municipalities")["muni-13499"] == 1
+    assert rows("natural_monuments", "municipalities")["muni-14199"] == 1   # 特別天然記念物を含む。地域を定めないものは除く
+    assert rows("natural_monuments", "prefectures") == {"pref-13": 0, "pref-14": 1}
+    assert rows("preservation_districts", "municipalities")["muni-13499"] == 1
+    assert rows("historic_sites", "prefectures")["pref-13"] == 3
+
+    meta = load(built, "places/cultural_properties.json")
+    assert set(meta["prefectures"]) == {"13", "14"} and meta["periods"][0]["period"] == "2026-10-18"
+    by = {(p["name"], p["municipality_id"]): p for p in load(built, "places/cultural_properties/13.json")["points"]}
+    temple = by[("見本寺", "muni-13199")]
+    assert temple["kind"] == "国宝（建造物）" and temple["buildings"] == ["本堂", "山門"]
+    assert temple["date"] == "1901年1月1日指定" and temple["treasure"] == "1953年3月31日国宝に指定"
+    assert temple["coord"] == [139.72, 35.68] and "location_note" not in temple
+    other = by[("見本寺", "muni-13299")]
+    assert other["coord"] == [139.65, 35.67] and other["location_note"] == "所在地から求めた位置"
+    shell = by[("見本貝塚（北貝塚・南貝塚）", "muni-13499")]
+    assert shell["kind"] == "史跡・名勝" and shell["types"] == ["史跡", "名勝"] and "おおよその位置" in shell["location_note"]
+    assert by[("ずれた碑", "muni-13199")]["coord"] == [139.71, 35.668]   # 所在地の街区の位置
+    assert by[("かりの村仮置", "muni-13499")]["subtype"] == "漁村"
+    shifted = by[("ずれた家住宅主屋", "muni-13199")]
+    assert shifted["address"] == "東京都サンプル区見本町一丁目" and shifted["subtype"] == "住宅・その他工作物"
+    assert all("所有者名" not in p for p in by.values())
+    assert not any(p["name"] == "カモシカ" for p in load(built, "places/cultural_properties/14.json")["points"])
+
+
+def test_cultural_properties_fetch_splits(monkeypatch, tmp_path):
+    """国指定文化財等データベースの取得: 大きすぎる単位は都道府県・副条件で分け、都道府県の壊れた行は名称で取り直す。"""
+    import csv
+    import gzip as _gzip
+    from tdm.prepare import cultural_properties as cp
+    from tdm.regions import PREFECTURES
+    prefs = list(PREFECTURES.values())
+    db = []
+    for p in prefs:
+        for k in range(1900 if p == "東京都" else 3):   # 東京都だけ1回では取れない大きさ
+            i = len(db) + 1
+            db.append(["101", f"{i:08d}", f"名{i}", "", "登録有形文化財(建造物)", "住宅", "建築物", "",
+                       ["明治", "大正"][k % 2], "20000101", "", p, p + "某所", "", "所有者", "", "35.0", "139.0"])
+    db.append(["101", "99999999", "壊れた行", "", "登録有形文化財(建造物)", "住宅", "建築物", "", "昭和前", "", "",
+               "98", "某所", "", "", "", "", ""])
+
+    def match(row, params):
+        d = dict(params)
+        return (d.get("seat_pref", row[11]) == row[11] and d.get("era_101", row[8]) == row[8]
+                and d.get("freeword", "") in row[2])
+
+    def fake_search(client, params, retries=3):
+        rows = [r for r in db if match(r, params)]
+        d = dict(params)
+        body = f'<td class="searchnum">\n{len(rows)}\t件中'
+        if d.get("sortTarget") == "area":
+            rows.sort(key=lambda r: prefs.index(r[11]) if r[11] in prefs else 99, reverse=True)
+            page, size = int(d["pageNumber"]), int(d["pageSize"])
+            body += '<div class="pc_view"><table>' + "".join(
+                f'<tr class="resultback0"><td><a href="/heritage/detail/101/{r[1]}">{r[2]}</a></td><td>{r[11]}</td></tr>'
+                for r in rows[(page - 1) * size: page * size]) + "</table>"
+        return body
+
+    calls = {"504": 0}
+
+    def fake_get_csv(client, params):
+        rows = [r for r in db if match(r, params)]
+        if len(rows) > 1800:
+            calls["504"] += 1
+            raise cp.Retryable("HTTP 504")
+        return rows
+
+    monkeypatch.setattr(cp, "search", fake_search)
+    monkeypatch.setattr(cp, "get_csv", fake_get_csv)
+    monkeypatch.setattr(cp, "DIRECT_LIMIT", 100000)   # わざと大きな単位も試させて 504 を起こす
+    out = tmp_path / "cp.csv.gz"
+    result = cp.prepare({"categories": ["101"]}, {"list": out}, tmp_path, list(PREFECTURES), None)
+    assert result["101"] == len(db) and calls["504"] == 2   # 全国 → 東京都 → 明治・大正
+    with _gzip.open(out, "rt", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == len(db) and "所有者名" not in rows[0] and rows[0]["取得日"]
+    assert any(r["名称"] == "壊れた行" for r in rows)
+
+    db.append(["101", "99999998", "見つからない行", "", "登録有形文化財(建造物)", "住宅", "建築物", "", "その他", "",
+               "", "東京都", "東京都某所", "", "", "", "", ""])   # 副条件のどれにも当てはまらない行
+    with pytest.raises(RuntimeError, match="件数が合いません"):
+        cp.prepare({"categories": ["101"]}, {"list": out}, tmp_path, list(PREFECTURES), None)
+
+
+def test_cultural_properties_csv_token_refresh():
+    """CSV の代わりに HTML の画面が返ったら（トークン切れ）、トークンを取り直してもう一度頼む。"""
+    from tdm.prepare import cultural_properties as cp
+    csv_body = ("\ufeff" + ",".join(f'"{c}"' for c in cp.HEAD) + "\n").encode("utf-8")
+
+    class Stub:
+        def __init__(self, bodies):
+            self.token, self.bodies, self.calls = "old", bodies, 0
+
+        def post(self, path, params):
+            self.calls += 1
+            return 200, self.bodies.pop(0), 0.1
+
+    stub = Stub([b"<!DOCTYPE html>\n<html>", csv_body])
+    assert cp.get_csv(stub, []) == [] and stub.calls == 2 and stub.token == ""
+    with pytest.raises(cp.Retryable):
+        cp.get_csv(Stub([b"<!DOCTYPE html>", b"<!DOCTYPE html>"]), [])
 
 
 def test_school_table_marks():

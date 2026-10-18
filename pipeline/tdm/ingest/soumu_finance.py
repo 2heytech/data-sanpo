@@ -13,12 +13,22 @@
    「-」は該当する数値がないこと（地方債のない団体の地方債現在高など）なので0として読む。
    住民基本台帳登載人口は年度末の翌日に近い1月1日現在（例: 令和6年度は令和7年1月1日）。
 
-指標（definition の fiscal_column / settlement_column で選ぶ）:
+3. 地方財政状況調査 市町村分 表06「市町村税の徴収実績」（kind = soumu_tax_collection、e-Stat の CSV、1年度1ファイル）
+   形式（2015〜2024年度決算の CSV を 2026-10-18 に取得して確認）: cp932。1行目が列名「決算年度」「業務コード」
+   「団体コード 」（末尾に空白）「県名」「団体名」「団体区分」「表番号」「表名称」「行番号」「行名称」
+   「001:調定済額・現年課税分」…「008:収入済額・合計」…。1団体1税目1行で、途中に列名の行が繰り返し挟まる。
+   団体コードは6桁（2023年度までは先頭の0がない5桁）。団体区分は 1 政令指定都市・2 特別区・3 中都市・4 小都市・
+   5 町村・8 中核市・9 施行時特例市が市区町村で、6・7 は一部事務組合・広域連合、空欄は全国の合計の行。金額は千円。
+   0 は課税していない・収入がなかった団体（欠測ではない）。取得するときに行名称が「入湯税」の行だけを残している。
+
+指標（definition の fiscal_column / settlement_column / tax_item で選ぶ）:
   fiscal_column: 主要財政指標の列の値をそのまま入れる（都道府県の値は合計できないので出さない）
   settlement_column: 決算の列の額 ÷ 住民基本台帳登載人口（千円 → 円は scale = 1000）。都道府県は県内の団体の合計で割る
+  tax_item: 徴収実績のその税目の収入済額の合計（千円 × scale）。都道府県は県内の市区町村（政令指定都市は市全体）の合計
 """
 from __future__ import annotations
 
+import csv
 import re
 import sqlite3
 from pathlib import Path
@@ -31,6 +41,9 @@ POPULATION = "住民基本台帳登載人口"
 # 決算の各ファイルから読む列（ファイル名の末尾の番号: 1 概況・2 歳入内訳・5 地方債現在高等）
 SETTLEMENT_COLUMNS = {"1": [POPULATION, "歳出総額"], "2": ["地方税"], "5": ["地方債現在高", "積立金現在高"]}
 DASHES = {"-", "－", "‐", "―"}
+# 徴収実績の CSV の団体区分のうち市区町村のもの（6・7 は一部事務組合・広域連合）
+MUNICIPAL_KINDS = {"1", "2", "3", "4", "5", "8", "9"}
+TAX_COLLECTED = "収入済額・合計"
 # 政令指定都市の区に付ける注記（区の行に値を入れず、地図で「データなし」と見えないように理由を書く）
 WARD_NOTE = "政令指定都市は市全体の値だけが公表されているため、区の値はありません"
 
@@ -198,3 +211,56 @@ def _insert_per_capita(conn: sqlite3.Connection, entity_id: str, values: dict, t
             insert_observation(conn, value=None, status="missing", **obs)
         else:
             insert_observation(conn, value=amount / population * d.get("scale", 1), status="derived", **obs)
+
+
+def read_tax_collection(path: Path, item: str, prefs: list[str]) -> dict[str, float | None]:
+    """徴収実績の CSV から、税目 item の収入済額の合計。地域コード5桁 → 千円（空欄は None）。"""
+    with path.open(encoding="cp932", errors="replace", newline="") as f:
+        rows = list(csv.reader(f))
+    header = [c.strip() for c in rows[0]]
+    c_code, c_kind, c_item = header.index("団体コード"), header.index("団体区分"), header.index("行名称")
+    c_value = next(j for j, h in enumerate(header) if h.endswith(TAX_COLLECTED))
+    out: dict[str, float | None] = {}
+    for r in rows[1:]:
+        if len(r) <= c_value or r[c_item].strip() != item or r[c_kind].strip() not in MUNICIPAL_KINDS:
+            continue
+        code = _code5(r[c_code].strip().zfill(6))
+        if code is None or code[:2] not in prefs:
+            continue
+        v = r[c_value].strip()
+        out[code] = float(v) if re.fullmatch(r"-?\d+(\.\d+)?", v) else None
+    return out
+
+
+def ingest_tax_collection(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
+                          period: tuple[str, str, str], prefs: list[str]) -> dict:
+    targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "soumu_tax_collection"}
+    result = {"municipalities": 0, "prefectures": 0, "not_in_map": []}
+    base = dict(period_start=period[0], period_end=period[1], period_kind=period[2], source_id=source_id)
+    for indicator_id, d in targets.items():
+        data = read_tax_collection(path, d["tax_item"], prefs)
+        if not data:
+            raise ValueError(f"{path.name}: 税目「{d['tax_item']}」の行がありません")
+        one = {indicator_id: d}
+        obs = dict(base, indicator_id=indicator_id, definition_version=d["definition_version"])
+        totals: dict[str, float | None] = {}
+        for code, v in sorted(data.items()):
+            pref = code[:2]
+            totals[pref] = None if v is None or (pref in totals and totals[pref] is None) else totals.get(pref, 0.0) + v
+            entity_id = municipality_entity_id(code)
+            if not _exists(conn, entity_id):
+                # 政令指定都市は市全体の値しかない。区に割り振ると元データより細かくなるので、区には値を入れない
+                result["not_in_map"].append(code)
+                _insert_ward_notes(conn, code, one, base)
+                continue
+            insert_observation(conn, entity_id=entity_id, value=None if v is None else v * d.get("scale", 1),
+                               status="observed" if v is not None else "missing", **obs)
+            result["municipalities"] += 1
+        for pref, v in sorted(totals.items()):
+            insert_observation(conn, entity_id=prefecture_entity_id(pref),
+                               value=None if v is None else v * d.get("scale", 1),
+                               status="derived" if v is not None else "missing",
+                               method_note="県内の市区町村（政令指定都市は市全体）の合計（都道府県の税は含みません）",
+                               **obs)
+            result["prefectures"] += 1
+    return result

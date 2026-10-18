@@ -470,6 +470,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
     used_sources |= export_nurseries(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_weather(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_transport(conn, catalog, out, release_id, ok_sources)
+    used_sources |= export_facilities(conn, catalog, out, release_id, ok_sources)
     used_sources |= export_land_use_tiles(conn, out, raw, ok_sources)
 
     used_sources |= {r["source_id"] for r in muni_rows} | {r["source_id"] for r in area_rows}
@@ -760,6 +761,55 @@ def export_weather(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path
         "periods": [{"period": "1991-2020", "label": "1991〜2020年の平年値"}],
         "elements": elements, "source_ids": sorted(used),
         "stations": sorted(points.values(), key=lambda p: p["id"])})
+    return used
+
+
+FACILITY_LEVELS = ("roadside_station", "cultural_property")
+# 施設の属性のうち、点の一覧に載せないもの（取込で使う情報）
+FACILITY_PRIVATE = {"source_id", "prefecture", "as_of", "municipalities"}
+
+
+def export_facilities(conn: sqlite3.Connection, catalog: dict[str, dict], out: Path,
+                      release_id: str, ok_sources: set[str]) -> set[str]:
+    """値のない施設の点（道の駅・国指定文化財）。places/<指標>.json に、名前・市区町村・位置と属性（住所など）を書く。
+    位置の分からない施設も一覧には含め、coord を null にする。split_by_prefecture の指標（件数の多い文化財）は
+    都道府県ごとのファイルに分ける（_write_places）。"""
+    used: set[str] = set()
+    for indicator_id, d in catalog.items():
+        level = next((lv for lv in FACILITY_LEVELS if lv in d.get("levels", [])), None)
+        if level is None:
+            continue
+        rows = conn.execute(
+            """SELECT e.entity_id, e.name, e.parent_id, l.lon, l.lat, l.source_id AS loc_source, a.attributes
+               FROM entities e LEFT JOIN locations l ON l.entity_id = e.entity_id AND l.role = 'main'
+               LEFT JOIN entity_attributes a ON a.entity_id = e.entity_id
+               WHERE e.entity_type = ? ORDER BY e.entity_id""", (level,)).fetchall()
+        points, srcs, dates = [], set(), set()
+        for r in rows:
+            attrs = json.loads(r["attributes"] or "{}")
+            if attrs.get("source_id") not in ok_sources:
+                continue
+            located = r["lon"] is not None and r["loc_source"] in ok_sources
+            munis = attrs.get("municipalities") or []
+            points.append({"id": r["entity_id"], "name": r["name"], "municipality_id": r["parent_id"],
+                           "coord": _coord(r) if located else None,
+                           # 2つ以上の市区町村にまたがる施設（道の駅「宇津ノ谷峠」など）はすべての市区町村
+                           **({"municipality_ids": munis} if len(munis) > 1 else {}),
+                           **{k: v for k, v in attrs.items() if k not in FACILITY_PRIVATE and v is not None}})
+            srcs.add(attrs["source_id"])
+            if located:
+                srcs.add(r["loc_source"])
+            if attrs.get("as_of"):
+                dates.add(attrs["as_of"])
+        if not points:
+            continue
+        periods = [(t, t, "point") for t in sorted(dates)]
+        meta = _places_meta(release_id, indicator_id, d, periods, srcs)
+        if d.get("split_by_prefecture"):
+            _write_places(out, indicator_id, meta, "points", points)
+        else:
+            _write(out, f"places/{indicator_id}.json", {**meta, "points": points})
+        used |= srcs
     return used
 
 
