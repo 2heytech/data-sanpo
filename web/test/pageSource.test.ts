@@ -2,9 +2,9 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// 公開する HTML に開発用のメモを残さない（設計変更記録 #143）。
-// .astro の <!-- --> と is:inline のスクリプトの中のコメントは、そのままページに出る。
-// メモは {/* */}（ビルドで消える）か、フロントマターに書く
+// 公開する HTML に開発用のメモを残さない（設計変更記録 #143・#147）。
+// .astro の <!-- --> と is:inline のスクリプト・スタイルの中のコメントは、そのままページに出る。
+// メモは {/* */}（ビルドで消える）か、フロントマターに書く。ビルドの最後にも src/integrations/publicHtml.ts で確かめる
 const SRC = join(__dirname, "../src");
 
 function astroFiles(dir: string): string[] {
@@ -28,10 +28,10 @@ describe("ページに出るソース", () => {
     }
   });
 
-  it("is:inline のスクリプトにコメントを書かない", () => {
+  it("is:inline のスクリプト・スタイルにコメントを書かない", () => {
     for (const f of files) {
-      for (const m of readFileSync(f, "utf-8").matchAll(/<script\b[^>]*\bis:inline\b[^>]*>([\s\S]*?)<\/script>/g)) {
-        expect(m[1], f).not.toMatch(/(^|\s)\/\/|\/\*/);
+      for (const m of readFileSync(f, "utf-8").matchAll(/<(script|style)\b[^>]*\bis:inline\b[^>]*>([\s\S]*?)<\/\1>/g)) {
+        expect(m[2], f).not.toMatch(/(^|\s)\/\/|\/\*/);
       }
     }
   });
