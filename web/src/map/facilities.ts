@@ -215,7 +215,6 @@ export function initFacilities(o: Options): PointLayer {
       <h2>${esc(facilityName(o.kind, p.name))}</h2>
       ${o.kind === "michi" ? michiHtml(p) : bunkaHtml(p)}
       ${p.location_note ? `<p class="note small">地図の位置は${esc(p.location_note)}です。</p>` : ""}
-      <p class="muted small">${esc(data.description)}</p>
       <p class="muted small">${data.caveats.map(esc).join(" ")}</p>
       ${sourcesHtml(data.source_ids, o.sources)}`;
     o.onPanel();

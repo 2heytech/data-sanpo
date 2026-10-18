@@ -218,7 +218,9 @@ def _attrs(item: Item, source_id: str, as_of: str) -> dict:
         when = _date(dates[0]) if dates else None
     else:
         treasure = []
-        kinds = [k for k in (r["種別1"].strip(), r["種別2"].strip()) if k]
+        # 史跡・名勝・天然記念物の順にそろえる（元の種別1・種別2の順はまちまち）
+        kinds = sorted((k for k in (r["種別1"].strip(), r["種別2"].strip()) if k),
+                       key=lambda k: next((i for i, b in enumerate(KINDS_401) if k.endswith(b)), len(KINDS_401)))
         kind = "・".join(kinds) if item.cat == "401" else label
         when = _date(r["重文指定年月日"])
     return {
