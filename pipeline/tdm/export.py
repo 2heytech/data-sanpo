@@ -18,7 +18,7 @@ from shapely.ops import unary_union
 from shapely.strtree import STRtree
 
 from . import SCHEMA_VERSION
-from .breaks import diverging_breaks, nice_breaks, quantile_breaks
+from .breaks import FINE_CLASSES, diverging_breaks, national_breaks, nice_breaks, quantile_breaks
 from .db import load_geometry, now_iso
 from .progress import progress
 from .regions import PREFECTURES, prefecture_entity_id, prefecture_of
@@ -144,6 +144,12 @@ def _git_commit() -> str | None:
                               check=True).stdout.strip() or None
     except (OSError, subprocess.CalledProcessError):
         return None
+
+
+def _fine_classes(classes: int, count: int) -> int:
+    """市区町村・町丁目の区分の数（#145）。全時点の値が少ない指標（東京都だけの街路樹など）は、
+    1区分に平均20個ほどの値が入るまで減らす（indicators.toml の classes より少なくはしない）。"""
+    return max(classes, min(FINE_CLASSES, count // 20))
 
 
 def _period_id(start: str, end: str, kind: str) -> str:
@@ -393,18 +399,15 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
             top = max((v for vals in pooled.values() for v in vals), default=0.0)
             fixed = [round(band * k, d["digits"]) for k in range(1, int(top // band) + 1)]
             breaks_fn = lambda vals, classes, digits: list(fixed)  # noqa: E731
-        breaks_by_level = {key: breaks_fn(vals, d["legend"]["classes"], d["digits"])
-                           for key, vals in pooled.items()}
-        # 市区町村は都道府県ごとにも区切る（全国の区切りだと、東京都と山梨県のように水準の違う県で
-        # 県内の差が見えなくなるため。地図は都道府県ごとの区切りで塗る）
-        pooled_pref: dict[tuple[str, bool], list[float]] = defaultdict(list)
-        for (_, _, kind), p in periods.items():
-            for r in p["rows"].get(("municipality", "municipalities"), []):
-                if r["value"] is not None and not (zero_blank and r["value"] == 0):
-                    pooled_pref[(prefecture_of(r["entity_id"]), kind == "multi_year")].append(r["value"])
-        pref_breaks: dict[bool, dict[str, list[float]]] = defaultdict(dict)
-        for (pref, multi), vals in sorted(pooled_pref.items()):
-            pref_breaks[multi][pref] = breaks_fn(vals, d["legend"]["classes"], d["digits"])
+        # 市区町村・町丁目は、全国で共通の区切りを最大 FINE_CLASSES 区分で決める（#145。東京都と山梨県のように
+        # 水準の違う県どうしでも、同じ色は同じ値の範囲。区分を増やして、県の中の差も見えるようにする）。
+        # 都道府県（47）は indicators.toml の classes のまま
+        fine_fn = (diverging_breaks if method == "diverging" else
+                   breaks_fn if method == "bands" else national_breaks)
+        breaks_by_level = {
+            (lv, multi): (breaks_fn(vals, d["legend"]["classes"], d["digits"]) if lv == "prefecture" else
+                          fine_fn(vals, _fine_classes(d["legend"]["classes"], len(vals)), d["digits"]))
+            for (lv, multi), vals in pooled.items()}
         period_meta = []
         # 年ごとの時点を古い順に並べ、複数年の合計は最後に置く
         for (start, end, kind), p in sorted(periods.items(), key=lambda kv: (kv[0][2] == "multi_year", kv[0])):
@@ -419,18 +422,6 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
                     "breaks": breaks_by_level.get((level, kind == "multi_year"), []),
                     "min": min(vals, default=None), "max": max(vals, default=None),
                     "count": len(vals)}
-                by_pref = pref_breaks.get(kind == "multi_year", {})
-                if level == "municipality" and len(by_pref) > 1:
-                    legend[level]["by_prefecture"] = by_pref
-                if level == "municipality":
-                    # 県内の市区町村がすべて0の都道府県（例: 私立中学校のない県）は、地図で色を付けない
-                    by_pref_vals: dict[str, list[float]] = defaultdict(list)
-                    for r in p["rows"].get(("municipality", "municipalities"), []):
-                        if r["value"] is not None:
-                            by_pref_vals[prefecture_of(r["entity_id"])].append(r["value"])
-                    zero = sorted(k for k, v in by_pref_vals.items() if all(x == 0 for x in v))
-                    if zero:
-                        legend[level]["zero_prefectures"] = zero
             national = _national_small_area_ranks(p["rows"])
             for (level, chunk), rows in p["rows"].items():
                 if level == "small_area" and national:

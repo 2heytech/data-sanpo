@@ -61,7 +61,7 @@ const structuredData = {
       <h2>この記事で使った指標</h2>
       <ul class="article-links">
         {related.map((i) => (
-          <li><a href={`/indicators/${i.id}/`}>{i.name}</a>（<a href={`/map/?i=${i.id}`}>地図</a>）<span class="muted">{i.description}</span></li>
+          <li><a href={`/indicators/${i.id}/`}>{i.name}</a>（<a href={`/map/?i=${i.id}&l=municipality`}>地図</a>）<span class="muted">{i.description}</span></li>
         ))}
       </ul>
     </section>

@@ -6,6 +6,8 @@
 #       / change（base の指標の前回の国勢調査からの増減率。(今回−前回)÷前回×scale）
 # 分母が min_denominator 未満の率は値を出さず status=withheld とする（docs/design-changes.md #1）。
 # legend: method = "nice"（切りのよい数値で12区分。偏った分布は分位点寄り）/ "diverging"（0を境に増減）。
+#         classes は都道府県の区分の数。市区町村・町丁目は全国で共通の区切りを最大20区分で決める
+#         （nice・quantile は tdm/breaks.py の national_breaks、#145）。
 #         zero_blank = true なら値が0の地域は色を塗らない（docs/design-changes.md #35）
 # family / facets: 画面で1つの指標にまとめ、facets（種別 type・基準 basis）で切り替える（#36）
 # traffic_filter: 交通事故（source_kind = npa_traffic）のうち数える事故（all / pedestrian / bicycle / fatal、#44）

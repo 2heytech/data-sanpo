@@ -4,7 +4,7 @@
 import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, LngLatBoundsLike, PointLike } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { colorsFor, fillColorExpression, NO_DATA_COLOR } from "../lib/classify";
+import { colorsFor, fillColorExpression, NO_DATA_COLOR, textWidth, tickStep } from "../lib/classify";
 import { bandLabel, compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
@@ -33,6 +33,10 @@ const AREA_ZOOM = 13; // これ以上で町丁目を表示
 const FINE_MUNI_ZOOM = 8; // これ以上で市区町村界を都道府県ごとの細かい形に差し替える（初回は全国の粗い形）
 const MAX_PREFS_PER_MOVE = 6;
 const MAX_CHUNKS_PER_MOVE = 8;
+// 色分けの単位で「町丁目」を選んだときは、自動より手前の縮尺から町丁目で塗る（全国の町丁目の境界は大きすぎて
+// 一度に読めないので、これより縮小したときは市区町村で塗る）。一度に読む市区町村の数も増やす（#146）
+const MANUAL_AREA_ZOOM = 10;
+const MAX_CHUNKS_MANUAL = 40;
 // 地名の文字。漢字・かなは端末のフォントで描き、数字などだけ地理院のフォントを読み込む
 // （地理院の noto-jp にあるのは NotoSansCJKjp-Regular。NotoSansJP-Regular は 404 で、数字などが描けなかった）
 const GLYPHS_URL = "https://maps.gsi.go.jp/xyz/noto-jp/{fontstack}/{range}.pbf";
@@ -42,8 +46,10 @@ const AREA_LABEL_ZOOM = AREA_ZOOM; // 町丁目名はこれ以上で表示（狭
 const MUNI_LABEL_ZOOM = PREF_ZOOM; // 市区町村名はこれ以上で表示
 const PLAY_INTERVAL_MS = 1600;
 const PHOTO_PLAY_INTERVAL_MS = 2500; // 航空写真は読み込みに時間がかかるので、指標の再生より長めに見せる
-const MUNI_OPACITY = 0.72;
-const AREA_OPACITY = 0.68;
+// 色分けの濃さ。全国で共通の区切りで区分が多い（最大20、#145）ので、隣の区分の色の差が背景に埋もれないよう濃いめにする
+const MUNI_OPACITY = 0.82;
+const AREA_OPACITY = 0.78;
+const TICK_FONT_PX = 11.5; // 凡例の区切りの値の文字の大きさ（.legend-ticks の 0.72rem）
 const POPUP_MAX_PX = 420; // 地点の情報のポップアップの高さの上限
 // ポップアップを地図の端からこれだけ離す（上は左上の背景の切替の下まで）
 const POPUP_PAD = { top: 58, bottom: 24, side: 12 };
@@ -199,6 +205,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   let indicator: Indicator = indicators.find((i) => i.id === initial.indicator) ?? indicators[0];
   let period = indicator.periods.find((p) => p.period === initial.period)?.period ?? indicator.default_period;
   let selected: string | null = null;
+  // 色分けの単位: auto は縮尺に合わせて切り替え、ほかは手で選んだ単位（#146）
+  type LevelMode = "auto" | Level;
+  const LEVEL_MODES: LevelMode[] = ["auto", "prefecture", "municipality", "small_area"];
+  let levelMode: LevelMode = LEVEL_MODES.find((m) => m !== "auto" && m === initial.level) ?? "auto";
 
   // --- 地図 ---------------------------------------------------------------------
   const map = new maplibregl.Map({
@@ -282,7 +292,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   });
   map.addLayer({
     id: "muni-line", type: "line", source: "munis",
-    paint: { "line-color": "#4a4a4a", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.6, 13, 2] },
+    paint: { "line-color": "#4a4a4a", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.15, 7, 0.3, 9, 0.6, 13, 2] },
   });
   map.addLayer({
     id: "pref-line", type: "line", source: "prefs",
@@ -339,14 +349,27 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
              "text-opacity": ["interpolate", ["linear"], ["zoom"], AREA_LABEL_ZOOM, 1, AREA_LABEL_ZOOM + 1, 0.55] },
   });
 
+  // いまの指標・時点の凡例（区切りと、単位ごとの値のある地域の数）
+  let legend: LegendFile | null = null;
+  // 色分けできる値があるか。値の行はあってもすべて欠測の単位もある（市区町村に秘匿があって合計できない
+  // 都道府県など）ので、凡例の数で確かめる。凡例を読む前は、あるものとして扱う
+  const hasValues = (l: Level) => !legend || (legend.levels[l]?.count ?? 0) > 0;
   // 市区町村だけの指標（昼間人口など）は、拡大しても市区町村の色分けのまま表示する
   const municipalityOnly = () => !periodInfo().levels.includes("small_area");
   // 都道府県の値がない指標（合計できない指標など）は、縮小しても市区町村の色分けのまま
-  const prefLevel = () => nationwide && periodInfo().levels.includes("prefecture");
+  const prefLevel = () => nationwide && periodInfo().levels.includes("prefecture") && hasValues("prefecture");
   // 都道府県だけの指標（学力テストなど）は、拡大しても都道府県の色分けのまま表示する
   const prefectureOnly = () => prefLevel() && !periodInfo().levels.includes("municipality");
+  // その時点に値のある単位（都道府県は全国の公開版だけ）
+  const available = (l: Level) => periodInfo().levels.includes(l) && (l !== "prefecture" || nationwide) && hasValues(l);
+  // 手で選んだ単位（この指標・時点に値がなければ、自動と同じにする）
+  const chosenLevel = (): Level | null => (levelMode !== "auto" && available(levelMode) ? levelMode : null);
+  const areaZoom = () => (chosenLevel() === "small_area" ? MANUAL_AREA_ZOOM : AREA_ZOOM);
   const levelNow = (): Level => {
     const z = map.getZoom();
+    const chosen = chosenLevel();
+    if (chosen === "small_area" && z < MANUAL_AREA_ZOOM) return available("municipality") ? "municipality" : "prefecture";
+    if (chosen) return chosen;
     if (prefLevel() && (z < PREF_ZOOM || prefectureOnly())) return "prefecture";
     return z >= AREA_ZOOM && !municipalityOnly() ? "small_area" : "municipality";
   };
@@ -429,13 +452,47 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     refreshLabels("areas");
   }
 
-  // 都道府県名は都道府県の色分けのときだけ（「地名を表示」を外したときは出さない）
-  function syncPrefLabels() {
-    const on = prefLevel() && $<HTMLInputElement>("#labels-toggle").checked;
-    map.setLayoutProperty("pref-label", "visibility", on ? "visible" : "none");
+  // 地名と、その下に添える値。値は色分けしている単位の地名にだけ添える（都道府県で塗っているときに市区町村の値を
+  // 出さない）。都道府県名は都道府県の色分けのとき、または単位を選んで全国を見ているとき（名前だけ）に出す
+  function syncLabels() {
+    const on = $<HTMLInputElement>("#labels-toggle").checked;
+    const chosen = chosenLevel();
+    const text = (level: Level) => (chosen && chosen !== level ? nameOnly : labelText()) as never;
+    const prefMax = chosen === "prefecture" || (!chosen && prefectureOnly()) ? 24 : PREF_ZOOM;
+    map.setLayerZoomRange("pref-label", 0, prefMax);
+    map.setLayoutProperty("pref-label", "visibility", on && nationwide && (!!chosen || prefLevel()) ? "visible" : "none");
+    map.setLayoutProperty("muni-label", "visibility", on && (!!chosen || !prefectureOnly()) ? "visible" : "none");
+    map.setLayoutProperty("area-label", "visibility", on ? "visible" : "none");
+    map.setLayoutProperty("pref-label", "text-field", text("prefecture"));
+    map.setLayoutProperty("muni-label", "text-field", text("municipality"));
+    map.setLayoutProperty("area-label", "text-field", text("small_area"));
+    for (const layer of ["pref-label", "muni-label", "area-label"] as const) map.setLayoutProperty(layer, "text-size", labelSize(layer));
   }
 
-  let legend: LegendFile | null = null;
+  // 塗る層と縮尺の範囲。自動では、都道府県の値がある指標は縮小すると都道府県・拡大すると市区町村（さらに町丁目）で塗る。
+  // 単位を選んだときは、どの縮尺でもその単位で塗る（町丁目は MANUAL_AREA_ZOOM より縮小したら市区町村）
+  function syncLayers() {
+    const chosen = chosenLevel();
+    type Range = [number, number] | null;
+    let pref: Range, muni: Range, area: Range;
+    if (chosen === "prefecture") [pref, muni, area] = [[0, 24], null, null];
+    else if (chosen === "municipality") [pref, muni, area] = [null, [0, 24], null];
+    else if (chosen === "small_area") [pref, muni, area] = [null, available("municipality") ? [0, MANUAL_AREA_ZOOM] : null, [MANUAL_AREA_ZOOM, 24]];
+    else {
+      pref = prefLevel() ? [0, prefectureOnly() ? 24 : PREF_ZOOM] : null;
+      muni = prefectureOnly() ? null : [prefLevel() ? PREF_ZOOM : 0, municipalityOnly() ? 24 : AREA_ZOOM];
+      area = municipalityOnly() ? null : [AREA_ZOOM, 24];
+    }
+    for (const [layer, range] of [["pref-fill", pref], ["muni-fill", muni], ["area-fill", area]] as const) {
+      if (range) map.setLayerZoomRange(layer, range[0], range[1]);
+      map.setLayoutProperty(layer, "visibility", range ? "visible" : "none");
+    }
+    // 市区町村界は市区町村で塗る縮尺から（都道府県で塗るときは、拡大したら位置の目安に出す）
+    map.setLayerZoomRange("muni-line", muni ? muni[0] : PREF_ZOOM, 24);
+    map.setLayerZoomRange("area-line", area ? area[0] : AREA_ZOOM, 24);
+    syncLabels();
+  }
+
   let colorsToken = 0;
   async function refreshColors() {
     // 凡例を読んでいる間に指標・時点が変わったら（続けて切り替えた・再生中など）、古い凡例で塗らない
@@ -443,30 +500,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const next = await fetchJSON<LegendFile>(`values/${indicator.id}/${period}/legend.json`);
     if (token !== colorsToken) return;
     legend = next;
-    // 都道府県の値がある指標は、縮小すると都道府県・拡大すると市区町村（さらに町丁目）で塗る
-    const muniFrom = prefLevel() ? PREF_ZOOM : 0;
-    const prefMax = prefectureOnly() ? 24 : PREF_ZOOM;
-    map.setLayerZoomRange("muni-fill", muniFrom, municipalityOnly() ? 24 : AREA_ZOOM);
-    map.setLayerZoomRange("muni-line", muniFrom, 24);
-    map.setLayerZoomRange("pref-fill", 0, prefMax);
-    map.setLayerZoomRange("pref-label", 0, prefMax);
-    map.setLayoutProperty("muni-fill", "visibility", prefectureOnly() ? "none" : "visible");
-    map.setLayoutProperty("muni-label", "visibility",
-      !prefectureOnly() && $<HTMLInputElement>("#labels-toggle").checked ? "visible" : "none");
-    map.setLayoutProperty("pref-fill", "visibility", prefLevel() ? "visible" : "none");
-    syncPrefLabels();
-    map.setLayoutProperty("area-fill", "visibility", municipalityOnly() ? "none" : "visible");
+    syncLayers();
+    // 区切りは全国で1つ（市区町村も都道府県ごとには変えない。#145）
     for (const [layer, level] of [["pref-fill", "prefecture"], ["muni-fill", "municipality"], ["area-fill", "small_area"]] as const) {
-      const info = legend.levels[level];
-      // 市区町村は都道府県ごとの区切りで塗る（id は muni-<都道府県2桁><市区町村3桁>）
-      const byGroup = level === "municipality" && (info?.by_prefecture || info?.zero_prefectures)
-        ? { key: ["slice", ["get", "id"], 5, 7], breaks: info.by_prefecture ?? {}, zero: info.zero_prefectures }
-        : undefined;
       map.setPaintProperty(layer, "fill-color",
-        fillColorExpression(legend.scheme, info?.breaks ?? [], legend.zero_blank, byGroup) as never);
+        fillColorExpression(legend.scheme, legend.levels[level]?.breaks ?? [], legend.zero_blank) as never);
     }
     await Promise.all([paintPrefectures(), paintMunicipalities(), ...[...loadedChunks].map(paintChunk)]);
+    loadVisibleChunks();
     renderLegend();
+    syncLevelButtons();
     renderDetail();
   }
 
@@ -523,18 +566,22 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       .sort((a, z) => mid(a) - mid(z));
   }
 
+  // 町丁目で塗る縮尺なら、地図の中心に近い市区町村から町丁目の境界を読む
+  function loadVisibleChunks() {
+    if (map.getZoom() < areaZoom() - 0.5) return;
+    const c = map.getCenter();
+    visibleMunicipalities()
+      .sort((a, b) => dist(a.center, c) - dist(b.center, c))
+      .slice(0, chosenLevel() === "small_area" ? MAX_CHUNKS_MANUAL : MAX_CHUNKS_PER_MOVE)
+      .forEach((m) => void ensureChunk(m.id.slice(5)));
+  }
   map.on("moveend", () => {
     if (map.getZoom() >= FINE_MUNI_ZOOM) {
       visiblePrefectures().slice(0, MAX_PREFS_PER_MOVE).forEach((p) => void ensureFineMunis(p.code));
     }
-    if (map.getZoom() >= AREA_ZOOM - 0.5) {
-      const c = map.getCenter();
-      visibleMunicipalities()
-        .sort((a, b) => dist(a.center, c) - dist(b.center, c))
-        .slice(0, MAX_CHUNKS_PER_MOVE)
-        .forEach((m) => void ensureChunk(m.id.slice(5)));
-    }
+    loadVisibleChunks();
     renderLegend();
+    syncLevelButtons();
     renderAreaChip();
   });
   const dist = (p: [number, number], c: { lng: number; lat: number }) => (p[0] - c.lng) ** 2 + (p[1] - c.lat) ** 2;
@@ -733,31 +780,20 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (!legend) return;
     const level = levelNow();
     const info = legend.levels[level];
-    let levelLabel = LEVEL_LABEL[level];
+    const levelLabel = LEVEL_LABEL[level];
     const head = (label: string) =>
       `<p class="legend-head">${esc(indicator.unit)}<span class="muted">（${esc(label)}別）</span></p>`;
+    // 町丁目を選んで縮小しているときは、市区町村で塗っていることを書き添える
+    const later = chosenLevel() === "small_area" && level !== "small_area"
+      ? `<p class="muted small legend-note">町丁目は拡大すると色分けされます。</p>` : "";
     if (!info) {
-      legendEl.innerHTML = `<p class="muted small">この時点の${levelLabel}別の値はありません。</p>`;
+      legendEl.innerHTML = `<p class="muted small">この時点の${levelLabel}別の値はありません。</p>` + later;
       return;
     }
-    // 市区町村の区切りは都道府県ごと。凡例は地図の中心（選んだ地域）の都道府県の区切りを出す
-    // 区分で公表された値（就学援助率など）は区切りが全国共通なので、都道府県の名前を出さない
-    let breaks = info.breaks;
-    const pref = level === "municipality" && info.by_prefecture && !indicator.legend.band ? focusPrefecture() : undefined;
-    if (pref && info.by_prefecture![pref]) {
-      breaks = info.by_prefecture![pref];
-      levelLabel = `${prefName(pref)}の${levelLabel}`;
-    }
+    // 区切りは全国で共通（都道府県ごとには変えない。#145）
+    const breaks = info.breaks;
     const noData = `<span><i class="swatch" style="background:${NO_DATA_COLOR}"></i>値なし</span>`;
     const blank = `<span><i class="swatch blank"></i>0（色なし）</span>`;
-    // 県内がすべて0の都道府県（例: 私立中学校のない県）は色を付けない
-    const focus = level === "municipality" ? focusPrefecture() : undefined;
-    if (focus && info.zero_prefectures?.includes(focus)) {
-      legendEl.innerHTML = head(`${prefName(focus)}の${LEVEL_LABEL[level]}`) +
-        `<p class="legend-extra">${blank}${noData}</p>` +
-        `<p class="muted small">${esc(prefName(focus))}の市区町村はすべて0のため、色を付けていません。</p>`;
-      return;
-    }
     const zeroBlank = !!legend.zero_blank;
     const colors = colorsFor(legend.scheme, breaks, zeroBlank);
     const fmt = (v: number) => formatNumber(v, indicator.digits);
@@ -773,17 +809,24 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         : hi === null ? `${fmt(lo)} 以上` : `${fmt(lo)} 〜 ${fmt(hi)} 未満`;
     });
     const cells = colors.map((c, i) => `<span style="background:${c}" title="${esc(labels[i])}"></span>`).join("");
-    // 区切りの値は帯の境目に、上下2段に互い違いに出す（色にカーソルを合わせると範囲も出る）
+    // 区切りの値は帯の境目に、上下2段に互い違いに出す（色にカーソルを合わせると範囲も出る）。
+    // 区分が多くて文字が重なるときは、いくつかおきに値を出し、残りの境目は目盛りだけにする（#145）
     const n = colors.length;
-    const ticks = band
-      ? colors.map((_, i) => `<span class="${n > 6 && i % 2 ? "low" : ""}" style="left:${(((i + 0.5) / n) * 100).toFixed(2)}%">${
-          esc(i === 0 ? "0" : `〜${compactNumber(bandValue(i), indicator.digits)}`)}</span>`).join("")
-      : breaks.slice(0, n - 1).map((b, k) =>
-      `<span class="${n > 6 && k % 2 ? "low" : ""}" style="left:${(((k + 1) / n) * 100).toFixed(2)}%">${esc(compactNumber(b, indicator.digits))}</span>`).join("");
+    const items = band
+      ? colors.map((_, i) => ({ at: (i + 0.5) / n, text: i === 0 ? "0" : `〜${compactNumber(bandValue(i), indicator.digits)}` }))
+      : breaks.slice(0, n - 1).map((b, k) => ({ at: (k + 1) / n, text: compactNumber(b, indicator.digits) }));
+    const rows = n > 6 ? 2 : 1;
+    const width = legendEl.clientWidth || 260;
+    const step = tickStep(items.map((t) => t.at * width), items.map((t) => textWidth(t.text, TICK_FONT_PX)), rows);
+    const ticks = items.map((t, k) => {
+      const style = `left:${(t.at * 100).toFixed(2)}%`;
+      if (k % step) return band ? "" : `<span class="bare" style="${style}"></span>`;
+      return `<span class="${rows > 1 && (k / step) % 2 ? "low" : ""}" style="${style}">${esc(t.text)}</span>`;
+    }).join("");
     legendEl.innerHTML = head(levelLabel) +
       `<div class="legend-bar" role="img" aria-label="${esc(labels.join("、"))}">${cells}</div>` +
-      `<div class="legend-ticks${n > 6 ? " two" : ""}" aria-hidden="true">${ticks}</div>` +
-      `<p class="legend-extra">${zeroBlank ? blank : ""}${noData}</p>`;
+      `<div class="legend-ticks${rows > 1 ? " two" : ""}" aria-hidden="true">${ticks}</div>` +
+      `<p class="legend-extra">${zeroBlank ? blank : ""}${noData}</p>` + later;
   }
 
   async function rowsFor(id: string, at = period): Promise<ValueRow[]> {
@@ -1008,7 +1051,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   function updateUrl() {
-    const qs = serializeState({ indicator: indicator.id, period, area: selected ?? undefined });
+    const qs = serializeState({ indicator: indicator.id, period, area: selected ?? undefined,
+                               level: levelMode === "auto" ? undefined : levelMode });
     history.replaceState(null, "", `${location.pathname}${qs}`);
   }
 
@@ -1151,20 +1195,54 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   });
 
   const unique = (xs: string[]) => [...new Set(xs)];
-  // 選んだ指標（と時点）で見られる単位と、対象の都道府県
+  // 色分けの単位（自動・都道府県・市区町村・町丁目）の切替と、対象の都道府県（#146）。
+  // 単位はアイコン（区切りが細かいほどマス目が多い）付きのボタン。どの時点にも値のない単位は出さない（#93）
   function renderScope() {
     const all = levelsOf([indicator]);
-    const now = levelsOf([indicator], period);
-    // 1行に収める: 見られる単位をアイコン（区切りが細かいほどマス目が多い）で示し、ない単位は出さない（#93）
-    const chips = LEVELS.filter((l) => all.has(l)).map((l) => {
-      const later = !now.has(l);
-      const title = `${LEVEL_LABEL[l]}別で${later ? "は、ほかの時点で見られます（この時点は値なし）" : "見られます"}`;
-      return `<li class="${later ? "later" : "on"}" title="${title}">${LEVEL_ICON[l]}${SHORT_LEVEL[l]}</li>`;
-    }).join("");
+    const buttons = [
+      `<button type="button" data-level="auto" title="縮尺に合わせて切り替えます（縮小すると都道府県、拡大すると市区町村・町丁目）">自動</button>`,
+      ...LEVELS.filter((l) => all.has(l)).map((l) =>
+        `<button type="button" data-level="${l}">${LEVEL_ICON[l]}${SHORT_LEVEL[l]}</button>`),
+    ].join("");
     const prefs = nationwide ? prefsOf([indicator]) : null;
     const area = prefs ? coverageLabel(prefs) : "全国";
-    scopeEl.innerHTML = `<ul class="scope-levels" aria-label="見られる単位">${chips}</ul>` +
-      `<span class="scope-area${prefs ? " limited" : ""}" title="${prefs ? `対象: ${esc(area)}（ほかの地域は値なし）` : "対象: 全国"}">${esc(area)}</span>`;
+    scopeEl.innerHTML = `<div class="scope-head"><span id="scope-label">色分けの単位</span>` +
+      `<span class="scope-area${prefs ? " limited" : ""}" title="${prefs ? `対象: ${esc(area)}（ほかの地域は値なし）` : "対象: 全国"}">${esc(area)}</span></div>` +
+      `<div class="scope-levels" role="group" aria-labelledby="scope-label">${buttons}</div>`;
+    syncLevelButtons();
+  }
+  // 単位のボタンの説明（この時点に値のない単位は押せない）
+  const levelTitle = (l: Level) =>
+    !periodInfo().levels.includes(l) ? `${LEVEL_LABEL[l]}別は、ほかの時点で見られます（この時点は値なし）`
+      : !available(l) ? `この時点の${LEVEL_LABEL[l]}別の値はありません`
+      : l === "small_area" ? "町丁目で色分けします（全国を見ているときは市区町村。拡大すると町丁目）"
+      : `どの縮尺でも${LEVEL_LABEL[l]}で色分けします`;
+  // 押されているボタン（選んだ単位、選んでいなければ「自動」）と、自動のときに今塗っている単位の印
+  function syncLevelButtons() {
+    const chosen = chosenLevel();
+    const shown = levelNow();
+    for (const b of scopeEl.querySelectorAll<HTMLButtonElement>("button[data-level]")) {
+      const mode = b.dataset.level as LevelMode;
+      if (mode !== "auto") {
+        b.disabled = !available(mode);
+        b.title = levelTitle(mode);
+      }
+      b.setAttribute("aria-pressed", String(mode === (chosen ?? "auto")));
+      b.classList.toggle("shown", !chosen && mode === shown);
+    }
+  }
+  scopeEl.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-level]");
+    if (!b || b.disabled) return;
+    setLevelMode(b.dataset.level as LevelMode);
+  });
+  function setLevelMode(mode: LevelMode) {
+    levelMode = mode;
+    syncLayers();
+    loadVisibleChunks();
+    renderLegend();
+    syncLevelButtons();
+    updateUrl();
   }
   function syncIndicatorControls() {
     indicatorSelect.value = optionValue(indicator);
@@ -1474,17 +1552,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     map.setPaintProperty("pale", "raster-contrast", on ? 0 : -0.15);
   });
   const labelsToggle = $<HTMLInputElement>("#labels-toggle");
-  labelsToggle.addEventListener("change", () => {
-    map.setLayoutProperty("muni-label", "visibility", labelsToggle.checked && !prefectureOnly() ? "visible" : "none");
-    map.setLayoutProperty("area-label", "visibility", labelsToggle.checked ? "visible" : "none");
-    syncPrefLabels();
-  });
-  valuesToggle.addEventListener("change", () => {
-    for (const layer of ["pref-label", "muni-label", "area-label"] as const) {
-      map.setLayoutProperty(layer, "text-field", labelText() as never);
-      map.setLayoutProperty(layer, "text-size", labelSize(layer));
-    }
-  });
+  labelsToggle.addEventListener("change", syncLabels);
+  valuesToggle.addEventListener("change", syncLabels);
   // 範囲: 全国・都道府県（都道府県コードの順。東京都は島しょも、沖縄県の次に南西諸島）。
   // 都道府県の範囲は離島を含むので、県庁所在地側に寄らないこともある
   const regionJump = $<HTMLSelectElement>("#region-jump");

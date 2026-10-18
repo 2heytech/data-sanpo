@@ -94,8 +94,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         </button>
         <select id="indicator-select" hidden aria-hidden="true" tabindex="-1"></select>
       </div>
-      {/* 選んだ指標で見られる単位（都道府県・市区町村・町丁目）と対象の都道府県 */}
-      <div id="indicator-scope" class="scope small" aria-live="polite"></div>
+      {/* 色分けの単位（自動・都道府県・市区町村・町丁目）の切替と、対象の都道府県（#146） */}
+      <div id="indicator-scope" class="scope small"></div>
       {/* 犯罪など、種別と基準（件数・人口当たり）を切り替える指標 */}
       <div id="facets" class="field facets" hidden>
         <label id="facet-type-wrap" class="inline">種別 <select id="facet-type"></select></label>
@@ -374,17 +374,27 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     .picker-list { padding: 4px 12px 24px; }
     .picker-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   }
-  /* 見られる単位と対象地域（1行） */
-  .scope { display: flex; align-items: center; gap: 6px; margin: -6px 0 2px; white-space: nowrap; min-width: 0; }
-  .scope-levels { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0; flex: none; }
-  .scope-levels li { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72rem; line-height: 1.5; }
-  .scope-levels svg { fill: none; stroke: currentColor; stroke-width: 1.3; }
-  .scope-levels li.on { color: var(--accent, #0b5cad); font-weight: 600; }
-  .scope-levels li.on svg { fill: var(--accent-soft, #e6effa); }
-  .scope-levels li.later { color: var(--muted); }
-  .scope-levels li.later svg { stroke-dasharray: 2 1.5; }
-  .scope-area { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; padding-left: 6px; border-left: 1px solid var(--line); }
+  /* 色分けの単位の切替（自動・都道府県・市区町村・町丁目）と対象地域 */
+  .scope { margin: -4px 0 0; min-width: 0; }
+  .scope-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  #scope-label { font-weight: 700; font-size: 0.82rem; color: #3a4757; letter-spacing: .02em; }
+  .scope-levels { display: flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .scope-levels button {
+    flex: 1 1 auto; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+    padding: 6px 4px; font: inherit; font-size: 0.75rem; line-height: 1.2; white-space: nowrap; cursor: pointer;
+    color: #3a4757; background: none; border: 0; border-left: 1px solid var(--line);
+  }
+  .scope-levels button:first-child { border-left: 0; flex: 0 0 auto; padding: 6px 8px; }
+  .scope-levels button:hover:not(:disabled) { background: var(--accent-soft); }
+  .scope-levels button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 700; }
+  /* 自動のときに今塗っている単位 */
+  .scope-levels button.shown { color: var(--accent-ink); font-weight: 700; box-shadow: inset 0 -3px 0 var(--accent); }
+  .scope-levels button:disabled { color: var(--muted); cursor: default; }
+  .scope-levels button:disabled svg { stroke-dasharray: 2 1.5; }
+  .scope-levels svg { fill: none; stroke: currentColor; stroke-width: 1.3; flex: none; }
+  .scope-area { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .scope-area.limited { color: #8a4b00; font-weight: 600; }
+  .legend-note { margin-top: 4px !important; }
   .facets label.inline { font-weight: 600; }
   .period.aggregate #period-range, .period.aggregate .period-ticks, .period.aggregate #period-play { opacity: 0.4; }
   .view-options { border: 0; border-top: 1px solid var(--line); padding: 12px 0 0; margin: 0; display: grid; gap: 6px; }
@@ -590,6 +600,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .legend-ticks span.low { top: 1.2em; }
   .legend-ticks span::before { content: ""; position: absolute; left: 50%; top: -3px; height: 3px; border-left: 1px solid rgba(0,0,0,.35); }
   .legend-ticks span.low::before { top: calc(-3px - 1.2em); height: calc(3px + 1.2em); border-left-color: rgba(0,0,0,.2); }
+  .legend-ticks span.bare::before { border-left-color: rgba(0,0,0,.25); }
   .legend-extra { display: flex; gap: 12px; margin-top: 4px !important; font-size: 0.75rem; color: var(--muted); }
   .legend-extra span { display: inline-flex; align-items: center; gap: 4px; }
   .legend .swatch { display: inline-block; width: 14px; height: 10px; border: 1px solid rgba(0,0,0,.2); flex: none; }

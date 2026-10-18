@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { BLANK_COLOR, classIndex, colorsFor, fillColorExpression, NO_DATA_COLOR } from "../src/lib/classify";
+import { BLANK_COLOR, classIndex, colorsFor, fillColorExpression, NO_DATA_COLOR, textWidth, tickStep } from "../src/lib/classify";
 import { compactNumber, formatBasis, formatFraction, formatValue, rankIfVaried, rankOf, ranked, splitRanking } from "../src/lib/format";
 import { municipalityPeriods } from "../src/lib/periods";
 import { AreaSearch, normalize } from "../src/lib/search";
 import type { Indicator, SearchIndex } from "../src/lib/types";
-import { municipalityCodeOf, parseState, serializeState } from "../src/lib/urlstate";
+import { mapHref, municipalityCodeOf, parseState, serializeState } from "../src/lib/urlstate";
 
 const pct = { unit: "%", digits: 1, kind: "ratio" } as Indicator;
 const people = { unit: "人", digits: 0, kind: "count" } as Indicator;
@@ -79,9 +79,19 @@ describe("classify", () => {
   it("10段階でも配色の両端を保ち、色が重ならない", () => {
     const c = colorsFor("blues", [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(c).toHaveLength(10);
-    expect(c[0]).toBe("#f7fbff");
-    expect(c[9]).toBe("#08306b");
+    expect(c[0]).toBe("#ffffd9");
+    expect(c[9]).toBe("#081d58");
     expect(new Set(c).size).toBe(10);
+  });
+  it("20区分では、隣の区分との色の差がどこもほぼ同じ（配色の上で見た目の差が等しくなる間隔で取る）", () => {
+    for (const scheme of ["blues", "reds", "greens", "ylorbr"]) {
+      const c = colorsFor(scheme, Array.from({ length: 19 }, (_, i) => i + 1));
+      expect(new Set(c).size).toBe(20);
+      const rgb = c.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+      const d = rgb.slice(1).map((x, k) => Math.hypot(...x.map((v, j) => v - rgb[k][j])));
+      // sRGB の距離でも、最も近い隣どうしが平均の半分を下回らない
+      expect(Math.min(...d)).toBeGreaterThan((d.reduce((a, b) => a + b, 0) / d.length) * 0.5);
+    }
   });
   it("増減の配色は0を境に減少側・増加側の色に分かれる", () => {
     const c = colorsFor("puor", [-4, -2, 0, 2, 4, 6]);
@@ -112,25 +122,21 @@ describe("classify", () => {
     expect(colorsFor("reds", [1, 2], true)[0]).toBe("#fee0d2");
     expect(JSON.stringify(fillColorExpression("reds", [1, 2]))).not.toContain(BLANK_COLOR);
   });
-  it("都道府県ごとの区切りがあれば、都道府県コードで区切りを切り替える", () => {
-    const key = ["slice", ["get", "id"], 5, 7];
-    const expr = fillColorExpression("blues", [100], false, { key, breaks: { "13": [10, 20], "19": [1] } }) as unknown[];
-    const match = expr[expr.length - 1] as unknown[];
-    expect(match[0]).toBe("match");
-    expect(match[1]).toEqual(key);
-    expect(match[2]).toBe("13");
-    expect((match[3] as unknown[])[0]).toBe("step");
-    expect((match[3] as unknown[]).filter((x) => typeof x === "number")).toEqual([10, 20]);
-    expect(match[4]).toBe("19");
-    // どの都道府県でもないとき（区切りのない県）は全国の区切り
-    expect((match[6] as unknown[]).filter((x) => typeof x === "number")).toEqual([100]);
+  it("区切りは全国で1つ（都道府県ごとに切り替えない）", () => {
+    const expr = fillColorExpression("blues", [10, 20]) as unknown[];
+    expect(JSON.stringify(expr)).not.toContain("match");
+    expect((expr[expr.length - 1] as unknown[]).filter((x) => typeof x === "number")).toEqual([10, 20]);
   });
-  it("県内がすべて0の都道府県は、0を塗らない（ほかの県の0は塗る）", () => {
-    const key = ["slice", ["get", "id"], 5, 7];
-    const expr = fillColorExpression("blues", [10], false, { key, breaks: { "13": [10] }, zero: ["36"] }) as unknown[];
-    expect(JSON.stringify(expr[3])).toBe(JSON.stringify(["all", ["==", ["feature-state", "v"], 0], ["in", key, ["literal", ["36"]]]]));
-    expect(expr[4]).toBe(BLANK_COLOR);
-    expect(JSON.stringify(fillColorExpression("blues", [10], false, { key, breaks: { "13": [10] } }))).not.toContain(BLANK_COLOR);
+  it("凡例の区切りの値は、重なるときだけいくつかおきに出す", () => {
+    expect(textWidth("1,000", 10)).toBeCloseTo(27);
+    expect(textWidth("1.5万", 10)).toBeCloseTo(25);
+    // 幅 260px に 5区分（値4つ）なら全部出る
+    const few = [1, 2, 3, 4].map((k) => (k / 5) * 260);
+    expect(tickStep(few, few.map(() => 30), 1)).toBe(1);
+    // 20区分（値19）を2段に置くと、同じ段の間は約27px。幅30px の値は1つおきに出す
+    const many = Array.from({ length: 19 }, (_, k) => ((k + 1) / 20) * 260);
+    expect(tickStep(many, many.map(() => 30), 2)).toBe(2);
+    expect(tickStep(many, many.map(() => 10), 2)).toBe(1);
   });
 });
 
@@ -164,6 +170,11 @@ describe("urlstate", () => {
   it("往復できる", () => {
     const s = { indicator: "population_total", period: "2020-10-01", area: "area-13101001001" };
     expect(parseState(serializeState(s))).toEqual(s);
+  });
+  it("色分けの単位も往復でき、地図へのリンクに入れられる", () => {
+    const s = { indicator: "fiscal_strength_index", period: "2023", level: "municipality" };
+    expect(parseState(serializeState(s))).toEqual(s);
+    expect(mapHref(s)).toBe("/map/?i=fiscal_strength_index&p=2023&l=municipality");
   });
   it("座標や不正な値を受け付けない", () => {
     expect(parseState("?i=<script>&lat=35.6&lng=139.7")).toEqual({});

@@ -125,14 +125,11 @@ export interface ValuesFile {
 }
 
 export interface LegendLevel {
+  /** 区切り（全国で共通。市区町村・町丁目は最大20区分、#145） */
   breaks: number[];
   min: number | null;
   max: number | null;
   count: number;
-  /** 市区町村の、都道府県ごとの区切り（全国の公開版。地図は都道府県ごとの区切りで塗る） */
-  by_prefecture?: Record<string, number[]>;
-  /** 県内の市区町村がすべて0の都道府県（地図で色を付けない） */
-  zero_prefectures?: string[];
 }
 
 export interface LegendFile {
