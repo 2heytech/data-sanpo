@@ -385,11 +385,13 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     color: #3a4757; background: none; border: 0; border-left: 1px solid var(--line);
   }
   .scope-levels button:first-child { border-left: 0; flex: 0 0 auto; padding: 6px 8px; }
-  .scope-levels button:hover:not(:disabled) { background: var(--accent-soft); }
+  .scope-levels button:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--accent-soft); }
   .scope-levels button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 700; }
-  /* 自動のときに今塗っている単位 */
+  /* 今塗っている単位（自動のとき、または町丁目を選んで縮小しているとき） */
   .scope-levels button.shown { color: var(--accent-ink); font-weight: 700; box-shadow: inset 0 -3px 0 var(--accent); }
   .scope-levels button:disabled { color: var(--muted); cursor: default; }
+  /* 町丁目を選んだまま縮小したとき（拡大すると町丁目に戻る） */
+  .scope-levels button[aria-pressed="true"]:disabled { background: var(--accent-soft); color: var(--accent-ink); font-weight: 700; }
   .scope-levels button:disabled svg { stroke-dasharray: 2 1.5; }
   .scope-levels svg { fill: none; stroke: currentColor; stroke-width: 1.3; flex: none; }
   .scope-area { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
