@@ -2577,6 +2577,7 @@ def test_michi_no_eki(built):
     by = {p["name"]: p for p in places["points"]}
     assert len(by) == 6 and all(p["coord"] for p in by.values())
     assert by["見本の里"]["registered"] == "1993年4月" and by["見本の里"]["url"] == "https://example.jp/mihon"
+    assert by["見本の里"]["round"] == 1 and by["かりの"]["round"] == 50   # 数値のセル（1.0）は第1回
     assert by["ためし（試験）"]["coord"] == [139.66, 35.68] and by["ためし（試験）"]["registered"] == "2008年4月"
     assert by["かりの"]["coord"] == [139.38, 34.72] and by["かりの"]["url"] == "https://example.jp/a"
     assert by["ふたまた"]["coord"] == [139.71, 35.67]   # 上り線・下り線の2点は1つ目
@@ -2584,6 +2585,98 @@ def test_michi_no_eki(built):
     yadoriki = by["やどりきテラス　清流の里"]
     assert yadoriki["municipality_id"] is None and "おおよその位置" in yadoriki["location_note"]
     assert places["periods"][0]["period"] == "2026-09-04"
+
+
+def test_cultural_properties(built):
+    """国指定文化財の種類別の件数（点の市区町村で数える）と点（棟をまとめた件、所在地から求めた位置）。"""
+    def rows(ind, level):
+        return {r["entity_id"]: r["value"] for r in load(built, f"values/{ind}/2026-10-18/{level}.json")["rows"]}
+    important = rows("important_cultural_buildings", "municipalities")
+    assert important["muni-13199"] == 1 and important["muni-13299"] == 1   # 棟は1件に。同じ名前の別の市の件は別
+    assert important["muni-13499"] == 0
+    assert rows("registered_cultural_buildings", "municipalities")["muni-13299"] == 1
+    sites = rows("historic_sites", "municipalities")
+    assert sites["muni-13499"] == 1 and sites["muni-13199"] == 2   # 史跡及び名勝・２県以上の史跡・点の誤った碑
+    assert rows("scenic_places", "municipalities")["muni-13499"] == 1
+    assert rows("natural_monuments", "municipalities")["muni-14199"] == 1   # 特別天然記念物を含む。地域を定めないものは除く
+    assert rows("natural_monuments", "prefectures") == {"pref-13": 0, "pref-14": 1}
+    assert rows("preservation_districts", "municipalities")["muni-13499"] == 1
+    assert rows("historic_sites", "prefectures")["pref-13"] == 3
+
+    meta = load(built, "places/cultural_properties.json")
+    assert set(meta["prefectures"]) == {"13", "14"} and meta["periods"][0]["period"] == "2026-10-18"
+    by = {(p["name"], p["municipality_id"]): p for p in load(built, "places/cultural_properties/13.json")["points"]}
+    temple = by[("見本寺", "muni-13199")]
+    assert temple["kind"] == "国宝（建造物）" and temple["buildings"] == ["本堂", "山門"]
+    assert temple["date"] == "1901年1月1日指定" and temple["treasure"] == "1953年3月31日国宝に指定"
+    assert temple["coord"] == [139.72, 35.68] and "location_note" not in temple
+    other = by[("見本寺", "muni-13299")]
+    assert other["coord"] == [139.65, 35.67] and other["location_note"] == "所在地から求めた位置"
+    shell = by[("見本貝塚", "muni-13499")]
+    assert shell["kind"] == "史跡・名勝" and shell["types"] == ["史跡", "名勝"] and "おおよその位置" in shell["location_note"]
+    assert by[("ずれた碑", "muni-13199")]["coord"] == [139.71, 35.668]   # 所在地の街区の位置
+    assert by[("かりの村仮置", "muni-13499")]["subtype"] == "漁村"
+    assert all("所有者名" not in p for p in by.values())
+    assert not any(p["name"] == "カモシカ" for p in load(built, "places/cultural_properties/14.json")["points"])
+
+
+def test_cultural_properties_fetch_splits(monkeypatch, tmp_path):
+    """国指定文化財等データベースの取得: 大きすぎる単位は都道府県・副条件で分け、都道府県の壊れた行は名称で取り直す。"""
+    import csv
+    import gzip as _gzip
+    from tdm.prepare import cultural_properties as cp
+    from tdm.regions import PREFECTURES
+    prefs = list(PREFECTURES.values())
+    db = []
+    for p in prefs:
+        for k in range(1900 if p == "東京都" else 3):   # 東京都だけ1回では取れない大きさ
+            i = len(db) + 1
+            db.append(["101", f"{i:08d}", f"名{i}", "", "登録有形文化財(建造物)", "住宅", "建築物", "",
+                       ["明治", "大正"][k % 2], "20000101", "", p, p + "某所", "", "所有者", "", "35.0", "139.0"])
+    db.append(["101", "99999999", "壊れた行", "", "登録有形文化財(建造物)", "住宅", "建築物", "", "昭和前", "", "",
+               "98", "某所", "", "", "", "", ""])
+
+    def match(row, params):
+        d = dict(params)
+        return (d.get("seat_pref", row[11]) == row[11] and d.get("era_101", row[8]) == row[8]
+                and d.get("freeword", "") in row[2])
+
+    def fake_search(client, params, retries=3):
+        rows = [r for r in db if match(r, params)]
+        d = dict(params)
+        body = f'<td class="searchnum">\n{len(rows)}\t件中'
+        if d.get("sortTarget") == "area":
+            rows.sort(key=lambda r: prefs.index(r[11]) if r[11] in prefs else 99, reverse=True)
+            page, size = int(d["page_no"]), int(d["pageSize"])
+            body += '<div class="pc_view"><table>' + "".join(
+                f'<tr class="resultback0"><td><a href="/heritage/detail/101/{r[1]}">{r[2]}</a></td><td>{r[11]}</td></tr>'
+                for r in rows[(page - 1) * size: page * size]) + "</table>"
+        return body
+
+    calls = {"504": 0}
+
+    def fake_get_csv(client, params):
+        rows = [r for r in db if match(r, params)]
+        if len(rows) > 1800:
+            calls["504"] += 1
+            raise cp.Retryable("HTTP 504")
+        return rows
+
+    monkeypatch.setattr(cp, "search", fake_search)
+    monkeypatch.setattr(cp, "get_csv", fake_get_csv)
+    monkeypatch.setattr(cp, "DIRECT_LIMIT", 100000)   # わざと大きな単位も試させて 504 を起こす
+    out = tmp_path / "cp.csv.gz"
+    result = cp.prepare({"categories": ["101"]}, {"list": out}, tmp_path, list(PREFECTURES), None)
+    assert result["101"] == len(db) and calls["504"] == 2   # 全国 → 東京都 → 明治・大正
+    with _gzip.open(out, "rt", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == len(db) and "所有者名" not in rows[0] and rows[0]["取得日"]
+    assert any(r["名称"] == "壊れた行" for r in rows)
+
+    db.append(["101", "99999998", "見つからない行", "", "登録有形文化財(建造物)", "住宅", "建築物", "", "その他", "",
+               "", "東京都", "東京都某所", "", "", "", "", ""])   # 副条件のどれにも当てはまらない行
+    with pytest.raises(RuntimeError, match="件数が合いません"):
+        cp.prepare({"categories": ["101"]}, {"list": out}, tmp_path, list(PREFECTURES), None)
 
 
 def test_school_table_marks():

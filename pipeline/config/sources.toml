@@ -7309,3 +7309,22 @@ license_url = "https://www.digital.go.jp/resources/open_data/public_data_license
 attribution = "出典：環境省生物多様性センター「現存植生図2024」"
 modification_note = "植生図の面と町丁・字等の形の重なりの面積を、区分（自然林・二次林・植林地・竹林・その他）ごとに足して作成"
 redistributable = true
+
+# 国指定文化財（#149）。文化庁「国指定文化財等データベース」には一括のダウンロードがなく、検索結果の CSV を数百回に分けて
+# 取得するので、Actions「Prepare derived sources」（config/prepare.toml の cultural_properties、pipeline/tdm/prepare/
+# cultural_properties.py）で取得してまとめたものを Release「derived-sources」に置き、ここではそれを取得する。
+# まだ置いていないときは飛ばす（optional）。データベースは随時更新されるので、時点は CSV の取得日の列で決める。
+# 形式は pipeline/tdm/ingest/cultural_properties.py を参照。
+[kunishitei_cultural_properties]
+kind = "kunishitei_cultural_properties"
+title = "国指定文化財等データベース（国宝・重要文化財（建造物）、登録有形文化財（建造物）、史跡名勝天然記念物、重要伝統的建造物群保存地区）"
+provider = "文化庁"
+url = "https://kunishitei.bunka.go.jp/"
+download_url = "https://github.com/2heytech/data-sanpo/releases/download/derived-sources/kunishitei_cultural_properties-v1.csv.gz"
+optional = true
+files = ["kunishitei_cultural_properties-v1.csv.gz"]   # download_url のファイル名と同じにする（古い版が残っていても使わない）
+license = "国指定文化財等データベース 利用規約（文字情報は出典を記載の上で自由に利用可。文部科学省ウェブサイト利用規約に基づく）"
+license_url = "https://kunishitei.bunka.go.jp/top/policy"
+attribution = "出典：文化庁「国指定文化財等データベース」"
+modification_note = "検索結果の一覧を分類・都道府県ごとに取得してまとめ、所在地の市区町村ごとに件数を数えて作成。緯度・経度のないものは所在地から位置を求めた"
+redistributable = true

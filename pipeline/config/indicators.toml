@@ -4696,6 +4696,117 @@ caveats = ["上り線・下り線などで施設が2か所に分かれている�
 source_kind = "michi_no_eki_points"
 legend = { method = "nice", classes = 12, scheme = "oranges" }
 
+[important_cultural_buildings]
+name = "国宝・重要文化財（建造物）の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある国宝・重要文化財に指定された建造物（寺社・城・住宅・近代の建物など）の件数。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の国宝・重要文化財（建造物）を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["国宝を含みます。", "1件に複数の棟（本堂・山門など）があっても1件と数えます。データベースの一覧は棟ごとなので、名前・都道府県・市区町村が同じ棟を1件にまとめています。", "1件の棟が2つ以上の市区町村にあるときは、最初の棟のある市区町村で数えています。", "0は国宝・重要文化財の建造物がない市区町村です。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "重要文化財（建造物）"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[registered_cultural_buildings]
+name = "登録有形文化財（建造物）の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある登録有形文化財（建造物）の件数。築50年を過ぎた建物などのうち、国の文化財として登録されたもの。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の登録有形文化財（建造物）を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["登録は建物1棟ごとなので、同じ敷地の主屋と蔵などはそれぞれ1件です。", "0は登録有形文化財の建造物がない市区町村です。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "登録有形文化財（建造物）"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[historic_sites]
+name = "史跡の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある国の史跡（貝塚・古墳・城跡・旧宅など）の件数。特別史跡を含みます。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の史跡名勝天然記念物のうち史跡・特別史跡を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["「史跡及び名勝」のように2つの種類に指定されたものは、それぞれの種類で1件と数えます。", "2つ以上の市区町村にまたがる史跡は、データベースの点のある1つの市区町村だけで数えています。", "0は国の史跡がない市区町村です（都道府県・市区町村が指定した史跡は含みません）。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "史跡"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[scenic_places]
+name = "名勝の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある国の名勝（庭園・峡谷・海岸・山岳など）の件数。特別名勝を含みます。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の史跡名勝天然記念物のうち名勝・特別名勝を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["「史跡及び名勝」のように2つの種類に指定されたものは、それぞれの種類で1件と数えます。", "2つ以上の市区町村にまたがる名勝は、データベースの点のある1つの市区町村だけで数えています。", "0は国の名勝がない市区町村です（都道府県・市区町村が指定した名勝は含みません）。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "名勝"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[natural_monuments]
+name = "天然記念物の数"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある国の天然記念物（巨樹・動植物の生息地・地質など）の件数。特別天然記念物を含みます。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の史跡名勝天然記念物のうち天然記念物・特別天然記念物を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["場所を定めずに指定された動物の種（ニホンカモシカなど）は数えていません。", "2つ以上の市区町村にまたがるものは、データベースの点のある1つの市区町村だけで数えています。", "0は国の天然記念物がない市区町村です（都道府県・市区町村が指定したものは含みません）。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "天然記念物"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[preservation_districts]
+name = "重要伝統的建造物群保存地区の数"
+category = "観光"
+unit = "地区"
+kind = "count"
+definition_version = "1"
+digits = 0
+not_additive = true   # 市区町村の決まらないものも都道府県の数には入れる
+levels = ["municipality", "prefecture"]
+description = "その地域にある重要伝統的建造物群保存地区（宿場町・城下町・港町など、歴史的な町並みとして国が選定した地区）の数。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）の重要伝統的建造物群保存地区を、所在地の市区町村ごとに数えたもの。市区町村はデータベースの緯度・経度の点のある市区町村（政令指定都市は区）で、点のないものは所在地の市区町村です。"
+caveats = ["0は重要伝統的建造物群保存地区がない市区町村です。"]
+source_kind = "kunishitei_cultural_properties"
+cultural_type = "重要伝統的建造物群保存地区"
+legend = { method = "nice", classes = 12, scheme = "oranges", zero_blank = true }
+
+[cultural_properties]
+name = "国指定文化財"
+category = "観光"
+unit = "件"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["cultural_property"]
+split_by_prefecture = true   # 全国で約2万件あるので、都道府県ごとのファイルに分ける
+description = "国が指定・登録・選定した文化財のうち、場所のあるもの（国宝・重要文化財と登録有形文化財の建造物、史跡・名勝・天然記念物、重要伝統的建造物群保存地区）。"
+method = "文化庁「国指定文化財等データベース」の一覧（2026年10月に取得）。位置はデータベースの緯度・経度で、ないものは所在地から位置参照情報で求めた位置です。"
+caveats = ["史跡・名勝などの広い範囲のものも、データベースの代表の1点で表示しています。", "国宝・重要文化財の建造物は、複数の棟を1件にまとめ、最初の棟の位置に表示しています。", "所在地から求めた位置のものは、点を押すとその旨を表示します。", "美術工芸品（仏像・絵画など）と、場所を定めずに指定された天然記念物（動物の種など）は含みません。"]
+source_kind = "cultural_property_points"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
 [gakuryoku_elem_japanese]
 name = "学力テストの平均正答率（小学校 国語）"
 category = "教育"

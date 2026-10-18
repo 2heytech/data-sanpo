@@ -34,7 +34,7 @@ from .ingest import (cfa_childcare, estat_boundary, estat_census_history, estat_
                      estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
                      keishicho_crime, kokode_nurseries, mext_school_aid, school_counts, school_readers,
                      mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, mlit_transport, nier_gakuryoku,
-                     michi_no_eki, npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_finance,
+                     cultural_properties, michi_no_eki, npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_finance,
                      soumu_furusato,
                      soumu_tax, tokyo_childcare,
                      tokyo_election,
@@ -220,6 +220,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
     michi: dict[str, list] = {}       # 道の駅の一覧と位置（ほかの出典がそろってから取り込む）
     count_sources: list[tuple] = []   # 東京都以外の学校の児童・生徒数（P29 の点を取り込んでから付ける）
     kokode: tuple | None = None        # ここdeサーチの保育所など（位置参照情報をそろえてから取り込む）
+    cultural: tuple | None = None      # 国指定文化財（位置参照情報をそろえてから取り込む）
     block_points: tuple | None = None  # 全国の位置参照情報（街区レベル、都道府県ごと）
     for key, cfg in sources.items():
         kind = cfg.get("kind")
@@ -238,7 +239,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "soumu_settlement", "soumu_tax_collection", "gsi_area", "land_use_cells", "urban_land_use_cells",
                         "town_elevation", "land_use_tiles", "farmland_areas", "vegetation_areas",
                         "school_counts", "kokode_nurseries", "cfa_childcare", "isj_block_points",
-                        "mlit_michi_no_eki", "gsi_michi_no_eki", "wikidata_michi_no_eki"):
+                        "mlit_michi_no_eki", "gsi_michi_no_eki", "wikidata_michi_no_eki",
+                        "kunishitei_cultural_properties"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -256,6 +258,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             port_tables.append((int(cfg["year"]), files, src))
         elif kind in ("mlit_michi_no_eki", "gsi_michi_no_eki", "wikidata_michi_no_eki"):
             michi.setdefault(kind, []).append((files[0], src, cfg))
+        elif kind == "kunishitei_cultural_properties":
+            cultural = (key, files[0], src)
         elif kind == "mlit_airport_locations":
             transport_locations["airport"] = (files, src)
         elif kind == "gsi_airports":
@@ -460,6 +464,10 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             if d.get("source_kind") == "tokyo_nurseries":
                 result[f"{key} {indicator_id}"] = kokode_nurseries.ingest(
                     conn, files, src, gaz, indicator_id, d, boundary_version)
+    if cultural:
+        key, path, src = cultural
+        gaz = {**national, "13": gazetteers} if gazetteers else national
+        result[key] = cultural_properties.ingest(conn, path, src, catalog, boundary_version, prefs, gaz)
     return result
 
 

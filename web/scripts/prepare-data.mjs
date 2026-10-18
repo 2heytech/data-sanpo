@@ -41,10 +41,14 @@ rmSync(publicData, { recursive: true, force: true });
 mkdirSync(publicData, { recursive: true });
 cpSync(source, join(publicData, manifest.release_id), { recursive: true });
 
+const isFixture = manifest.release_id === "dev-fixture";
+// 都道府県を絞って作ったプレビュー（Actions の prefectures を指定）。公開（deploy=true）は全国でしか動かない
+const prefectureCount = JSON.parse(readFileSync(join(source, "areas.json"), "utf8")).prefectures.length;
 const info = {
   release_id: manifest.release_id,
   created_at: manifest.created_at,
-  is_fixture: manifest.release_id === "dev-fixture",
+  is_fixture: isFixture,
+  is_partial: !isFixture && prefectureCount < 47,
 };
 mkdirSync(join(webDir, "src/generated"), { recursive: true });
 writeFileSync(join(webDir, "src/generated/release.json"), JSON.stringify(info, null, 2) + "\n");

@@ -127,7 +127,10 @@ def read_list(path: Path) -> list[Station]:
         name = _display(cell("駅名"))
         if not pref or not name:
             continue   # 空の行
-        rnd = re.sub(r"\D", "", _nfkc(cell("登録回")))
+        # 登録回は数値のセル（1.0）か文字（「第１回」）
+        c = cell("登録回")
+        m = re.search(r"\d+", _nfkc(c)) if not isinstance(c, (int, float)) else None
+        rnd = str(int(c)) if isinstance(c, (int, float)) else m.group() if m else ""
         urls = re.findall(r"https?://\S+", _nfkc(cell("ホームページアドレス")))
         out.append(Station(pref=pref, name=name, address=re.sub(r"\s", "", _display(cell("所在地"))),
                            round=int(rnd) if rnd else None, registered=_registered(cell("登録年月")),

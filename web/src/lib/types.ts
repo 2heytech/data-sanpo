@@ -165,6 +165,8 @@ export interface ReleaseInfo {
   release_id: string;
   created_at: string;
   is_fixture: boolean;
+  /** 都道府県を絞って作ったプレビュー */
+  is_partial: boolean;
 }
 
 /** places/<指標>.json の都道府県ごとの件数と範囲（西・南・東・北）。location_only は値がなく位置だけの点の数 */
@@ -410,9 +412,22 @@ export interface FacilityPoint {
   url?: string;
   /** 位置の注記（おおよその位置など） */
   location_note?: string;
+  /** 文化財の分類（「国宝（建造物）」「史跡・名勝」など）と、件数を数える種類 */
+  kind?: string;
+  types?: string[];
+  /** 文化財の建造物・町並みの種類（「近代／文化施設」「港町」） */
+  subtype?: string;
+  era?: string;
+  /** 指定・登録・選定の年月日（「1989年5月19日指定」）と国宝の指定 */
+  date?: string;
+  treasure?: string;
+  /** 国宝・重要文化財の棟の名前 */
+  buildings?: string[];
+  /** 国指定文化財等データベースの詳細のページ（heritage/detail/ の後ろ） */
+  db?: string;
 }
 
-/** places/michi_no_eki.json（全国で約1,200か所なので都道府県に分けない） */
+/** places/michi_no_eki.json（全国で約1,200か所なので都道府県に分けない）・places/cultural_properties.json（都道府県ごとのファイル） */
 export interface FacilityFile {
   schema_version: string;
   release_id: string;

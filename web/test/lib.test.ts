@@ -279,7 +279,7 @@ describe("空港・港の点", () => {
   });
 });
 
-describe("道の駅の点", () => {
+describe("道の駅・文化財の点", () => {
   it("名前に「道の駅」を付け、2つの市区町村にまたがる駅は両方の市区町村を出す", async () => {
     const { facilityName, municipalityText } = await import("../src/map/facilities");
     expect(facilityName("michi", "宇津ノ谷峠")).toBe("道の駅 宇津ノ谷峠");
@@ -290,6 +290,13 @@ describe("道の駅の点", () => {
       .toBe("静岡市駿河区・藤枝市");
     expect(municipalityText({ municipality_id: "muni-22214" }, nameOf)).toBe("藤枝市");
     expect(municipalityText({ municipality_id: null }, nameOf)).toBe("");
+  });
+  it("文化財の点は最初の種類の色にする", async () => {
+    const { facilityColor } = await import("../src/map/facilities");
+    expect(facilityColor("bunka", { types: ["史跡", "名勝"] })).toBe(facilityColor("bunka", { types: ["史跡"] }));
+    expect(facilityColor("bunka", { types: ["名勝"] })).not.toBe(facilityColor("bunka", { types: ["史跡"] }));
+    expect(facilityColor("bunka", {})).toBe(facilityColor("bunka", { types: ["知らない種類"] }));
+    expect(facilityColor("michi", {})).toBe("#d9480f");
   });
 });
 

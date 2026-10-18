@@ -154,6 +154,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_mlit_facilities(directory))
     out["school_counts"] = _write_school_counts(directory)
     out["kokode"] = _write_kokode(directory)
+    out["cultural_properties"] = _write_cultural_properties(directory)
     out["isj_national"] = _write_isj_national(directory)
     out["cfa_childcare"] = _write_cfa_childcare(directory)
     out["street_trees"] = _write_street_trees(directory, random.Random(f"{seed}-trees"))
@@ -2958,6 +2959,46 @@ def _write_michi_no_eki(directory: Path) -> dict[str, Path]:
     out["michi_wikidata"].write_text(json.dumps({"results": {"bindings": bindings}}, ensure_ascii=False),
                                      encoding="utf-8")
     return out
+
+
+# 国指定文化財（#149。prepare の cultural_properties がまとめた CSV の形）。
+# (台帳ID, 管理対象ID, 名称, 棟名, 文化財種類, 種別1, 種別2, 時代, 年月日, 国宝指定年月日, 都道府県, 所在地, 緯度, 経度)
+CULTURAL_ROWS = [
+    ("102", "00000001", "見本寺", "本堂", "国宝・重要文化財（建造物）", "国宝", "近世以前／寺院", "江戸前期", "19010101",
+     "19530331", "東京都", "東京都サンプル区見本町一丁目", "35.680000", "139.720000"),
+    ("102", "00000002", "見本寺", "山門", "国宝・重要文化財（建造物）", "重要文化財", "近世以前／寺院", "江戸中期",
+     "19300101", "", "東京都", "東京都サンプル区見本町一丁目", "35.680100", "139.720100"),   # 同じ件の別の棟
+    ("102", "00000003", "見本寺", "本堂", "国宝・重要文化財（建造物）", "重要文化財", "近世以前／寺院", "室町後期",
+     "19500101", "", "東京都", "東京都ためし市試験町2-5", "", ""),   # 同じ名前の別の件。所在地から位置を求める
+    ("101", "00000010", "旧ためし家住宅主屋", "", "登録有形文化財(建造物)", "住宅", "建築物", "昭和前", "20130621", "",
+     "東京都", "東京都ためし市試験町", "35.680000", "139.660000"),
+    ("401", "100", "見本貝塚", "", "史跡名勝天然記念物", "史跡", "名勝", "", "19880513", "", "東京都", "かりの村仮置",
+     "", ""),   # 史跡及び名勝（両方に1件）。所在地は大字だけなので代表点
+    ("401", "101", "ためしの大杉", "", "史跡名勝天然記念物", "特別天然記念物", "", "", "19520329", "", "神奈川県",
+     "みほん市中区標本町一丁目", "35.457000", "139.607000"),
+    ("401", "102", "カモシカ", "", "史跡名勝天然記念物", "特別天然記念物", "", "", "19550215", "", "地域を定めない",
+     "地域を定めない", "", ""),   # 場所がないので入れない
+    ("401", "103", "ふたつの関跡", "", "史跡名勝天然記念物", "史跡", "", "", "19700101", "", "２県以上",
+     "東京都サンプル区、神奈川県みほん市", "35.680000", "139.710000"),   # 点の都道府県・市区町村で数える
+    ("401", "104", "ずれた碑", "", "史跡名勝天然記念物", "史跡", "", "", "19800101", "", "東京都",
+     "東京都サンプル区見本町1-3", "35.457000", "139.607000"),   # 点が別の都道府県（誤り）なので所在地から求める
+    ("103", "00000020", "かりの村仮置", "", "重要伝統的建造物群保存地区", "漁村", "", "", "20050722", "", "東京都",
+     "東京都かりの村", "34.720000", "139.380000"),
+]
+
+
+def _write_cultural_properties(directory: Path) -> Path:
+    from .prepare.cultural_properties import DROP, HEAD
+    d = directory / "kunishitei_cultural_properties"
+    d.mkdir(parents=True, exist_ok=True)
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow([c for c in HEAD if c not in DROP] + ["取得日"])
+    for r in CULTURAL_ROWS:
+        w.writerow([*r[:7], "", *r[7:11], r[11], "", r[12], r[13], "2026-10-18"])
+    path = d / "kunishitei_cultural_properties-v1.csv.gz"
+    path.write_bytes(gzip.compress(buf.getvalue().encode("utf-8"), mtime=0))
+    return path
 
 
 def _write_transport(directory: Path) -> dict[str, Path]:
