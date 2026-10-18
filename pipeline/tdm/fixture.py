@@ -162,6 +162,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     for year in TAX_YEARS:
         out[f"tax_{year}"] = _write_tax(directory, year, random.Random(f"{seed}-tax-{year}"))
     out.update(_write_finance(directory))
+    out.update(_write_tax_collection(directory))
     out.update(_write_gsi_area(directory))
     out.update(_write_derived_towns(directory))
     out.update(_write_elections(directory, random.Random(f"{seed}-elections")))
@@ -177,6 +178,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_vital(directory))
     out["census_history"] = _write_census_history(directory)
     out.update(_write_economic_census(directory))
+    out.update(_write_industry_census(directory))
     out.update(_write_industry_tables(directory))
     out["land_survey"] = _write_land_survey(directory, random.Random(f"{seed}-land-survey"))
     out.update(_write_npa_crime_stats(directory))
@@ -249,6 +251,7 @@ def _write_police_crime_opendata(directory: Path) -> dict[str, Path]:
             out[f"{key}_{name}"] = path
     out.update(_write_weather(directory))
     out.update(_write_transport(directory))
+    out.update(_write_michi_no_eki(directory))
     return out
 
 
@@ -281,6 +284,82 @@ def _write_economic_census(directory: Path) -> dict[str, Path]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(("\r\n".join(lines) + "\r\n").encode("cp932"))
         out[f"economic_census_{pref}"] = path
+    return out
+
+
+# 経済センサスの表31（町丁・大字×産業中分類の全事業所数・従業者数、都道府県ごとの Excel）。取得するときと同じく
+# fetch.reduce_xlsx で必要な列だけの CSV にして置く。(市区町村コード, 市区町村名, 町丁・大字名, 宿泊業の事業所数, 従業者数)。
+# 町丁・大字名が空の行は市区町村の合計（政令指定都市は市全体の行もある）。経営組織「1_うち民営」の行は使わない
+TOWN_INDUSTRY_ROWS = [
+    ("13199", "サンプル区", "", "4", "125"),
+    ("13199", "サンプル区", "見本町１丁目", "3", "120"),
+    ("13199", "サンプル区", "見本町一丁目二", "-", "-"),
+    ("13199", "サンプル区", "その他", "1", "5"),
+    ("13299", "ためし市", "", "4", "40"),
+    ("13299", "ためし市", "試験町1丁目", "2", "30"),
+    ("13299", "ためし市", "試験町字はずれ１丁目", "1", "4"),
+    ("13299", "ためし市", "試験町字はずれ２丁目", "1", "6"),
+    ("14100", "みほん市", "", "5", "80"),
+    ("14199", "みほん市中区", "", "5", "80"),
+    ("14199", "みほん市中区", "標本町1丁目", "5", "80"),
+]
+TOWN_INDUSTRY_REDUCE = {"columns": ["AR_全産業（S_公務を除く）", "75_宿泊業"], "measures": ["事業所数", "従業者数_男女計"],
+                        "label_columns": 6, "row_filter": {"column": 6, "values": ["0_総数"]}}
+# 表9-1A（市区町村×産業小分類の全事業所数）。(地域識別コード, 地域区分, 宿泊業, 旅館・ホテル, 簡易宿所)
+MUNICIPAL_INDUSTRY_ROWS = [
+    ("a", "00000_全国", 45327.0, 34797.0, 3269.0),
+    ("a", "13000_東京都", 600.0, 400.0, 150.0),
+    ("a", "14000_神奈川県", 300.0, 200.0, 20.0),
+    ("1", "13100_特別区部", 10.0, 6.0, 3.0),   # 区ごとの行があるので使わない
+    ("0", "13199_サンプル区", 10.0, 6.0, 3.0),
+    ("2", "13299_ためし市", 4.0, 3.0, "-"),     # 「-」は該当なし（0）
+    ("3", "13499_かりの村", 1.0, 1.0, "-"),
+    ("1", "14100_みほん市", 9.0, 7.0, 1.0),     # 政令指定都市の市全体（区ごとの行を使う）
+    ("0", "14199_みほん市中区", 9.0, 7.0, 1.0),
+]
+MUNICIPAL_INDUSTRY_REDUCE = {"columns": ["75_宿泊業", "751_旅館，ホテル", "752_簡易宿所"], "measures": ["事業所数"],
+                             "label_columns": 2}
+
+
+def _write_industry_census(directory: Path) -> dict[str, Path]:
+    from .fetch import reduce_xlsx
+    from .xlsx import write_sheet
+    out = {}
+    heads = [None] * 6
+    for pref in ("13", "14"):
+        rows = [["令和３年経済センサス‐活動調査　事業所に関する集計－産業横断的集計－事業所数、従業者数"],
+                [f"第３１－{int(pref)}表　経営組織(2区分)、産業(中分類)別全事業所数及び男女別従業者数－市区町村、町丁・大字"],
+                [], ["1) 従業者数_男女計：男女の別「不詳」を含む"], heads + ["産業中分類"] * 8,
+                heads + ["AS_全産業"] * 2 + ["AR_全産業（S_公務を除く）"] * 2 + ["M1_宿泊業"] * 2 + ["75_宿泊業"] * 2,
+                heads + ["事業所数", "従業者数_男女計"] * 4, heads + ["事業所", "人"] * 4,
+                ["市区町村・町丁大字コード", "市区町村コード", "都道府県名", "市区町村名", "町丁・大字名", "経営組織", " "]]
+        for i, (code, muni, town, n, emp) in enumerate(r for r in TOWN_INDUSTRY_ROWS if r[0][:2] == pref):
+            key = f"{code}{i:06d}{i:06d}_{PREF_NAMES[pref]}{muni}{town}" if town else f"{code}_{PREF_NAMES[pref]}{muni}"
+            v = [float(x) if x != "-" else "-" for x in (n, emp)]
+            for org, vals in (("0_総数", v), ("1_うち民営", [99.0, 999.0])):
+                rows.append([key, code, PREF_NAMES[pref], muni, town or None, org, 500.0, 6000.0, 480.0, 5800.0]
+                            + vals * 2)
+        tmp = directory / f"_t31_{pref}.xlsx"
+        write_sheet(tmp, rows)
+        path = directory / "economic_census2021_town_industry" / pref / f"t31_{pref}.csv"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(reduce_xlsx(tmp.read_bytes(), TOWN_INDUSTRY_REDUCE))
+        tmp.unlink()
+        out[f"town_industry_{pref}"] = path
+    rows = [["令和３年経済センサス‐活動調査　事業所に関する集計－産業横断的集計－事業所数、従業者数"],
+            ["第９－１Ａ表　産業(小分類)別全事業所数－全国、都道府県、市区町村"], [], [],
+            [None, None] + ["産業小分類"] * 6,
+            [None, None, "AS_全産業", "75_宿泊業", "750_管理，補助的経済活動を行う事業所（75_宿泊業）", "751_旅館，ホテル",
+             "752_簡易宿所", "753_下宿業"],
+            [None, None] + ["事業所数"] * 6, [None, None] + ["事業所"] * 6, ["地域識別コード", "地域区分", " "]]
+    rows += [[k, area, 999.0, a, 0.0, b, c, 0.0] for k, area, a, b, c in MUNICIPAL_INDUSTRY_ROWS]
+    tmp = directory / "_t9-1a.xlsx"
+    write_sheet(tmp, rows)
+    path = directory / "economic_census2021_municipal_industry" / "t9-1a.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(reduce_xlsx(tmp.read_bytes(), MUNICIPAL_INDUSTRY_REDUCE))
+    tmp.unlink()
+    out["municipal_industry"] = path
     return out
 
 
@@ -597,30 +676,67 @@ def _write_furusato(directory: Path, rnd: random.Random) -> Path:
     return path
 
 
-# 外国人延べ宿泊者数（観光庁「宿泊旅行統計調査」年の確定値 第2表(年計) の形式）。値は都道府県コードから作る
+# 延べ宿泊者数（観光庁「宿泊旅行統計調査」年の確定値 第2表・第4表・第9表(年計) の形式）。値は都道府県コードから作る
+INBOUND_FACILITIES = ("旅館", "リゾートホテル", "ビジネスホテル", "シティホテル", "簡易宿所", "会社・団体の宿泊所")
+
+
 def inbound_values(pref: str) -> tuple[float, float]:
     """(延べ宿泊者数, 外国人延べ宿泊者数)（人泊）。"""
     n = int(pref)
     return 1_000_000.0 * (n + 10), 100_000.0 * n
 
 
+def inbound_facilities(pref: str) -> dict[str, float | None]:
+    """宿泊施設タイプ → 延べ宿泊者数（人泊）。神奈川県の会社・団体の宿泊所は該当なし（「-」）。"""
+    total, _ = inbound_values(pref)
+    shares = (0.2, 0.1, 0.4, 0.2, 0.08, 0.02)
+    out: dict[str, float | None] = {t: total * r for t, r in zip(INBOUND_FACILITIES, shares)}
+    if pref == "14":
+        out["会社・団体の宿泊所"] = None
+    return out
+
+
+def inbound_residence(pref: str) -> tuple[float, float]:
+    """(県内, 県外) の延べ宿泊者数（人泊）。居住地不詳があるので合計は延べ宿泊者数より小さい。"""
+    total, _ = inbound_values(pref)
+    return total * 0.15, total * 0.8
+
+
 def _write_inbound(directory: Path) -> Path:
     from .regions import PREFECTURES
-    from .xlsx import write_sheet
+    from .xlsx import write_sheets
     d = directory / "mlit_inbound_2025"
     d.mkdir(parents=True, exist_ok=True)
+    year_row = "令和7年 1～12月  計"
+
+    def label(code: str, name: str) -> str:
+        return f"\u3000{name}" if code == "14" else f"\u3000{code}{name}"   # 2015・2016年の版は都道府県名だけ
+
     head = ["施設所在地（47区分\n及び運輸局等）", "延べ\n宿泊者数\n1)", "従業者数（4区分）、宿泊目的割合（2区分）"] \
         + [None] * 13 + ["うち\n外国人延べ\n宿泊者数\n1)", "宿泊目的割合（2区分）", None]
-    rows = [["第２表　年、月（12区分）、施設所在地(47区分及び運輸局等)…別延べ宿泊者数"], ["　　並びに…外国人延べ宿泊者数"],
-            [], head, [None, None, None, None, "0～9人"], [None, None, "観光目的の\n宿泊者が\n50％以上"],
-            ["令和7年 1～12月  計", 1.0] + [0.0] * 14 + [1.0, 0.0, 0.0]]
+    t2 = [["第２表　年、月（12区分）、施設所在地(47区分及び運輸局等)…別延べ宿泊者数"], ["　　並びに…外国人延べ宿泊者数"],
+          [], head, [None, None, None, None, "0～9人"], [None, None, "観光目的の\n宿泊者が\n50％以上"],
+          [year_row, 1.0] + [0.0] * 14 + [1.0, 0.0, 0.0]]
+    names = [t.replace("ホテル", "\nホテル") if t != "簡易宿所" else t for t in INBOUND_FACILITIES]
+    t4 = [["第４表　年、月（12区分）、施設所在地(47区分及び運輸局等)、宿泊施設タイプ（6区分）別延べ宿泊者数"], [], [],
+          ["施設所在地（47区分\n及び運輸局等）", "延べ\n宿泊者数\n1)", "宿泊施設タイプ（6区分）"] + [None] * 5
+          + ["うち\n外国人延べ\n宿泊者数\n1)", "宿泊施設タイプ（6区分）"] + [None] * 5,
+          [None, None] + names + [None] + names, [], [year_row] + [1.0] * 15]
+    t9 = [["第９表　年、月（12区分）、施設所在地(47区分及び運輸局等)、宿泊目的割合(2区分)、居住地（2区分）別延べ宿泊者数"],
+          [], [], ["施設所在地（47区分\n及び運輸局等）", "延べ\n宿泊者数\n1)、2)", "宿泊目的割合（2区分）、居住地（2区分）"],
+          [None, None, None, None, "観光目的の宿泊者が50％以上", None, None, "観光目的の宿泊者が50％未満"],
+          [None, None, "県内\n1)", "県外\n1)", "2)", "県内", "県外", "2)", "県内", "県外"], [year_row] + [1.0] * 9]
     for code, name in PREFECTURES.items():
         total, foreign = inbound_values(code)
-        label = name if code == "14" else f"{code}{name}"   # 2015・2016年の版は都道府県名だけ
-        rows.append([f"\u3000{label}", total] + [0.0] * 14 + [foreign, 0.0, 0.0])
-    rows.append(["\u3000北海道運輸局", 1.0] + [0.0] * 14 + [1.0, 0.0, 0.0])
+        t2.append([label(code, name), total] + [0.0] * 14 + [foreign, 0.0, 0.0])
+        fac = [("-" if v is None else v) for v in inbound_facilities(code).values()]
+        t4.append([label(code, name), total] + fac + [foreign] + [0.0] * 6)
+        inside, outside = inbound_residence(code)
+        t9.append([label(code, name), total, inside, outside, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    for t in (t2, t4, t9):
+        t.append(["\u3000北海道運輸局"] + [1.0] * (len(t[-1]) - 1))
     path = d / "shukuhaku_2025.xlsx"
-    write_sheet(path, rows, "第2表(年計)")
+    write_sheets(path, {"第2表(年計)": t2, "第4表(年計)": t4, "第9表(年計)": t9})
     return path
 
 
@@ -1107,6 +1223,52 @@ SETTLEMENT_ROWS = [
     ("13499", "かりの村", False, 28, 900000, 20000, 300000, 500000),
     ("14190", "みほん市", True, 300000, 150000000, 50000000, 120000000, 9000000),
 ]
+
+
+# 地方財政状況調査 市町村分 表06「市町村税の徴収実績」（e-Stat の CSV）。金額は千円。
+# (団体コード, 団体名, 団体区分, 入湯税の収入済額)。2023年度までは団体コードの先頭の0がない
+TAX_COLLECTION_YEARS = (2023, 2024)
+TAX_COLLECTION_ROWS = [
+    ("01100", "札幌市", "1", 371487),      # 取り込まない都道府県
+    ("13199", "サンプル区", "2", 8000),
+    ("13299", "ためし市", "4", 0),          # 課税していない（0円。値なしではない）
+    ("13499", "かりの村", "5", 650000),
+    ("13801", "見本広域組合", "6", 0),      # 一部事務組合（市区町村ではない）
+    ("14190", "みほん市", "1", 12000),      # 政令指定都市（市全体の値。区には割り振らない）
+]
+TAX_COLLECTION_HEAD = ["決算年度", "業務コード", "団体コード ", "県名", "団体名", "団体区分", "表番号", "表名称", "行番号",
+                       "行名称", "001:調定済額・現年課税分", "002:調定済額・滞納繰越分", "003:調定済額・合計",
+                       "004:調定済額・3列のうち標準税率超過調定額", "005:調定済額・3列のうち徴収猶予に係る調定済額",
+                       "006:収入済額・現年課税分", "007:収入済額・滞納繰越分", "008:収入済額・合計",
+                       "009:収入済額・8列のうち標準税率超過収入済額", "010:（参考）不納欠損額"]
+
+
+def tax_collection_value(year: int, code: str) -> int:
+    """見本の入湯税の収入済額（千円）。年度で少しずらす。"""
+    v = next(v for c, _, _, v in TAX_COLLECTION_ROWS if c == code)
+    return v + (year - 2024) * 100 if v else 0
+
+
+def _write_tax_collection(directory: Path) -> dict[str, Path]:
+    out = {}
+    for year in TAX_COLLECTION_YEARS:
+        d = directory / f"soumu_tax_collection_{year}"
+        d.mkdir(parents=True, exist_ok=True)
+        rows = [TAX_COLLECTION_HEAD, [str(year), "61", "", "合計(全国)", "", "", "06", "市町村税の徴収実績", "27", "入湯税"]
+                + ["0"] * 7 + ["22952187", "0", "0"]]
+        for code, name, kind, _ in TAX_COLLECTION_ROWS:
+            v = tax_collection_value(year, code)
+            code6 = f"{code}0" if year >= 2024 else f"{code}0".lstrip("0")
+            pref = PREF_NAMES.get(code[:2], "北海道")
+            rows.append([str(year), "61", code6, pref, name, kind, "06", "市町村税の徴収実績", "27", "入湯税"]
+                        + [str(v), "0", str(v), "0", "0", str(v), "0", str(v), "0", "0"])
+            rows.append([str(year), "61", code6, pref, name, kind, "06", "市町村税の徴収実績", "28", "事業所税"] + ["9"] * 10)
+        rows.insert(4, TAX_COLLECTION_HEAD)   # 途中に列名の行が挟まる
+        path = d / f"tax_collection_{year}.csv"
+        with path.open("w", encoding="cp932", newline="") as f:
+            csv.writer(f).writerows(rows)
+        out[f"soumu_tax_collection_{year}"] = path
+    return out
 
 
 def _settlement_sheet(title: str, heads: list[tuple[int, str, str]], rows: list[list]) -> list[list]:
@@ -2746,6 +2908,56 @@ def _airport_sheet(year: int) -> list[list]:
             rows.append([None, None, f"{m}月", 1, 2, 3, float(i), float(i), float(t), float(2 * i + t),
                          float(dom), float(dom), float(2 * dom), float(2 * i + t + 2 * dom), 10.0])
     return rows
+
+
+# 道の駅（国土交通省の一覧・国土地理院の地名検索・Wikidata）。(都道府県名, 駅名, 登録回, 登録年月, 所在地, HP)
+MICHI_ROWS = [
+    ("東京都", "見本の里", 1.0, "H5.4", "サンプル区", "https://example.jp/mihon"),
+    ("東京都", "ためし（試験）", 30.0, "Ｈ20.4 ", "ためし市", None),           # 地名は括弧の中を除いた「ためし」
+    ("東京都", "かりの", 50.0, "R1.6", "かりの村", "https://example.jp/a\nhttps://example.jp/b"),   # Wikidata の位置
+    ("東京都", "ふたまた", 60.0, "R6.2", "サンプル区・ためし市", None),     # 2つの市区町村にまたがる
+    ("神奈川県", "みほん", 10.0, "H10.4", "みほん市", None),                 # 政令指定都市（位置の区で数える）
+    ("神奈川県", "やどりきテラス　清流の里", 65.0, "R8.9", "足柄上郡松田町", None),   # 手で書いた表の位置
+]
+MICHI_GSI = [   # (題名, 市区町村コード, 経度, 緯度)
+    ("道の駅「見本の里」", "13199", 139.72, 35.68),
+    ("道の駅「ためし」", "13299", 139.66, 35.68),
+    ("道の駅「ふたまた」上り線", "13199", 139.71, 35.67),
+    ("道の駅「ふたまた」下り線", "13299", 139.65, 35.67),
+    ("道の駅「みほん」", "14199", 139.62, 35.47),
+    ("道の駅「遠くの駅」", "1101", 141.35, 43.06),   # 一覧にない（取り込まない都道府県）
+]
+
+
+def _write_michi_no_eki(directory: Path) -> dict[str, Path]:
+    from .xlsx import write_sheet
+    out = {}
+    d = directory / "mlit_michi_no_eki"
+    d.mkdir(parents=True, exist_ok=True)
+    rows = [["県名", "駅 名", "登録回", "登録年月", "所在地", "ホームページアドレス"]] + [list(r) for r in MICHI_ROWS]
+    rows += [[None] * 6] * 3   # シートの範囲の終わりまで空の行が続く
+    out["michi_list"] = d / "michi_no_eki.xlsx"
+    write_sheet(out["michi_list"], rows, "List")
+    d = directory / "gsi_michi_no_eki"
+    d.mkdir(parents=True, exist_ok=True)
+    feats = [{"geometry": {"coordinates": [x, y], "type": "Point"}, "type": "Feature",
+              "properties": {"addressCode": code, "title": title}} for title, code, x, y in MICHI_GSI]
+    feats.append({"geometry": {"coordinates": [138.5, 35.5], "type": "Point"}, "type": "Feature",
+                  "properties": {"addressCode": "", "title": "山梨県身延町道"}})
+    out["michi_gsi"] = d / "michi_no_eki.json"
+    out["michi_gsi"].write_text(json.dumps(feats, ensure_ascii=False), encoding="utf-8")
+    d = directory / "wikidata_michi_no_eki"
+    d.mkdir(parents=True, exist_ok=True)
+    bindings = [
+        {"item": {"value": "http://www.wikidata.org/entity/Q1"}, "label": {"value": "道の駅かりの"},
+         "coord": {"value": "Point(139.38 34.72)"}},
+        {"item": {"value": "http://www.wikidata.org/entity/Q2"}, "label": {"value": "道の駅かりの"},   # 同じ名前の別の駅
+         "coord": {"value": "Point(135.0 35.0)"}},
+    ]
+    out["michi_wikidata"] = d / "michi_no_eki.json"
+    out["michi_wikidata"].write_text(json.dumps({"results": {"bindings": bindings}}, ensure_ascii=False),
+                                     encoding="utf-8")
+    return out
 
 
 def _write_transport(directory: Path) -> dict[str, Path]:

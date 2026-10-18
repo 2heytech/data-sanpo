@@ -279,6 +279,20 @@ describe("空港・港の点", () => {
   });
 });
 
+describe("道の駅の点", () => {
+  it("名前に「道の駅」を付け、2つの市区町村にまたがる駅は両方の市区町村を出す", async () => {
+    const { facilityName, municipalityText } = await import("../src/map/facilities");
+    expect(facilityName("michi", "宇津ノ谷峠")).toBe("道の駅 宇津ノ谷峠");
+    expect(facilityName("michi", "道の駅とうべつ")).toBe("道の駅とうべつ");
+    const names: Record<string, string> = { "muni-22102": "静岡市駿河区", "muni-22214": "藤枝市" };
+    const nameOf = (id: string) => names[id] ?? "";
+    expect(municipalityText({ municipality_id: "muni-22102", municipality_ids: ["muni-22102", "muni-22214"] }, nameOf))
+      .toBe("静岡市駿河区・藤枝市");
+    expect(municipalityText({ municipality_id: "muni-22214" }, nameOf)).toBe("藤枝市");
+    expect(municipalityText({ municipality_id: null }, nameOf)).toBe("");
+  });
+});
+
 describe("labels", () => {
   it("広い地域ほど、長い名前ほど小さく収まる大きさになる", async () => {
     const { labelFit } = await import("../src/lib/labels");

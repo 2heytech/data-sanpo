@@ -2306,6 +2306,39 @@ def test_inbound_guests(built):
     assert share["pref-13"]["numerator"] == foreign and share["pref-13"]["denominator"] == total
     assert abs(nights["pref-14"]["value"] - fixture.inbound_values("14")[1] * 0.0001) < 0.01   # コードなしの行
 
+    # 延べ宿泊者数・日本人（延べ − 外国人）・県外の割合（県外 ÷（県内 ＋ 県外））
+    assert abs(pref("guest_nights")["pref-13"]["value"] - total * 0.0001) < 0.01
+    jp = pref("guest_nights_japanese")["pref-13"]
+    assert abs(jp["value"] - (total - foreign) * 0.0001) < 0.01 and jp["status"] == "derived"
+    inside, outside = fixture.inbound_residence("13")
+    out = pref("guest_outside_share")["pref-13"]
+    assert abs(out["value"] - outside / (inside + outside) * 100) < 0.01
+    assert out["numerator"] == outside and out["denominator"] == inside + outside
+    # 宿泊施設タイプ別（第4表）
+    fac = fixture.inbound_facilities("13")
+    assert abs(pref("guest_nights_ryokan")["pref-13"]["value"] - fac["旅館"] * 0.0001) < 0.01
+    assert abs(pref("guest_nights_simple_lodging")["pref-14"]["value"]
+               - fixture.inbound_facilities("14")["簡易宿所"] * 0.0001) < 0.01
+
+
+def test_onsen_tax(built):
+    from tdm.ingest.soumu_finance import WARD_NOTE
+
+    def rows(period, level):
+        return {r["entity_id"]: r for r in load(built, f"values/onsen_tax/{period}/{level}.json")["rows"]}
+    muni = rows("2024-04-01", "municipalities")
+    assert muni["muni-13199"]["value"] == 8.0   # 千円 → 百万円
+    assert muni["muni-13299"]["value"] == 0.0 and muni["muni-13299"]["status"] == "observed"   # 0円は0
+    assert muni["muni-13499"]["value"] == 650.0
+    # 政令指定都市は市全体の値だけなので区には入れない
+    assert muni["muni-14199"]["value"] is None and muni["muni-14199"]["status"] == "not_applicable"
+    assert muni["muni-14199"]["note"] == WARD_NOTE
+    pref = rows("2024-04-01", "prefectures")
+    assert abs(pref["pref-13"]["value"] - (8000 + 0 + 650000) / 1000) < 1e-9   # 一部事務組合は含めない
+    assert pref["pref-14"]["value"] == 12.0
+    # 2023年度（団体コードの先頭の0がない形）
+    assert rows("2023-04-01", "municipalities")["muni-13499"]["value"] == fixture.tax_collection_value(2023, "13499") / 1000
+
 
 def test_gakuryoku(built):
     def pref(ind):
@@ -2491,6 +2524,66 @@ def test_economic_census_matches_town_names(built):
     from tdm.ingest.estat_economic_census import town_key
     assert town_key("北三条東１５丁目") == town_key("北3条東15丁目")
     assert town_key("浅香山町１丁") == town_key("浅香山町一丁") and town_key("海澤") == town_key("海沢")
+
+
+def test_accommodation_industry(built):
+    """宿泊業の事業所数・従業者数（表31、町丁目まで）と旅館・ホテル、簡易宿所の数（表9-1A、市区町村）。"""
+    def rows(ind, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/2021-06-01/{level}.json")["rows"]}
+    est = rows("accommodation_establishments", "municipalities")
+    assert est["muni-13199"]["value"] == 3 + 0 + 1   # 「その他」も含めた合計。「1_うち民営」の行は使わない
+    assert est["muni-14199"]["value"] == 5           # 政令指定都市は区の行（市全体の行と二重に数えない）
+    emp = {r["entity_id"]: r for r in load(built, "values/accommodation_employees/2021-06-01/13199.json")["rows"]}
+    assert emp["area-13199001001"]["value"] == 120   # 「見本町１丁目」→ 見本町1丁目
+    assert emp["area-13199001002"]["value"] == 0     # 「-」は0
+    assert emp["area-13199001003"]["value"] is None  # 対応する行がない町丁目は値なし（0にしない）
+    t = {r["entity_id"]: r for r in load(built, "values/accommodation_establishments/2021-06-01/13299.json")["rows"]}
+    assert t["area-13299090000"]["value"] == 2       # 丁目に分かれていない町に丁目の行を合計
+    hotels = rows("ryokan_hotels", "municipalities")
+    assert hotels["muni-13199"]["value"] == 6 and hotels["muni-14199"]["value"] == 7
+    simple = rows("simple_lodgings", "municipalities")
+    assert simple["muni-13299"]["value"] == 0 and simple["muni-13299"]["status"] == "observed"
+    assert rows("ryokan_hotels", "prefectures")["pref-13"]["value"] == 400
+
+
+def test_reduce_xlsx_keeps_named_columns(tmp_path):
+    # 取得するときに Excel の表から必要な列・行だけの CSV にする
+    from tdm.fetch import FetchError, reduce_xlsx
+    from tdm.xlsx import write_sheet
+    rows = [["題名"], [], [None, None, "AS_全産業", "75_宿泊業", "75_宿泊業"], [None, None, "事業所数", "事業所数", "従業者数_男"],
+            ["コード", "経営組織"], ["13101_千代田区", "0_総数", 9.0, 2.0, "-"], ["13101_千代田区", "1_うち民営", 8.0, 1.0, 3.0],
+            [None, None, 1.0, 1.0, 1.0]]
+    write_sheet(tmp_path / "t.xlsx", rows)
+    data = (tmp_path / "t.xlsx").read_bytes()
+    out = reduce_xlsx(data, {"columns": ["75_宿泊業"], "measures": ["事業所数"], "label_columns": 2,
+                             "row_filter": {"column": 2, "values": ["0_総数"]}}).decode()
+    assert out.splitlines() == ["コード,経営組織,75_宿泊業|事業所数", "13101_千代田区,0_総数,2"]
+    with pytest.raises(FetchError):
+        reduce_xlsx(data, {"columns": ["76_飲食店"], "label_columns": 2})
+
+
+def test_michi_no_eki(built):
+    """道の駅の数（一覧の所在地で数える）と点（国土地理院の地名 → Wikidata → 手で書いた表の位置）。"""
+    def rows(level):
+        return {r["entity_id"]: r for r in load(built, f"values/roadside_stations/2026-09-04/{level}.json")["rows"]}
+    muni = rows("municipalities")
+    assert muni["muni-13199"]["value"] == 2 and muni["muni-13299"]["value"] == 2   # 2つにまたがる駅は両方で数える
+    assert muni["muni-13499"]["value"] == 1
+    assert muni["muni-14199"]["value"] == 1   # 政令指定都市は位置の区
+    pref = rows("prefectures")
+    assert pref["pref-13"]["value"] == 4      # 都道府県では駅の数（重ねて数えない）
+    assert pref["pref-14"]["value"] == 2      # 市区町村の決まらない駅も都道府県には入れる
+    places = load(built, "places/michi_no_eki.json")
+    by = {p["name"]: p for p in places["points"]}
+    assert len(by) == 6 and all(p["coord"] for p in by.values())
+    assert by["見本の里"]["registered"] == "1993年4月" and by["見本の里"]["url"] == "https://example.jp/mihon"
+    assert by["ためし（試験）"]["coord"] == [139.66, 35.68] and by["ためし（試験）"]["registered"] == "2008年4月"
+    assert by["かりの"]["coord"] == [139.38, 34.72] and by["かりの"]["url"] == "https://example.jp/a"
+    assert by["ふたまた"]["coord"] == [139.71, 35.67]   # 上り線・下り線の2点は1つ目
+    assert by["みほん"]["municipality_id"] == "muni-14199"
+    yadoriki = by["やどりきテラス　清流の里"]
+    assert yadoriki["municipality_id"] is None and "おおよその位置" in yadoriki["location_note"]
+    assert places["periods"][0]["period"] == "2026-09-04"
 
 
 def test_school_table_marks():

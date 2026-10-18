@@ -20,6 +20,7 @@ import { initNurseries } from "./nurseries";
 import { initWeather } from "./weather";
 import { initLandUse, NARROW_MAP_PX } from "./landuse";
 import { initTransport } from "./transport";
+import { initFacilities } from "./facilities";
 import type { PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
 import { normalize } from "../lib/search";
@@ -632,7 +633,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     renderAreaChip();
   }
 
-  // 点レイヤー（駅・空港・港・学校・地価（地価公示・都道府県地価調査）・保育所・天気の観測所）。オンにしたときだけ読み込む
+  // 点レイヤー（駅・空港・港・学校・地価（地価公示・都道府県地価調査）・保育所・道の駅・天気の観測所）。オンにしたときだけ読み込む
   const pickEl = $("#pick-detail");
   // 地点の情報は、押した点から出る地図の上のポップアップに出す。右の欄は地域（色分け）の情報だけにする（#139）。
   // 中身（駅・学校などの情報の欄と、重なった地点の一覧）は各点レイヤーが書き、開いている1つだけが見える
@@ -653,6 +654,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     initSchools(pointOptions("#schools-toggle", "#schools-legend", "#school-detail")),
     initLandPrices(pointOptions("#land-toggle", "#land-legend", "#land-detail")),
     initNurseries(pointOptions("#nursery-toggle", "#nursery-legend", "#nursery-detail")),
+    initFacilities({ kind: "michi", ...pointOptions("#michi-toggle", "#michi-legend", "#michi-detail") }),
     initWeather({ select: $<HTMLSelectElement>("#weather-select"),
       ...pointOptions("#weather-toggle", "#weather-legend", "#weather-detail") }),
   ];
@@ -1116,6 +1118,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     { toggle: "#schools-toggle", category: "教育" },
     { toggle: "#land-toggle", category: "地価" },
     { toggle: "#nursery-toggle", category: "子育て" },
+    { toggle: "#michi-toggle", category: "観光" },
     { toggle: "#weather-toggle", category: "天気" },
   ].filter((p) => root.querySelector(p.toggle));
   // 選択画面の点の切替は、左の欄のアイコンと同じもの（説明つきの名前で出す）

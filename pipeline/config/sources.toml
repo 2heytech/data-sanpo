@@ -4282,6 +4282,191 @@ redistributable = true
 "town_2.xlsx" = "https://www.soumu.go.jp/main_content/001061675.xlsx"
 "town_5.xlsx" = "https://www.soumu.go.jp/main_content/001061678.xlsx"
 
+# 入湯税の収入額（総務省「地方財政状況調査」市町村分 表06「市町村税の徴収実績」、e-Stat の CSV）。1年度1ファイル。
+# 全国の市町村・特別区・一部事務組合の全税目が1つの CSV（約6MB）にあるので、取得するときに行名称が「入湯税」の行だけを残す。
+# 決算の値は変わらないので取得済みのファイルを使う（cache）。statInfId は e-Stat の一覧（調査年月 = 決算年度の翌年）で
+# 2026-10-18 に確認。2015〜2019年度は CSV が2つに分かれていて、入湯税は1つ目（2つ目は後期高齢者医療保険料の行だけ）。
+# 形式は pipeline/tdm/ingest/soumu_finance.py を参照。
+[soumu_tax_collection_2024]
+kind = "soumu_tax_collection"
+fiscal_year = 2024
+title = "地方財政状況調査 令和6年度（2024年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040375642&fileKind=1"
+download_filename = "tax_collection_2024.csv"
+files = ["tax_collection_2024.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
+[soumu_tax_collection_2023]
+kind = "soumu_tax_collection"
+fiscal_year = 2023
+title = "地方財政状況調査 令和5年度（2023年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040231595&fileKind=1"
+download_filename = "tax_collection_2023.csv"
+files = ["tax_collection_2023.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
+[soumu_tax_collection_2022]
+kind = "soumu_tax_collection"
+fiscal_year = 2022
+title = "地方財政状況調査 令和4年度（2022年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040171706&fileKind=1"
+download_filename = "tax_collection_2022.csv"
+files = ["tax_collection_2022.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
+[soumu_tax_collection_2021]
+kind = "soumu_tax_collection"
+fiscal_year = 2021
+title = "地方財政状況調査 令和3年度（2021年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040044925&fileKind=1"
+download_filename = "tax_collection_2021.csv"
+files = ["tax_collection_2021.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
+[soumu_tax_collection_2020]
+kind = "soumu_tax_collection"
+fiscal_year = 2020
+title = "地方財政状況調査 令和2年度（2020年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032188702&fileKind=1"
+download_filename = "tax_collection_2020.csv"
+files = ["tax_collection_2020.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
+[soumu_tax_collection_2019]
+kind = "soumu_tax_collection"
+fiscal_year = 2019
+title = "地方財政状況調査 令和1年度（2019年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032091980&fileKind=1"
+download_filename = "tax_collection_2019.csv"
+files = ["tax_collection_2019.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
+[soumu_tax_collection_2018]
+kind = "soumu_tax_collection"
+fiscal_year = 2018
+title = "地方財政状況調査 平成30年度（2018年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031885613&fileKind=1"
+download_filename = "tax_collection_2018.csv"
+files = ["tax_collection_2018.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
+[soumu_tax_collection_2017]
+kind = "soumu_tax_collection"
+fiscal_year = 2017
+title = "地方財政状況調査 平成29年度（2017年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031771152&fileKind=1"
+download_filename = "tax_collection_2017.csv"
+files = ["tax_collection_2017.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
+[soumu_tax_collection_2016]
+kind = "soumu_tax_collection"
+fiscal_year = 2016
+title = "地方財政状況調査 平成28年度（2016年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031641209&fileKind=1"
+download_filename = "tax_collection_2016.csv"
+files = ["tax_collection_2016.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
+[soumu_tax_collection_2015]
+kind = "soumu_tax_collection"
+fiscal_year = 2015
+title = "地方財政状況調査 平成27年度（2015年度）決算 市町村分 06 市町村税の徴収実績"
+provider = "総務省"
+url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031560302&fileKind=1"
+download_filename = "tax_collection_2015.csv"
+files = ["tax_collection_2015.csv"]
+encoding = "cp932"
+keep_rows = { column = "行名称", value = "入湯税" }
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「地方財政状況調査」"
+modification_note = "市区町村の入湯税の収入済額（合計）を抜き出し、百万円に直して作成。都道府県の値は県内の市区町村の合計"
+redistributable = true
+
 # 全国都道府県市区町村別面積調（国土地理院）。時点ごとに面積と備考の列がある CSV。2020年10月1日（令和元年〜令和5年の CSV、
 # 浜松市の再編前の区がある）と2025年10月1日（令和6年4月以降の CSV、再編後の区）。令和6年4月以降の CSV は四半期ごとに
 # 新しい時点の列が足され、ファイル名も変わるので、取得済みのファイルを使う（cache）。www.gsi.go.jp は古い TLS の
@@ -5544,182 +5729,183 @@ attribution = "出典：東京都教育委員会「公立学校統計調査報�
 modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
 redistributable = true
 
-# 外国人延べ宿泊者数（観光庁「宿泊旅行統計調査」年の確定値 集計結果の第2表）。都道府県別だけ公表されている。
-# 過去の年は値が変わらないので取得済みのファイルを使う（cache）。形式は pipeline/tdm/ingest/mlit_inbound.py を参照。
+# 延べ宿泊者数（観光庁「宿泊旅行統計調査」年の確定値 集計結果の第2表・第4表・第9表）。都道府県別だけ公表されている。
+# 過去の年は値が変わらないので取得済みのファイルを使う（cache）。観光庁のサイトの移転でファイルの URL が変わった（2026-10-18 に新しい URL を確認）。
+# サイトの利用規約は 2025-12-04 から公共データ利用規約（第1.0版）。形式は pipeline/tdm/ingest/mlit_inbound.py を参照。
 [mlit_inbound_2025]
 kind = "mlit_inbound"
 year = 2025
-title = "宿泊旅行統計調査 2025年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2025年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/content/002010340.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026762.xlsx"
 download_filename = "shukuhaku_2025.xlsx"
 files = ["shukuhaku_2025.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2024]
 kind = "mlit_inbound"
 year = 2024
-title = "宿泊旅行統計調査 2024年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2024年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/content/001905499.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026764.xlsx"
 download_filename = "shukuhaku_2024.xlsx"
 files = ["shukuhaku_2024.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2023]
 kind = "mlit_inbound"
 year = 2023
-title = "宿泊旅行統計調査 2023年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2023年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/content/001750679.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026766.xlsx"
 download_filename = "shukuhaku_2023.xlsx"
 files = ["shukuhaku_2023.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2022]
 kind = "mlit_inbound"
 year = 2022
-title = "宿泊旅行統計調査 2022年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2022年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001616676.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026772.xlsx"
 download_filename = "shukuhaku_2022.xlsx"
 files = ["shukuhaku_2022.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2021]
 kind = "mlit_inbound"
 year = 2021
-title = "宿泊旅行統計調査 2021年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2021年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001488438.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026777.xlsx"
 download_filename = "shukuhaku_2021.xlsx"
 files = ["shukuhaku_2021.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2020]
 kind = "mlit_inbound"
 year = 2020
-title = "宿泊旅行統計調査 2020年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2020年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001411547.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026786.xlsx"
 download_filename = "shukuhaku_2020.xlsx"
 files = ["shukuhaku_2020.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2019]
 kind = "mlit_inbound"
 year = 2019
-title = "宿泊旅行統計調査 2019年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2019年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001350484.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026792.xlsx"
 download_filename = "shukuhaku_2019.xlsx"
 files = ["shukuhaku_2019.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2018]
 kind = "mlit_inbound"
 year = 2018
-title = "宿泊旅行統計調査 2018年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2018年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/content/001295984.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026795.xlsx"
 download_filename = "shukuhaku_2018.xlsx"
 files = ["shukuhaku_2018.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2017]
 kind = "mlit_inbound"
 year = 2017
-title = "宿泊旅行統計調査 2017年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2017年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/content/001247521.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026811.xlsx"
 download_filename = "shukuhaku_2017.xlsx"
 files = ["shukuhaku_2017.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2016]
 kind = "mlit_inbound"
 year = 2016
-title = "宿泊旅行統計調査 2016年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2016年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/content/001190399.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026813.xlsx"
 download_filename = "shukuhaku_2016.xlsx"
 files = ["shukuhaku_2016.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 [mlit_inbound_2015]
 kind = "mlit_inbound"
 year = 2015
-title = "宿泊旅行統計調査 2015年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数"
+title = "宿泊旅行統計調査 2015年1月〜12月分（年の確定値） 第2表 延べ宿泊者数・外国人延べ宿泊者数、第4表 宿泊施設タイプ別、第9表 居住地別"
 provider = "観光庁"
 url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/shukuhakutokei.html"
-download_url = "https://www.mlit.go.jp/kankocho/tokei_hakusyo/content/001312940.xlsx"
+download_url = "https://www.mlit.go.jp/kankocho/content/002026815.xlsx"
 download_filename = "shukuhaku_2015.xlsx"
 files = ["shukuhaku_2015.xlsx"]
 cache = true
-license = "政府標準利用規約（第2.0版）"
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
 license_url = "https://www.mlit.go.jp/link.html"
 attribution = "出典：観光庁「宿泊旅行統計調査」"
-modification_note = "都道府県別の延べ宿泊者数と外国人延べ宿泊者数を抜き出し、外国人の割合を算出して作成"
+modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿泊者数・宿泊施設タイプ別と居住地別の延べ宿泊者数を抜き出し、日本人の延べ宿泊者数（延べ宿泊者数 − 外国人）と外国人・県外からの宿泊者の割合を算出して作成"
 redistributable = true
 
 # 全国学力・学習状況調査（国立教育政策研究所）の都道府県別「調査結果概況」（公立）。都道府県ごとのフォルダにある。
@@ -6175,6 +6361,47 @@ license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
 attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省・経済産業省「令和3年経済センサス‐活動調査」"
 modification_note = "町丁・大字別の民営事業所数・従業者数（全産業）を、名前で地図の小地域に対応付けて作成"
+redistributable = true
+
+# 令和3年経済センサス‐活動調査の表31（町丁・大字×産業中分類の全事業所数・従業者数、都道府県ごとの Excel）と
+# 表9-1A（市区町村×産業小分類の全事業所数、全国1ファイル）。宿泊業の指標に使う（docs/design-changes.md #149）。
+# 表31の statInfId は北海道 000040068120 から都道府県の番号順に3つずつ（2026-10-18 に47都道府県の表の題名で確認）。
+# 表31は1ファイル数 MB〜48 MB あるので、取得するときに宿泊業と全産業の列、経営組織「0_総数」の行だけの CSV にする
+# （reduce_xlsx。sha256 は取得したままのファイルのもの）。結果は変わらないので取得済みのファイルを使う（cache）。
+[economic_census2021_town_industry]
+kind = "estat_economic_census_town_industry"
+per_prefecture = true
+period = "2021-06-01"
+title = "令和3年経済センサス‐活動調査 産業横断的集計 第31表 経営組織(2区分)、産業(中分類)別全事業所数及び男女別従業者数－市区町村、町丁・大字"
+provider = "総務省統計局・経済産業省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200553&tstat=000001145590&tclass1=000001145649&tclass2=000001145667"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId={id}&fileKind=0"
+download_filename = "t31_{pref}.csv"
+known_ids = { "01" = "000040068120", "02" = "000040068123", "03" = "000040068126", "04" = "000040068129", "05" = "000040068132", "06" = "000040068135", "07" = "000040068138", "08" = "000040068141", "09" = "000040068144", "10" = "000040068147", "11" = "000040068150", "12" = "000040068153", "13" = "000040068156", "14" = "000040068159", "15" = "000040068162", "16" = "000040068165", "17" = "000040068168", "18" = "000040068171", "19" = "000040068174", "20" = "000040068177", "21" = "000040068180", "22" = "000040068183", "23" = "000040068186", "24" = "000040068189", "25" = "000040068192", "26" = "000040068195", "27" = "000040068198", "28" = "000040068201", "29" = "000040068204", "30" = "000040068207", "31" = "000040068210", "32" = "000040068213", "33" = "000040068216", "34" = "000040068219", "35" = "000040068222", "36" = "000040068225", "37" = "000040068228", "38" = "000040068231", "39" = "000040068234", "40" = "000040068237", "41" = "000040068240", "42" = "000040068243", "43" = "000040068246", "44" = "000040068249", "45" = "000040068252", "46" = "000040068255", "47" = "000040068258" }
+reduce_xlsx = { columns = ["AR_全産業（S_公務を除く）", "75_宿泊業"], measures = ["事業所数", "従業者数_男女計"], label_columns = 6, row_filter = { column = 6, values = ["0_総数"] } }
+files = ["*.csv"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省・経済産業省「令和3年経済センサス‐活動調査」"
+modification_note = "町丁・大字別の宿泊業の事業所数・従業者数（全事業所）を、名前で地図の小地域に対応付けて作成"
+redistributable = true
+
+[economic_census2021_municipal_industry]
+kind = "estat_economic_census_municipal_industry"
+period = "2021-06-01"
+title = "令和3年経済センサス‐活動調査 産業横断的集計 第9-1A表 産業(小分類)別全事業所数－全国、都道府県、市区町村"
+provider = "総務省統計局・経済産業省"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200553&tstat=000001145590&tclass1=000001145649&tclass2=000001145667"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040067884&fileKind=0"
+download_filename = "t9-1a.csv"
+reduce_xlsx = { columns = ["75_宿泊業", "751_旅館，ホテル", "752_簡易宿所"], measures = ["事業所数"], label_columns = 2 }
+files = ["t9-1a.csv"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省・経済産業省「令和3年経済センサス‐活動調査」"
+modification_note = "市区町村・都道府県別の旅館・ホテル、簡易宿所の事業所数（全事業所）を抜き出して作成"
 redistributable = true
 
 
@@ -6661,6 +6888,56 @@ license_url = "https://www.e-stat.go.jp/terms-of-use"
 attribution = "出典：国土交通省「港湾調査」（e-Stat）"
 modification_note = "港ごとの船舶乗降人員（外国航路・国内航路）を抜き出して作成"
 redistributable = true
+# 道の駅（国土交通省の一覧、docs/design-changes.md #149）。一覧は登録のたびに更新される（2026-09-04 の更新は第65回まで
+# 1,234駅）。一覧の時点（period）と中身がずれないよう取得済みのファイルを使い（cache）、更新を取り込むときは
+# download_url の末尾の v= と period を新しい更新日にする。形式は pipeline/tdm/ingest/michi_no_eki.py を参照。
+[mlit_michi_no_eki]
+kind = "mlit_michi_no_eki"
+period = "2026-09-04"
+title = "「道の駅」一覧（2026年9月4日更新）"
+provider = "国土交通省"
+url = "https://www.mlit.go.jp/road/Michi-no-Eki/list.html"
+download_url = "https://www.mlit.go.jp/road/Michi-no-Eki/file/list.xlsx?v=20260904"
+download_filename = "michi_no_eki.xlsx"
+files = ["michi_no_eki.xlsx"]
+cache = true
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「道の駅」一覧"
+modification_note = "駅名・登録年月・所在地を抜き出し、所在地の市区町村ごとの道の駅の数を数えて作成"
+redistributable = true
+
+# 道の駅の位置（国土地理院の地名検索で「道の駅」を引いた結果。2026-10-18 は1,232件で、一覧の1,229駅に当たる）。
+# 毎回取得し直す（新しい駅が載るため）。地名検索の仕様は公開されていないので、取れなければ前回の取得分を使う。
+[gsi_michi_no_eki]
+kind = "gsi_michi_no_eki"
+title = "国土地理院 地名検索（道の駅の位置）"
+provider = "国土地理院"
+url = "https://maps.gsi.go.jp/"
+download_url = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=%E9%81%93%E3%81%AE%E9%A7%85"
+download_filename = "michi_no_eki.json"
+files = ["michi_no_eki.json"]
+license = "国土地理院コンテンツ利用規約"
+license_url = "https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html"
+attribution = "道の駅の位置：国土地理院（地名検索）"
+modification_note = "道の駅の地名の位置を、国土交通省の一覧の駅に名前と市区町村で対応付けて作成"
+redistributable = true
+
+# 道の駅の位置（Wikidata、CC0）。地名検索にない駅に使う（名前が同じで、位置が一覧の市区町村の近くにある項目）。
+[wikidata_michi_no_eki]
+kind = "wikidata_michi_no_eki"
+title = "Wikidata 日本の道の駅の位置"
+provider = "Wikidata"
+url = "https://www.wikidata.org/wiki/Q1187691"
+download_url = "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fitem%20%3Flabel%20%28GROUP_CONCAT%28DISTINCT%20%3Falt%3B%20separator%3D%22%7C%22%29%20AS%20%3Falts%29%20%28SAMPLE%28STR%28%3Fc%29%29%20AS%20%3Fcoord%29%20%28SAMPLE%28%3Ftitle%29%20AS%20%3Fjawiki%29%20WHERE%20%7B%20%3Fitem%20wdt%3AP31%20wd%3AQ1187691%20%3B%20wdt%3AP17%20wd%3AQ17%20%3B%20wdt%3AP625%20%3Fc%20.%20OPTIONAL%20%7B%20%3Fitem%20rdfs%3Alabel%20%3Flabel%20.%20FILTER%28LANG%28%3Flabel%29%20%3D%20%22ja%22%29%20%7D%20OPTIONAL%20%7B%20%3Fitem%20skos%3AaltLabel%20%3Falt%20.%20FILTER%28LANG%28%3Falt%29%20%3D%20%22ja%22%29%20%7D%20OPTIONAL%20%7B%20%3Farticle%20schema%3Aabout%20%3Fitem%20%3B%20schema%3AisPartOf%20%3Chttps%3A%2F%2Fja.wikipedia.org%2F%3E%20%3B%20schema%3Aname%20%3Ftitle%20%7D%20%7D%20GROUP%20BY%20%3Fitem%20%3Flabel"
+download_filename = "michi_no_eki.json"
+files = ["michi_no_eki.json"]
+license = "CC0 1.0"
+license_url = "https://creativecommons.org/publicdomain/zero/1.0/"
+attribution = "道の駅の位置：Wikidata（CC0）"
+modification_note = "道の駅の位置を、国土交通省の一覧の駅に名前と市区町村で対応付けて作成"
+redistributable = true
+
 
 # 港の位置（Wikidata、CC0）。港湾統計には位置がなく、国土数値情報の港湾（C02）は非商用のため使わない。
 # 港の名前と都道府県で対応付け、対応付かない港は pipeline/config/port_locations.toml で補う。

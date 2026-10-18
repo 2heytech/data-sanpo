@@ -34,7 +34,8 @@ from .ingest import (cfa_childcare, estat_boundary, estat_census_history, estat_
                      estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
                      keishicho_crime, kokode_nurseries, mext_school_aid, school_counts, school_readers,
                      mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, mlit_transport, nier_gakuryoku,
-                     npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_finance, soumu_furusato,
+                     michi_no_eki, npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_finance,
+                     soumu_furusato,
                      soumu_tax, tokyo_childcare,
                      tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
@@ -216,6 +217,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
     airport_tables: list[tuple] = []   # 空港・港は位置の出典と合わせて、すべての年を読んでから取り込む
     port_tables: list[tuple] = []
     transport_locations: dict = {}
+    michi: dict[str, list] = {}       # 道の駅の一覧と位置（ほかの出典がそろってから取り込む）
     count_sources: list[tuple] = []   # 東京都以外の学校の児童・生徒数（P29 の点を取り込んでから付ける）
     kokode: tuple | None = None        # ここdeサーチの保育所など（位置参照情報をそろえてから取り込む）
     block_points: tuple | None = None  # 全国の位置参照情報（街区レベル、都道府県ごと）
@@ -228,13 +230,15 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "nier_gakuryoku", "estat_school_basic", "estat_school_classes", "estat_school_progress", "mlit_schools",
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
-                        "estat_economic_census", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
+                        "estat_economic_census", "estat_economic_census_town_industry",
+                        "estat_economic_census_municipal_industry", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
                         "gsi_airports", "gsi_ports", "soumu_election", "soumu_fiscal_indicators",
-                        "soumu_settlement", "gsi_area", "land_use_cells", "urban_land_use_cells",
+                        "soumu_settlement", "soumu_tax_collection", "gsi_area", "land_use_cells", "urban_land_use_cells",
                         "town_elevation", "land_use_tiles", "farmland_areas", "vegetation_areas",
-                        "school_counts", "kokode_nurseries", "cfa_childcare", "isj_block_points"):
+                        "school_counts", "kokode_nurseries", "cfa_childcare", "isj_block_points",
+                        "mlit_michi_no_eki", "gsi_michi_no_eki", "wikidata_michi_no_eki"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -250,6 +254,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             airport_tables.append((int(cfg["year"]), files[0], src))
         elif kind == "mlit_ports":
             port_tables.append((int(cfg["year"]), files, src))
+        elif kind in ("mlit_michi_no_eki", "gsi_michi_no_eki", "wikidata_michi_no_eki"):
+            michi.setdefault(kind, []).append((files[0], src, cfg))
         elif kind == "mlit_airport_locations":
             transport_locations["airport"] = (files, src)
         elif kind == "gsi_airports":
@@ -295,10 +301,13 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "estat_housing_stock":
             result[key] = estat_housing.ingest_stock(conn, files[0], src, catalog,
                                                      (cfg["period"], cfg["period"], "point"))
-        elif kind == "estat_economic_census":
+        elif kind in ("estat_economic_census", "estat_economic_census_town_industry"):
             result[key] = estat_economic_census.ingest(conn, files, src, catalog,
                                                        (cfg["period"], cfg["period"], "point"),
-                                                       boundary_version, cfg.get("encoding", "cp932"))
+                                                       boundary_version, cfg.get("encoding", "cp932"), kind)
+        elif kind == "estat_economic_census_municipal_industry":
+            result[key] = estat_economic_census.ingest_municipal_industry(
+                conn, files[0], src, catalog, (cfg["period"], cfg["period"], "point"))
         elif kind == "npa_crime_stats":
             result[key] = npa_crime_stats.ingest(conn, files[0], src, catalog, int(cfg["year"]),
                                                  cfg.get("encoding", "cp932"))
@@ -363,12 +372,15 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                 conn, files, src, catalog, (cfg["period"], cfg["period"], "point"), prefs)
         elif kind == "mext_school_aid":
             result[key] = mext_school_aid.ingest(conn, files, src, catalog, int(cfg["fiscal_year"]))
-        elif kind in ("soumu_fiscal_indicators", "soumu_settlement"):
+        elif kind in ("soumu_fiscal_indicators", "soumu_settlement", "soumu_tax_collection"):
             y = int(cfg["fiscal_year"])
             period = (f"{y}-04-01", f"{y + 1}-03-31", "fiscal_year")
-            result[key] = (soumu_finance.ingest_fiscal_indicators(conn, files[0], src, catalog, period, prefs)
-                           if kind == "soumu_fiscal_indicators" else
-                           soumu_finance.ingest_settlement(conn, files, src, catalog, period, prefs))
+            if kind == "soumu_fiscal_indicators":
+                result[key] = soumu_finance.ingest_fiscal_indicators(conn, files[0], src, catalog, period, prefs)
+            elif kind == "soumu_settlement":
+                result[key] = soumu_finance.ingest_settlement(conn, files, src, catalog, period, prefs)
+            else:
+                result[key] = soumu_finance.ingest_tax_collection(conn, files[0], src, catalog, period, prefs)
         elif kind in ("land_use_cells", "urban_land_use_cells", "farmland_areas", "vegetation_areas"):
             result[key] = derived_towns.ingest_cells(conn, files[0], src, catalog, cfg, prefs)
         elif kind == "town_elevation":
@@ -407,6 +419,14 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
     if port_tables:
         result["mlit_ports"] = mlit_transport.ingest_ports(
             conn, port_tables, transport_locations.get("port"), catalog, boundary_version, prefs)
+    if michi.get("mlit_michi_no_eki"):
+        path, src, cfg = michi["mlit_michi_no_eki"][0]
+        manual = (register_source(conn, "michi_no_eki_locations", michi_no_eki.MANUAL_SOURCE, [michi_no_eki.LOCATIONS])
+                  if michi_no_eki.read_locations() else "")
+        result["mlit_michi_no_eki"] = michi_no_eki.ingest(
+            conn, (path, src), [(f, s) for f, s, _ in michi.get("gsi_michi_no_eki", [])],
+            [(f, s) for f, s, _ in michi.get("wikidata_michi_no_eki", [])], manual, catalog, cfg["period"],
+            boundary_version, prefs)
     if tree_files:
         period = (tree_files[0][3], tree_files[0][3], "point")
         result["tokyo_street_trees"] = tokyo_street_trees.ingest(

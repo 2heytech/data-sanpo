@@ -392,3 +392,38 @@ export interface TransportFile {
   source_ids: string[];
   points: TransportPoint[];
 }
+
+/** 値のない施設の1か所（道の駅・国指定文化財。places/michi_no_eki.json などの points） */
+export interface FacilityPoint {
+  id: string;
+  name: string;
+  /** 所在地の市区町村（政令指定都市は区）。分からなければ null */
+  municipality_id: string | null;
+  /** 2つ以上の市区町村にまたがる施設のときだけ、すべての市区町村 */
+  municipality_ids?: string[];
+  /** 位置が分からない施設は null（地図には描かない） */
+  coord: [number, number] | null;
+  address?: string;
+  /** 道の駅の登録回と登録年月（「1993年4月」） */
+  round?: number;
+  registered?: string;
+  url?: string;
+  /** 位置の注記（おおよその位置など） */
+  location_note?: string;
+}
+
+/** places/michi_no_eki.json（全国で約1,200か所なので都道府県に分けない） */
+export interface FacilityFile {
+  schema_version: string;
+  release_id: string;
+  indicator_id: string;
+  name: string;
+  unit: string;
+  description: string;
+  method: string;
+  caveats: string[];
+  periods: { period: string; period_end: string; period_kind: string; label: string }[];
+  source_ids: string[];
+  prefectures?: Record<string, PlacePrefecture>;
+  points?: FacilityPoint[];
+}

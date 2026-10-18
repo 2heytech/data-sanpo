@@ -7,6 +7,8 @@ per_prefecture = true の出典は都道府県ごとに download_url の {pref} 
 同じURLで取得済み（_fetch.json がある）なら取得し直さない（GitHub Actions のキャッシュから戻した元ファイルを使う）。
 keep_rows = { column = "列名", value = "値" } のあるCSVは、その列が値に一致する行（と1行目の列名）だけを
 残して保存する（例: 全国の交通事故から東京都の行だけ。sha256 は取得したままのファイルのもの）。
+reduce_xlsx = { columns = [...], ... } のある Excel は、見出しがその名前の列だけを残した CSV（UTF-8）にして保存する
+（例: 経済センサスの数百列・数十 MB の表から宿泊業の列だけ。reduce_xlsx の説明を参照）。
 """
 from __future__ import annotations
 
@@ -68,6 +70,57 @@ def keep_rows(data: bytes, column: str, value: str, encoding: str = "cp932") -> 
     kept = [lines[0]] + [ln for ln in lines[1:]
                          if (row := next(csv.reader([ln]), [])) and len(row) > i and row[i].strip() == value]
     return "".join(kept).encode(encoding, errors="replace")
+
+
+def reduce_xlsx(data: bytes, rule: dict) -> bytes:
+    """Excel の表から必要な列だけを残して CSV（UTF-8）にする。e-Stat の経済センサスの表の形
+    （上に「産業」の見出しの行、その次の行に「事業所数」「従業者数_男女計」などの見出し、その下に地域の列名の行と
+    データの行）を想定する。
+      columns: 残す列の上の見出し（例: "75_宿泊業"）。measures: 残す列の下の見出し（省略すると全部）。
+      label_columns: 左から何列を地域の列として残すか。row_filter = { column = 列の番号（1から）, values = [...] }:
+      その列がどれかに一致するデータの行だけを残す。
+    1行目は地域の列名と「上の見出し|下の見出し」。値は表のまま（「-」もそのまま）。"""
+    from .xlsx import iter_sheet_rows
+    columns, measures = set(rule["columns"]), rule.get("measures")
+    n_labels = int(rule["label_columns"])
+    filt = rule.get("row_filter")
+    out = io.StringIO()
+    w = csv.writer(out, lineterminator="\n")
+    top = sub = keep = None
+    labels_seen = False
+
+    def text(c) -> str:
+        if isinstance(c, float):
+            return str(int(c)) if c.is_integer() else repr(c)
+        return "" if c is None else str(c).strip()
+
+    rows = iter_sheet_rows(io.BytesIO(data))
+    for r in rows:
+        if top is None:
+            if any(isinstance(c, str) and c.strip() in columns for c in r):
+                top = [text(c) for c in r]
+                sub = [text(c) for c in next(rows)]
+                keep = [j for j, t in enumerate(top) if t in columns
+                        and (measures is None or (j < len(sub) and sub[j] in measures))]
+                missing = columns - {top[j] for j in keep}
+                if missing:
+                    raise FetchError(f"reduce_xlsx の列 {sorted(missing)} がありません")
+            continue
+        if not labels_seen:
+            if r and text(r[0]):   # 地域の列名の行（「市区町村・町丁大字コード」など）
+                w.writerow([text(c) for c in (r + [None] * n_labels)[:n_labels]]
+                           + [f"{top[j]}|{sub[j]}" for j in keep])
+                labels_seen = True
+            continue
+        if not r or not text(r[0]):
+            continue
+        if filt and text(r[filt["column"] - 1] if len(r) >= filt["column"] else None) not in filt["values"]:
+            continue
+        w.writerow([text(c) for c in (r + [None] * n_labels)[:n_labels]]
+                   + [text(r[j]) if j < len(r) else "" for j in keep])
+    if top is None or not labels_seen:
+        raise FetchError("reduce_xlsx: 見出しの行が見つかりません")
+    return out.getvalue().encode("utf-8")
 
 
 def _is_office_file(data: bytes) -> bool:
@@ -417,7 +470,9 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
     if cfg.get("per_prefecture"):
         files: list[Path] = []
         targets = source_prefectures(cfg, prefs or [])
-        ids = resolve_file_ids(key, cfg, dest, targets, downloader) if cfg.get("estat_lookup") else {}
+        # statInfId を都道府県ごとに書いた出典（known_ids だけで estat_lookup のないもの）は一覧を探さない
+        ids = (resolve_file_ids(key, cfg, dest, targets, downloader) if cfg.get("estat_lookup")
+               else dict(cfg.get("known_ids", {})))
         if cfg.get("download_files"):
             # 都道府県の機関ごとにファイルの一覧を書く出典（犯罪オープンデータなど）。取れないファイルがあっても止めない
             for pref in targets:
@@ -425,7 +480,7 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
                 files += _fetch_files_lenient(f"{key}/{pref}", cfg["download_files"], dest / pref, get)
             return files
         for pref in targets:
-            if cfg.get("estat_lookup") and pref not in ids:
+            if (cfg.get("estat_lookup") or "{id}" in cfg["download_url"]) and pref not in ids:
                 continue
             # {pref_dir} は都道府県ごとのフォルダ名（例: 国立教育政策研究所の 13_tokyo）。pref_dirs に書く
             # {pref_n} は先頭の0を付けない番号（例: 文部科学省の 1〜47）、{pref3} は3桁（001〜047）
@@ -474,8 +529,12 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
         name = cfg.get("download_filename") or Path(url.split("?")[0]).name or "download.bin"
         target = dest / name
         rule = cfg.get("keep_rows")
-        target.write_bytes(keep_rows(data, rule["column"], str(rule["value"]), cfg.get("encoding", "cp932"))
-                           if rule else data)
+        if cfg.get("reduce_xlsx"):
+            target.write_bytes(reduce_xlsx(data, cfg["reduce_xlsx"]))
+        elif rule:
+            target.write_bytes(keep_rows(data, rule["column"], str(rule["value"]), cfg.get("encoding", "cp932")))
+        else:
+            target.write_bytes(data)
         files = [target]
     (dest / "_fetch.json").write_text(json.dumps({
         "url": url, "retrieved_at": now_iso(), "bytes": len(data),
