@@ -42,7 +42,7 @@ const MAX_CHUNKS_MANUAL = 40;
 const GLYPHS_URL = "https://maps.gsi.go.jp/xyz/noto-jp/{fontstack}/{range}.pbf";
 const LABEL_FONT = ["NotoSansCJKjp-Regular"];
 const LOCAL_FONT = '"Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif';
-const AREA_LABEL_ZOOM = AREA_ZOOM; // 町丁目名はこれ以上で表示（狭い範囲に多数あるため）
+const AREA_LABEL_ZOOM = AREA_ZOOM; // 町丁目名はこれ以上で表示（狭い範囲に多数あるため。町丁目を選んだときは MANUAL_AREA_ZOOM から）
 const MUNI_LABEL_ZOOM = PREF_ZOOM; // 市区町村名はこれ以上で表示
 const PLAY_INTERVAL_MS = 1600;
 const PHOTO_PLAY_INTERVAL_MS = 2500; // 航空写真は読み込みに時間がかかるので、指標の再生より長めに見せる
@@ -127,7 +127,7 @@ const pointFeatures = (items: (LabelItem & { id: string; center: [number, number
 // 重なる地名は出せないので、たくさん出せるよう小さめにする（#96）
 const PREF_TEXT: [number, number, number][] = [[4, 10, 11], [6, 11, 13], [8, 11, 14]];
 const MUNI_TEXT: [number, number, number][] = [[8, 9, 11], [9, 10, 12], [12, 12, 15], [15, 14, 17], [18, 14, 17]];
-const AREA_TEXT: [number, number, number][] = [[13, 9, 11], [16, 11, 14], [18, 12, 15]];
+const AREA_TEXT: [number, number, number][] = [[10, 9, 10], [13, 9, 11], [16, 11, 14], [18, 12, 15]];
 
 export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: string): Promise<void> {
   // MapLibre は public/vendor から読み込む（Worker を同じ場所から読み込ませるため）
@@ -454,19 +454,25 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
 
   // 地名と、その下に添える値。値は色分けしている単位の地名にだけ添える（都道府県で塗っているときに市区町村の値を
   // 出さない）。都道府県名は都道府県の色分けのとき、または単位を選んで全国を見ているとき（名前だけ）に出す
+  // 町丁目を選んだときは、町丁目で塗る縮尺（MANUAL_AREA_ZOOM）から町丁目名と値を出し、市区町村名は名前だけにする
+  // （それより縮小して市区町村で塗っている間は、市区町村名に値を添える。#148）
   function syncLabels() {
     const on = $<HTMLInputElement>("#labels-toggle").checked;
     const chosen = chosenLevel();
     const text = (level: Level) => (chosen && chosen !== level ? nameOnly : labelText()) as never;
+    const muniText = chosen === "small_area" ? ["step", ["zoom"], labelText(), MANUAL_AREA_ZOOM, nameOnly] : text("municipality");
     const prefMax = chosen === "prefecture" || (!chosen && prefectureOnly()) ? 24 : PREF_ZOOM;
     map.setLayerZoomRange("pref-label", 0, prefMax);
     map.setLayoutProperty("pref-label", "visibility", on && nationwide && (!!chosen || prefLevel()) ? "visible" : "none");
     map.setLayoutProperty("muni-label", "visibility", on && (!!chosen || !prefectureOnly()) ? "visible" : "none");
     map.setLayoutProperty("area-label", "visibility", on ? "visible" : "none");
     map.setLayoutProperty("pref-label", "text-field", text("prefecture"));
-    map.setLayoutProperty("muni-label", "text-field", text("municipality"));
+    map.setLayoutProperty("muni-label", "text-field", muniText as never);
     map.setLayoutProperty("area-label", "text-field", text("small_area"));
     for (const layer of ["pref-label", "muni-label", "area-label"] as const) map.setLayoutProperty(layer, "text-size", labelSize(layer));
+    map.setLayerZoomRange("area-label", areaZoom(), 24);
+    // 町丁目名が出る縮尺からは、市区町村名を薄くする
+    map.setPaintProperty("muni-label", "text-opacity", ["interpolate", ["linear"], ["zoom"], areaZoom(), 1, areaZoom() + 1, 0.55]);
   }
 
   // 塗る層と縮尺の範囲。自動では、都道府県の値がある指標は縮小すると都道府県・拡大すると市区町村（さらに町丁目）で塗る。
@@ -1211,24 +1217,30 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       `<div class="scope-levels" role="group" aria-labelledby="scope-label">${buttons}</div>`;
     syncLevelButtons();
   }
-  // 単位のボタンの説明（この時点に値のない単位は押せない）
+  // 町丁目は、町丁目で塗れる縮尺（MANUAL_AREA_ZOOM）まで拡大したときだけ押せる（#148）
+  const zoomedForAreas = () => map.getZoom() >= MANUAL_AREA_ZOOM;
+  const selectable = (l: Level) => available(l) && (l !== "small_area" || zoomedForAreas());
+  // 単位のボタンの説明（この時点に値のない単位と、縮小しているときの町丁目は押せない）
   const levelTitle = (l: Level) =>
     !periodInfo().levels.includes(l) ? `${LEVEL_LABEL[l]}別は、ほかの時点で見られます（この時点は値なし）`
       : !available(l) ? `この時点の${LEVEL_LABEL[l]}別の値はありません`
-      : l === "small_area" ? "町丁目で色分けします（全国を見ているときは市区町村。拡大すると町丁目）"
-      : `どの縮尺でも${LEVEL_LABEL[l]}で色分けします`;
-  // 押されているボタン（選んだ単位、選んでいなければ「自動」）と、自動のときに今塗っている単位の印
+      : l !== "small_area" ? `どの縮尺でも${LEVEL_LABEL[l]}で色分けします`
+      : zoomedForAreas() ? "町丁目で色分けします（縮小すると市区町村）"
+      : chosenLevel() === "small_area" ? "地図を拡大すると町丁目で色分けします（いまは市区町村）"
+      : "地図を拡大すると選べます";
+  // 押されているボタン（選んだ単位、選んでいなければ「自動」）と、今塗っている単位の印（自動のとき、
+  // または町丁目を選んで縮小しているとき）
   function syncLevelButtons() {
     const chosen = chosenLevel();
     const shown = levelNow();
     for (const b of scopeEl.querySelectorAll<HTMLButtonElement>("button[data-level]")) {
       const mode = b.dataset.level as LevelMode;
       if (mode !== "auto") {
-        b.disabled = !available(mode);
+        b.disabled = !selectable(mode);
         b.title = levelTitle(mode);
       }
       b.setAttribute("aria-pressed", String(mode === (chosen ?? "auto")));
-      b.classList.toggle("shown", !chosen && mode === shown);
+      b.classList.toggle("shown", mode === shown && mode !== chosen);
     }
   }
   scopeEl.addEventListener("click", (e) => {
