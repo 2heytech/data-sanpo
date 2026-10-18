@@ -4,9 +4,11 @@ export interface MapState {
   indicator?: string;
   period?: string;
   area?: string;
+  /** 色分けの単位を手で選んだとき（prefecture・municipality・small_area）。ないときは縮尺に合わせて切り替える（#146） */
+  level?: string;
 }
 
-const KEYS = { indicator: "i", period: "p", area: "a" } as const;
+const KEYS = { indicator: "i", period: "p", area: "a", level: "l" } as const;
 const SAFE = /^[A-Za-z0-9_.-]{1,64}$/;
 
 export function parseState(search: string): MapState {
@@ -27,6 +29,11 @@ export function serializeState(state: MapState): string {
   }
   const s = params.toString();
   return s ? `?${s}` : "";
+}
+
+/** 地図の画面へのリンク（例: 寄り道から、全国の市区町村別の色分けで開く） */
+export function mapHref(state: MapState): string {
+  return `/map/${serializeState(state)}`;
 }
 
 export function municipalityCodeOf(entityId: string): string | null {

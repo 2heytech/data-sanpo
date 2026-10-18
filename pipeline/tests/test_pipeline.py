@@ -280,11 +280,9 @@ def test_legend_breaks_are_shared_across_periods(built):
     b = load(built, "values/aged_65_plus_share/2020-10-01/legend.json")
     assert a["levels"]["small_area"]["breaks"] == b["levels"]["small_area"]["breaks"]
     assert a["pooled_periods"] == 4   # 2010・2015・2020年と2025年（市区町村だけ）
-    # 市区町村は都道府県ごとにも区切る（全時点をまとめて決めるので時点で変わらない）
-    by_pref = a["levels"]["municipality"]["by_prefecture"]
-    assert set(by_pref) == {"13", "14"}
-    assert by_pref == b["levels"]["municipality"]["by_prefecture"]
-    assert "by_prefecture" not in a["levels"]["small_area"]
+    # 市区町村の区切りも全国で1つ（都道府県ごとには区切らない。#145）
+    assert a["levels"]["municipality"]["breaks"] == b["levels"]["municipality"]["breaks"]
+    assert all("by_prefecture" not in lv and "zero_prefectures" not in lv for lv in a["levels"].values())
 
 
 def test_density_uses_area_of_the_same_census(built):
@@ -873,6 +871,32 @@ def test_nice_breaks():
         assert round(x * 20) == x * 20 or round(x * 100) == x * 100
     d = diverging_breaks([-30.0, -10.0, -5.0, -1.0, 1.0, 2.0, 4.0, 8.0, 15.0, 40.0] * 5, 12, 1)
     assert 0.0 in d and d == sorted(d) and len(d) <= 11
+
+
+def test_national_breaks():
+    from tdm.breaks import FINE_CLASSES, national_breaks
+    # 桁の違う値（人口のように数百〜数十万）は、桁ごとの目盛り（1・2・5 の倍数など）を基に区切る。
+    # 人口の多い区がまとまる上の端も、少ない村の下の端も分かれる
+    pop = [150.0 * 1.04 ** k for k in range(240)]
+    b = national_breaks(pop, FINE_CLASSES, 0)
+    assert b == sorted(set(b)) and len(b) == FINE_CLASSES - 1
+    assert b[-1] >= 300000 and b[0] <= 500
+    assert all(float(f"{x:.2g}") == x for x in b)   # どれも上2桁で切れる数値
+    # 割合のように幅の狭い値は等間隔の目盛りを基に、地域の多い区分を分ける
+    share = [20 + (k % 40) * 0.5 for k in range(400)]
+    b = national_breaks(share, FINE_CLASSES, 1)
+    assert len(b) == FINE_CLASSES - 1 and all(round(x * 2) == x * 2 for x in b)
+    # 0 とそれより大きい値は分ける（#75）。表示すると 0 になる値は 0 と同じ区分
+    b = national_breaks([5.656] + [0.0] * 23, FINE_CLASSES, 1)
+    assert len(b) == 1 and 0 < b[0] <= 5.656
+    assert national_breaks([18.0, 400.0, 900.0] + [0.0] * 5, FINE_CLASSES, 0)[0] == 10.0
+    assert national_breaks([0.04] + [0.0] * 5, FINE_CLASSES, 1) == []
+    assert national_breaks([0.0] * 5, FINE_CLASSES, 1) == []
+    # 値の入らない区分は作らない
+    vals = [1.0] * 10 + [2.0] * 10 + [100.0]
+    b = national_breaks(vals, FINE_CLASSES, 0)
+    counts = [sum(1 for v in vals if (i == 0 or v >= b[i - 1]) and (i == len(b) or v < b[i])) for i in range(len(b) + 1)]
+    assert all(counts)
 
 
 def test_quantile_breaks():
@@ -2363,17 +2387,17 @@ def test_prefecture_rows_include_withheld():
 
 
 
-def test_zero_prefectures(built):
-    # 県内の市区町村がすべて0の都道府県は凡例に記し、地図で色を付けない（#75）
-    found = 0
-    for f in (built.releases / "test" / "values").glob("*/*/legend.json"):
-        muni = json.loads(f.read_text())["levels"].get("municipality", {})
-        for pref in muni.get("zero_prefectures", []):
-            rows = json.loads((f.parent / "municipalities.json").read_text())["rows"]
-            vals = [r["value"] for r in rows if r["entity_id"][5:7] == pref and r["value"] is not None]
-            assert vals and all(v == 0 for v in vals)
-            found += 1
-    assert found
+def test_fine_levels_use_national_breaks(built):
+    # 市区町村・町丁目は全国で共通の区切り（nice・quantile の指標は national_breaks、#145）。都道府県は classes のまま
+    from tdm.breaks import national_breaks
+    from tdm.export import _fine_classes
+    legend = load(built, "values/population_total/2020-10-01/legend.json")
+    vals = []
+    for f in (built.releases / "test" / "values" / "population_total").glob("*/municipalities.json"):
+        vals += [r["value"] for r in json.loads(f.read_text())["rows"] if r["value"] is not None]
+    assert legend["levels"]["municipality"]["breaks"] == national_breaks(vals, _fine_classes(12, len(vals)), 0)
+    assert len(legend["levels"]["prefecture"]["breaks"]) <= 11
+    assert _fine_classes(12, 52) == 12 and _fine_classes(12, 415) == 20 and _fine_classes(12, 10**6) == 20
 
 
 def test_small_area_rows_have_national_rank(built):

@@ -6,6 +6,7 @@ import { compactNumber, formatNumber } from "./format";
 import type { ChoroplethSpec, MapFeature } from "./mapImage";
 import { municipalityPeriods } from "./periods";
 import type { Indicator, Prefecture } from "./types";
+import { mapHref } from "./urlstate";
 
 export interface ShareImage {
   /** 画像の URL のパス */
@@ -42,7 +43,7 @@ function providersOf(ind: Indicator, period: string): string[] {
 /** 増減率の区切り（増加に「+」を付ける） */
 const signedPercent = (v: number) => `${v > 0 ? "+" : ""}${formatNumber(v, Number.isInteger(v) ? 0 : 1).replace("-", "−")}%`;
 
-/** 都道府県ページの画像: 市区町村別の人口増加率（直近の国勢調査）。区切りは地図と同じく都道府県ごと */
+/** 都道府県ページの画像: 市区町村別の人口増加率（直近の国勢調査）。区切りは地図と同じく全国で共通（#145） */
 export function prefectureImage(pref: Prefecture): ShareImage | null {
   const ind = loadIndicators().find((i) => i.id === "population_change_rate");
   const latest = ind && latestMunicipalPeriod(ind);
@@ -55,7 +56,7 @@ export function prefectureImage(pref: Prefecture): ShareImage | null {
   return {
     path: `/images/prefectures/${pref.code}-population-change.png`,
     alt: `${pref.name}の市区町村別の人口増加率（${year - 5}年→${year}年、国勢調査）を色分けした地図`,
-    mapHref: `/map/?i=${ind.id}&p=${latest.period.period}&a=pref-${pref.code}`,
+    mapHref: mapHref({ indicator: ind.id, period: latest.period.period, area: `pref-${pref.code}`, level: "municipality" }),
     spec: () => {
       const vs = [...values.values()];
       const inc = vs.filter((v) => v !== null && v > 0).length;
@@ -68,7 +69,7 @@ export function prefectureImage(pref: Prefecture): ShareImage | null {
         frameGeometries: (loadBoundaries("prefectures")?.features ?? [])
           .filter((f) => f.properties.id === `pref-${pref.code}`).map((f) => f.geometry),
         values,
-        breaks: latest.legend.by_prefecture?.[pref.code] ?? latest.legend.breaks,
+        breaks: latest.legend.breaks,
         scheme: loadLegend(ind.id, latest.period.period)!.scheme,
         formatBreak: signedPercent,
         source: "出典：総務省統計局「国勢調査」「境界データ」をもとにデータさんぽが作成（data-sanpo.com）",
@@ -91,7 +92,8 @@ export function articleImage(article: Article): ShareImage | null {
   return {
     path: `/images/articles/${article.slug}.png`,
     alt: `${what}を色分けした地図`,
-    mapHref: `/map/?i=${ind.id}&p=${latest.period.period}`,
+    // 地図も全国の市区町村別の色分けで開く（縮尺に任せると都道府県別になるため。#146）
+    mapHref: mapHref({ indicator: ind.id, period: latest.period.period, level: "municipality" }),
     spec: () => ({
       title: article.title,
       subtitle: what,
