@@ -2594,7 +2594,8 @@ def test_cultural_properties(built):
     important = rows("important_cultural_buildings", "municipalities")
     assert important["muni-13199"] == 1 and important["muni-13299"] == 1   # 棟は1件に。同じ名前の別の市の件は別
     assert important["muni-13499"] == 0
-    assert rows("registered_cultural_buildings", "municipalities")["muni-13299"] == 1
+    registered = rows("registered_cultural_buildings", "municipalities")
+    assert registered["muni-13299"] == 1 and registered["muni-13199"] == 1   # 都道府県の欄が壊れた行は点の市区町村
     sites = rows("historic_sites", "municipalities")
     assert sites["muni-13499"] == 1 and sites["muni-13199"] == 2   # 史跡及び名勝・２県以上の史跡・点の誤った碑
     assert rows("scenic_places", "municipalities")["muni-13499"] == 1
@@ -2612,10 +2613,12 @@ def test_cultural_properties(built):
     assert temple["coord"] == [139.72, 35.68] and "location_note" not in temple
     other = by[("見本寺", "muni-13299")]
     assert other["coord"] == [139.65, 35.67] and other["location_note"] == "所在地から求めた位置"
-    shell = by[("見本貝塚", "muni-13499")]
+    shell = by[("見本貝塚（北貝塚・南貝塚）", "muni-13499")]
     assert shell["kind"] == "史跡・名勝" and shell["types"] == ["史跡", "名勝"] and "おおよその位置" in shell["location_note"]
     assert by[("ずれた碑", "muni-13199")]["coord"] == [139.71, 35.668]   # 所在地の街区の位置
     assert by[("かりの村仮置", "muni-13499")]["subtype"] == "漁村"
+    shifted = by[("ずれた家住宅主屋", "muni-13199")]
+    assert shifted["address"] == "東京都サンプル区見本町一丁目" and shifted["subtype"] == "住宅・その他工作物"
     assert all("所有者名" not in p for p in by.values())
     assert not any(p["name"] == "カモシカ" for p in load(built, "places/cultural_properties/14.json")["points"])
 
@@ -2647,7 +2650,7 @@ def test_cultural_properties_fetch_splits(monkeypatch, tmp_path):
         body = f'<td class="searchnum">\n{len(rows)}\t件中'
         if d.get("sortTarget") == "area":
             rows.sort(key=lambda r: prefs.index(r[11]) if r[11] in prefs else 99, reverse=True)
-            page, size = int(d["page_no"]), int(d["pageSize"])
+            page, size = int(d["pageNumber"]), int(d["pageSize"])
             body += '<div class="pc_view"><table>' + "".join(
                 f'<tr class="resultback0"><td><a href="/heritage/detail/101/{r[1]}">{r[2]}</a></td><td>{r[11]}</td></tr>'
                 for r in rows[(page - 1) * size: page * size]) + "</table>"

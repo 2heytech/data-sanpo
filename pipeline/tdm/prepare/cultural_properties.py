@@ -243,16 +243,27 @@ class Fetcher:
         have_ids = {(r[0], r[1]) for r in mine}
         have_names = {_norm(r[2]) for r in mine}
         prefs = set(PREFECTURES.values())
-        missing = []
+        missing, seen, prev_first = [], set(), None
         for page in range(1, RESIDUAL_MAX_PAGES + 1):
+            # ページ送りは pageNumber（page_no は 1 のまま。サイトの「次のページへ」と同じ）
             entries = parse_listing(search(self.client, [
-                ("register_sub_id", cat), ("screen_id", "index"), ("page_no", str(page)),
-                ("sortTarget", "area"), ("sortType", "desc"), ("pageSize", str(RESIDUAL_PAGE_SIZE))]))
+                ("register_sub_id", cat), ("screen_id", "index"), ("page_no", "1"),
+                ("sortTarget", "area"), ("sortType", "desc"), ("pageSize", str(RESIDUAL_PAGE_SIZE)),
+                ("pageNumber", str(page))]))
+            if entries and entries[0] == prev_first:
+                raise RuntimeError(f"{cat}: 検索結果のページ送りが効いていません")
+            prev_first = entries[0] if entries else None
             for e in entries:
-                if e["pref"] not in prefs and not (tuple(e["id"]) in have_ids if e["id"] else e["name"] in have_names):
+                key = tuple(e["id"]) if e["id"] else e["name"]
+                if e["pref"] in prefs or key in seen:
+                    continue
+                seen.add(key)
+                if not (key in have_ids if e["id"] else e["name"] in have_names):
                     missing.append(e)
             if not entries or entries[-1]["pref"] in prefs:
                 break
+        else:
+            raise RuntimeError(f"{cat}: 取り残し探しが {RESIDUAL_MAX_PAGES} ページで終わりません")
         self.unit_counts += len(missing)
         for i, e in enumerate(missing, 1):
             progress(f"  {cat} 取り残し: {e['name']}（{e['pref']}）")

@@ -80,6 +80,27 @@ def _coord(r: dict) -> tuple[float, float] | None:
     return (lon, lat) if 20 <= lat <= 46 and 122 <= lon <= 154 else None
 
 
+def display_name(s: str) -> str:
+    """名称の改行をまとめる。字下げした行は前の名称の内訳（「松前氏城跡\n　福山城跡\n　館城跡」→「松前氏城跡（福山城跡・館城跡）」）、
+    字下げのない行は並ぶ名称（「五色塚（千壺）古墳\n小壺古墳」→「五色塚（千壺）古墳・小壺古墳」）。"""
+    lines = [x for x in (s or "").splitlines() if x.strip()]
+    if not lines:
+        return ""
+    head, rest = lines[0].strip(), [x.strip() for x in lines[1:]]
+    if any(x[:1].isspace() for x in lines[1:]):
+        return f"{head}（{'・'.join(rest)}）"
+    return "・".join([head, *rest])
+
+
+def address(r: dict) -> str:
+    """所在地（複数行は「、」でつなぐ）。都道府県の欄が壊れて列がずれた行（所在地が都道府県名だけで、保管施設の名称の
+    欄に所在地が入っている）は、保管施設の名称の欄を使う。"""
+    a, place = r["所在地"].strip(), r["保管施設の名称"].strip()
+    if a in PREF_BY_NAME and r["都道府県"].strip() not in PREF_BY_NAME and place.startswith(a):
+        a = place
+    return "、".join(x.strip() for x in a.splitlines() if x.strip())
+
+
 def read_rows(path: Path) -> list[dict]:
     opener = gzip.open if path.suffix == ".gz" else open
     with opener(path, "rt", encoding="utf-8-sig", newline="") as f:
@@ -128,13 +149,13 @@ def group_items(rows: list[dict], munis: Municipalities) -> tuple[list[Item], in
         cat = r["台帳ID"].strip()
         if cat not in CATEGORIES:
             continue
-        if NO_AREA in (r["都道府県"], r["所在地"]):
+        if NO_AREA in (r["都道府県"].strip(), r["所在地"].strip()):
             skipped += 1
             continue
         pref = PREF_BY_NAME.get(r["都道府県"].strip())
         if cat == "102":
-            found = munis.find(pref, r["所在地"]) if pref else None
-            key = (r["名称"].strip(), pref, found[0] if found else r["所在地"].strip())
+            found = munis.find(pref, address(r)) if pref else None
+            key = (display_name(r["名称"]), pref, found[0] if found else address(r))
             if key in buildings:
                 buildings[key].rows.append(r)
                 continue
@@ -161,8 +182,8 @@ def _locate(item: Item, munis: Municipalities, index) -> str | None:
             item.point, item.muni, item.pref = pt, muni, muni[5:7]
             return None
     if item.pref is None:
-        item.pref = next((c for name, c in PREF_BY_NAME.items() if item.first["所在地"].startswith(name)), None)
-    found = munis.find(item.pref, item.first["所在地"]) if item.pref else None
+        item.pref = next((c for name, c in PREF_BY_NAME.items() if address(item.first).startswith(name)), None)
+    found = munis.find(item.pref, address(item.first)) if item.pref else None
     if not found:
         return None
     item.muni, rest = found
@@ -203,13 +224,15 @@ def _attrs(item: Item, source_id: str, as_of: str) -> dict:
     return {
         "prefecture": item.pref, "kind": kind, "types": item.types,
         # 建造物の種類（「近代／文化施設」「住宅」）・町並みの種類（「港町」）
-        "subtype": ("・".join(k for k in (r["種別1"].strip(), r["種別2"].strip()) if k) if item.cat == "101"
+        # 登録有形の「その他工作」は「その他工作物」の書き違い
+        "subtype": ("・".join(k for k in (r["種別1"].strip(), re.sub(r"^その他工作$", "その他工作物", r["種別2"].strip())) if k)
+                    if item.cat == "101"
                     else (r["種別2"].strip() if item.cat == "102" else r["種別1"].strip() if item.cat == "103" else "")) or None,
         "era": r["時代"].strip() or None,
         "date": f"{when}{verb}" if when else None,
         "treasure": f"{_date(treasure[0])}国宝に指定" if treasure and _date(treasure[0]) else None,
         "buildings": [b for x in item.rows if (b := x["棟名"].strip())] or None,
-        "address": r["所在地"].strip() or None,
+        "address": address(r) or None,
         "db": f"{item.cat}/{r['管理対象ID'].strip()}",
         "location_note": item.loc_note or None,
         "source_id": source_id, "as_of": as_of,
@@ -246,12 +269,12 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, 
             result["no_location"] += 1
         if not item.muni:
             result["no_municipality"] += 1
-            progress(f"国指定文化財の市区町村が決まりません: {item.first['名称']}（{item.first['都道府県']} {item.first['所在地']}）")
+            progress(f"国指定文化財の市区町村が決まりません: {display_name(item.first['名称'])}（{address(item.first)}）")
 
     for item in kept:
         r = item.first
         eid = f"cp-{item.cat}-{r['管理対象ID'].strip()}"
-        upsert_entity(conn, eid, ENTITY_TYPE, r["名称"].strip(), parent_id=item.muni or f"pref-{item.pref}")
+        upsert_entity(conn, eid, ENTITY_TYPE, display_name(r["名称"]), parent_id=item.muni or f"pref-{item.pref}")
         if item.point:
             conn.execute(
                 """INSERT INTO locations (location_id, entity_id, role, lon, lat, source_id)
