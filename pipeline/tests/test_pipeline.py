@@ -2682,6 +2682,25 @@ def test_cultural_properties_fetch_splits(monkeypatch, tmp_path):
         cp.prepare({"categories": ["101"]}, {"list": out}, tmp_path, list(PREFECTURES), None)
 
 
+def test_cultural_properties_csv_token_refresh():
+    """CSV の代わりに HTML の画面が返ったら（トークン切れ）、トークンを取り直してもう一度頼む。"""
+    from tdm.prepare import cultural_properties as cp
+    csv_body = ("\ufeff" + ",".join(f'"{c}"' for c in cp.HEAD) + "\n").encode("utf-8")
+
+    class Stub:
+        def __init__(self, bodies):
+            self.token, self.bodies, self.calls = "old", bodies, 0
+
+        def post(self, path, params):
+            self.calls += 1
+            return 200, self.bodies.pop(0), 0.1
+
+    stub = Stub([b"<!DOCTYPE html>\n<html>", csv_body])
+    assert cp.get_csv(stub, []) == [] and stub.calls == 2 and stub.token == ""
+    with pytest.raises(cp.Retryable):
+        cp.get_csv(Stub([b"<!DOCTYPE html>", b"<!DOCTYPE html>"]), [])
+
+
 def test_school_table_marks():
     # 学校基本調査の「-」は該当なし（0）、「…」は計数不明なので値なし
     from tdm.ingest.estat_school_municipal import _num

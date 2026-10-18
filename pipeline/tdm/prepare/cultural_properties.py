@@ -64,6 +64,7 @@ SUBSPLITS = {
 DIRECT_LIMIT = 1500       # 見込みの行数がこれを超える単位は、CSV を試さずに分ける
 MIN_INTERVAL = 1.5        # 取得の間隔（秒）
 TIMEOUT = 150
+TOKEN_MAX_AGE = 600       # トークンを取り直す間隔（秒）。長く続けると切れて、CSV の代わりに HTML の画面が返る
 RETRYABLE = {500, 502, 503, 504}
 RESIDUAL_PAGE_SIZE = 100
 RESIDUAL_MAX_PAGES = 5
@@ -82,6 +83,7 @@ class Client:
     token: str = ""
     requests: int = 0
     _last: float = 0.0
+    _token_at: float = 0.0
 
     def __post_init__(self) -> None:
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
@@ -111,12 +113,12 @@ class Client:
 
     def post(self, path: str, params: list[tuple[str, str]]) -> tuple[int, bytes, float]:
         for attempt in (1, 2):
-            if not self.token:
+            if not self.token or time.monotonic() - self._token_at > TOKEN_MAX_AGE:
                 status, body, _ = self._open("/bsys/index", None)
                 m = re.search(rb'name="_csrfToken"[^>]*value="([0-9a-f]+)"', body) if status == 200 else None
                 if not m:
                     raise RuntimeError(f"国指定文化財等データベースの検索画面を読めません（HTTP {status}）")
-                self.token = m.group(1).decode()
+                self.token, self._token_at = m.group(1).decode(), time.monotonic()
             status, body, sec = self._open(path, [("_method", "POST"), ("_csrfToken", self.token)] + params)
             if status in (400, 403) and attempt == 1:
                 self.token = ""   # トークン切れ
@@ -148,10 +150,12 @@ def search(client: Client, params: list[tuple[str, str]], retries: int = 3) -> s
 
 
 def count(client: Client, params: list[tuple[str, str]]) -> int:
-    m = re.search(r'class="searchnum">\s*([\d,]+)\s*件中', search(client, params))
-    if not m:
-        raise RuntimeError("検索結果の件数が読めません（ページの形が変わった？）")
-    return int(m.group(1).replace(",", ""))
+    for attempt in (1, 2):
+        m = re.search(r'class="searchnum">\s*([\d,]+)\s*件中', search(client, params))
+        if m:
+            return int(m.group(1).replace(",", ""))
+        client.token = ""   # 長く続けるとトークンが切れて検索画面が返る。取り直してもう一度
+    raise RuntimeError("検索結果の件数が読めません（ページの形が変わった？）")
 
 
 def parse_listing(text: str) -> list[dict]:
@@ -170,16 +174,25 @@ def parse_listing(text: str) -> list[dict]:
 
 
 def get_csv(client: Client, params: list[tuple[str, str]]) -> list[list[str]]:
-    status, body, sec = client.post("/utile/csv-list", params)
-    if status in RETRYABLE:
-        raise Retryable(f"CSV の作成が HTTP {status} になりました（{sec}秒）")
-    if status != 200:
-        raise RuntimeError(f"CSV の作成が HTTP {status} になりました: {params}")
-    text = body.decode("utf-8-sig")
-    rows = list(csv.reader(io.StringIO(text, newline="")))
-    if not body.startswith(b"\xef\xbb\xbf") or not rows or rows[0] != HEAD:
-        raise RuntimeError(f"CSV の列が違います（{text[:80]!r}）")
-    return rows[1:]
+    for attempt in (1, 2):
+        status, body, sec = client.post("/utile/csv-list", params)
+        if status in RETRYABLE:
+            raise Retryable(f"CSV の作成が HTTP {status} になりました（{sec}秒）")
+        if status != 200:
+            raise RuntimeError(f"CSV の作成が HTTP {status} になりました: {params}")
+        if body.lstrip()[:15].lower().startswith(b"<!doctype html"):
+            # 長く続けるとトークンが切れ、CSV の代わりに HTML の画面が返る（2026-10-18 に Actions で約20分後に起きた）。
+            # トークンを取り直してもう一度。続けば時間をおいてやり直す
+            client.token = ""
+            if attempt == 1:
+                continue
+            raise Retryable(f"CSV の代わりに HTML が返りました（{sec}秒）")
+        text = body.decode("utf-8-sig")
+        rows = list(csv.reader(io.StringIO(text, newline="")))
+        if not body.startswith(b"\xef\xbb\xbf") or not rows or rows[0] != HEAD:
+            raise RuntimeError(f"CSV の列が違います（{text[:80]!r}）")
+        return rows[1:]
+    raise AssertionError("unreachable")
 
 
 @dataclass
