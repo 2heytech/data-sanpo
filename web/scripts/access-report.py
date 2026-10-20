@@ -5,7 +5,7 @@
   python3 web/scripts/access-report.py   （Markdown を出力。最後の行は「ALERTS_JSON: {...}」）
 
   日付は日本時間で区切る。public リポジトリでは実行結果を誰でも見られるので、
-  出すのは日ごとの合計と、変化があったときの国・参照元の名前だけにする。
+  出すのは日ごとの合計（全体と日本から）と、変化があったときの国・参照元の名前だけにする。
 """
 import json
 import os
@@ -16,6 +16,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 HOST = "data-sanpo.com"
+HOME_COUNTRY = "JP"  # 海外の巡回で全体が膨らんでも人の訪問の動きが見えるよう、日本からの数を別に出す
 JST = timezone(timedelta(hours=9))
 API = "https://api.cloudflare.com/client/v4"
 
@@ -103,6 +104,7 @@ def main() -> None:
 
     visits: dict[str, float] = defaultdict(float)
     views: dict[str, float] = defaultdict(float)
+    jp_visits: dict[str, float] = defaultdict(float)
     country: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     referer: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     data = graphql(token, RUM_QUERY, {"account": account, "start": start, "end": end})
@@ -112,6 +114,8 @@ def main() -> None:
         visits[d] += v
         views[d] += r["count"]
         country[d][r["dimensions"]["countryName"] or "不明"] += r["count"]
+        if r["dimensions"]["countryName"] == HOME_COUNTRY:
+            jp_visits[d] += v
         ref = (r["dimensions"]["refererHost"] or "").lower()
         if ref and not ref.endswith(HOST):
             referer[d][ref] += v
@@ -153,10 +157,10 @@ def main() -> None:
                 alerts.append({"kind": "requests_up", "day": last, "value": requests[last], "prev_avg": round(base_req)})
 
     print(f"## 訪問状況（日本時間、{days[0]}〜{target}）\n")
-    print("| 日付 | 訪問数 | ページビュー |")
-    print("|---|--:|--:|")
+    print("| 日付 | 訪問数 | ページビュー | 日本からの訪問数 | 日本からのページビュー |")
+    print("|---|--:|--:|--:|--:|")
     for d in days:
-        print(f"| {d} | {visits[d]:,.0f} | {views[d]:,.0f} |")
+        print(f"| {d} | {visits[d]:,.0f} | {views[d]:,.0f} | {jp_visits[d]:,.0f} | {country[d][HOME_COUNTRY]:,.0f} |")
     if requests:
         print("\n| 日付（UTC） | リクエスト数（ボットを含む） |")
         print("|---|--:|")
@@ -166,6 +170,7 @@ def main() -> None:
         print(f"\n{note}")
     print(f"\n前日（{target}）の目立つ変化: {len(alerts)} 件（数は抜き取りからの推計）")
     print("\nALERTS_JSON: " + json.dumps({"day": target, "visits": visits[target], "pageviews": views[target],
+                                         "jp_visits": jp_visits[target], "jp_pageviews": country[target][HOME_COUNTRY],
                                          "prev_avg_pageviews": round(base_views, 1),
                                          "alerts": alerts}, ensure_ascii=False))
 
