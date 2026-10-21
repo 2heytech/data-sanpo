@@ -1,0 +1,11 @@
+name: probe
+on:
+  push:
+    branches: [claude/probe-national-sources]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install openpyxl
+      - run: python3 probe/probe.py
