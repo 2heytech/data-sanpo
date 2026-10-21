@@ -253,7 +253,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         <div class="picker-list" tabindex="-1" autofocus></div>
       </div>
     </dialog>
-    {/* 画像の保存・共有（地図の右下のボタンで開く。#152）。画像は表示中の地図からブラウザの中で作り、リンクには地図の位置を入れない */}
+    {/* 画像の保存・共有（地図の右下のボタンで開く。#153）。画像は表示中の地図からブラウザの中で作り、リンクには地図の位置を入れない */}
     <dialog id="share-dialog" class="share-dialog" aria-labelledby="share-title">
       <div class="share-head">
         <h2 id="share-title">画像の保存・共有</h2>
@@ -401,7 +401,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .picker-points label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   .picker-points .muted { font-size: 0.75rem; }
   .picker-empty { margin: 24px 0; color: var(--muted); }
-  /* 画像の保存・共有（#152） */
+  /* 画像の保存・共有（#153） */
   .map-wrap .share-ctrl button { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 8px; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--fg); }
   .map-wrap .share-ctrl svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .share-dialog {

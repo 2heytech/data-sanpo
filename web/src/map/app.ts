@@ -785,7 +785,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (areaChip.hidden !== !name) areaChip.hidden = !name;
   }
 
-  // 凡例の中身。左の欄の凡例と、保存する画像の凡例（#152）で同じものを使う
+  // 凡例の中身。左の欄の凡例と、保存する画像の凡例（#153）で同じものを使う
   function legendModel(): LegendModel | null {
     const level = levelNow();
     const info = legend?.levels[level];
@@ -1661,7 +1661,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   });
   searchInput.addEventListener("blur", () => setTimeout(() => { hits = []; showHits(); }, 150));
 
-  // --- 画像の保存・共有（#152） -------------------------------------------------------
+  // --- 画像の保存・共有（#153） -------------------------------------------------------
   // 画像の題名・凡例・出典は、いま地図に出しているもの（色分けを消しているときは背景の名前）にする
   const BASE_TITLE = { pale: "地図", photo: "航空写真", relief: "標高（色別標高図）", landuse: "土地利用（100m四方のマス）" };
   const attributionEl = root.querySelector<HTMLElement>(".maplibregl-ctrl-attrib-inner");
