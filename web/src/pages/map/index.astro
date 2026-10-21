@@ -253,6 +253,36 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         <div class="picker-list" tabindex="-1" autofocus></div>
       </div>
     </dialog>
+    {/* 画像の保存・共有（地図の右下のボタンで開く。#152）。画像は表示中の地図からブラウザの中で作り、リンクには地図の位置を入れない */}
+    <dialog id="share-dialog" class="share-dialog" aria-labelledby="share-title">
+      <div class="share-head">
+        <h2 id="share-title">画像の保存・共有</h2>
+        <button type="button" class="share-close" aria-label="閉じる">×</button>
+      </div>
+      <div class="share-body">
+        <div class="share-preview">
+          <p id="share-status" class="muted small">画像を作っています…</p>
+          <img id="share-image" alt="" hidden />
+        </div>
+        <div class="share-actions">
+          <a id="share-download" class="button" aria-disabled="true">画像を保存</a>
+          <button type="button" id="share-native" class="button secondary" hidden>ほかのアプリで共有</button>
+        </div>
+        <h3>リンクを共有</h3>
+        <div class="share-link">
+          <input id="share-url" type="text" readonly aria-label="この地図のリンク" />
+          <button type="button" id="share-copy" class="button secondary">コピー</button>
+        </div>
+        <div class="share-sns">
+          <a id="share-x" class="button secondary" target="_blank" rel="noopener">X でポスト</a>
+          <a id="share-line" class="button secondary" target="_blank" rel="noopener">LINE で送る</a>
+        </div>
+        <ul class="share-notes muted small">
+          <li>画像は、いま表示している地図にこの端末の中で題名・凡例・出典を書き足して作ります。X などに画像を付けるときは、保存してから投稿に添付してください。</li>
+          <li>リンクには指標・時点・選んだ地域・色分けの単位だけが入り、地図の位置や縮尺は入りません。開くと選んだ地域（なければ日本全体）を表示します。</li>
+        </ul>
+      </div>
+    </dialog>
     <template id="category-icons">
       {categories.map((c) => <span data-category={c}><CategoryIcon category={c} /></span>)}
     </template>
@@ -371,8 +401,38 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .picker-points label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   .picker-points .muted { font-size: 0.75rem; }
   .picker-empty { margin: 24px 0; color: var(--muted); }
+  /* 画像の保存・共有（#152） */
+  .map-wrap .share-ctrl button { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 8px; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--fg); }
+  .map-wrap .share-ctrl svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .share-dialog {
+    width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0;
+    border: 0; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25); color: var(--fg); background: var(--surface);
+  }
+  .share-dialog::backdrop { background: rgba(20,30,45,.45); }
+  .share-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 18px; border-bottom: 1px solid var(--line); }
+  .share-head h2 { margin: 0; font-size: 1.05rem; }
+  .share-close { flex: none; width: 36px; height: 36px; border: 0; background: none; font-size: 1.4rem; cursor: pointer; color: var(--muted); }
+  .share-body { padding: 14px 18px 18px; }
+  .share-body h3 { margin: 18px 0 6px; font-size: 0.95rem; }
+  .share-notes { margin: 16px 0 0; padding-left: 1.2em; line-height: 1.6; }
+  .share-notes li + li { margin-top: 4px; }
+  .share-preview { display: grid; place-items: center; min-height: 120px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .share-preview img { display: block; max-width: 100%; max-height: 46dvh; height: auto; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  .share-preview img[hidden] { display: none; }
+  .share-preview p[hidden] { display: none; }
+  .share-actions, .share-sns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .share-body .button { font: inherit; font-size: 0.9rem; font-weight: 700; padding: 8px 16px; cursor: pointer; border: 0; }
+  .share-body .button.secondary { border: 1px solid var(--line-strong); }
+  .share-body .button[hidden] { display: none; }
+  .share-body .button[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+  .share-link { display: flex; gap: 8px; }
+  .share-link input { flex: 1; min-width: 0; font: inherit; font-size: 0.85rem; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--muted); }
+  .share-link .button { flex: none; }
   @media (max-width: 720px) {
     .picker { width: 100vw; height: 100dvh; max-width: none; max-height: none; border-radius: 0; }
+    .share-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
+    .share-body { padding: 12px 14px 16px; }
+    .share-preview img { max-height: 40dvh; }
     .picker-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
     .picker-nav { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 6px 8px; }
     .picker-nav button { white-space: nowrap; flex: none; }

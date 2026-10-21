@@ -16,6 +16,8 @@ export interface PointLayer {
   isOpen(): boolean;
   /** 情報を出している地点の位置（ポップアップを出す所）。位置が分からない地点や、閉じているときは null */
   coord(): [number, number] | null;
+  /** 読み込んだ地点の出典（保存する画像に書く。#152） */
+  sourceIds(): string[];
 }
 
 /** 地点の情報の出典の行（出典表記を重複なく「／」で並べる） */

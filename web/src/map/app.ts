@@ -21,6 +21,7 @@ import { initWeather } from "./weather";
 import { initLandUse, NARROW_MAP_PX } from "./landuse";
 import { initTransport } from "./transport";
 import { initFacilities } from "./facilities";
+import { initShare, safeFileName, type LegendModel } from "./share";
 import type { PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
 import { normalize } from "../lib/search";
@@ -784,25 +785,13 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (areaChip.hidden !== !name) areaChip.hidden = !name;
   }
 
-  // 凡例: 指標名は選択欄、時点は時点のバーにあるので、ここは単位と何別かだけ書き、色は1本の帯で示す（#93）
-  function renderLegend() {
-    if (!legend) return;
+  // 凡例の中身。左の欄の凡例と、保存する画像の凡例（#152）で同じものを使う
+  function legendModel(): LegendModel | null {
     const level = levelNow();
-    const info = legend.levels[level];
-    const levelLabel = LEVEL_LABEL[level];
-    const head = (label: string) =>
-      `<p class="legend-head">${esc(indicator.unit)}<span class="muted">（${esc(label)}別）</span></p>`;
-    // 町丁目を選んで縮小しているときは、市区町村で塗っていることを書き添える
-    const later = chosenLevel() === "small_area" && level !== "small_area"
-      ? `<p class="muted small legend-note">町丁目は拡大すると色分けされます。</p>` : "";
-    if (!info) {
-      legendEl.innerHTML = `<p class="muted small">この時点の${levelLabel}別の値はありません。</p>` + later;
-      return;
-    }
+    const info = legend?.levels[level];
+    if (!legend || !info) return null;
     // 区切りは全国で共通（都道府県ごとには変えない。#145）
     const breaks = info.breaks;
-    const noData = `<span><i class="swatch" style="background:${NO_DATA_COLOR}"></i>値なし</span>`;
-    const blank = `<span><i class="swatch blank"></i>0（色なし）</span>`;
     const zeroBlank = !!legend.zero_blank;
     const colors = colorsFor(legend.scheme, breaks, zeroBlank);
     const fmt = (v: number) => formatNumber(v, indicator.digits);
@@ -817,25 +806,44 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         : lo === null ? (zeroBlank ? `0 より大きく ${fmt(hi!)} 未満` : `${fmt(hi!)} 未満`)
         : hi === null ? `${fmt(lo)} 以上` : `${fmt(lo)} 〜 ${fmt(hi)} 未満`;
     });
-    const cells = colors.map((c, i) => `<span style="background:${c}" title="${esc(labels[i])}"></span>`).join("");
-    // 区切りの値は帯の境目に、上下2段に互い違いに出す（色にカーソルを合わせると範囲も出る）。
-    // 区分が多くて文字が重なるときは、いくつかおきに値を出し、残りの境目は目盛りだけにする（#145）
     const n = colors.length;
-    const items = band
+    const ticks = band
       ? colors.map((_, i) => ({ at: (i + 0.5) / n, text: i === 0 ? "0" : `〜${compactNumber(bandValue(i), indicator.digits)}` }))
       : breaks.slice(0, n - 1).map((b, k) => ({ at: (k + 1) / n, text: compactNumber(b, indicator.digits) }));
-    const rows = n > 6 ? 2 : 1;
+    return { unit: indicator.unit, levelLabel: LEVEL_LABEL[level], colors, labels, ticks, band: !!band, zeroBlank,
+             noDataColor: NO_DATA_COLOR };
+  }
+
+  // 凡例: 指標名は選択欄、時点は時点のバーにあるので、ここは単位と何別かだけ書き、色は1本の帯で示す（#93）
+  function renderLegend() {
+    if (!legend) return;
+    const levelLabel = LEVEL_LABEL[levelNow()];
+    // 町丁目を選んで縮小しているときは、市区町村で塗っていることを書き添える
+    const later = chosenLevel() === "small_area" && levelNow() !== "small_area"
+      ? `<p class="muted small legend-note">町丁目は拡大すると色分けされます。</p>` : "";
+    const m = legendModel();
+    if (!m) {
+      legendEl.innerHTML = `<p class="muted small">この時点の${levelLabel}別の値はありません。</p>` + later;
+      return;
+    }
+    const head = `<p class="legend-head">${esc(m.unit)}<span class="muted">（${esc(m.levelLabel)}別）</span></p>`;
+    const noData = `<span><i class="swatch" style="background:${m.noDataColor}"></i>値なし</span>`;
+    const blank = `<span><i class="swatch blank"></i>0（色なし）</span>`;
+    const cells = m.colors.map((c, i) => `<span style="background:${c}" title="${esc(m.labels[i])}"></span>`).join("");
+    // 区切りの値は帯の境目に、上下2段に互い違いに出す（色にカーソルを合わせると範囲も出る）。
+    // 区分が多くて文字が重なるときは、いくつかおきに値を出し、残りの境目は目盛りだけにする（#145）
+    const rows = m.colors.length > 6 ? 2 : 1;
     const width = legendEl.clientWidth || 260;
-    const step = tickStep(items.map((t) => t.at * width), items.map((t) => textWidth(t.text, TICK_FONT_PX)), rows);
-    const ticks = items.map((t, k) => {
+    const step = tickStep(m.ticks.map((t) => t.at * width), m.ticks.map((t) => textWidth(t.text, TICK_FONT_PX)), rows);
+    const ticks = m.ticks.map((t, k) => {
       const style = `left:${(t.at * 100).toFixed(2)}%`;
-      if (k % step) return band ? "" : `<span class="bare" style="${style}"></span>`;
+      if (k % step) return m.band ? "" : `<span class="bare" style="${style}"></span>`;
       return `<span class="${rows > 1 && (k / step) % 2 ? "low" : ""}" style="${style}">${esc(t.text)}</span>`;
     }).join("");
-    legendEl.innerHTML = head(levelLabel) +
-      `<div class="legend-bar" role="img" aria-label="${esc(labels.join("、"))}">${cells}</div>` +
+    legendEl.innerHTML = head +
+      `<div class="legend-bar" role="img" aria-label="${esc(m.labels.join("、"))}">${cells}</div>` +
       `<div class="legend-ticks${rows > 1 ? " two" : ""}" aria-hidden="true">${ticks}</div>` +
-      `<p class="legend-extra">${zeroBlank ? blank : ""}${noData}</p>` + later;
+      `<p class="legend-extra">${m.zeroBlank ? blank : ""}${noData}</p>` + later;
   }
 
   async function rowsFor(id: string, at = period): Promise<ValueRow[]> {
@@ -1652,6 +1660,40 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     if (li) choose(Number(li.dataset.i));
   });
   searchInput.addEventListener("blur", () => setTimeout(() => { hits = []; showHits(); }, 150));
+
+  // --- 画像の保存・共有（#152） -------------------------------------------------------
+  // 画像の題名・凡例・出典は、いま地図に出しているもの（色分けを消しているときは背景の名前）にする
+  const BASE_TITLE = { pale: "地図", photo: "航空写真", relief: "標高（色別標高図）", landuse: "土地利用（100m四方のマス）" };
+  const attributionEl = root.querySelector<HTMLElement>(".maplibregl-ctrl-attrib-inner");
+  // 出典の表記は「出典：」で始まるものが多いので、行の見出し（「統計の出典:」など）と重ならないように外す
+  const attributions = (ids: string[]) =>
+    [...new Set(ids.map((id) => (sources.get(id)?.attribution ?? id).replace(/^出典[：:]\s*/, "")))].join("／");
+  initShare({
+    map, root, font: LOCAL_FONT,
+    view: () => {
+      const colorsOn = colorsToggle.checked;
+      // 色分けを消していても、地名の下に数値を出しているときは、何の数値かと出典を書く
+      const valuesShown = $<HTMLInputElement>("#labels-toggle").checked && valuesToggle.checked;
+      const p = periodInfo();
+      const area = selected ? entityName(selected).name : "";
+      const lm = colorsOn ? legendModel() : null;
+      const baseLabel = baseMode === "photo" ? photoLabel.textContent ?? ""
+        : baseMode === "landuse" ? $<HTMLOutputElement>("#landuse-year-label").textContent ?? "" : "";
+      const title = colorsOn ? indicator.name : BASE_TITLE[baseMode];
+      const when = colorsOn ? p.label : baseLabel;
+      const subtitle = [when, lm ? `${lm.levelLabel}別` : "",
+        !colorsOn && valuesShown ? `数値は${indicator.name}（${p.label}）` : "", area ? `赤い枠は${area}` : ""].filter(Boolean).join("・");
+      const pointIds = pointLayers.filter((l) => l.visible()).flatMap((l) => l.sourceIds());
+      const credits = [
+        (colorsOn || valuesShown) && p.source_ids.length ? `統計の出典: ${attributions(p.source_ids)}` : "",
+        pointIds.length ? `地点の出典: ${attributions(pointIds)}` : "",
+        `背景地図: ${attributionEl?.textContent?.trim() || "地理院タイル"}`,
+      ].filter(Boolean);
+      const text = colorsOn ? `${area ? `${area}の` : ""}${indicator.name}（${p.label}）の地図` : `${area ? `${area}の` : ""}${title}`;
+      return { title, subtitle, legend: lm, credits, text: `${text}｜データさんぽ`,
+               fileName: safeFileName(`データさんぽ_${[title, when, area].filter(Boolean).join("_")}.png`) };
+    },
+  });
 
   // --- 初期表示 -------------------------------------------------------------------
   // ?show=landuse で開いたときは土地利用図を出す（ほかの重ねる層の ?show= と同じ）

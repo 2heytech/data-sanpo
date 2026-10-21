@@ -210,6 +210,7 @@ export function initWeather(o: Options): PointLayer {
     layer: LAYER,
     kind: "気象庁の観測所",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
+    sourceIds: () => data?.source_ids ?? [],
     show: showStation,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden || !selected ? null : byId.get(selected)?.coord ?? null),

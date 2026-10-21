@@ -1,6 +1,7 @@
 ---
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
+import ShareButtons from "../../components/ShareButtons.astro";
 import RankingTable, { type RankingRow } from "../../components/RankingTable.astro";
 import { DATA_BASE, loadAreas, loadIndicators, loadSmallAreaRows, loadSmallAreas, loadSources, loadValues } from "../../lib/data";
 import { formatValue, ranked, splitRanking, STATUS_LABEL } from "../../lib/format";
@@ -181,5 +182,6 @@ const structured = [
   )}
   <p class="muted">定義の版: {ind.definition_version}</p>
   </section>
+  <ShareButtons title={pageText.title} />
   <AdSlot name="page" />
 </Base>
