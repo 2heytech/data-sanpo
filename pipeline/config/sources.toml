@@ -504,47 +504,48 @@ redistributable = true
 
 # 昼間人口（全国の市区町村・都道府県）。昼夜間人口比率と、犯罪・交通事故の昼間人口当たり件数の分母（docs/design-changes.md #14・#28・#42・#107）。
 # 国勢調査 従業地・通学地集計の e-Stat「ファイル」の表。2026-10-14 に GitHub Actions から取得して列名を確認した。
-# 2020年の Excel は値の列の上に表章項目（人口）と項目名（1_従業地・通学地による人口（昼間人口） …）が並び、
-# 「男女」「年齢」の分類の列がある（総数の行を使う）。地域識別コード a 全国・都道府県、1 政令指定都市の市全体、0 区・市町村。
+# 令和2年・平成27年は統計局の参考表「不詳補完結果」の第1-1表（従業地・通学地の不詳を補完した値。統計局が公表する
+# 昼夜間人口比率と同じ。#152）。値の列の上に表章項目（人口）と項目名（1_従業地・通学地による人口（昼間人口） …）が並び、
+# 「男女」の分類の列がある（年齢の列はない。総数の行を使う）。地域識別コード a 全国・都道府県、1 政令指定都市の市全体、0 区・市町村。
+# 平成27年は「遡及集計」（令和2年と同じ方法で補完し直した値）。statInfId は 2026-10-21 に e-Stat の一覧で調べた。
 [census2020_municipal_daytime]
 kind = "census_municipal"
 period = "2020-10-01"
 label = "2020年"
 table = "census_daytime"
-title = "令和2年国勢調査 従業地・通学地による人口・就業状態等集計 表1-1 男女，年齢（5歳階級），常住地又は従業地・通学地別人口及び昼夜間人口比率－全国，都道府県，市区町村"
+title = "令和2年国勢調査に関する不詳補完結果（参考表） 従業地・通学地の不詳補完 第1-1表 男女，常住地又は従業地・通学地別人口及び昼夜間人口比率－全国，都道府県，市区町村"
 provider = "総務省統計局"
-url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001136464&cycle=0&tclass1=000001136469&tclass2val=0"
-download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032214141&fileKind=0"
-download_filename = "001-1.xlsx"
-files = ["001-1.xlsx"]
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001136464&cycle=0&tclass1=000001154387&tclass2=000001159626&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032217063&fileKind=0"
+download_filename = "fusho-hokan-1-1.xlsx"
+files = ["fusho-hokan-1-1.xlsx"]
 cache = true
 columns = { "昼間人口" = "人口/1_従業地・通学地による人口（昼間人口）" }
-filters = { "男女" = "0_総数", "年齢" = "00_総数" }
+filters = { "男女" = "0_総数" }
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
-attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 従業地・通学地による人口・就業状態等集計"
-modification_note = "市区町村・都道府県別の昼間人口（男女・年齢の総数）を抜き出して作成"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査に関する不詳補完結果（参考表）"
+modification_note = "市区町村・都道府県別の昼間人口（不詳補完値、男女の総数）を抜き出して作成"
 redistributable = true
 
-# 平成27年の第1表は CSV（cp932）。列名の末尾に注の番号・記号がつく（「総数（昼間人口） 2)3) (k)」）。
 [census2015_municipal_daytime]
 kind = "census_municipal"
 period = "2015-10-01"
 label = "2015年"
 table = "census_daytime"
-title = "平成27年国勢調査 従業地・通学地による人口・就業状態等集計 第1表 常住地又は従業地・通学地(27区分)による人口，就業者数及び通学者数－全国，都道府県，市区町村"
+title = "平成27年国勢調査に関する不詳補完結果（遡及集計）（参考表） 従業地・通学地の不詳補完 第1-1表 男女，常住地又は従業地・通学地別人口及び昼夜間人口比率－全国，都道府県，市区町村"
 provider = "総務省統計局"
-url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001080615&cycle=0&tclass1=000001101935&tclass2=000001101936&tclass3val=0"
-download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031586670&fileKind=1"
-download_filename = "001.csv"
-files = ["001.csv"]
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001136464&cycle=0&tclass1=000001154387&tclass2=000001159627&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032217186&fileKind=0"
+download_filename = "fusho-hokan-1-1.xlsx"
+files = ["fusho-hokan-1-1.xlsx"]
 cache = true
-encoding = "cp932"
-columns = { "昼間人口" = "総数（昼間人口）" }
+columns = { "昼間人口" = "人口/1_従業地・通学地による人口（昼間人口）" }
+filters = { "男女" = "0_総数" }
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
-attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 従業地・通学地による人口・就業状態等集計"
-modification_note = "市区町村・都道府県別の昼間人口を抜き出して作成"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査に関する不詳補完結果（遡及集計）（参考表）"
+modification_note = "市区町村・都道府県別の昼間人口（不詳補完値、男女の総数）を抜き出して作成"
 redistributable = true
 
 # 平成22年は全国の市区町村をまとめた表がなく、都道府県ごとの第1表（CSV、cp932）を使う。statInfId は
