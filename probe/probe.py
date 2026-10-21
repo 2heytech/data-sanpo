@@ -11,5 +11,6 @@ for sid in ("000032217063","000032217186"):
     print(sid,"rows",len(rows),"prefs",sum(1 for k in rows if len(k)==2))
     for k in ("13","27","11","13101","13104","14100","14101","01100","04404","16321","13219"):
         print(" ",k,rows.get(k))
+    print("DUMP",sid,";".join(f"{k}={v}" for k,v in sorted(rows.items())))
     bad=[(k,v) for k,v in rows.items() if not str(v).replace(".","").isdigit()]
     print("  non-numeric",len(bad),bad[:10])
