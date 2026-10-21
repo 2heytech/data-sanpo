@@ -1,38 +1,15 @@
-import re, urllib.request, html, io
-import openpyxl
+import sys, urllib.request, tempfile, pathlib
+sys.path.insert(0, "pipeline")
+from tdm.ingest import estat_census_municipal as m
 UA={"User-Agent":"Mozilla/5.0"}
-def getb(u): return urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=180).read()
-def get(u): return getb(u).decode("utf-8","ignore")
-B="https://www.e-stat.go.jp"
-base=B+"/stat-search/files?toukei=00200521&tstat=000001136464&tclass1=000001154387&tclass2=000001159627&tclass3val=0&layout=datalist&cycle=0"
-cands=[]
-for p in range(1,40):
-    t=get(base+"&page=%d"%p)
-    blks=re.findall(r'<article class="stat-dataset_list-item.*?</article>', t, re.S)
-    if not blks: print("no rows at page",p); break
-    for blk in blks:
-        tx=re.sub(r'\s+',' ',html.unescape(re.sub('<[^>]+>',' ',blk))).strip()
-        ids=sorted(set(re.findall(r'statInfId=(\d+)&(?:amp;)?fileKind=(\d)',blk)))
-        if re.search(r"昼夜間",tx):
-            print("ROW",tx[:300],ids); cands.append((tx,ids))
-print("cands",len(cands))
-for tx,ids in cands:
-    if "昼夜間" not in tx: continue
-    for sid,k in ids:
-        if k!="0": continue
-        u=B+"/stat-search/file-download?statInfId=%s&fileKind=0"%sid
-        try: data=getb(u)
-        except Exception as e: print("DL fail",sid,e); continue
-        print("=== FILE",sid,len(data),tx[:120])
-        try: wb=openpyxl.load_workbook(io.BytesIO(data),read_only=True,data_only=True)
-        except Exception as e: print("not xlsx",e,data[:80]); continue
-        for ws in wb.worksheets[:1]:
-            print("SHEET",ws.title)
-            n=0
-            for i,row in enumerate(ws.iter_rows(values_only=True)):
-                n+=1
-                cells=[str(c) for c in row if c is not None]
-                s=" | ".join(cells)
-                if i<14 or re.search(r'(^|\D)(00000|13000|27000|11000|26000|12000|14000|13101|13104)(\D|$)',s) and ('総数' in s or '総' in s or i<200000):
-                    if i<14 or n<400000: print(i,s[:400])
-            print("rows",n)
+cols={"昼間人口":"人口/1_従業地・通学地による人口（昼間人口）"}
+for sid in ("000032217063","000032217186"):
+    data=urllib.request.urlopen(urllib.request.Request("https://www.e-stat.go.jp/stat-search/file-download?statInfId=%s&fileKind=0"%sid,headers=UA),timeout=180).read()
+    p=pathlib.Path(tempfile.mkdtemp())/"fusho-hokan-1-1.xlsx"; p.write_bytes(data)
+    t=m.read_table(p, cols, {"男女":"0_総数"})
+    rows={r["KEY_CODE"]:r["昼間人口"] for r in t.rows}
+    print(sid,"rows",len(rows),"prefs",sum(1 for k in rows if len(k)==2))
+    for k in ("13","27","11","13101","13104","14100","14101","01100","04404","16321","13219"):
+        print(" ",k,rows.get(k))
+    bad=[(k,v) for k,v in rows.items() if not str(v).replace(".","").isdigit()]
+    print("  non-numeric",len(bad),bad[:10])
