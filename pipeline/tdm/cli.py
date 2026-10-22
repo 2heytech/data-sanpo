@@ -23,8 +23,8 @@ from pathlib import Path
 
 from . import fixture
 from .config import DEFAULT_PATHS, Paths, load_censuses, load_indicators, load_sources
-from .db import (connect, create_secondary_indexes, drop_secondary_indexes, init_schema, tune_for_bulk_load,
-                 upsert_indicators)
+from .db import (connect, create_secondary_indexes, delete_area_observations, drop_secondary_indexes, init_schema,
+                 tune_for_bulk_load, upsert_indicators)
 from .derive import derive_change, derive_density, derive_land_median, derive_multi_year_sum, derive_rate
 from .export import comparable_areas, export_release
 from .fetch import FetchError, fetch_source, source_prefectures
@@ -158,12 +158,21 @@ def _ingest_municipal_census(conn, paths: Paths, sources: dict, catalog: dict,
                 continue
             fn = (estat_small_area.ingest_ratio if d["kind"] == "ratio"
                   else estat_small_area.ingest_counts)
-            result[f"{key} {indicator_id}"] = fn(conn, _without_ingested(conn, table, indicator_id, d, period),
-                                                 src, indicator_id, d, period)
+            if cfg.get("replace_municipal_values"):
+                # 統計局の不詳補完値の表（#154）: 小地域の表から取り込んだ同じ時点の市区町村・都道府県の値を置き換える
+                delete_area_observations(conn, indicator_id, cfg["period"], keep_source=src)
+                rows = table
+            else:
+                rows = _without_ingested(conn, table, indicator_id, d, period)
+            result[f"{key} {indicator_id}"] = fn(conn, rows, src, indicator_id, d, period)
         pseudo = {"period": cfg["period"], "label": cfg.get("label", cfg["period"][:4] + "年"),
                   "boundary_version": last_census["boundary_version"]}
         for indicator_id, d in catalog.items():
-            if d["kind"] == "density" and catalog[d["numerator"]].get("table") == cfg["table"]:
+            if d["kind"] == "density" and cfg.get("official_density") and d["numerator"] == "population_total":
+                # 市区町村・都道府県の人口密度は国勢調査の表の面積・人口密度から（統計局の公表値に合わせる。#154）
+                result[f"{key} {indicator_id}"] = estat_census_municipal.ingest_official_density(
+                    conn, table, src, indicator_id, d, period)
+            elif d["kind"] == "density" and catalog[d["numerator"]].get("table") == cfg["table"]:
                 result[f"{key} {indicator_id}"] = {"rows": derive_density(
                     conn, indicator_id, d, catalog[d["numerator"]], last_census["boundary_version"],
                     cfg["period"])}
@@ -171,6 +180,10 @@ def _ingest_municipal_census(conn, paths: Paths, sources: dict, catalog: dict,
                 # 前回（最新の小地域まである国勢調査）→ 今回。今回は市区町村だけなので境界の比較は要らない
                 result[f"{key} {indicator_id}"] = derive_change(
                     conn, indicator_id, d, catalog[d["base"]], [last_census, pseudo], {})
+                if "前回の人口" in table.labels and d["base"] == "population_total":
+                    # 都道府県は表の都道府県の行の今回・前回の人口から（区の再編などで市区町村がそろわなくても出す）
+                    result[f"{key} {indicator_id} 都道府県"] = estat_census_municipal.ingest_prefecture_change(
+                        conn, table, src, indicator_id, d, period)
     return result
 
 
@@ -233,7 +246,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "estat_economic_census_town_industry",
                         "estat_economic_census_municipal_industry", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
-                        "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
+                        "police_crime_opendata", "mext_school_aid", "maff_agri_output", "maff_agri_prefecture",
+                        "meti_manufacturing",
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
                         "gsi_airports", "gsi_ports", "soumu_election", "soumu_fiscal_indicators",
                         "soumu_settlement", "soumu_tax_collection", "gsi_area", "land_use_cells", "urban_land_use_cells",
@@ -330,6 +344,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = estat_census_history.ingest(conn, files[0], src, catalog)
         elif kind == "maff_agri_output":
             result[key] = maff_agri_output.ingest(conn, files[0], src, catalog)
+        elif kind == "maff_agri_prefecture":
+            result[key] = maff_agri_output.ingest_prefectures(conn, files[0], src, catalog, int(cfg["year"]))
         elif kind == "meti_manufacturing":
             result[key] = meti_manufacturing.ingest(conn, files[0], src, catalog)
         elif kind == "estat_commerce":

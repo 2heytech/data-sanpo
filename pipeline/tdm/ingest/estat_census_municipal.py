@@ -21,6 +21,11 @@
   値の列名（総数（国籍）、中国、（別掲）総人口 …）は男女総数・男・女の順にくり返すので最初（男女総数）を使う。
   列名の末尾の注の番号（「その他 1)」の「 1)」）は除いて照合する。地域識別コード b（市部・郡部）・d（人口集中地区）の行は使わない。
 
+統計局の参考表「不詳補完値」の表も同じ形で読む（年齢・国籍・面積と人口密度。docs/design-changes.md #154。2026-10-22 に取得して確認）:
+  令和7年調査の表（2025年の表と、2020年の遡及集計）は令和7年の表と同じ形で、遡及集計は地域コードの列が「2020年_地域コード」。
+  令和2年調査の参考表（2015年の遡及集計）は令和2年の表と同じく「表章項目」「項目名」の見出しの文字がない。
+  年齢「不詳」・日本人・外国人の別「不詳」は補完されているので「-」か0。
+
 従業地・通学地集計の表も同じ形で読む（昼間人口。docs/design-changes.md #107。2026-10-14 に GitHub Actions から取得して確認）:
   令和2年の表1-1（Excel）は「男女」「年齢」の分類の列がある（filters で総数の行を選ぶ）。
   平成27年の第1表（CSV）は列名の末尾に注の番号と記号がつく（「総数（昼間人口） 2)3) (k)」）。どちらも除いて照合する。
@@ -87,7 +92,9 @@ def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | No
             raise KeyError(f"{path.name}: 列 {spec} が見つかりません。項目: {list(keys.values())}")
         picked[out] = hits[0]
     level = head.index(HEAD)
-    code_col = head.index("2025年_地域コード") if "2025年_地域コード" in head else head.index("地域名")
+    # 調査の年の地域コードの列（「2025年_地域コード」、遡及集計は「2020年_地域コード」）。2000年の列は使わない
+    years = [j for j, c in enumerate(head) if re.fullmatch(r"\d{4}年_地域コード", c) and not c.startswith("2000")]
+    code_col = years[-1] if years else head.index("地域名")
     conds = []
     for col, value in (filters or {}).items():
         if col not in head:
@@ -153,3 +160,63 @@ def _read_csv(path: Path, columns: dict[str, str], encoding: str, row_codes: lis
         out_rows.append({"KEY_CODE": key, "HTKSYORI": "", "HTKSAKI": "", "GASSAN": "",
                          **{name: cells[j] for name, j in picked.items()}})
     return Table(["KEY_CODE", "HTKSYORI", "HTKSAKI", "GASSAN", *columns], out_rows, prefecture_rows=True)
+
+
+# 人口密度の面積（#154）。国勢調査の表の「面積（参考）」と「人口密度」（調査対象外の地域を除いた面積で計算した公表値）
+DENSITY_ROUNDING = 0.06     # 公表の人口密度は小数1桁。人口 ÷ 面積がこれ以上ずれたら、面積に調査対象外の地域が含まれる
+EXCLUDED_AREA_NOTE = "面積から、国勢調査の対象外の地域（北方領土・竹島など）を除いて計算"
+
+
+def ingest_official_density(conn, table: Table, source_id: str, indicator_id: str, definition: dict,
+                            period: tuple[str, str, str]) -> dict:
+    """国勢調査の表の人口・面積から、市区町村・都道府県の人口密度を作る（列「人口総数」「面積」「人口密度」）。
+
+    統計局の公表する人口密度に合わせる。分母は表の面積（国土地理院の面積調）。北海道・根室市（北方領土）のように
+    面積に調査対象外の地域が含まれ、人口 ÷ 面積が公表の人口密度と合わないところは、人口 ÷ 公表の人口密度
+    （人口密度の計算に使われた面積）を分母にする。境界データの面積で割った値（町丁・字等と同じ方法）は置き換える。"""
+    from ..db import delete_area_observations, insert_observation
+    from .estat_small_area import match_rows, parse_cell
+    delete_area_observations(conn, indicator_id, period[0], keep_source=source_id)
+    matched, unmatched = match_rows(conn, table)
+    for entity_id, row in matched:
+        pop, area, density = (parse_cell(row[c]) for c in ("人口総数", "面積", "人口密度"))
+        obs = dict(entity_id=entity_id, indicator_id=indicator_id,
+                   definition_version=definition["definition_version"],
+                   period_start=period[0], period_end=period[1], period_kind=period[2],
+                   source_id=source_id, denominator_source_id=source_id, coverage_note=None, method_note=None)
+        if pop.value is None or area.value is None:
+            obs.update(value=None, status="suppressed" if "suppressed" in (pop.status, area.status) else "missing")
+        elif area.value <= 0:
+            obs.update(value=None, status="not_applicable", method_note="面積が不明のため算出しない")
+        else:
+            den = area.value
+            if pop.value > 0 and density.value and abs(pop.value / den - density.value) >= DENSITY_ROUNDING:
+                den = pop.value / density.value
+                obs.update(method_note=EXCLUDED_AREA_NOTE)
+            obs.update(value=pop.value / den, numerator=pop.value, denominator=den, status="derived")
+        insert_observation(conn, **obs)
+    return {"rows": len(matched), "unmatched": unmatched}
+
+
+def ingest_prefecture_change(conn, table: Table, source_id: str, indicator_id: str, definition: dict,
+                             period: tuple[str, str, str]) -> dict:
+    """都道府県の前回からの増減率を、表の都道府県の行の人口と「前回の人口」（今の区域に組み替えた前回の人口）から作る。
+    市区町村の区域が変わった都道府県（2025年の静岡県。浜松市の区の再編）も値が出せるように（#154）。"""
+    from ..db import insert_observation
+    from .estat_small_area import match_rows, parse_cell
+    scale = float(definition.get("scale", 1))
+    n = 0
+    for entity_id, row in match_rows(conn, table)[0]:
+        if not entity_id.startswith("pref-"):
+            continue
+        cur, prev = parse_cell(row["人口総数"]), parse_cell(row["前回の人口"])
+        if cur.value is None or prev.value is None or prev.value <= 0:
+            continue
+        insert_observation(conn, entity_id=entity_id, indicator_id=indicator_id,
+                           definition_version=definition["definition_version"],
+                           period_start=period[0], period_end=period[1], period_kind=period[2],
+                           source_id=source_id, denominator_source_id=source_id,
+                           value=(cur.value - prev.value) / prev.value * scale,
+                           numerator=cur.value - prev.value, denominator=prev.value, status="derived")
+        n += 1
+    return {"prefectures": n}

@@ -9,22 +9,36 @@
 
 政令指定都市と東京23区は市全体（区部全体）の値しかなく、区に割り振ると元データより細かくなるので、区には値を
 入れない（都道府県の合計には含める）。「-」は産出がないので0、「x」は秘匿、「…」は値なし（0にしない）。
-都道府県の値は県内の全市町村の合計で、1つでも秘匿・不詳があれば値なしにする。
+都道府県の値は、農林水産省「生産農業所得統計」の都道府県別農業産出額（公表値）を使う（#155。kind
+maff_agri_prefecture、ingest_prefectures）。市町村別の推計は都道府県の値を市町村に割り振ったもので、加工農産物などを
+含まないため、市町村の合計は公表の都道府県の値と一致しない。都道府県の表がない年だけ、県内の全市町村の合計
+（1つでも秘匿・不詳があれば値なし）にする。
 指標は definition の agri_item（「品目」の欄の値。例: 農業産出額・米・野菜計・果実計・畜産計）で選ぶ。
+
+生産農業所得統計の都道府県別の表（「都道府県別農業産出額及び生産農業所得 ア 実額」、e-Stat。2017〜2024年の表を
+2026-10-22 に取得して確認。2021年以前は旧形式の .xls）:
+  1シート。6〜9行目あたりが見出し（「計」「耕種」「畜産」の行、その下に「小計」「米」「野菜」「果実」などの行。
+  2021年以前は「耕　　種」「野　菜」のように全角空白が入り、2017年は「耕種（続き）」「畜産（続き）」もある）。
+  1列目が都道府県名（「北海道」「青森」…「沖縄」、2021年以前は「北　　海　　道」）、値は億円の整数で、
+  産出額と順位の列が交互に並ぶ。「x」は秘匿、「-」は該当なし（0）。年は表の中にないので sources.toml の year を使う。
 """
 from __future__ import annotations
 
+import re
 import sqlite3
+import zipfile
 from collections import defaultdict
 from pathlib import Path
 
-from ..db import insert_observation
-from ..regions import prefecture_entity_id
+from ..db import delete_area_observations, insert_observation
+from ..regions import PREFECTURES, prefecture_entity_id
 from ..xlsx import read_sheet
 
 KIND = "maff_agri_output"
 SUPPRESSED = "x"
 ZERO = "-"
+# 都道府県別の表の列（見出しの文字）→ 市町村別の表の品目（agri_item）
+PREFECTURE_ITEMS = {"計": "農業産出額", "米": "米", "野菜": "野菜計", "果実": "果実計", "畜産": "畜産計"}
 
 
 def _code(pref, muni) -> str:
@@ -82,9 +96,10 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict) 
                 insert_observation(conn, entity_id=entity_id, value=None,
                                    status="suppressed" if v == SUPPRESSED else "missing",
                                    method_note="秘匿" if v == SUPPRESSED else None, **base)
+        official = _prefectures_from_other_sources(conn, indicator_id, period["period_start"], source_id)
         for pref, total in totals.items():
-            if pref not in prefs:
-                continue
+            if pref not in prefs or pref in official:
+                continue   # 生産農業所得統計の都道府県の値があるときは、市町村の合計を作らない
             if total is None:
                 insert_observation(conn, entity_id=pref, value=None, status="missing",
                                    method_note="県内に秘匿・不詳の市町村があり合計できないため値なし", **base)
@@ -92,4 +107,83 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict) 
                 insert_observation(conn, entity_id=pref, value=total * scale, status="estimated",
                                    method_note="県内の市町村の合計", **base)
                 result["prefectures"] += 1
+    return result
+
+
+def _prefectures_from_other_sources(conn: sqlite3.Connection, indicator_id: str, period_start: str,
+                                    source_id: str) -> set[str]:
+    return {r[0] for r in conn.execute(
+        """SELECT entity_id FROM observations WHERE indicator_id = ? AND period_start = ? AND source_id != ?
+           AND entity_id LIKE 'pref-%'""", (indicator_id, period_start, source_id))}
+
+
+def _norm(v) -> str:
+    return re.sub(r"\s", "", str(v)) if v is not None else ""
+
+
+def _workbook_rows(path: Path) -> list[list]:
+    if zipfile.is_zipfile(path) and "xl/workbook.xml" in zipfile.ZipFile(path).namelist():
+        return read_sheet(path)
+    import xlrd   # 旧形式の Excel（.xls。2021年以前の表）
+    sheet = xlrd.open_workbook(str(path)).sheet_by_index(0)
+    return [[None if v == "" else v for v in sheet.row_values(i)] for i in range(sheet.nrows)]
+
+
+def read_prefecture_table(path: Path) -> dict[str, dict[str, float | str]]:
+    """生産農業所得統計の都道府県別の表。都道府県コード2桁 → 品目（agri_item）→ 億円 の数値か「x」「…」。"""
+    rows = _workbook_rows(path)
+    names = {re.sub(r"[都府県]$", "", n) if n != "北海道" else n: c for c, n in PREFECTURES.items()}
+    first = next(i for i, r in enumerate(rows) if r and _norm(r[0]) in names)
+    head = [[_norm(c) for c in r] for r in rows[:first]]
+    cols: dict[str, int] = {}
+    for label in PREFECTURE_ITEMS:
+        if label == "畜産":
+            # 畜産の小計の列（見出しの行に「畜産」、その下の行に「小計」）
+            hit = next((j for r_i, r in enumerate(head[:-1]) for j, c in enumerate(r)
+                        if c == "畜産" and j < len(head[r_i + 1]) and head[r_i + 1][j] == "小計"), None)
+        else:
+            hit = next((j for r in head for j, c in enumerate(r) if c == label), None)
+        if hit is None:
+            raise KeyError(f"{path.name}: 列「{label}」が見つかりません")
+        cols[label] = hit
+    out: dict[str, dict[str, float | str]] = {}
+    for r in rows[first:]:
+        code = names.get(_norm(r[0]) if r else "")
+        if code is None:
+            continue
+        items: dict[str, float | str] = {}
+        for label, j in cols.items():
+            v = r[j] if j < len(r) else None
+            if isinstance(v, (int, float)):
+                items[PREFECTURE_ITEMS[label]] = float(v)
+            else:
+                s = _norm(v)
+                items[PREFECTURE_ITEMS[label]] = 0.0 if s == ZERO else (SUPPRESSED if s.lower() == SUPPRESSED else "…")
+        out[code] = items
+    return out
+
+
+def ingest_prefectures(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, year: int) -> dict:
+    """生産農業所得統計の都道府県別農業産出額（億円）を都道府県の値にする。市町村の推計の合計で作った値は消す。"""
+    table = read_prefecture_table(path)
+    targets = {k: d for k, d in catalog.items() if d.get("source_kind") == KIND}
+    prefs = {r[0] for r in conn.execute("SELECT entity_id FROM entities WHERE entity_type = 'prefecture'")}
+    period = dict(period_start=f"{year}-01-01", period_end=f"{year}-12-31", period_kind="calendar_year",
+                  source_id=source_id)
+    result = {"year": year, "prefectures": len(table), "suppressed": 0}
+    for indicator_id, d in targets.items():
+        delete_area_observations(conn, indicator_id, period["period_start"], keep_source=source_id, levels=("pref",))
+        base = dict(indicator_id=indicator_id, definition_version=d["definition_version"], **period)
+        for code, items in table.items():
+            entity_id = prefecture_entity_id(code)
+            if entity_id not in prefs:
+                continue
+            v = items[d["agri_item"]]
+            if isinstance(v, float):
+                insert_observation(conn, entity_id=entity_id, value=v, status="observed", **base)
+            else:
+                result["suppressed"] += 1
+                insert_observation(conn, entity_id=entity_id, value=None,
+                                   status="suppressed" if v == SUPPRESSED else "missing",
+                                   method_note="秘匿" if v == SUPPRESSED else None, **base)
     return result
