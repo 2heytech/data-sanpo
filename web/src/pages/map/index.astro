@@ -253,10 +253,10 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         <div class="picker-list" tabindex="-1" autofocus></div>
       </div>
     </dialog>
-    {/* 画像の保存・共有（地図の右下のボタンで開く。#153）。画像は表示中の地図からブラウザの中で作り、リンクには地図の位置を入れない */}
+    {/* 画像の保存・コピーとリンクのコピー（地図の右下のボタンで開く。#153・#156）。画像は表示中の地図からブラウザの中で作り、リンクには地図の位置を入れない。SNS などへ送るボタンは置かない */}
     <dialog id="share-dialog" class="share-dialog" aria-labelledby="share-title">
       <div class="share-head">
-        <h2 id="share-title">画像の保存・共有</h2>
+        <h2 id="share-title">画像とリンクのコピー</h2>
         <button type="button" class="share-close" aria-label="閉じる">×</button>
       </div>
       <div class="share-body">
@@ -266,19 +266,15 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         </div>
         <div class="share-actions">
           <a id="share-download" class="button" aria-disabled="true">画像を保存</a>
-          <button type="button" id="share-native" class="button secondary" hidden>ほかのアプリで共有</button>
+          <button type="button" id="share-image-copy" class="button secondary" disabled hidden>画像をコピー</button>
         </div>
-        <h3>リンクを共有</h3>
+        <h3>共有用のリンク</h3>
         <div class="share-link">
           <input id="share-url" type="text" readonly aria-label="この地図のリンク" />
           <button type="button" id="share-copy" class="button secondary">コピー</button>
         </div>
-        <div class="share-sns">
-          <a id="share-x" class="button secondary" target="_blank" rel="noopener">X でポスト</a>
-          <a id="share-line" class="button secondary" target="_blank" rel="noopener">LINE で送る</a>
-        </div>
         <ul class="share-notes muted small">
-          <li>画像は、いま表示している地図にこの端末の中で題名・凡例・出典を書き足して作ります。X などに画像を付けるときは、保存してから投稿に添付してください。</li>
+          <li>画像は、いま表示している地図にこの端末の中で題名・凡例・出典を書き足して作ります。コピーできないときは、保存するか、画像を長押し（パソコンでは右クリック）してコピーしてください。</li>
           <li>リンクには指標・時点・選んだ地域・色分けの単位だけが入り、地図の位置や縮尺は入りません。開くと選んだ地域（なければ日本全体）を表示します。</li>
         </ul>
       </div>
@@ -420,11 +416,11 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .share-preview img { display: block; max-width: 100%; max-height: 46dvh; height: auto; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
   .share-preview img[hidden] { display: none; }
   .share-preview p[hidden] { display: none; }
-  .share-actions, .share-sns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .share-body .button { font: inherit; font-size: 0.9rem; font-weight: 700; padding: 8px 16px; cursor: pointer; border: 0; }
   .share-body .button.secondary { border: 1px solid var(--line-strong); }
   .share-body .button[hidden] { display: none; }
-  .share-body .button[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+  .share-body .button[aria-disabled="true"], .share-body .button:disabled { opacity: .5; pointer-events: none; }
   .share-link { display: flex; gap: 8px; }
   .share-link input { flex: 1; min-width: 0; font: inherit; font-size: 0.85rem; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--muted); }
   .share-link .button { flex: none; }
