@@ -566,11 +566,18 @@ def test_foreign_residents(built):
     table = read_files_table(path)
     assert "外国人人口" in table.labels and "世帯数" in table.labels   # 列名「-」は1行上の分類名
     src = next(r for r in table.rows if r["KEY_CODE"] == "13199")
+    # 2020年の市区町村は統計局の不詳補完値の表（人口等基本集計 表44-1）の値で、小地域の表の市区町村の行（原数値）は
+    # 使わない。町丁・字等は小地域の表のまま（#154）
+    v2020 = fixture.census_foreign_values(2020)["13199"]
     row = {r["entity_id"]: r for r in load(
         built, "values/foreign_resident_share/2020-10-01/municipalities.json")["rows"]}["muni-13199"]
-    assert row["numerator"] == int(src["外国人人口"]) and row["denominator"] == int(src["総数"])
+    assert row["numerator"] == v2020["外国人人口"] != int(src["外国人人口"])
+    assert row["denominator"] == v2020["総数"]
     rows = load(built, "values/foreign_resident_share/2020-10-01/13199.json")["rows"]
     assert any(r["status"] == "suppressed" for r in rows)
+    small = next(r for r in table.rows if len(r["KEY_CODE"]) > 5 and r["外国人人口"].isdigit())
+    area = {r["entity_id"]: r for r in rows}[f"area-{small['KEY_CODE']}"]
+    assert area["numerator"] == int(small["外国人人口"])
     # 住民基本台帳の外国人住民（区市町村・国籍別、各年1月1日）
     total = by["foreign_residents"]
     assert total["family"] == "foreign" and total["facets"] == {"type": "総数", "basis": "人数"}
@@ -642,9 +649,8 @@ def test_census_foreign_by_nationality(built):
         assert share["muni-14199"]["denominator"] == v["14199"]["総数"]
         assert share["muni-13499"]["value"] is None and share["muni-13499"]["status"] == "withheld"   # 人口50人未満
         whole = rows("foreign_resident_share", year)
-        if year != 2020:
-            assert whole["muni-13199"]["numerator"] == v["13199"]["外国人人口"]
-        # 2020年の東京都の市区町村は小地域集計の表の値（同じ地域・時点の値を2つにしない）。神奈川県は人口等基本集計
+        # 2020年の東京都の市区町村も、小地域集計の表の値でなく人口等基本集計（不詳補完値）の表の値（#154）
+        assert whole["muni-13199"]["numerator"] == v["13199"]["外国人人口"]
         assert whole["muni-14199"]["numerator"] == v["14199"]["外国人人口"]
         wprefs = rows("foreign_resident_share", year, "prefectures")
         assert wprefs["pref-13"]["numerator"] == v["13000"]["外国人人口"]
@@ -1267,6 +1273,74 @@ def test_census2025_municipal(built):
     kids = muni("households_with_children_share")
     assert kids["numerator"] == int(f["18歳未満世帯員のいる一般世帯総数"])  # 家族類型の総数の行
     assert kids["denominator"] == int(f["一般世帯総数"])
+
+
+def test_census_imputed_age_and_official_density(built):
+    """年齢の割合は統計局の不詳補完値の表、人口密度は国勢調査の表の面積から（市区町村・都道府県。#154）。"""
+    from tdm.config import load_sources
+    from tdm.ingest.estat_census_municipal import EXCLUDED_AREA_NOTE, read_table
+    cfg = load_sources()
+
+    def src(key):
+        c = cfg[key]
+        t = read_table(built.raw / key / c["files"][0], c["columns"], c.get("filters"), c.get("encoding", "cp932"))
+        return {r["KEY_CODE"]: r for r in t.rows}
+
+    def rows(indicator, period, level="municipalities"):
+        got = load(built, f"values/{indicator}/{period}/{level}.json")["rows"]
+        assert len({r["entity_id"] for r in got}) == len(got)   # 置き換えた値と元の値が2つにならない
+        return {r["entity_id"]: r for r in got}
+
+    # 年齢: 2015・2020年の市区町村・都道府県は不詳補完値の表（年齢3区分の合計が分母）。小地域の表の市区町村の行は使わない
+    for year in ("2015", "2020"):
+        a = src(f"census{year}_municipal_age")
+        period = f"{year}-10-01"
+        munis, prefs = rows("aged_65_plus_share", period), rows("aged_65_plus_share", period, "prefectures")
+        for code in ("13199", "14199"):
+            assert munis[f"muni-{code}"]["numerator"] == int(a[code]["総数65歳以上"])
+            assert munis[f"muni-{code}"]["denominator"] == sum(
+                int(a[code][k]) for k in ("総数15歳未満", "総数15~64歳", "総数65歳以上"))
+        assert prefs["pref-13"]["numerator"] == int(a["13"]["総数65歳以上"])   # 表の都道府県の行
+        kids = rows("children_0_14_share", period)["muni-13299"]
+        assert kids["numerator"] == int(a["13299"]["総数15歳未満"])
+        # 町丁・字等は小地域の表（年齢不詳を除いた原数値）のまま
+        small = load(built, f"values/aged_65_plus_share/{period}/13199.json")["rows"]
+        assert any(r["entity_id"].startswith("area-") and r.get("numerator") for r in small)
+    # 2010年は補完した値がないので小地域の表の市区町村の行（年齢不詳を除く）
+    path = next((built.raw / "census2010_small_area_age" / "13").glob("*.txt"))
+    from tdm.ingest.estat_small_area import read_table as read_small
+    s = next(r for r in read_small(path).rows if r["KEY_CODE"] == "13199")
+    old = rows("aged_65_plus_share", "2010-10-01")["muni-13199"]
+    assert old["numerator"] == int(s["総数６５歳以上"])
+    assert old["denominator"] == sum(int(s[k]) for k in ("総数１５歳未満", "総数１５～６４歳", "総数６５歳以上"))
+
+    # 人口密度: 人口 ÷ 表の面積。境界データの面積（町丁・字等の合計）ではない
+    for year, key in (("2025", "census2025_municipal_population"), ("2020", "census2020_municipal_area"),
+                      ("2015", "census2015_municipal_area"), ("2010", "census2010_municipal_area")):
+        t = src(key)
+        period = f"{year}-10-01"
+        munis = rows("population_density", period)
+        r = munis["muni-13199"]
+        assert r["numerator"] == int(t["13199"]["人口総数"]) and r["denominator"] == fixture.CENSUS_AREAS["13199"]
+        assert r["value"] == pytest.approx(int(t["13199"]["人口総数"]) / fixture.CENSUS_AREAS["13199"], abs=0.01)
+        # 面積に調査対象外の地域を含む村は、公表の人口密度に合わせる（分母は人口 ÷ 公表の人口密度）
+        island = munis["muni-13499"]
+        assert island["value"] == pytest.approx(float(t["13499"]["人口密度"]), abs=1e-3)
+        assert island["denominator"] < fixture.CENSUS_AREAS["13499"]
+        if year in ("2025", "2020"):
+            assert EXCLUDED_AREA_NOTE in island["note"]   # 2015・2010年は今の区域への組み替えの注記になる
+        pref = rows("population_density", period, "prefectures")["pref-13"]
+        assert pref["value"] == pytest.approx(float(t["13"]["人口密度"]), abs=1e-3)   # 表の都道府県の行
+        assert pref["numerator"] == int(t["13"]["人口総数"])
+    small = load(built, "values/population_density/2020-10-01/13199.json")["rows"]
+    assert any(r["entity_id"].startswith("area-") and r.get("value") for r in small)   # 町丁・字等は境界の面積のまま
+
+    # 2025年の都道府県の増減率は、表の都道府県の行の人口と「2020年の人口（組替）」から
+    p = src("census2025_municipal_population")["13"]
+    change = rows("population_change_rate", "2025-10-01", "prefectures")["pref-13"]
+    now, before = int(p["人口総数"]), int(p["前回の人口"])
+    assert change["numerator"] == now - before and change["denominator"] == before
+    assert change["value"] == pytest.approx((now - before) / before * 100, abs=1e-3)
 
 
 def test_resident_tax(built):
@@ -2011,8 +2085,9 @@ def test_prefecture_values_are_summed_from_municipalities(built):
         assert prefs["pref-13"]["value"] == round(sum(r["value"] for r in tokyo), 2)
     else:
         assert prefs["pref-13"]["value"] is None
-    share = load(built, "values/aged_65_plus_share/2020-10-01/municipalities.json")["rows"]
-    pshare = {r["entity_id"]: r for r in load(built, "values/aged_65_plus_share/2020-10-01/prefectures.json")["rows"]}
+    # 2010年の年齢の割合は小地域の表だけ（2015年以降は統計局の不詳補完値の表の都道府県の行。#154）
+    share = load(built, "values/aged_65_plus_share/2010-10-01/municipalities.json")["rows"]
+    pshare = {r["entity_id"]: r for r in load(built, "values/aged_65_plus_share/2010-10-01/prefectures.json")["rows"]}
     k = [r for r in share if r["entity_id"].startswith("muni-14")]
     assert pshare["pref-14"]["numerator"] == round(sum(r["numerator"] for r in k), 4)
     assert abs(pshare["pref-14"]["value"] - pshare["pref-14"]["numerator"] / pshare["pref-14"]["denominator"] * 100) < 0.01

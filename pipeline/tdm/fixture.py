@@ -125,13 +125,17 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     rnd = random.Random(seed)
     base = _base_values(rnd)
     out = {}
+    pops: dict[str, dict[str, int]] = {}   # 年 → 市区町村の人口（小地域の表の市区町村の行）
     for year, keys in YEARS.items():
         factor_rnd = random.Random(f"{seed}-{year}")
-        out.update(_write_year(directory, year, keys, base, factor_rnd, "13", MUNICIPALITIES))
+        pops[year] = {}
+        out.update(_write_year(directory, year, keys, base, factor_rnd, "13", MUNICIPALITIES, pops[year]))
         other = _write_year(directory, year, {k: v for k, v in keys.items() if k != "education"}, base,
-                            random.Random(f"{seed}-{year}-14"), "14", OTHER_MUNICIPALITIES)
+                            random.Random(f"{seed}-{year}-14"), "14", OTHER_MUNICIPALITIES, pops[year])
         out.update({f"{k}_14": v for k, v in other.items()})
-    out.update(_write_census2025(directory, base))
+    out.update(_write_census2025(directory, base, pops["2020"]))
+    out.update(_write_census_imputed_age(directory, pops))
+    out.update(_write_census_area(directory, pops))
     out.update(_write_census_foreign(directory))
     out.update(_write_census_daytime(directory, base))
     out["foreign_census"] = _write_foreign_census(directory, base, random.Random(f"{seed}-foreign"))
@@ -1934,9 +1938,10 @@ def census2025_values(base: dict, seed: int = 42) -> dict[str, dict[str, int]]:
     return out
 
 
-def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
-    """令和7年国勢調査 人口等基本集計の e-Stat の Excel（表1-1・2-7・6-3・9-1 の形式）。
-    地域識別コード 1（政令指定都市の市全体）・9（2000年の市区町村）の行は取り込まない。a は全国（使わない）と都道府県。"""
+def _write_census2025(directory: Path, base: dict, before: dict[str, int]) -> dict[str, Path]:
+    """令和7年国勢調査 人口等基本集計の e-Stat の Excel（表1-1・2-7・6-3・9-1 の形式。2-7 は統計局の不詳補完値の表）。
+    地域識別コード 1（政令指定都市の市全体）・9（2000年の市区町村）の行は取り込まない。a は全国（使わない）と都道府県。
+    before は2020年の市区町村の人口（表1-1 の「2020年（令和2年）の人口（組替）」）。"""
     from .xlsx import write_sheet
     vals = census2025_values(base)
     pnames = {"00": "全国", **PREF_NAMES}
@@ -1961,18 +1966,26 @@ def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
         out[key] = d
 
     title = [["令和７年国勢調査　人口等基本集計"], ["見本"], [], ["1) 注記"]]
-    # 表1-1: 地域の列は 2000年と2025年の両方。地域名の先頭は並び順の番号（コードではない）
-    rows = title + [[None] * 6 + ["表章項目", "人口", "人口", "人口", "世帯数", "世帯数"],
-                    [None] * 6 + ["事項名", "男女", "男女", "男女", "世帯の種類", "世帯の種類"],
-                    [None] * 6 + ["項目名", "0_総数", "1_男", "2_女", "0_総数", "1_一般世帯"],
-                    [None] * 6 + ["表章単位", "人", "人", "人", "世帯", "世帯"],
+    def previous(code):
+        if code in before:
+            return before[code]
+        return sum(v for c, v in before.items() if code == "00000" or c[:2] == code[:2]) + 5
+    # 表1-1: 地域の列は 2000年と2025年の両方。地域名の先頭は並び順の番号（コードではない）。
+    # 前回の人口（組替）・面積・人口密度の列は「事項名」「項目名」が空（#154）
+    rows = title + [[None] * 6 + ["表章項目", "人口", "人口", "人口", "2020年（令和2年）の人口（組替）", "面積（参考）",
+                                  "人口密度", "世帯数", "世帯数"],
+                    [None] * 6 + ["事項名", "男女", "男女", "男女", None, None, None, "世帯の種類", "世帯の種類"],
+                    [None] * 6 + ["項目名", "0_総数", "1_男", "2_女", None, None, None, "0_総数", "1_一般世帯"],
+                    [None] * 6 + ["表章単位", "人", "人", "人", "人", "km2", "1km2当たり", "世帯", "世帯"],
                     ["地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域", "2025年_都道府県",
                      "2025年_地域コード", "地域名", " "]]
     for k, (level, pref, code, label) in enumerate(areas):
         pop = value(code, "人口")
+        area, density = census_density(code, pop)
         rows.append([level, f"{pref}_{pnames[pref]}", code, "2000", f"{pref}_{pnames[pref]}", code,
-                     f"{1000 + k}_{label}", pop, pop // 2, pop - pop // 2, value(code, "世帯数"), value(code, "一般世帯数")])
-    rows.append(["9", "13_東京都", "13199", "2000", "13_東京都", "13199", "9999_旧サンプル町", 5, 3, 2, 2, 2])
+                     f"{1000 + k}_{label}", pop, pop // 2, pop - pop // 2, previous(code), area, density,
+                     value(code, "世帯数"), value(code, "一般世帯数")])
+    rows.append(["9", "13_東京都", "13199", "2000", "13_東京都", "13199", "9999_旧サンプル町", 5, 3, 2, 4, 0.5, 10, 2, 2])
     save("census2025_municipal_population", "b01_01.xlsx", rows)
     # 表2-7: 国籍総数か日本人・男女の分類の列が地域の前にある
     rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * 4,
@@ -1988,7 +2001,7 @@ def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
                 rows.append([nat, sex, level, f"{pref}_{pnames[pref]}", code, "2000", f"{pref}_{pnames[pref]}",
                              code, f"{code}_{label}", round(value(code, "人口") * f)]
                             + [round(value(code, c) * f) for c in ("15歳未満", "15～64歳", "65歳以上")])
-    save("census2025_municipal_age", "b02_07.xlsx", rows)
+    save("census2025_municipal_age", "wb02_07.xlsx", rows)
     # 表6-3: 地域名の先頭が市区町村コード
     rows = title + [[None, None, "表章項目", "一般世帯数", "一般世帯数", "一般世帯人員"],
                     [None, None, "事項名", "世帯人員の人数", "世帯人員の人数", None],
@@ -2011,6 +2024,123 @@ def _write_census2025(directory: Path, base: dict) -> dict[str, Path]:
         rows.append([level, f"{pref}_{pnames[pref]}", f"{code}_{label}", "1", "3_単独世帯",
                      value(code, "単独世帯"), "-"])
     save("census2025_municipal_family_type", "b09_01.xlsx", rows)
+    return out
+
+
+# 国勢調査の表の面積（km²。国土地理院の面積調。#154）。境界データの面積（町丁・字等の合計）とは違う値にする。
+# かりの村は面積に国勢調査の対象外の地域（北方領土・竹島の例）を含み、公表の人口密度はそれを除いた面積で計算される
+CENSUS_AREAS = {"13199": 5.21, "13299": 12.34, "13499": 20.5, "14199": 8.76}
+CENSUS_EXCLUDED_AREA = {"13499": 5.5}
+
+
+def census_density(code: str, pop: int) -> tuple[float, float]:
+    """国勢調査の表の (面積, 公表の人口密度)。都道府県（13000 など）の面積は市区町村の合計＋100（地図にない市区町村の例）。"""
+    if code in CENSUS_AREAS:
+        area = CENSUS_AREAS[code]
+        excluded = CENSUS_EXCLUDED_AREA.get(code, 0)
+    else:
+        members = [c for c in CENSUS_AREAS if code == "00000" or c[:2] == code[:2]]
+        area = round(sum(CENSUS_AREAS[c] for c in members) + 100, 2)
+        excluded = sum(CENSUS_EXCLUDED_AREA.get(c, 0) for c in members)
+    return area, round(pop / (area - excluded), 1)
+
+
+def _area_rows(pops: dict[str, int]) -> list[tuple[str, str, str, int]]:
+    """人口等基本集計の表の地域の行: (地域識別コード, 地域コード, 名称, 人口)。全国・都道府県の行の人口は市区町村の合計＋7。"""
+    names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
+    total = lambda pref: sum(v for c, v in pops.items() if pref in ("00", c[:2])) + 7   # noqa: E731
+    rows = [("a", "00000", "全国", total("00")), ("a", "13000", "東京都", total("13")),
+            ("a", "14000", "神奈川県", total("14")), ("1", "14100", "みほん市", pops["14199"] + 1)]
+    rows += [("0" if c.startswith(("131", "141")) else "2" if c[2] == "2" else "3", c, names[c], pops[c])
+             for c in names]
+    return rows
+
+
+def census_imputed_age_values(year: str, pops: dict[str, int]) -> dict[str, dict[str, int]]:
+    """統計局の不詳補完値の年齢3区分（2015・2020年の遡及集計。#154）の見本。地域コード（都道府県は 13000 など）→ 区分 → 人数。
+    年齢「不詳」はない（補完済み）ので3区分の合計が人口。小地域の表の値（不詳を除く）とは違う割合にする。"""
+    rnd = random.Random(f"census-imputed-age-{year}")
+    out = {}
+    for _, code, _, pop in _area_rows(pops):
+        young, old = round(pop * rnd.uniform(0.08, 0.15)), round(pop * rnd.uniform(0.15, 0.32))
+        out[code] = {"15歳未満": young, "15～64歳": pop - young - old, "65歳以上": old}
+    return out
+
+
+def _write_census_imputed_age(directory: Path, pops: dict[str, dict[str, int]]) -> dict[str, Path]:
+    """統計局の参考表「不詳補完値」の年齢3区分の表（#154）。2020年は令和7年調査の遡及集計（表2-7。地域コードの列が
+    「2020年_地域コード」、地域名の先頭は並び順の番号）、2015年は令和2年調査の遡及集計（表1-4。「表章項目」などの見出しの
+    文字がなく、地域名の先頭が地域コード）。"""
+    from .xlsx import write_sheet
+    out = {}
+    items = ["00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上"]
+    for year, key, fname in (("2020", "census2020_municipal_age", "swb02_07.xlsx"),
+                             ("2015", "census2015_municipal_age", "w3_01_04.xlsx")):
+        vals = census_imputed_age_values(year, pops[year])
+        title = [["【不詳補完値】見本"], ["見本"], [], ["1) 注記"]]
+        if year == "2020":
+            rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * 4, [None] * 8 + ["事項名"] + ["年齢"] * 4,
+                            [None] * 8 + ["項目名"] + items, [None] * 8 + ["表章単位"] + ["人"] * 4,
+                            ["国籍総数か日本人", "男女", "地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域",
+                             "2020年_都道府県", "2020年_地域コード", "地域名", " "]]
+        else:
+            rows = title + [[None] * 5 + ["人口"] * 4, [None] * 5 + ["年齢"] * 4, [None] * 5 + ["1"] * 4,
+                            [None] * 5 + items, [None] * 5 + ["人"] * 4,
+                            ["国籍総数か日本人", "男女", "地域識別コード", "都道府県", "地域名"]]
+        for nat, ratio in (("0_国籍総数", 1.0), ("1_うち日本人", 0.9)):
+            for sex, share in (("0_総数", 1.0), ("1_男", 0.48)):
+                for k, (level, code, label, _) in enumerate(_area_rows(pops[year])):
+                    v = vals[code]
+                    counts = [round(v[c] * ratio * share) for c in ("15歳未満", "15～64歳", "65歳以上")]
+                    pref = f"{code[:2]}_x"
+                    lead = ([nat, sex, level, pref, code, "2000", pref, code, f"{k + 1:04d}_{label}"] if year == "2020"
+                            else [nat, sex, level, pref, f"{code}_{label}"])
+                    rows.append(lead + [sum(counts), *counts])
+        d = directory / key
+        d.mkdir(parents=True, exist_ok=True)
+        write_sheet(d / fname, rows, fname.removesuffix(".xlsx"))
+        out[key] = d
+    return out
+
+
+def _write_census_area(directory: Path, pops: dict[str, dict[str, int]]) -> dict[str, Path]:
+    """人口密度の表（国勢調査の人口・面積・人口密度。#154）。2020年は統計局の不詳補完値の表1-1（Excel、2025年の表1-1 と
+    同じ形）、2015・2010年は第1表の CSV（cp932。列名の末尾に注の番号がつく）。"""
+    from .xlsx import write_sheet
+    out = {}
+    for year in ("2020", "2015", "2010"):
+        key = f"census{year}_municipal_area"
+        d = directory / key
+        d.mkdir(parents=True, exist_ok=True)
+        areas = [(level, code, label, pop, *census_density(code, pop)) for level, code, label, pop in _area_rows(pops[year])]
+        if year == "2020":
+            rows = [["【不詳補完値】見本"], ["見本"], [], ["1) 注記"],
+                    [None] * 6 + ["表章項目", "人口", "人口", "2015年（平成27年）の人口（組替）", "面積（参考）", "人口密度"],
+                    [None] * 6 + ["事項名", "男女", "男女", None, None, None],
+                    [None] * 6 + ["項目名", "0_総数", "1_男", None, None, None],
+                    [None] * 6 + ["表章単位", "人", "人", "人", "km2", "1km2当たり"],
+                    ["地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域", "2020年_都道府県",
+                     "2020年_地域コード", "地域名", " "]]
+            for k, (level, code, label, pop, area, density) in enumerate(areas):
+                pref = f"{code[:2]}_x"
+                rows.append([level, pref, code, "2000", pref, code, f"{k + 1:04d}_{label}", pop, pop // 2, pop - 9,
+                             area, density])
+            write_sheet(d / "swb01_01.xlsx", rows, "swb01_01")
+        else:
+            prev = int(year) - 5
+            area_label = "面積（km2）　(b) 1) 2) " if year == "2015" else "面積（km2）　(b) 1)2)"
+            labels = [f"人口　{'平成27年' if year == '2015' else '平成22年'}　(a)", f"人口　平成{prev - 1988}年（組替） 2) ",
+                      area_label, "人口密度（1km2当たり）　(a)/(b) 2)"]
+            lines = [["1", f"平成{int(year) - 1988}年国勢調査人口等基本集計（見本）"], ["2", "", "", "", "", "", "", "第1表　見本"],
+                     ["10", "※大項目", "地域コード", "地域識別コード", f"境域年次({year})", "境域年次(2000)", "", *labels]]
+            for level, code, label, pop, area, density in areas:
+                lines.append(["11", "", code, level, year, "2000", label, pop, pop - 9, f"{area:.2f}", f"{density:.1f}"])
+                if code == "13000":
+                    lines.append(["12", "", "13001", "b", year, "2000", "東京都 市部", pop, pop - 9, "1.00", "1.0"])
+            fname = "001_00.csv" if year == "2015" else "001.csv"
+            with (d / fname).open("w", encoding="cp932", newline="") as fh:
+                csv.writer(fh, quoting=csv.QUOTE_MINIMAL).writerows(lines)
+        out[key] = d
     return out
 
 
@@ -2046,7 +2176,8 @@ def census_foreign_values(year: int) -> dict[str, dict[str, int]]:
 
 
 def _write_census_foreign(directory: Path) -> dict[str, Path]:
-    """2025・2020年は Excel（2020年は「表章項目」「項目名」の見出しの文字がない）、2015・2010年は CSV（cp932）。"""
+    """2025・2020年は統計局の不詳補完値の Excel（#154。2020年は令和7年調査の遡及集計で、2025年と同じ形）、
+    2015・2010年は CSV（cp932）。"""
     from .xlsx import write_sheet
     names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
     out = {}
@@ -2068,19 +2199,15 @@ def _write_census_foreign(directory: Path) -> dict[str, Path]:
                 + [f"{101 + len(nations)}_その他", "2_日本人", "3_日本人・外国人の別「不詳」"]
             keys = ["総数", "外国人人口", *nations, None, None, None]
             title = [[f"令和{year - 2018}年国勢調査　人口等基本集計"], ["見本"], [], ["1) 注記"]]
-            if year == 2025:
-                head = [[None] * 3 + ["表章項目"] + ["人口"] * len(heads), [None] * 3 + ["事項名"] + ["国籍"] * len(heads),
-                        [None] * 3 + ["項目名"] + heads, [None] * 3 + ["表章単位"] + ["人"] * len(heads)]
-            else:
-                head = [[None] * 4 + ["人口"] * len(heads), [None] * 4 + ["国籍"] * len(heads),
-                        [None] * 4 + ["1.0"] * len(heads), [None] * 4 + heads, [None] * 4 + ["人"] * len(heads)]
+            head = [[None] * 3 + ["表章項目"] + ["人口"] * len(heads), [None] * 3 + ["事項名"] + ["国籍"] * len(heads),
+                    [None] * 3 + ["項目名"] + heads, [None] * 3 + ["表章単位"] + ["人"] * len(heads)]
             rows = title + head + [["男女", "地域識別コード", "都道府県", "地域名", " "]]
             for sex, f in (("0_総数", 1.0), ("1_男", 0.5)):
                 for level, code, label in areas:
                     rows.append([sex, level, f"{code[:2]}_x", f"{code}_{label}"]
                                 + [(round(c * f) if isinstance(c := cell(code, k), int) else c) if k else 1
                                    for k in keys])
-            fname = "b49_01.xlsx" if year == 2025 else "b44_01.xlsx"
+            fname = "wb49_01.xlsx" if year == 2025 else "swb44_01.xlsx"
             write_sheet(d / fname, rows, fname.removesuffix(".xlsx"))
         else:
             labels = ["総数（国籍）", *[n.replace("・", "，") for n in nations], "その他 1)",
@@ -2478,7 +2605,7 @@ def _base_values(rnd: random.Random) -> dict:
 
 
 def _write_year(directory: Path, year: str, keys: dict, base: dict,
-                rnd: random.Random, pref: str, municipalities: list) -> dict[str, Path]:
+                rnd: random.Random, pref: str, municipalities: list, pops: dict[str, int]) -> dict[str, Path]:
     dirs = {"boundary": directory / keys["boundary"] / pref,
             "population": directory / keys["population"][0] / pref,
             "age": directory / keys["age"][0] / pref}
@@ -2543,6 +2670,7 @@ def _write_year(directory: Path, year: str, keys: dict, base: dict,
             return [key, hyosyo, city_name, name, flag, saki, gassan]
 
         pop_rows.append(head(city5, "1", "") + [int(v) for v in totals])
+        pops[city5] = int(totals[0])
         age_rows.append(head(city5, "1", "") + [int(v) for v in age_totals])
         for key, name, _ in cells:
             code = key[:9] if key.endswith("00") else key

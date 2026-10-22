@@ -3683,31 +3683,81 @@ download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000
 download_filename = "b01_01.xlsx"
 files = ["b01_01.xlsx"]
 cache = true
-columns = { "人口総数" = "人口/0_総数", "世帯総数" = "世帯数/0_総数" }
+# 面積・人口密度は市区町村・都道府県の人口密度に、前回の人口（組替）は都道府県の増減率に使う（#154）
+columns = { "人口総数" = "人口/0_総数", "世帯総数" = "世帯数/0_総数", "面積" = "面積（参考）/", "人口密度" = "人口密度/", "前回の人口" = "2020年（令和2年）の人口（組替）/" }
+official_density = true
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
 attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
-modification_note = "市区町村別の人口・世帯数を抜き出し、人口密度・増減率・1世帯あたり人数を算出して作成"
+modification_note = "市区町村別の人口・世帯数・面積を抜き出し、人口密度・増減率・1世帯あたり人数を算出して作成"
 redistributable = true
 
+# 年齢3区分の人口は、市区町村・都道府県を統計局の参考表「不詳補完値」（年齢「不詳」の人の年齢を補完した値。
+# 統計局が公表する65歳以上の割合などと同じ）の表にする（#154）。2020年は令和7年調査の遡及集計（2025年と同じ方法で
+# 補完し直した値）、2015年は令和2年調査の遡及集計。小地域の表から取り込んだ同じ時点の市区町村の値は置き換える
+# （replace_municipal_values）。町丁・字等と2010年は補完した値がないので原数値のまま。statInfId は 2026-10-22 に
+# e-Stat の一覧で調べ、表の形を確かめた（pipeline/tdm/ingest/estat_census_municipal.py）。
 [census2025_municipal_age]
 kind = "census_municipal"
 period = "2025-10-01"
 label = "2025年"
 table = "age"
-title = "令和7年国勢調査 人口等基本集計 表2-7 男女、年齢（5歳階級及び3区分）、国籍総数か日本人別人口 等－全国、都道府県、市区町村"
+title = "令和7年国勢調査に関する不詳補完値（参考表） 人口等基本集計 第2-7表 男女、年齢（5歳階級及び3区分）、国籍総数か日本人別人口 等－全国、都道府県、市区町村"
 provider = "総務省統計局"
-url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230926&tclass2=000001232187&tclass3val=0"
-download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506431&fileKind=0"
-download_filename = "b02_07.xlsx"
-files = ["b02_07.xlsx"]
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230928&tclass2=000001244578&tclass3=000001244579&tclass4val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506659&fileKind=0"
+download_filename = "wb02_07.xlsx"
+files = ["wb02_07.xlsx"]
 cache = true
 columns = { "総数15歳未満" = "人口/R1_（再掲）15歳未満", "総数15~64歳" = "人口/R2_（再掲）15～64歳", "総数65歳以上" = "人口/R3_（再掲）65歳以上" }
 filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" }
+replace_municipal_values = true
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
-attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
-modification_note = "市区町村別の年齢3区分の人口（国籍総数・男女計）を抜き出し、割合を算出して作成"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査に関する不詳補完値（参考表）"
+modification_note = "市区町村別の年齢3区分の人口（不詳補完値、国籍総数・男女計）を抜き出し、割合を算出して作成"
+redistributable = true
+
+[census2020_municipal_age]
+kind = "census_municipal"
+period = "2020-10-01"
+label = "2020年"
+table = "age"
+title = "令和2年国勢調査に関する不詳補完値（遡及集計）（参考表） 人口等基本集計 第2-7表 男女，年齢（5歳階級及び3区分），国籍総数か日本人別人口 等－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230928&tclass2=000001230929&tclass3=000001230930&tclass4val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040317626&fileKind=0"
+download_filename = "swb02_07.xlsx"
+files = ["swb02_07.xlsx"]
+cache = true
+columns = { "総数15歳未満" = "人口/R1_（再掲）15歳未満", "総数15~64歳" = "人口/R2_（再掲）15～64歳", "総数65歳以上" = "人口/R3_（再掲）65歳以上" }
+filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" }
+replace_municipal_values = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 令和2年国勢調査に関する不詳補完値（遡及集計）（参考表）"
+modification_note = "市区町村別の年齢3区分の人口（不詳補完値、国籍総数・男女計）を抜き出し、割合を算出して作成"
+redistributable = true
+
+[census2015_municipal_age]
+kind = "census_municipal"
+period = "2015-10-01"
+label = "2015年"
+table = "age"
+title = "平成27年国勢調査に関する不詳補完結果（遡及集計）（参考表） 第1-4表 男女，年齢（5歳階級及び3区分），国籍総数か日本人別人口 等－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001136464&cycle=0&tclass1=000001154387&tclass2=000001159627&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032144425&fileKind=0"
+download_filename = "w3_01_04.xlsx"
+files = ["w3_01_04.xlsx"]
+cache = true
+columns = { "総数15歳未満" = "人口/R1_（再掲）15歳未満", "総数15~64歳" = "人口/R2_（再掲）15～64歳", "総数65歳以上" = "人口/R3_（再掲）65歳以上" }
+filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" }
+replace_municipal_values = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 平成27年国勢調査に関する不詳補完結果（遡及集計）（参考表）"
+modification_note = "市区町村別の年齢3区分の人口（不詳補完値、国籍総数・男女計）を抜き出し、割合を算出して作成"
 redistributable = true
 
 [census2025_municipal_household_size]
@@ -3753,25 +3803,29 @@ redistributable = true
 # 2026-10-13 に GitHub Actions から取得して形式を確認した（形式は pipeline/tdm/ingest/estat_census_municipal.py を参照）。
 # 国籍の区分は年で違う（2025年は23か国、2020年は12か国、2015年は11か国、2010年は10か国。ほかは「その他」）。
 # 2015・2010年は CSV、2020・2025年は Excel。値はすべて男女の総数。
+# 2025・2020年は統計局の参考表「不詳補完値」の表（日本人・外国人の別や国籍が「不詳」の人を補完した値。統計局が公表する
+# 外国人の数と同じ）。2020年は令和7年調査の遡及集計で、小地域の表から取り込んだ同じ時点の市区町村の値を置き換える
+# （replace_municipal_values）。2015・2010年は国籍別の補完した値がないので原数値のまま（#154）。
 
 [census2025_municipal_foreign]
 kind = "census_municipal"
 period = "2025-10-01"
 label = "2025年"
 table = "census_foreign"
-title = "令和7年国勢調査 人口等基本集計 表49-1 男女、国籍別人口－全国、都道府県、市区町村"
+title = "令和7年国勢調査に関する不詳補完値（参考表） 人口等基本集計 第49-1表 男女、国籍別人口－全国、都道府県、市区町村"
 provider = "総務省統計局"
-url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230926&tclass2=000001232187&tclass3val=0"
-download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506619&fileKind=0"
-download_filename = "b49_01.xlsx"
-files = ["b49_01.xlsx"]
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230928&tclass2=000001244578&tclass3=000001244579&tclass4val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506847&fileKind=0"
+download_filename = "wb49_01.xlsx"
+files = ["wb49_01.xlsx"]
 cache = true
 columns = { "総数" = "人口/0_総数", "外国人人口" = "人口/1_外国人", "韓国・朝鮮" = "人口/101_韓国、朝鮮", "中国" = "人口/102_中国", "フィリピン" = "人口/103_フィリピン", "タイ" = "人口/104_タイ", "インドネシア" = "人口/105_インドネシア", "ベトナム" = "人口/106_ベトナム", "インド" = "人口/107_インド", "ネパール" = "人口/108_ネパール", "カンボジア" = "人口/109_カンボジア", "スリランカ" = "人口/110_スリランカ", "パキスタン" = "人口/111_パキスタン", "バングラデシュ" = "人口/112_バングラデシュ", "マレーシア" = "人口/113_マレーシア", "ミャンマー" = "人口/114_ミャンマー", "モンゴル" = "人口/115_モンゴル", "イギリス" = "人口/116_イギリス", "フランス" = "人口/117_フランス", "ロシア" = "人口/118_ロシア", "アメリカ" = "人口/119_アメリカ", "カナダ" = "人口/120_カナダ", "ブラジル" = "人口/121_ブラジル", "ペルー" = "人口/122_ペルー", "オーストラリア" = "人口/123_オーストラリア" }
 filters = { "男女" = "0_総数" }
+replace_municipal_values = true
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
-attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
-modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（男女計）を抜き出し、割合を算出して作成"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査に関する不詳補完値（参考表）"
+modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（不詳補完値、男女計）を抜き出し、割合を算出して作成"
 redistributable = true
 
 [census2020_municipal_foreign]
@@ -3779,19 +3833,20 @@ kind = "census_municipal"
 period = "2020-10-01"
 label = "2020年"
 table = "census_foreign"
-title = "令和2年国勢調査 人口等基本集計 表44-1 男女，国籍別人口－全国，都道府県，市区町村"
+title = "令和2年国勢調査に関する不詳補完値（遡及集計）（参考表） 人口等基本集計 第44-1表 男女，国籍別人口－全国，都道府県，市区町村"
 provider = "総務省統計局"
-url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001136464&cycle=0&tclass1=000001136466&tclass2val=0"
-download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032142708&fileKind=0"
-download_filename = "b44_01.xlsx"
-files = ["b44_01.xlsx"]
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230928&tclass2=000001230929&tclass3=000001230930&tclass4val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040318030&fileKind=0"
+download_filename = "swb44_01.xlsx"
+files = ["swb44_01.xlsx"]
 cache = true
 columns = { "総数" = "人口/0_総数", "外国人人口" = "人口/1_外国人", "韓国・朝鮮" = "人口/101_韓国，朝鮮", "中国" = "人口/102_中国", "フィリピン" = "人口/103_フィリピン", "タイ" = "人口/104_タイ", "インドネシア" = "人口/105_インドネシア", "ベトナム" = "人口/106_ベトナム", "インド" = "人口/107_インド", "ネパール" = "人口/108_ネパール", "イギリス" = "人口/109_イギリス", "アメリカ" = "人口/110_アメリカ", "ブラジル" = "人口/111_ブラジル", "ペルー" = "人口/112_ペルー" }
 filters = { "男女" = "0_総数" }
+replace_municipal_values = true
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
-attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 人口等基本集計"
-modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（男女計）を抜き出し、割合を算出して作成"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 令和2年国勢調査に関する不詳補完値（遡及集計）（参考表）"
+modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（不詳補完値、男女計）を抜き出し、割合を算出して作成"
 redistributable = true
 
 [census2015_municipal_foreign]
@@ -3832,6 +3887,73 @@ license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
 attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 人口等基本集計"
 modification_note = "市区町村別の人口総数・外国人人口・国籍別人口（男女計）を抜き出し、割合を算出して作成"
+redistributable = true
+
+# 市区町村・都道府県の人口密度（#154）。国勢調査の人口等基本集計の人口・面積・人口密度の表。統計局が公表する人口密度に
+# 合わせるため、境界データの面積でなく表の面積（国土地理院の面積調）で割る（北方領土・竹島など調査対象外の地域を含む
+# 面積は除く。pipeline/tdm/ingest/estat_census_municipal.py の ingest_official_density）。町丁・字等は境界データの面積のまま。
+# 2025年は census2025_municipal_population の表1-1。statInfId は 2026-10-22 に e-Stat の一覧で調べ、表の形を確かめた。
+[census2020_municipal_area]
+kind = "census_municipal"
+period = "2020-10-01"
+label = "2020年"
+table = "census_area"
+title = "令和2年国勢調査に関する不詳補完値（遡及集計）（参考表） 人口等基本集計 第1-1表 男女別人口，世帯の種類別世帯数及び世帯人員 等，面積（参考）及び人口密度－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230928&tclass2=000001230929&tclass3=000001230930&tclass4val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040317616&fileKind=0"
+download_filename = "swb01_01.xlsx"
+files = ["swb01_01.xlsx"]
+cache = true
+columns = { "人口総数" = "人口/0_総数", "面積" = "面積（参考）/", "人口密度" = "人口密度/" }
+official_density = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 令和2年国勢調査に関する不詳補完値（遡及集計）（参考表）"
+modification_note = "市区町村別の人口・面積を抜き出し、人口密度を算出して作成"
+redistributable = true
+
+# 平成27年・22年の第1表は CSV（cp932）。列名の末尾に注の番号と記号がつく（「面積（km2）　(b) 1) 2) 」）
+[census2015_municipal_area]
+kind = "census_municipal"
+period = "2015-10-01"
+label = "2015年"
+table = "census_area"
+title = "平成27年国勢調査 人口等基本集計 第1表 人口，人口増減(平成22年～27年)，面積，人口密度，世帯数及び世帯数増減(平成22年～27年)－全国，都道府県，市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001080615&cycle=0&tclass1=000001089055&tclass2=000001089056&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031473210&fileKind=1"
+download_filename = "001_00.csv"
+files = ["001_00.csv"]
+cache = true
+encoding = "cp932"
+columns = { "人口総数" = "人口　平成27年　(a)", "面積" = "面積（km2）　(b) 1) 2) ", "人口密度" = "人口密度（1km2当たり）　(a)/(b) 2)" }
+official_density = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成27年国勢調査 人口等基本集計"
+modification_note = "市区町村別の人口・面積を抜き出し、人口密度を算出して作成"
+redistributable = true
+
+[census2010_municipal_area]
+kind = "census_municipal"
+period = "2010-10-01"
+label = "2010年"
+table = "census_area"
+title = "平成22年国勢調査 人口等基本集計 第1表 人口，人口増減(平成17年～22年)，面積及び人口密度－全国，都道府県，市町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001039448&cycle=0&tclass1=000001045009&tclass2=000001046265&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000012460662&fileKind=1"
+download_filename = "001.csv"
+files = ["001.csv"]
+cache = true
+encoding = "cp932"
+columns = { "人口総数" = "人口　平成22年　(a)", "面積" = "面積（km2）　(b) 1)2)", "人口密度" = "人口密度（1km2当たり）　(a)/(b) 2)" }
+official_density = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 平成22年国勢調査 人口等基本集計"
+modification_note = "市区町村別の人口・面積を抜き出し、人口密度を算出して作成"
 redistributable = true
 
 # 2016〜2022年度も同じ形式の第11表（J51-{yy}-b.xlsx）。2026-10-15 に平成28年度・令和元〜4年度の表を取得して列名を確認
