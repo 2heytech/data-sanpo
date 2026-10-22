@@ -2120,8 +2120,8 @@ def census_daytime_values(year: int, base: dict) -> dict[str, int]:
 
 
 def _write_census_daytime(directory: Path, base: dict) -> dict[str, Path]:
-    """2020年は Excel（「男女」「年齢」の分類の列があり、見出しの文字がない形）、2015年は CSV（cp932、
-    列名の末尾に注の番号と記号がつく）、2010年は都道府県ごとの CSV。"""
+    """2015・2020年は統計局の参考表「不詳補完結果」の Excel（「男女」の分類の列があり、見出しの文字がない形）、
+    2010年は都道府県ごとの CSV。"""
     from .xlsx import write_sheet
     names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
     areas = [("a", "00000", "全国"), ("a", "13000", "東京都"), ("a", "14000", "神奈川県"), ("1", "14100", "みほん市")]
@@ -2133,20 +2133,20 @@ def _write_census_daytime(directory: Path, base: dict) -> dict[str, Path]:
         day = lambda code: vals.get(code, 999)
         d = directory / f"census{year}_municipal_daytime"
         d.mkdir(parents=True, exist_ok=True)
-        if year == 2020:
+        if year in (2015, 2020):
+            # 統計局の参考表「不詳補完結果」の第1-1表（年齢の列がなく、男女の列で総数の行を選ぶ）
             heads = ["0_常住地による人口（夜間人口）", "001_従業も通学もしていない", "1_従業地・通学地による人口（昼間人口）",
                      "101_うち他市区町村に常住"]
-            rows = [["令和２年国勢調査　従業地・通学地による人口・就業状態等集計"], ["第１－１表　見本"], [],
-                    ["1) 注記"], [None] * 5 + ["人口"] * 4 + ["昼夜間人口比率"],
-                    [None] * 5 + ["常住地又は従業地・通学地"] * 4, [None] * 5 + [1, 2, 1, 2],
-                    [None] * 5 + heads, [None] * 5 + ["人"] * 4,
-                    ["地域識別コード", "都道府県", "地域名", "男女", "年齢", " "]]
+            rows = [["参考表：国勢調査に関する不詳補完結果　従業地・通学地の不詳補完"], ["第１－１表　見本"], [],
+                    ["1) 注記"], [None] * 4 + ["人口"] * 4 + ["昼夜間人口比率"],
+                    [None] * 4 + ["常住地又は従業地・通学地"] * 4, [None] * 4 + [1, 2, 1, 2],
+                    [None] * 4 + heads, [None] * 4 + ["人"] * 4,
+                    ["地域識別コード", "都道府県", "地域名", "男女", " "]]
             for sex, f in (("0_総数", 1.0), ("1_男", 0.5)):
-                for age, g in (("00_総数", 1.0), ("01_15歳未満", 0.1)):
-                    for level, code, label in areas:
-                        v = round(day(code) * f * g)
-                        rows.append([level, f"{code[:2]}_x", f"{code}_{label}", sex, age, v + 7, 3, v, 5, 100])
-            write_sheet(d / "001-1.xlsx", rows, "001-1")
+                for level, code, label in areas:
+                    v = round(day(code) * f)
+                    rows.append([level, f"{code[:2]}_x", f"{code}_{label}", sex, v + 7, 3, v, 5, 100])
+            write_sheet(d / "fusho-hokan-1-1.xlsx", rows, "y1_01_01")
         elif year == 2010:
             # 都道府県ごとのファイル。男女・年齢の分類は列名のない列の符号（男女総数・年齢総数の行を使う）
             labels = ["総数（夜間人口） 1)", "従業も通学もしていない", "総数", "総数（昼間人口） 1)3)", "総数 3)"]
@@ -2166,16 +2166,6 @@ def _write_census_daytime(directory: Path, base: dict) -> dict[str, Path]:
                 sub.mkdir(parents=True, exist_ok=True)
                 with (sub / f"{pref}.csv").open("w", encoding="cp932", newline="") as fh:
                     csv.writer(fh, quoting=csv.QUOTE_MINIMAL).writerows(lines)
-        else:
-            labels = ["総数（夜間人口） (a)", "従業も通学もしていない 1) (b)", "総数（昼間人口） 2)3) (k)",
-                      "うち他県に常住 (n)", "（別掲）昼夜間人口比率 (q)", "総数", "総数 3)"]
-            lines = [["1", "平成27年国勢調査従業地・通学地集計（見本）"], ["2", "", "", "", "", "第1表　見本"],
-                     ["13", "", "", "", "", "常住地による人口"],
-                     ["14", "※大項目", "地域コード", "地域識別コード", "", *labels]]
-            for level, code, label in areas:
-                lines.append(["15", "", code, level, label, day(code) + 7, 3, day(code), "-", 100.0, 9, 9])
-            with (d / "001.csv").open("w", encoding="cp932", newline="") as fh:
-                csv.writer(fh, quoting=csv.QUOTE_MINIMAL).writerows(lines)
         out[f"census{year}_municipal_daytime"] = d
     return out
 
