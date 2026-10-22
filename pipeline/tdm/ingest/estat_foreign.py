@@ -16,10 +16,18 @@
   （市区町村コード, 都道府県, 市区町村, 国籍・地域, 在留資格, 在留外国人数）。国籍・在留資格の組み合わせごとの
   行なので、国籍ごとに合計する。総数が10人以下の市区町村は全国で1つの「その他」（コード 99999）にまとめられて
   いるので、その市区町村は値なしにする（その都道府県の値も、市区町村がそろわないので出さない）。
-  表にない国籍は、その市区町村では0人。令和6年末以降は国籍別の市区町村の表が読める形で公表されていない。
+  表にない国籍は、その市区町村では0人。
+  令和6年末以降（#155）「在留外国人統計テーブルデータ（国籍・地域別 在留資格別 市区町村別）」: 国籍・地域別の行が
+  Excel のデータモデルの中にしかないので、Actions「Prepare derived sources」で市区町村ごと・国籍・地域ごとの CSV（gzip）に
+  まとめたものを読む（pipeline/tdm/prepare/zairyu.py）。列は令和5年末の表と同じ名前（市区町村コード, 都道府県,
+  市区町村, 国籍・地域, 在留外国人数）で、都道府県の行（コードの下3桁が 000、都道府県別の表の値）もある。
+  市区町村コード 99999 は「未定・不詳」。総数が10人以下の市区町村は国籍・地域が「-」の行だけなので値なしにする
+  （都道府県の値は都道府県別の表にあるので出す）。表にない市区町村（在留外国人の行が1つもない）も値なしにする。
 """
 from __future__ import annotations
 
+import csv
+import gzip
 import re
 import sqlite3
 from collections import defaultdict
@@ -32,7 +40,8 @@ from ..xlsx import read_sheet, sheet_names
 JUKI_KIND = "soumu_juki_foreign"
 JUKI_TOTAL_KIND = "soumu_juki_total"   # 同じ調査の【総計】（日本人住民と外国人住民の合計）。外国人住民の割合の分母
 ZAIRYU_KIND = "moj_zairyu_foreign"
-OTHER_CODE = "99999"   # 令和5年末の表で、総数10人以下の市区町村をまとめた行
+OTHER_CODE = "99999"   # 令和5年末の表で、総数10人以下の市区町村をまとめた行。令和6年末以降は「未定・不詳」
+MASKED = "-"   # 令和6年末以降、総数10人以下の市区町村の国籍・地域（伏せてある）。その市区町村は値なし
 
 
 def _entity(conn: sqlite3.Connection, code5: str) -> str | None:
@@ -95,8 +104,13 @@ def ingest_juki(conn: sqlite3.Connection, path: Path, source_id: str, catalog: d
 
 def ingest_zairyu(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
                   period: tuple[str, str, str], sheet: str | None = None) -> dict:
-    """在留外国人統計の市区町村別・国籍別。横長（令和3・4年末）と縦長（令和5年末）の両方を読む。"""
-    rows = read_sheet(path, sheet if sheet else sheet_names(path)[0])
+    """在留外国人統計の市区町村別・国籍別。横長（令和3・4年末）と縦長（令和5年末、令和6年末以降の CSV）を読む。"""
+    prepared = path.suffix == ".gz"   # Prepare derived sources でまとめた CSV（令和6年末以降）
+    if prepared:
+        with gzip.open(path, "rt", encoding="utf-8", newline="") as f:
+            rows = list(csv.reader(f))
+    else:
+        rows = read_sheet(path, sheet if sheet else sheet_names(path)[0])
     targets = {i: d for i, d in catalog.items() if d.get("source_kind") == ZAIRYU_KIND}
     head = next(i for i, r in enumerate(rows) if r and str(r[0]).strip() == "市区町村コード")
     labels = [str(c).strip() if c is not None else "" for c in rows[head]]
@@ -105,16 +119,19 @@ def ingest_zairyu(conn: sqlite3.Connection, path: Path, source_id: str, catalog:
         ci, ni, vi = labels.index("市区町村コード"), labels.index("国籍・地域"), labels.index("在留外国人数")
         wanted = {d["column"] for d in targets.values()}
         sums: dict[str, dict[str, float]] = defaultdict(lambda: dict.fromkeys(wanted, 0.0))
+        masked: set[str] = set()
         for r in rows[head + 1:]:
             code = str(r[ci] or "").strip()
             if not re.fullmatch(r"\d{5}", code) or code == OTHER_CODE:
                 continue
             acc = sums[code]   # 表に出てくる市区町村は、出てこない国籍を0人とする
             nat = str(r[ni]).strip()
-            if nat in acc:
+            if nat == MASKED:
+                masked.add(code)
+            elif nat in acc:
                 acc[nat] += _number(r[vi]) or 0.0
-        by_code = dict(sums)
-        prefecture_rows = False
+        by_code = {code: dict.fromkeys(wanted) if code in masked else acc for code, acc in sums.items()}
+        prefecture_rows = prepared
     else:   # 横長: 列が国籍
         cols = {l: j for j, l in enumerate(labels) if l}
         missing = [d["column"] for d in targets.values() if d["column"] not in cols]

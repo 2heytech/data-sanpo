@@ -663,8 +663,8 @@ def test_zairyu_foreign_by_nationality(built):
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
     thai = by["zairyu_foreign_thailand"]
     assert thai["family"] == "zairyu_foreign" and thai["facets"] == {"type": "タイ", "basis": "人数"}
-    assert [p["period"] for p in thai["periods"]] == ["2022-12-31", "2023-12-31"]
-    for year in (2022, 2023):
+    assert [p["period"] for p in thai["periods"]] == ["2022-12-31", "2023-12-31", "2025-12-31"]
+    for year in (2022, 2023, 2025):
         vals = fixture.zairyu_values(year)
         china = {r["entity_id"]: r for r in load(
             built, f"values/zairyu_foreign_china/{year}-12-31/municipalities.json")["rows"]}
@@ -687,6 +687,51 @@ def test_zairyu_foreign_by_nationality(built):
     prefs = {r["entity_id"]: r for r in load(built, "values/zairyu_foreign_china/2023-12-31/prefectures.json")["rows"]}
     assert prefs["pref-13"]["value"] is None
     assert prefs["pref-14"]["value"] == vals["14199"]["中国"]
+    # 2025年末（Prepare derived sources でまとめた CSV、#155）: 国籍・地域が伏せてある市区町村（かりの村）は値なし。
+    # 都道府県は都道府県別の表の値（市区町村の合計より2人多い見本）なので、東京都も値がある
+    vals = fixture.zairyu_values(2025)
+    for ind in ("zairyu_foreign_china", "zairyu_foreign_thailand"):
+        rows = {r["entity_id"]: r for r in load(built, f"values/{ind}/2025-12-31/municipalities.json")["rows"]}
+        assert rows["muni-13499"]["value"] is None and rows["muni-13499"]["status"] != "observed"
+    prefs = {r["entity_id"]: r for r in load(built, "values/zairyu_foreign_china/2025-12-31/prefectures.json")["rows"]}
+    for pref in ("13", "14"):
+        assert prefs[f"pref-{pref}"]["value"] == sum(v["中国"] for c, v in vals.items() if c[:2] == pref) + 2
+
+
+def test_zairyu_prepare_summarizes_both_tables(tmp_path):
+    """在留外国人統計（令和6年末以降）の市区町村別（データモデル）・都道府県別の表を CSV にまとめる（#155）。"""
+    import csv
+    import gzip
+
+    from tdm.prepare import zairyu
+
+    muni_rows = [
+        {"国籍・地域": "01_023：中国", "都道府県": "13：東京都", "市区町村コード": "13101", "市区町村": "千代田区", "在留外国人数": 5},
+        {"国籍・地域": "01_023：中国", "都道府県": "13：東京都", "市区町村コード": "13101", "市区町村": "千代田区", "在留外国人数": 2},
+        {"国籍・地域": "01_022：台湾", "都道府県": "13：東京都", "市区町村コード": "13101", "市区町村": "千代田区", "在留外国人数": 4},
+        {"国籍・地域": "-", "都道府県": "13：東京都", "市区町村コード": "13382", "市区町村": "御蔵島村", "在留外国人数": 2},
+        {"国籍・地域": "01_023：中国", "都道府県": None, "市区町村コード": "99999", "市区町村": "未定・不詳", "在留外国人数": 1},
+    ]
+    pref_rows = [
+        {"国籍・地域": "01_023：中国", "都道府県": "13：東京都", "在留外国人数": 8},
+        {"国籍・地域": "01_022：台湾", "都道府県": "13：東京都", "在留外国人数": 5},
+        {"国籍・地域": "01_023：中国", "都道府県": "48：未定・不詳", "在留外国人数": 1},
+    ]
+    cfg = {"files": {"y2025": {"municipal": "https://example.invalid/t2", "prefecture": "https://example.invalid/t1"}}}
+    out = {"y2025": tmp_path / "out" / "moj_zairyu_foreign_2025-v1.csv.gz"}
+    result = zairyu.prepare(cfg, out, tmp_path / "work", [], None, downloader=lambda url: b"xlsx",
+                            reader=lambda path: muni_rows, prefecture_reader=lambda path: pref_rows)
+    assert result["y2025"] == {"rows": 6, "total": 14, "masked_municipalities": 1}
+    with gzip.open(out["y2025"], "rt", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert rows[0] == zairyu.HEAD
+    assert rows[1:] == [["13000", "東京都", "", "中国", "8"], ["13000", "東京都", "", "台湾", "5"],
+                        ["13101", "東京都", "千代田区", "中国", "7"], ["13101", "東京都", "千代田区", "台湾", "4"],
+                        ["13382", "東京都", "御蔵島村", "-", "2"], ["99999", "", "未定・不詳", "中国", "1"]]
+    # 全国の合計が2つの表で違うときは止める（データモデルの読み落としなどに気づくため）
+    with pytest.raises(ValueError):
+        zairyu.prepare(cfg, out, tmp_path / "work", [], None, downloader=lambda url: b"xlsx",
+                       reader=lambda path: muni_rows[1:], prefecture_reader=lambda path: pref_rows)
 
 
 def test_daytime_night_ratio_uses_same_year_population(built):
@@ -2423,7 +2468,12 @@ def test_gakuryoku(built):
     assert pref("gakuryoku_jhs_japanese")["pref-13"]["value"] == 57.0
     assert pref("gakuryoku_jhs_math")["pref-14"]["value"] == 47.0
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
-    assert by["gakuryoku_elem_math"]["periods"][0]["label"] == "2025年度（4月実施）"
+    assert [p["label"] for p in by["gakuryoku_elem_math"]["periods"]] == ["2025年度（4月実施）", "2026年度（4月実施）"]
+    # 令和8年度（中学校のファイル名が m_26r、理科の代わりに英語のシートがある。#155）
+    new = {r["entity_id"]: r for r in load(built, "values/gakuryoku_jhs_math/2026-04-23/prefectures.json")["rows"]}
+    assert new["pref-13"]["value"] == 51.0 and new["pref-14"]["value"] == 45.0
+    assert {r["entity_id"]: r for r in load(
+        built, "values/gakuryoku_elem_japanese/2026-04-23/prefectures.json")["rows"]}["pref-13"]["value"] == 68.0
 
 
 def test_jhs_students(built):
@@ -2831,10 +2881,17 @@ def test_agri_output(built):
     rice = rows("agri_output_rice", 2024, "municipalities")
     assert rice["muni-13299"]["value"] is None and rice["muni-13499"]["value"] == 0   # x は値なし、- は0
     assert rows("agri_output_livestock", 2024, "municipalities")["muni-13499"]["value"] is None   # …
+    # 都道府県は生産農業所得統計の都道府県別の値（億円。市町村の推計の合計ではない。#155）
     p = rows("agri_output", 2024, "prefectures")
-    assert p["pref-13"]["value"] == 4.7   # 特別区・ためし市・かりの村の合計
-    assert p["pref-14"]["value"] == 4.0
-    assert rows("agri_output_rice", 2024, "prefectures")["pref-13"]["value"] is None   # 県内に秘匿があれば合計しない
+    assert p["pref-13"]["value"] == 9.0 and p["pref-14"]["value"] == 600.0
+    assert rows("agri_output_livestock", 2024, "prefectures")["pref-14"]["value"] == 150.0   # 畜産の小計の列
+    assert rows("agri_output_fruits", 2024, "prefectures")["pref-13"]["value"] == 1.0
+    rice = rows("agri_output_rice", 2024, "prefectures")["pref-13"]
+    assert rice["value"] is None and rice["status"] == "suppressed"   # 「x」は秘匿
+    # 都道府県の表がない年は県内の市町村の合計（特別区・ためし市・かりの村）。秘匿があれば合計しない
+    p = rows("agri_output", 2023, "prefectures")
+    assert p["pref-13"]["value"] == 4.4 and p["pref-14"]["value"] == 3.9
+    assert rows("agri_output_rice", 2023, "prefectures")["pref-13"]["value"] is None
 
 
 def test_manufacturing_shipments(built):

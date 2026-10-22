@@ -65,3 +65,20 @@ blocks = [
 method = "cultural_properties"
 outputs = { list = "kunishitei_cultural_properties" }
 categories = ["102", "101", "401", "103"]
+
+# 出入国在留管理庁「在留外国人統計」の市区町村別・都道府県別の表（令和6年末以降。#155）。市区町村別の表は国籍・地域別の行が
+# Excel のデータモデルの中にあるので、都道府県ごと・市区町村ごとの国籍・地域別の人数の CSV にまとめる
+# （pipeline/tdm/prepare/zairyu.py）。files: 役割（outputs と同じ名前）ごとの e-Stat の xlsx。
+# municipal は「在留外国人統計テーブルデータ（国籍・地域別 在留資格別 市区町村別）」（t2）、prefecture は
+# 「同（国籍・地域別 在留資格別 都道府県別 年齢・性別）」（t1）。
+[zairyu]
+method = "zairyu"
+outputs = { y2024 = "moj_zairyu_foreign_2024", y2025 = "moj_zairyu_foreign_2025" }
+
+[zairyu.files.y2024]
+municipal = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040292373&fileKind=0"
+prefecture = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040292372&fileKind=0"
+
+[zairyu.files.y2025]
+municipal = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040472266&fileKind=0"
+prefecture = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040472265&fileKind=0"

@@ -246,7 +246,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "estat_economic_census_town_industry",
                         "estat_economic_census_municipal_industry", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
-                        "police_crime_opendata", "mext_school_aid", "maff_agri_output", "meti_manufacturing",
+                        "police_crime_opendata", "mext_school_aid", "maff_agri_output", "maff_agri_prefecture",
+                        "meti_manufacturing",
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
                         "gsi_airports", "gsi_ports", "soumu_election", "soumu_fiscal_indicators",
                         "soumu_settlement", "soumu_tax_collection", "gsi_area", "land_use_cells", "urban_land_use_cells",
@@ -343,6 +344,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = estat_census_history.ingest(conn, files[0], src, catalog)
         elif kind == "maff_agri_output":
             result[key] = maff_agri_output.ingest(conn, files[0], src, catalog)
+        elif kind == "maff_agri_prefecture":
+            result[key] = maff_agri_output.ingest_prefectures(conn, files[0], src, catalog, int(cfg["year"]))
         elif kind == "meti_manufacturing":
             result[key] = meti_manufacturing.ingest(conn, files[0], src, catalog)
         elif kind == "estat_commerce":

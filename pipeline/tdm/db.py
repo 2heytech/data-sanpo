@@ -163,19 +163,19 @@ def insert_observation(conn: sqlite3.Connection, **obs) -> None:
 
 
 def delete_area_observations(conn: sqlite3.Connection, indicator_id: str, period_start: str,
-                             keep_source: str | None = None) -> int:
+                             keep_source: str | None = None, levels: tuple[str, ...] = ("muni", "pref")) -> int:
     """指標・時点の市区町村と都道府県の観測値を消す（町丁・字等の値は残す）。同じ地域・時点の値を、
     別の出典の値に置き換えるときに使う（小地域の表の原数値を統計局の不詳補完値にするなど。#154）。
-    keep_source の出典の行は消さない。"""
+    keep_source の出典の行は消さない。levels で消す地域の種類（地域IDの接頭辞）を選ぶ。"""
     ids = {k: conn.execute("SELECT key_id FROM keys WHERE key = ?", (k,)).fetchone()
            for k in (indicator_id, period_start)}
     if not all(ids.values()):
         return 0
     keep = conn.execute("SELECT key_id FROM keys WHERE key = ?", (keep_source,)).fetchone() if keep_source else None
     # 地域IDの範囲で選ぶ（LIKE では keys の索引が使われない）
+    ranges = " OR ".join(f"(key >= '{p}-' AND key < '{p}.')" for p in levels)
     cur = conn.execute(
-        """DELETE FROM obs WHERE indicator_k = ? AND period_start_k = ? AND source_k != ?
-             AND entity_k IN (SELECT key_id FROM keys
-                              WHERE (key >= 'muni-' AND key < 'muni.') OR (key >= 'pref-' AND key < 'pref.'))""",
+        f"""DELETE FROM obs WHERE indicator_k = ? AND period_start_k = ? AND source_k != ?
+              AND entity_k IN (SELECT key_id FROM keys WHERE {ranges})""",
         (ids[indicator_id][0], ids[period_start][0], keep[0] if keep else -1))
     return cur.rowcount

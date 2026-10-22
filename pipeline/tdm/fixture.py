@@ -377,6 +377,11 @@ AGRI_ROWS = {   # (都道府県コード, 市町村コード, 市町村名) → 
     (14.0, 100.0, "みほん市"): {"農業産出額": 40.0, "米": 2.0, "野菜計": 25.0, "果実計": 4.0, "畜産計": 6.0},
 }
 AGRI_FILES = {2023: "index-22.xlsx", 2024: "index-25.xlsx"}
+# 生産農業所得統計の都道府県別農業産出額（億円。#155）。2024年だけ作る（2023年は市町村の合計になることを確かめる）。
+# 列は 計・耕種小計・米・野菜・果実・畜産小計・肉用牛 で、それぞれ順位の列が続く。名前に全角空白の入る形（.xls の年）も混ぜる
+AGRI_PREFECTURE_ROWS = {"北\u3000\u3000海\u3000\u3000道": [13000.0, 6000.0, 1800.0, 2300.0, 90.0, 7000.0, 1000.0],
+                        "東\u3000\u3000京": [9.0, 7.0, "x", 5.0, 1.0, 2.0, "-"],
+                        "神奈川": [600.0, 450.0, 30.0, 300.0, 70.0, 150.0, 20.0]}
 
 # 経済構造実態調査（製造業事業所調査）の参考表（市区町村別）。(コード, 名前, 製造品出荷額等（万円）, 粗付加価値額（万円）)
 MANUFACTURING_ROWS = [("00", "全国計", 9_000_000.0, 3_000_000.0), ("13", "東京都", 500_000.0, 200_000.0),
@@ -412,6 +417,19 @@ def _write_industry_tables(directory: Path) -> dict[str, Path]:
         path.parent.mkdir(parents=True, exist_ok=True)
         write_sheet(path, rows, f"R{year - 2018}")
         out[f"maff_agri_output_{year}"] = path
+    labels = [[None, None, "計", None, "耕\u3000種"] + [None] * 7 + ["畜\u3000産"],
+              [None, None, None, None, "小\u3000計", None, "米", None, "野\u3000菜", None, "果\u3000実", None, "小\u3000計",
+               None, "肉用牛"]]
+    rows = [[], ["(2)\u3000都道府県別農業産出額及び生産農業所得"], ["\u3000 ア\u3000実額"], [], [],
+            [None, None, "農業産出額"], *labels, ["都道府県"], [], [],
+            [None, None] + ["産出額", "順位"] * 7, [None, None] + [f"({i})" for i in range(1, 15)], [None, None] + ["億円", None] * 7]
+    for k, (name, values) in enumerate(AGRI_PREFECTURE_ROWS.items()):
+        rows.append([name, f"({k + 1})"] + [c for v in values for c in (v, 1.0 if isinstance(v, float) else "-")])
+    rows.append(["合計", None] + [1.0, None] * 7)
+    path = directory / "maff_agri_prefecture_2024" / "e015-06-009.xlsx"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_sheet(path, rows, "都道府県ア（実額）")
+    out["maff_agri_prefecture_2024"] = path
     rows = [[None, "2025年経済構造実態調査　製造業事業所調査（地域別統計表データ）"], [], [None, "参考．市区町村別統計表"],
             [], [], [], [],
             [None] * 7 + ["事業所数", "事業所数", "事業所数", "従業者数", "人件費", "原材料・燃料・電力の使用額等",
@@ -796,25 +814,35 @@ def _write_school_aid(directory: Path) -> dict[str, Path]:
 
 
 def _write_gakuryoku(directory: Path) -> dict[str, Path]:
+    """令和7・8年度。令和8年度は平均正答率を2ポイント下げ、中学校は理科の代わりに英語のシート（読み飛ばす）がある。"""
     from .xlsx import write_sheets
     out = {}
-    for (pref, school), subjects in GAKURYOKU.items():
-        name = PREF_NAMES[pref]
-        key, suffix = ("nier_gakuryoku_2025_p", "p_25r") if school == "p" else ("nier_gakuryoku_2025_m", "m_25rs")
-        d = directory / key / pref
-        d.mkdir(parents=True, exist_ok=True)
-        sheets = {}
-        for subject, (n, avg, questions, rate) in subjects.items():
-            sheets[subject] = [["令和７年度全国学力・学習状況調査", "小学校調査"], [f"調査結果概況　［{subject}］"],
-                               [f"{name}－児童（公立）"], [], [], [],
-                               [None, None, "児童数", "平均正答数", None, None, "平均正答率\n(％)", "中央値", "標準偏差"],
-                               [None, f"{name}（公立）", n, avg, "/", questions, rate, 10.0, 3.0],   # 1列目は空
-                               [None, "全国（公立）", 936137.0, 9.4, "/", questions, 66.8, 10.0, 3.0]]
-        # 中学校の理科は IRT スコアで平均正答率がない（読み飛ばす）
-        sheets["理科 " if school == "m" else "理科"] = [[f"{name}（公立）", 68954.0, 2.9, "/", 6.0, 1.4]]
-        path = d / f"{pref}{suffix}.xlsx"
-        write_sheets(path, sheets)
-        out[f"gakuryoku_{pref}{school}"] = path
+    for year in (2025, 2026):
+        shift = year - 2025
+        for (pref, school), subjects in GAKURYOKU.items():
+            name = PREF_NAMES[pref]
+            yy = year - 2000
+            key = f"nier_gakuryoku_{year}_{school}"
+            suffix = f"m_{yy}rs" if (school, year) == ("m", 2025) else f"{school}_{yy}r"
+            d = directory / key / pref
+            d.mkdir(parents=True, exist_ok=True)
+            sheets = {}
+            for subject, (n, avg, questions, rate) in subjects.items():
+                rate -= 2 * shift
+                avg = round(rate * questions / 100, 1)
+                sheets[subject] = [[f"令和{year - 2018}年度全国学力・学習状況調査", "小学校調査"], [f"調査結果概況　［{subject}］"],
+                                   [f"{name}－児童（公立）"], [], [], [],
+                                   [None, None, "児童数", "平均正答数", None, None, "平均正答率\n(％)", "中央値", "標準偏差"],
+                                   [None, f"{name}（公立）", n, avg, "/", questions, rate, 10.0, 3.0],   # 1列目は空
+                                   [None, "全国（公立）", 936137.0, 9.4, "/", questions, 66.8, 10.0, 3.0]]
+            if year == 2025:
+                # 中学校の理科は IRT スコアで平均正答率がない（読み飛ばす）
+                sheets["理科 " if school == "m" else "理科"] = [[f"{name}（公立）", 68954.0, 2.9, "/", 6.0, 1.4]]
+            elif school == "m":
+                sheets["英語４技能"] = [[f"{name}（公立）", 68954.0, 2.9, "/", 6.0, 1.4]]
+            path = d / f"{pref}{suffix}.xlsx"
+            write_sheets(path, sheets)
+            out[f"gakuryoku_{year}_{pref}{school}"] = path
     return out
 
 
@@ -2427,8 +2455,10 @@ def _write_juki_foreign(directory: Path, year: int, rnd: random.Random, total: b
 
 
 # 在留外国人統計（市区町村別・国籍別、12月末）。2022年末は横長の第3表、2023年末は在留資格別の縦長の表。
-# 2023年末は、かりの村を総数10人以下の市区町村として全国の「その他」（99999）にまとめる
-ZAIRYU_YEARS = (2022, 2023)
+# 2023年末は、かりの村を総数10人以下の市区町村として全国の「その他」（99999）にまとめる。
+# 2025年末は Prepare derived sources でまとめた CSV（gzip、#155）。かりの村は国籍・地域が「-」（伏せてある）の行だけ。
+# 都道府県の行は都道府県別の表の値で、市区町村の合計より多い（未定・不詳の人を含む）
+ZAIRYU_YEARS = (2022, 2023, 2025)
 ZAIRYU_NATIONS = ["中国", "ベトナム", "韓国", "フィリピン", "ブラジル", "ネパール", "インドネシア", "米国", "台湾", "タイ"]
 
 
@@ -2451,7 +2481,23 @@ def _write_zairyu(directory: Path, year: int, rnd: random.Random) -> Path:
     vals = zairyu_values(year)
     names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
     path = d / f"zairyu_{year}.xlsx"
-    if year <= 2022:
+    if year >= 2024:
+        path = d / f"moj_zairyu_foreign_{year}-v1.csv.gz"
+        rows = [["市区町村コード", "都道府県", "市区町村", "国籍・地域", "在留外国人数"]]
+        for pref in ("13", "14"):
+            codes = [c for c in vals if c[:2] == pref]
+            rows += [[f"{pref}000", PREF_NAMES[pref], "", n, sum(vals[c][n] for c in codes) + 2]
+                     for n in ZAIRYU_NATIONS] + [[f"{pref}000", PREF_NAMES[pref], "", "シンガポール", 3]]
+        for c, v in vals.items():
+            if c == "13499":
+                rows.append([c, PREF_NAMES[c[:2]], names[c], "-", 7])
+                continue
+            rows += [[c, PREF_NAMES[c[:2]], names[c], n, k] for n, k in v.items() if k]   # 0人の行はない
+        rows.append(["99999", "", "未定・不詳", "中国", 2])
+        buf = io.StringIO()
+        csv.writer(buf, lineterminator="\n").writerows(rows)
+        path.write_bytes(gzip.compress(buf.getvalue().encode("utf-8"), mtime=0))
+    elif year <= 2022:
         rows = [["第３表　市区町村別　国籍・地域別　在留外国人"],
                 ["市区町村コード", "都道府県市区町村", "総数"] + ZAIRYU_NATIONS + ["その他"]]
 

@@ -7,8 +7,9 @@ dependencies = ["shapely>=2.0", "pyshp>=2.3", "xlrd>=2.0"]
 
 [project.optional-dependencies]
 # prepare: Actions「Prepare derived sources」の集計（tdm/prepare、#123）。dev はそのテストのため Pillow を含む
+# pbixray: 在留外国人統計の Excel のデータモデルを読む（tdm/prepare/zairyu.py、#155）。中を一部直して使うので版を固定する
 dev = ["pytest>=8", "pillow>=10"]
-prepare = ["numpy>=1.24", "pillow>=10"]
+prepare = ["numpy>=1.24", "pillow>=10", "pbixray==0.15.5"]
 
 [project.scripts]
 tdm = "tdm.cli:main"

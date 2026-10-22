@@ -985,6 +985,40 @@ attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat
 modification_note = "都道府県・市区町村別の国籍・地域別の在留外国人数を抜き出して（2023年末は在留資格について合計して）作成"
 redistributable = true
 
+# 令和6年末以降（#155）。「在留外国人統計テーブルデータ（国籍・地域別 在留資格別 市区町村別）」は、国籍・地域別の行が
+# Excel のデータモデルの中にしかないので、Actions「Prepare derived sources」（config/prepare.toml の zairyu、
+# pipeline/tdm/prepare/zairyu.py）で市区町村ごと・国籍・地域ごとの CSV にまとめて Release「derived-sources」に置き、
+# ここではそれを取得する。まだ置いていないときは飛ばす（optional）。url は元の表（e-Stat）のページ。
+[moj_zairyu_foreign_2024]
+kind = "moj_zairyu_foreign"
+period = "2024-12-31"
+title = "在留外国人統計（令和6年12月末）在留外国人統計テーブルデータ（国籍・地域別 在留資格別 市区町村別）"
+provider = "出入国在留管理庁"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00250012&tstat=000001018034&tclass1=000001060399&layout=dataset&cycle=1&year=20240&month=24101212"
+download_url = "https://github.com/2heytech/data-sanpo/releases/download/derived-sources/moj_zairyu_foreign_2024-v1.csv.gz"
+optional = true
+files = ["moj_zairyu_foreign_2024-v1.csv.gz"]   # download_url のファイル名と同じにする（古い版が残っていても使わない）
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 出入国在留管理庁「在留外国人統計」"
+modification_note = "市区町村別の表（データモデル）の在留外国人数を、市区町村・都道府県ごとに国籍・地域別に合計して作成"
+redistributable = true
+
+[moj_zairyu_foreign_2025]
+kind = "moj_zairyu_foreign"
+period = "2025-12-31"
+title = "在留外国人統計（令和7年12月末）在留外国人統計テーブルデータ（国籍・地域別 在留資格別 市区町村別）"
+provider = "出入国在留管理庁"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00250012&tstat=000001018034&tclass1=000001060399&layout=dataset&cycle=1&year=20250&month=24101212"
+download_url = "https://github.com/2heytech/data-sanpo/releases/download/derived-sources/moj_zairyu_foreign_2025-v1.csv.gz"
+optional = true
+files = ["moj_zairyu_foreign_2025-v1.csv.gz"]   # download_url のファイル名と同じにする（古い版が残っていても使わない）
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 出入国在留管理庁「在留外国人統計」"
+modification_note = "市区町村別の表（データモデル）の在留外国人数を、市区町村・都道府県ごとに国籍・地域別に合計して作成"
+redistributable = true
+
 # 犯罪の認知件数（警視庁、年計）。年ごとのCSV。形式は pipeline/tdm/ingest/keishicho_crime.py を参照。
 # 2026-10-03 に GitHub Actions から取得して列名・名称の形式を確認した（docs/design-changes.md #28）。
 
@@ -6032,7 +6066,8 @@ modification_note = "都道府県別の延べ宿泊者数・外国人延べ宿�
 redistributable = true
 
 # 全国学力・学習状況調査（国立教育政策研究所）の都道府県別「調査結果概況」（公立）。都道府県ごとのフォルダにある。
-# 過去の年度の結果は国立国会図書館のアーカイブ（WARP）に移っているため、令和7年度だけ取り込む。
+# 過去の年度の結果は国立国会図書館のアーカイブ（WARP）に移っているため、令和7年度から取り込む。
+# 令和8年度（2026-09-30 公表）は中学校のファイル名が「m_26r」（令和7年度は「m_25rs」）で、理科がなく英語がある（#155）。
 # 形式は pipeline/tdm/ingest/nier_gakuryoku.py を参照。
 [nier_gakuryoku_2025_p]
 kind = "nier_gakuryoku"
@@ -6062,6 +6097,42 @@ provider = "国立教育政策研究所"
 url = "https://www.nier.go.jp/25chousakekkahoukoku/factsheet/prefecture_city.html"
 download_url = "https://www.nier.go.jp/25chousakekkahoukoku/factsheet/{pref_dir}/{pref}m_25rs.xlsx"
 files = ["*m_25rs.xlsx"]
+cache = true
+pref_dirs = { "01" = "01_hokkaido", "02" = "02_aomori", "03" = "03_iwate", "04" = "04_miyagi", "05" = "05_akita", "06" = "06_yamagata", "07" = "07_fukushima", "08" = "08_ibaraki", "09" = "09_tochigi", "10" = "10_gunma", "11" = "11_saitama", "12" = "12_chiba", "13" = "13_tokyo", "14" = "14_kanagawa", "15" = "15_niigata", "16" = "16_toyama", "17" = "17_ishikawa", "18" = "18_fukui", "19" = "19_yamanashi", "20" = "20_nagano", "21" = "21_gifu", "22" = "22_shizuoka", "23" = "23_aichi", "24" = "24_mie", "25" = "25_shiga", "26" = "26_kyoto", "27" = "27_osaka", "28" = "28_hyougo", "29" = "29_nara", "30" = "30_wakayama", "31" = "31_tottori", "32" = "32_shimane", "33" = "33_okayama", "34" = "34_hiroshima", "35" = "35_yamaguchi", "36" = "36_tokushima", "37" = "37_kagawa", "38" = "38_ehime", "39" = "39_kouchi", "40" = "40_fukuoka", "41" = "41_saga", "42" = "42_nagasaki", "43" = "43_kumamoto", "44" = "44_ohita", "45" = "45_miyazaki", "46" = "46_kagoshima", "47" = "47_okinawa" }
+license = "文部科学省ウェブサイト利用規約（国立教育政策研究所のコンテンツに適用、CC BY 4.0 と互換）"
+license_url = "https://www.nier.go.jp/11_copyright/"
+attribution = "出典：国立教育政策研究所「全国学力・学習状況調査」"
+modification_note = "都道府県（公立）の教科ごとの平均正答率を抜き出して作成"
+redistributable = true
+
+[nier_gakuryoku_2026_p]
+kind = "nier_gakuryoku"
+school = "p"
+period = "2026-04-23"
+per_prefecture = true
+title = "令和8年度 全国学力・学習状況調査 都道府県別 調査結果概況（小学校・公立）"
+provider = "国立教育政策研究所"
+url = "https://www.nier.go.jp/26chousakekkahoukoku/factsheet/prefecture_city.html"
+download_url = "https://www.nier.go.jp/26chousakekkahoukoku/factsheet/{pref_dir}/{pref}p_26r.xlsx"
+files = ["*p_26r.xlsx"]
+cache = true
+pref_dirs = { "01" = "01_hokkaido", "02" = "02_aomori", "03" = "03_iwate", "04" = "04_miyagi", "05" = "05_akita", "06" = "06_yamagata", "07" = "07_fukushima", "08" = "08_ibaraki", "09" = "09_tochigi", "10" = "10_gunma", "11" = "11_saitama", "12" = "12_chiba", "13" = "13_tokyo", "14" = "14_kanagawa", "15" = "15_niigata", "16" = "16_toyama", "17" = "17_ishikawa", "18" = "18_fukui", "19" = "19_yamanashi", "20" = "20_nagano", "21" = "21_gifu", "22" = "22_shizuoka", "23" = "23_aichi", "24" = "24_mie", "25" = "25_shiga", "26" = "26_kyoto", "27" = "27_osaka", "28" = "28_hyougo", "29" = "29_nara", "30" = "30_wakayama", "31" = "31_tottori", "32" = "32_shimane", "33" = "33_okayama", "34" = "34_hiroshima", "35" = "35_yamaguchi", "36" = "36_tokushima", "37" = "37_kagawa", "38" = "38_ehime", "39" = "39_kouchi", "40" = "40_fukuoka", "41" = "41_saga", "42" = "42_nagasaki", "43" = "43_kumamoto", "44" = "44_ohita", "45" = "45_miyazaki", "46" = "46_kagoshima", "47" = "47_okinawa" }
+license = "文部科学省ウェブサイト利用規約（国立教育政策研究所のコンテンツに適用、CC BY 4.0 と互換）"
+license_url = "https://www.nier.go.jp/11_copyright/"
+attribution = "出典：国立教育政策研究所「全国学力・学習状況調査」"
+modification_note = "都道府県（公立）の教科ごとの平均正答率を抜き出して作成"
+redistributable = true
+
+[nier_gakuryoku_2026_m]
+kind = "nier_gakuryoku"
+school = "m"
+period = "2026-04-23"
+per_prefecture = true
+title = "令和8年度 全国学力・学習状況調査 都道府県別 調査結果概況（中学校・公立）"
+provider = "国立教育政策研究所"
+url = "https://www.nier.go.jp/26chousakekkahoukoku/factsheet/prefecture_city.html"
+download_url = "https://www.nier.go.jp/26chousakekkahoukoku/factsheet/{pref_dir}/{pref}m_26r.xlsx"
+files = ["*m_26r.xlsx"]
 cache = true
 pref_dirs = { "01" = "01_hokkaido", "02" = "02_aomori", "03" = "03_iwate", "04" = "04_miyagi", "05" = "05_akita", "06" = "06_yamagata", "07" = "07_fukushima", "08" = "08_ibaraki", "09" = "09_tochigi", "10" = "10_gunma", "11" = "11_saitama", "12" = "12_chiba", "13" = "13_tokyo", "14" = "14_kanagawa", "15" = "15_niigata", "16" = "16_toyama", "17" = "17_ishikawa", "18" = "18_fukui", "19" = "19_yamanashi", "20" = "20_nagano", "21" = "21_gifu", "22" = "22_shizuoka", "23" = "23_aichi", "24" = "24_mie", "25" = "25_shiga", "26" = "26_kyoto", "27" = "27_osaka", "28" = "28_hyougo", "29" = "29_nara", "30" = "30_wakayama", "31" = "31_tottori", "32" = "32_shimane", "33" = "33_okayama", "34" = "34_hiroshima", "35" = "35_yamaguchi", "36" = "36_tokushima", "37" = "37_kagawa", "38" = "38_ehime", "39" = "39_kouchi", "40" = "40_fukuoka", "41" = "41_saga", "42" = "42_nagasaki", "43" = "43_kumamoto", "44" = "44_ohita", "45" = "45_miyazaki", "46" = "46_kagoshima", "47" = "47_okinawa" }
 license = "文部科学省ウェブサイト利用規約（国立教育政策研究所のコンテンツに適用、CC BY 4.0 と互換）"
@@ -6642,6 +6713,139 @@ license = "公共データ利用規約（第1.0版）"
 license_url = "https://www.maff.go.jp/j/use/link.html"
 attribution = "出典：農林水産省「市町村別農業産出額（推計）」"
 modification_note = "市町村別の農業産出額（千万円）を億円に直し、品目ごとに抜き出して作成"
+redistributable = true
+
+# 農業産出額の都道府県の値（#155）。農林水産省「生産農業所得統計」の都道府県別農業産出額（公表値、億円）。
+# 市町村別の推計の合計は加工農産物などを含まず、公表の都道府県の値と最大10%ほど違う（2024年の新潟県の畜産 424 と 471）ので、
+# 都道府県はこの表の値にする（pipeline/tdm/ingest/maff_agri_output.py の ingest_prefectures）。統計表「都道府県別農業産出額
+# 及び生産農業所得 ア 実額」。statInfId は 2026-10-22 に e-Stat の一覧（生産農業所得統計 > 確報 > 年次）で調べ、中身を確かめた。
+
+[maff_agri_prefecture_2017]
+kind = "maff_agri_prefecture"
+year = 2017
+title = "生産農業所得統計 平成29年 都道府県別農業産出額及び生産農業所得 ア 実額"
+provider = "農林水産省"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00500206&tstat=000001015617"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031813179&fileKind=0"
+download_filename = "e015-29-011.xls"
+files = ["e015-29-011.xls"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 農林水産省「生産農業所得統計」"
+modification_note = "都道府県別の農業産出額（計・米・野菜・果実・畜産）を抜き出して作成"
+redistributable = true
+
+[maff_agri_prefecture_2018]
+kind = "maff_agri_prefecture"
+year = 2018
+title = "生産農業所得統計 平成30年 都道府県別農業産出額及び生産農業所得 ア 実額"
+provider = "農林水産省"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00500206&tstat=000001015617"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031926885&fileKind=0"
+download_filename = "e015-30-011.xls"
+files = ["e015-30-011.xls"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 農林水産省「生産農業所得統計」"
+modification_note = "都道府県別の農業産出額（計・米・野菜・果実・畜産）を抜き出して作成"
+redistributable = true
+
+[maff_agri_prefecture_2019]
+kind = "maff_agri_prefecture"
+year = 2019
+title = "生産農業所得統計 令和元年 都道府県別農業産出額及び生産農業所得 ア 実額"
+provider = "農林水産省"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00500206&tstat=000001015617"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032073047&fileKind=0"
+download_filename = "e015-01-011.xls"
+files = ["e015-01-011.xls"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 農林水産省「生産農業所得統計」"
+modification_note = "都道府県別の農業産出額（計・米・野菜・果実・畜産）を抜き出して作成"
+redistributable = true
+
+[maff_agri_prefecture_2020]
+kind = "maff_agri_prefecture"
+year = 2020
+title = "生産農業所得統計 令和2年 都道府県別農業産出額及び生産農業所得 ア 実額"
+provider = "農林水産省"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00500206&tstat=000001015617"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032183954&fileKind=0"
+download_filename = "e015-02-011.xls"
+files = ["e015-02-011.xls"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 農林水産省「生産農業所得統計」"
+modification_note = "都道府県別の農業産出額（計・米・野菜・果実・畜産）を抜き出して作成"
+redistributable = true
+
+[maff_agri_prefecture_2021]
+kind = "maff_agri_prefecture"
+year = 2021
+title = "生産農業所得統計 令和3年 都道府県別農業産出額及び生産農業所得 ア 実額"
+provider = "農林水産省"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00500206&tstat=000001015617"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040030993&fileKind=0"
+download_filename = "e015-03-011.xls"
+files = ["e015-03-011.xls"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 農林水産省「生産農業所得統計」"
+modification_note = "都道府県別の農業産出額（計・米・野菜・果実・畜産）を抜き出して作成"
+redistributable = true
+
+[maff_agri_prefecture_2022]
+kind = "maff_agri_prefecture"
+year = 2022
+title = "生産農業所得統計 令和4年 都道府県別農業産出額及び生産農業所得 ア 実額"
+provider = "農林水産省"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00500206&tstat=000001015617"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040156131&fileKind=0"
+download_filename = "e015-04-009.xlsx"
+files = ["e015-04-009.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 農林水産省「生産農業所得統計」"
+modification_note = "都道府県別の農業産出額（計・米・野菜・果実・畜産）を抜き出して作成"
+redistributable = true
+
+[maff_agri_prefecture_2023]
+kind = "maff_agri_prefecture"
+year = 2023
+title = "生産農業所得統計 令和5年 都道府県別農業産出額及び生産農業所得 ア 実額"
+provider = "農林水産省"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00500206&tstat=000001015617"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040262917&fileKind=0"
+download_filename = "e015-05-009.xlsx"
+files = ["e015-05-009.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 農林水産省「生産農業所得統計」"
+modification_note = "都道府県別の農業産出額（計・米・野菜・果実・畜産）を抜き出して作成"
+redistributable = true
+
+[maff_agri_prefecture_2024]
+kind = "maff_agri_prefecture"
+year = 2024
+title = "生産農業所得統計 令和6年 都道府県別農業産出額及び生産農業所得 ア 実額"
+provider = "農林水産省"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00500206&tstat=000001015617"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040426672&fileKind=0"
+download_filename = "e015-06-009.xlsx"
+files = ["e015-06-009.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 農林水産省「生産農業所得統計」"
+modification_note = "都道府県別の農業産出額（計・米・野菜・果実・畜産）を抜き出して作成"
 redistributable = true
 
 # 経済構造実態調査（製造業事業所調査）「地域別」統計表データ（経済産業省、e-Stat の xlsx）の参考表（市区町村別）。
