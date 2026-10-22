@@ -1,13 +1,17 @@
 # 寄り道の記事を、公開日（web/src/lib/articles.ts の published）の朝7時ごろに公開する（設計変更記録 #157）。
-# 日本時間の月・水・金 6:30 に動き、その日が公開日の記事があれば Data release を site_only・deploy で起動して、終わるまで待つ。
+# 日本時間の月・水・金 6:30 に動き、その日が公開日でまだサイトに出ていない記事があれば Data release を site_only・deploy で起動して、
+# 終わるまで待つ。予定（schedule）は遅れたり動かなかったりするので、6:50・7:10 にも動かす（先の run で公開できていれば何もしない）。
 # 記事のページはビルドした日（日本時間）が公開日以降のときだけ作られるので、記事は公開日より前にマージしておいてよい。
-# 手で動かすとき（workflow_dispatch）も、その日が公開日の記事がなければ何もしない。
+# 手で動かすとき（workflow_dispatch）も、その日が公開日の記事がないか、すでに公開されていれば何もしない。
 name: Publish articles
 
 on:
   schedule:
-    # 日本時間 月・水・金 6:30（UTC 日・火・木 21:30）。Actions の混雑で数分〜数十分遅れることがある
+    # 日本時間 月・水・金 6:30（UTC 日・火・木 21:30）。Actions の混雑で数十分遅れたり動かなかったりすることがある
+    # （2026-10-23 は 6:56 になっても動かなかった）ので、6:50・7:10 にも動かす
     - cron: "30 21 * * 0,2,4"
+    - cron: "50 21 * * 0,2,4"
+    - cron: "10 22 * * 0,2,4"
   workflow_dispatch:
 
 permissions:
@@ -28,12 +32,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 公開日が今日の記事のうち、まだサイトに出ていないもの（先の run で公開できていれば数えない）
       - name: Find articles published today
         id: today
         run: |
           today=$(TZ=Asia/Tokyo date +%F)
-          count=$(grep -c "published: \"$today\"" web/src/lib/articles.ts || true)
-          echo "公開日が $today の記事: $count 本"
+          slugs=$(awk -v d="$today" '/slug: "/ { split($0, a, "\""); s = a[2] } index($0, "published: \"" d "\"") { print s }' web/src/lib/articles.ts)
+          count=0
+          for slug in $slugs; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://data-sanpo.com/articles/$slug/?check=$(date +%s)")
+            if [ "$code" = "200" ]; then
+              echo "$slug は公開済み"
+            else
+              echo "$slug はまだ公開されていません（HTTP $code）"
+              count=$((count + 1))
+            fi
+          done
+          echo "公開日が $today でまだ公開されていない記事: $count 本"
           echo "count=$count" >> "$GITHUB_OUTPUT"
 
       # Data release は同時に1つだけ動かす。全国の公開などが動いていれば終わるまで待つ（最大2時間）
