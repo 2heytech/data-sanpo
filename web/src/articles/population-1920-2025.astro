@@ -1,0 +1,124 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleCompare from "../components/ArticleCompare.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, compareRanking, nationalValue, peakPeriod, ranking, rows, value } from "../lib/articleData";
+import { loadIndicators } from "../lib/data";
+import { formatNumber } from "../lib/format";
+
+const H = "population_history";
+const T = "population_total";
+const P20 = "1920-10-01";
+const P25 = "2025-10-01";
+const FROM = { id: H, period: P20, label: "1920年" };
+const TO = { id: T, period: P25, label: "2025年" };
+
+// 1920〜2020年は「人口（1920年からの推移）」、2025年は「人口」の値で、合わせて22回の調査
+const historyPeriods = loadIndicators().find((i) => i.id === H)?.periods.map((p) => p.period) ?? [];
+const series = [...historyPeriods.map((period) => ({ id: H, period })), { id: T, period: P25 }];
+const year = (period: string | undefined) => period?.slice(0, 4) ?? "—";
+const peak = (prefId: string) => year(peakPeriod(series, prefId)?.period);
+
+// 全国の人口の倍率（都道府県の合計どうし。値のない都道府県があれば出さない）
+const sum = (id: string, period: string) => {
+  const r = rows(id, period, "prefecture");
+  return r.length === 47 && r.every((x) => x.value !== null) ? r.reduce((s, x) => s + (x.value as number), 0) : null;
+};
+const nat20 = sum(H, P20);
+const nat25 = sum(T, P25);
+const natRatio = nat20 && nat25 ? formatNumber(nat25 / nat20, 1) : "—";
+
+// 1920年より人口が少ない県（本文で「3県」と書く）
+const all = compareRanking(FROM, TO, "prefecture", "low", 47);
+const below = all.filter((r) => r.ratio < 1).map((r) => r.entity_id);
+check(below.length === 3 && ["pref-32", "pref-39", "pref-05"].every((id) => below.includes(id)),
+  `1920年より人口が少ない県が島根・高知・秋田の3県ではありません（${below.join("・")}）`);
+const ratioOf = (prefId: string) => all.find((r) => r.entity_id === prefId)?.ratio ?? null;
+// 2倍未満は小数2桁（0.88倍・1.01倍）、それ以上は1桁（5.5倍）
+const times = (prefId: string) => { const r = ratioOf(prefId); return r === null ? "—" : `${formatNumber(r, r < 2 ? 2 : 1)}倍`; };
+check((ratioOf("pref-36") ?? 0) >= 1 && (ratioOf("pref-36") ?? 9) < 1.05 && (ratioOf("pref-06") ?? 0) >= 1 && (ratioOf("pref-06") ?? 9) < 1.05,
+  "徳島県・山形県の2025年の人口が1920年とほぼ同じ（1倍以上1.05倍未満）ではありません");
+check((ratioOf("pref-14") ?? 0) >= 6.5 && (ratioOf("pref-14") ?? 9) < 7.5, "神奈川県の倍率が約7倍ではありません");
+
+// 順位（1920年と2025年）
+const rank = (id: string, period: string, prefId: string): number | null =>
+  ranking(id, period, "prefecture", "high", 47).find((r) => r.entity_id === prefId)?.rank ?? null;
+check((rank(H, P20, "pref-15") ?? 99) < (rank(H, P20, "pref-14") ?? 0), "1920年の新潟県の人口が神奈川県より多くありません");
+
+// 人口がいちばん多かった年（本文では島根・高知・秋田、徳島・山形をそれぞれ同じ年としてまとめて書く）
+check(peak("pref-39") === peak("pref-32") && peak("pref-05") === peak("pref-32") && peak("pref-06") === peak("pref-36"),
+  "島根・高知・秋田、または徳島・山形の人口が最も多かった年がそろっていません");
+const peakIn2025 = ["pref-13"];
+check(rows(T, P25, "prefecture").filter((r) => peak(r.entity_id) === "2025").map((r) => r.entity_id).join() === peakIn2025.join(),
+  "2025年が最多の年の都道府県が東京都だけではありません");
+check(["pref-14", "pref-47"].every((p) => peak(p) === "2020"), "神奈川県・沖縄県の最多の年が2020年ではありません");
+---
+<Article slug="population-1920-2025">
+  <p>
+    日本で最初の国勢調査は、1920年（大正9年）に行われました。このときの全国の人口は{nationalValue(H, P20)}、
+    105年後の2025年は{nationalValue(T, P25)}で、およそ{natRatio}倍になっています。
+    ただ、増え方は都道府県によって大きく違い、1920年より人口が少ない県もあります。
+    第1回の国勢調査と2025年の国勢調査を、都道府県で比べてみます。
+  </p>
+
+  <h2>1920年より人口が少ない3つの県</h2>
+  <p>
+    2025年の人口を1920年と比べると、島根県・高知県・秋田県の3県は、1920年より人口が少なくなっています。
+    島根県は1920年の{value(H, P20, "pref-32")}に対して、2025年は{value(T, P25, "pref-32")}（{times("pref-32")}）です。
+    徳島県（{times("pref-36")}）と山形県（{times("pref-06")}）も、1920年とほぼ同じ人口です。
+  </p>
+  <ArticleCompare from={FROM} to={TO} order="low" n={8} expect={["pref-32", "pref-39", "pref-05", "pref-36", "pref-06"]}
+    caption="1920年からの人口の倍率が小さい都道府県" />
+  <p>
+    これらの県も、ずっと減り続けてきたわけではありません。人口がいちばん多かったのは、島根県・高知県・秋田県が{peak("pref-32")}年、
+    徳島県・山形県が{peak("pref-36")}年で、戦後しばらくは1920年より大きく増えていました。
+    その後、進学や就職で都市へ移る人が多かったことや、亡くなる人が生まれる人を上回るようになったことで、
+    少しずつ減ってきたと考えられます。
+  </p>
+
+  <h2>7倍になった神奈川県</h2>
+  <p>
+    反対に、最も増えたのは神奈川県です。1920年の{value(H, P20, "pref-14")}から、2025年は{value(T, P25, "pref-14")}と約7倍になりました。
+    埼玉県（{times("pref-11")}）、千葉県（{times("pref-12")}）が続き、東京都（{times("pref-13")}）を上回ります。
+    東京の周りの県で住宅地が広がり、東京へ通う人が多く住むようになったためと考えられます。
+  </p>
+  <ArticleCompare from={FROM} to={TO} order="high" n={10} expect={["pref-14", "pref-11", "pref-12", "pref-13"]}
+    caption="1920年からの人口の倍率が大きい都道府県" />
+  <p>
+    上位にはほかに、愛知県・大阪府のような大都市のある府県と、沖縄県が並びます。
+    沖縄県は、1920年の人口が少なかったうえに、生まれる子どもの多い状態が長く続いたことが、大きな伸びにつながっているようです。
+  </p>
+
+  <h2>100年前の人口の順位</h2>
+  <p>
+    1920年の人口の順位は、今とはかなり違います。1位は東京都、2位は大阪府で、3位は北海道でした。
+    新潟県は{rank(H, P20, "pref-15")}位、長野県は{rank(H, P20, "pref-20")}位、鹿児島県は{rank(H, P20, "pref-46")}位で、
+    千葉県（{rank(H, P20, "pref-12")}位）や神奈川県（{rank(H, P20, "pref-14")}位）より人口が多い県でした。
+  </p>
+  <ArticleRanking id={H} period={P20} level="prefecture" n={15}
+    expect={["pref-13", "pref-27", "pref-01", "pref-15", "pref-20", "pref-46", "pref-12", "pref-14"]}
+    caption="1920年の人口が多い都道府県" />
+  <p>
+    2025年には、神奈川県が{rank(T, P25, "pref-14")}位、千葉県が{rank(T, P25, "pref-12")}位に上がり、
+    新潟県は{rank(T, P25, "pref-15")}位、鹿児島県は{rank(T, P25, "pref-46")}位になっています。
+    100年のあいだに、人が多く住む場所が、農業の盛んな県から大都市とその周りへ移ってきたようです。
+  </p>
+
+  <h2>人口がいちばん多かった年</h2>
+  <p>
+    1920年から2025年までの22回の調査で、2025年の人口がいちばん多いのは東京都だけです。
+    神奈川県や沖縄県などは2020年が最も多く、2025年はわずかに減りました。
+    今は人口が減っている多くの県も、それぞれに人口の山があります。地図で年を動かすと、県ごとに山の時期が違うことが分かります。
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>1920〜2020年は「人口（1920年からの推移）」、2025年は「人口」の指標の値で、どちらも国勢調査の都道府県の人口です。</li>
+    <li>1945年は国勢調査の代わりに行われた人口調査の値で、沖縄県は調査されていません。1950〜1970年の沖縄県は、本土復帰の前に沖縄で行われた調査の値です。</li>
+    <li>市区町村は合併で範囲が大きく変わっているため、100年を通して比べられる公的な表がありません。市区町村の人口は2010年から地図で見られます。</li>
+  </ul>
+  <p>
+    <a class="button" href={`/map/?i=${H}&p=${P20}`}>1920年からの人口の推移を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${T}&p=${P25}&l=prefecture`}>2025年の人口を地図で見る</a>
+  </p>
+</Article>

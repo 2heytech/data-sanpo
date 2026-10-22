@@ -1,9 +1,9 @@
 ---
 // 寄り道の一覧（設計変更記録 #126）
 import Base from "../../layouts/Base.astro";
-import { ARTICLES, formatDate } from "../../lib/articles";
+import { formatDate, publishedArticles } from "../../lib/articles";
 
-const list = [...ARTICLES].sort((a, b) => (b.updated ?? b.published).localeCompare(a.updated ?? a.published));
+const list = publishedArticles().sort((a, b) => (b.updated ?? b.published).localeCompare(a.updated ?? a.published));
 ---
 <Base menu="寄り道" description="人口が増え続けたまち、日本一広い市、標高の高いまち…。公開データの数字と地図から、全国の都道府県・市区町村の意外な姿を読み解く記事の一覧です。">
   <header class="page-head">

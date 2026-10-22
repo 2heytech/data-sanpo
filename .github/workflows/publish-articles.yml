@@ -1,0 +1,66 @@
+# 寄り道の記事を、公開日（web/src/lib/articles.ts の published）の朝7時ごろに公開する（設計変更記録 #157）。
+# 日本時間の月・水・金 6:30 に動き、その日が公開日の記事があれば Data release を site_only・deploy で起動して、終わるまで待つ。
+# 記事のページはビルドした日（日本時間）が公開日以降のときだけ作られるので、記事は公開日より前にマージしておいてよい。
+# 手で動かすとき（workflow_dispatch）も、その日が公開日の記事がなければ何もしない。
+name: Publish articles
+
+on:
+  schedule:
+    # 日本時間 月・水・金 6:30（UTC 日・火・木 21:30）。Actions の混雑で数分〜数十分遅れることがある
+    - cron: "30 21 * * 0,2,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: publish-articles
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find articles published today
+        id: today
+        run: |
+          today=$(TZ=Asia/Tokyo date +%F)
+          count=$(grep -c "published: \"$today\"" web/src/lib/articles.ts || true)
+          echo "公開日が $today の記事: $count 本"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+      # Data release は同時に1つだけ動かす。全国の公開などが動いていれば終わるまで待つ（最大2時間）
+      - name: Wait for running Data release
+        if: steps.today.outputs.count != '0'
+        run: |
+          for i in $(seq 1 60); do
+            running=$(gh run list --workflow data-release.yml --limit 20 --json status --jq '[.[] | select(.status != "completed")] | length')
+            if [ "$running" = "0" ]; then exit 0; fi
+            echo "Data release が動いているので待ちます（${i}回目）"
+            sleep 120
+          done
+          echo "::error::Data release が2時間たっても終わらないため、記事を公開できませんでした"
+          exit 1
+
+      - name: Run Data release (site_only, deploy)
+        if: steps.today.outputs.count != '0'
+        run: |
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          gh workflow run data-release.yml --ref main -f site_only=true -f deploy=true -f preview=false
+          # 起動した run を探して、終わるまで待つ（失敗したらこの run も失敗にして知らせる）
+          for i in $(seq 1 30); do
+            sleep 10
+            id=$(gh run list --workflow data-release.yml --event workflow_dispatch --limit 5 --json databaseId,createdAt \
+              --jq "[.[] | select(.createdAt >= \"$since\")][0].databaseId // empty")
+            if [ -n "$id" ]; then break; fi
+          done
+          if [ -z "$id" ]; then echo "::error::起動した Data release が見つかりません"; exit 1; fi
+          echo "Data release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$id"
+          gh run watch "$id" --interval 30 --exit-status
