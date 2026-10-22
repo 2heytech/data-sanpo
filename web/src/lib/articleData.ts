@@ -162,3 +162,51 @@ export function steadyGrowth(id: string, periods: string[], level: ArticleLevel)
   if (total === 0) fail(`${id} の ${periods.join("・")} に値がありません`);
   return { rows: ranked(grew), total };
 }
+
+export interface ArticleCompareRow {
+  entity_id: string;
+  rank: number;
+  from: ValueRow;
+  to: ValueRow;
+  /** 後の値 ÷ 前の値 */
+  ratio: number;
+}
+
+/**
+ * 2つの時点の値を地域ごとに並べ、後の値÷前の値（倍率）の順に並べる。時点ごとに指標が違ってもよい
+ * （例: 1920年は「人口（1920年からの推移）」、2025年は「人口」）。どちらかの値がない地域は除き（0 にしない）、
+ * expect に挙げた地域が上から n 件に入っていなければ実データでは止める（ranking と同じ）
+ */
+export function compareRanking(from: { id: string; period: string }, to: { id: string; period: string }, level: ArticleLevel,
+  order: "high" | "low", n: number, expect: string[] = []): ArticleCompareRow[] {
+  const before = new Map(rows(from.id, from.period, level).map((r) => [r.entity_id, r]));
+  const pairs = rows(to.id, to.period, level).flatMap((r) => {
+    const b = before.get(r.entity_id);
+    if (!b || b.value === null || r.value === null || b.value <= 0) return [];
+    return [{ entity_id: r.entity_id, from: b, to: r, ratio: r.value / b.value }];
+  });
+  if (pairs.length === 0) fail(`${from.id} の ${from.period} と ${to.id} の ${to.period} に、両方の値のある地域がありません`);
+  const sign = order === "high" ? -1 : 1;
+  const sorted = pairs.sort((a, b) => sign * (a.ratio - b.ratio));
+  let rank = 0;
+  const list = sorted.map((p, i) => {
+    if (i === 0 || p.ratio !== sorted[i - 1].ratio) rank = i + 1;
+    return { ...p, rank };
+  });
+  const top = list.slice(0, n);
+  const missing = expect.filter((e) => !top.some((r) => r.entity_id === e));
+  if (missing.length) fail(`${from.id}→${to.id} の倍率の${order === "high" ? "上位" : "下位"}${n}に ${missing.join("・")} が入っていません`);
+  return top;
+}
+
+/** 地域の値がいちばん大きかった時点（複数の指標・時点をまとめて見る。同じ値なら新しい方）。値のない時点は飛ばす */
+export function peakPeriod(series: { id: string; period: string }[], entityId: string): { period: string; value: number } | null {
+  let best: { period: string; value: number } | null = null;
+  const level: ArticleLevel = entityId.startsWith("pref-") ? "prefecture" : "municipality";
+  for (const s of series) {
+    const v = rows(s.id, s.period, level).find((r) => r.entity_id === entityId)?.value ?? null;
+    if (v !== null && (!best || v >= best.value)) best = { period: s.period, value: v };
+  }
+  if (!best) fail(`${entityId} の値がどの時点にもありません`);
+  return best;
+}

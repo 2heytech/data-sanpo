@@ -4,7 +4,7 @@ import Base from "./Base.astro";
 import AdSlot from "../components/AdSlot.astro";
 import ShareButtons from "../components/ShareButtons.astro";
 import MapFigure from "../components/MapFigure.astro";
-import { ARTICLES, articleBySlug, formatDate } from "../lib/articles";
+import { articleBySlug, formatDate, publishedArticles } from "../lib/articles";
 import { loadIndicators } from "../lib/data";
 import { articleImage } from "../lib/shareImages";
 
@@ -13,10 +13,13 @@ const article = articleBySlug(Astro.props.slug);
 if (!article) throw new Error(`寄り道 ${Astro.props.slug} が lib/articles.ts にありません`);
 const indicators = loadIndicators();
 const related = article.indicators.flatMap((id) => indicators.find((i) => i.id === id) ?? []);
-const others = ARTICLES.filter((a) => a.slug !== article.slug);
+const others = publishedArticles().filter((a) => a.slug !== article.slug);
 const url = Astro.site ? new URL(`/articles/${article.slug}/`, Astro.site).href : undefined;
 // 記事の主な指標の全国の地図の画像（設計変更記録 #142）。本文の前に置き、共有画像にも使う
 const image = articleImage(article);
+// 画像を作れない指標（都道府県の値だけなど）の記事にも「データを地図で見る」を置く
+const firstIndicator = article.mapIndicator ?? article.indicators[0];
+const mapHrefOf = article.mapHref ?? (firstIndicator ? `/map/?i=${firstIndicator}` : null);
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
@@ -54,7 +57,8 @@ const structuredData = {
     </p>
   </header>
   <article class="sheet article-body">
-    {image && <MapFigure image={image} eager />}
+    {image && <MapFigure image={image} eager mapButton buttonHref={article.mapHref} />}
+    {!image && mapHrefOf && <p class="map-cta"><a class="button large" href={mapHrefOf}>データを地図で見る</a></p>}
     <slot />
   </article>
   <ShareButtons title={article.title} />

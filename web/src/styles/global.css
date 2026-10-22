@@ -139,6 +139,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .button:hover { background: var(--accent-ink); color: #fff; }
 .button.secondary { background: var(--surface); color: var(--accent-ink); border: 1px solid var(--line-strong); box-shadow: none; }
 .button.secondary:hover { background: var(--accent-soft); }
+/* 寄り道の「データを地図で見る」など、ページの主な行き先の大きなボタン（設計変更記録 #157） */
+.button.large { padding: 14px 32px; font-size: 1.1rem; }
+@media (max-width: 640px) { .button.large { display: flex; justify-content: center; width: 100%; } }
 .note { background: var(--panel); border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; }
 .note ul { margin: 6px 0 0; padding-left: 1.3em; }
 .compare-with { margin: 8px 0; }

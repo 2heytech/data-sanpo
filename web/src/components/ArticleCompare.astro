@@ -1,0 +1,56 @@
+---
+// 寄り道の中の「2つの時点を比べる」表。前の時点・後の時点の値と倍率（後÷前）を並べる。時点ごとに指標が違ってもよい。
+// 値は公開データから出し、本文で挙げた地域（expect）が表に入るかを確かめる（ArticleRanking と同じ）
+import { compareRanking, indicator, type ArticleLevel } from "../lib/articleData";
+import { loadAreas } from "../lib/data";
+import { formatNumber, formatValue } from "../lib/format";
+
+interface Point { id: string; period: string; label: string }
+interface Props {
+  from: Point;
+  to: Point;
+  level?: ArticleLevel;
+  order?: "high" | "low";
+  n?: number;
+  expect?: string[];
+  caption: string;
+}
+const { from, to, level = "prefecture", order = "high", n = 10, expect = [], caption } = Astro.props;
+const fromInd = indicator(from.id);
+const toInd = indicator(to.id);
+const areas = loadAreas();
+const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));
+const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
+const list = fromInd && toInd ? compareRanking(from, to, level, order, n, expect) : [];
+const place = (id: string) => level === "prefecture"
+  ? { name: prefs.get(id.slice(5)) ?? id, href: `/prefectures/${id.slice(5)}/` }
+  : { name: munis.get(id)?.name ?? id, href: `/areas/${id}/` };
+---
+{fromInd && toInd && list.length > 0 && (
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking">
+        <caption>{caption}</caption>
+        <thead><tr>
+          <th class="num col-rank">順位</th><th>{level === "prefecture" ? "都道府県" : "市区町村"}</th>
+          <th class="num col-value">{from.label}</th><th class="num col-value">{to.label}</th><th class="num col-value">倍率</th>
+        </tr></thead>
+        <tbody>
+          {list.map((r) => (
+            <tr>
+              <td class="num">{`${formatNumber(r.rank, 0)}位`}</td>
+              <td><a href={place(r.entity_id).href}>{place(r.entity_id).name}</a></td>
+              <td class="num">{formatValue(r.from, fromInd)}</td>
+              <td class="num">{formatValue(r.to, toInd)}</td>
+              <td class="num">{`${formatNumber(r.ratio, 2)}倍`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <figcaption class="muted">
+      倍率（{to.label}÷{from.label}）の{order === "low" ? "小さい順" : "大きい順"}です。
+      <a href={`/map/?i=${from.id}&p=${from.period}&l=${level}`}>{from.label}を地図で見る</a>・<a href={`/map/?i=${to.id}&p=${to.period}&l=${level}`}>{to.label}を地図で見る</a>
+    </figcaption>
+  </figure>
+)}
