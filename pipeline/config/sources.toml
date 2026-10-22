@@ -4380,7 +4380,7 @@ redistributable = true
 [soumu_tax_collection_2019]
 kind = "soumu_tax_collection"
 fiscal_year = 2019
-title = "地方財政状況調査 令和1年度（2019年度）決算 市町村分 06 市町村税の徴収実績"
+title = "地方財政状況調査 令和元年度（2019年度）決算 市町村分 06 市町村税の徴収実績"
 provider = "総務省"
 url = "https://www.e-stat.go.jp/stat-search/files?tstat=000001077755"
 download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032091980&fileKind=1"
