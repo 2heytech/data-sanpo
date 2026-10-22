@@ -1,5 +1,6 @@
 ---
-// 寄り道の中の「2つの時点を比べる」表。前の時点・後の時点の値と倍率（後÷前）を並べる。時点ごとに指標が違ってもよい。
+// 寄り道の中の「2つの値を比べる」表。前の時点・後の時点の値と倍率（後÷前）を並べる。時点ごとに指標が違ってもよい。
+// as="share" では、2つの指標の割合（例: 宿泊業で働く人÷働く人）を % で並べる。
 // 値は公開データから出し、本文で挙げた地域（expect）が表に入るかを確かめる（ArticleRanking と同じ）
 import { compareRanking, indicator, type ArticleLevel } from "../lib/articleData";
 import { loadAreas } from "../lib/data";
@@ -14,17 +15,23 @@ interface Props {
   n?: number;
   expect?: string[];
   caption: string;
+  /** times: 倍率（後÷前）、share: 割合（%） */
+  as?: "times" | "share";
+  /** from の値がこれ未満の地域は除く */
+  minFrom?: number;
 }
-const { from, to, level = "prefecture", order = "high", n = 10, expect = [], caption } = Astro.props;
+const { from, to, level = "prefecture", order = "high", n = 10, expect = [], caption, as = "times", minFrom } = Astro.props;
 const fromInd = indicator(from.id);
 const toInd = indicator(to.id);
 const areas = loadAreas();
 const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));
 const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
-const list = fromInd && toInd ? compareRanking(from, to, level, order, n, expect) : [];
+const list = fromInd && toInd ? compareRanking(from, to, level, order, n, expect, { minFrom }) : [];
 const place = (id: string) => level === "prefecture"
-  ? { name: prefs.get(id.slice(5)) ?? id, href: `/prefectures/${id.slice(5)}/` }
-  : { name: munis.get(id)?.name ?? id, href: `/areas/${id}/` };
+  ? { name: prefs.get(id.slice(5)) ?? id, href: `/prefectures/${id.slice(5)}/`, pref: "" }
+  : { name: munis.get(id)?.name ?? id, href: `/areas/${id}/`, pref: prefs.get(munis.get(id)?.prefecture ?? "") ?? "" };
+const ratioLabel = as === "share" ? "割合" : "倍率";
+const ratioText = (r: number) => (as === "share" ? `${formatNumber(r * 100, 1)}%` : `${formatNumber(r, 2)}倍`);
 ---
 {fromInd && toInd && list.length > 0 && (
   <figure class="article-ranking">
@@ -33,23 +40,23 @@ const place = (id: string) => level === "prefecture"
         <caption>{caption}</caption>
         <thead><tr>
           <th class="num col-rank">順位</th><th>{level === "prefecture" ? "都道府県" : "市区町村"}</th>
-          <th class="num col-value">{from.label}</th><th class="num col-value">{to.label}</th><th class="num col-value">倍率</th>
+          <th class="num col-value">{from.label}</th><th class="num col-value">{to.label}</th><th class="num col-value">{ratioLabel}</th>
         </tr></thead>
         <tbody>
           {list.map((r) => (
             <tr>
               <td class="num">{`${formatNumber(r.rank, 0)}位`}</td>
-              <td><a href={place(r.entity_id).href}>{place(r.entity_id).name}</a></td>
+              <td><a href={place(r.entity_id).href}>{place(r.entity_id).name}</a>{place(r.entity_id).pref && <span class="muted small">（{place(r.entity_id).pref}）</span>}</td>
               <td class="num">{formatValue(r.from, fromInd)}</td>
               <td class="num">{formatValue(r.to, toInd)}</td>
-              <td class="num">{`${formatNumber(r.ratio, 2)}倍`}</td>
+              <td class="num">{ratioText(r.ratio)}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
     <figcaption class="muted">
-      倍率（{to.label}÷{from.label}）の{order === "low" ? "小さい順" : "大きい順"}です。
+      {ratioLabel}（{to.label}÷{from.label}）の{order === "low" ? "小さい順" : "大きい順"}です{minFrom !== undefined && `（${from.label}が${formatNumber(minFrom, 0)}${fromInd?.unit ?? ""}以上の${level === "prefecture" ? "都道府県" : "市区町村"}）`}。
       <a href={`/map/?i=${from.id}&p=${from.period}&l=${level}`}>{from.label}を地図で見る</a>・<a href={`/map/?i=${to.id}&p=${to.period}&l=${level}`}>{to.label}を地図で見る</a>
     </figcaption>
   </figure>

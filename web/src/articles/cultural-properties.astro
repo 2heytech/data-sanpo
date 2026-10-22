@@ -1,0 +1,108 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, cityTotal, cityTotals, facilityCount, indicator, ranking, value } from "../lib/articleData";
+import { loadFacilityPoints } from "../lib/data";
+import { formatNumber } from "../lib/format";
+
+const IMP = "important_cultural_buildings";
+const REG = "registered_cultural_buildings";
+const HIS = "historic_sites";
+// 文化財の数は、文化庁のデータベースを取得した日の1時点だけ（取り直したら新しい時点になる）
+const P = indicator(IMP)?.periods.at(-1)?.period ?? "2026-10-18";
+const asOf = indicator(IMP)?.periods.at(-1)?.label ?? "—";
+const OTSU = "muni-25201";
+const NARA = "muni-29201";
+const HIGASHIYAMA = "muni-26105";
+const INUYAMA = "muni-23215";
+const KAMAKURA = "muni-14204";
+const CP = "cultural_properties";
+
+const top = (id: string, n: number) => ranking(id, P, "municipality", "high", n).map((r) => r.entity_id);
+const city = (id: string, name: string) => { const v = cityTotal(id, P, name); return v === null ? "—" : `${formatNumber(v, 0)}件`; };
+const cityValue = (id: string, name: string) => cityTotals(id, P).find((c) => c.city === name)?.value ?? null;
+const unitValue = (id: string, entity: string) => ranking(id, P, "municipality", "high", 2000).find((r) => r.entity_id === entity)?.value ?? null;
+
+// 国宝・重要文化財（建造物）: 区・市町村の単位で奈良市・大津市の順、京都市は区を合わせると最多で、大津市は京都市のどの区より多い
+check(top(IMP, 2).join() === [NARA, OTSU].join(), "国宝・重要文化財（建造物）の1・2位が奈良市・大津市ではありません");
+const kyotoImp = cityValue(IMP, "京都市");
+check(kyotoImp !== null && kyotoImp > (unitValue(IMP, NARA) ?? Infinity), "京都市の区の合計が奈良市より多くありません");
+check(cityTotals(IMP, P).filter((c) => c.city !== "京都市").every((c) => c.value === null || c.value < (unitValue(IMP, OTSU) ?? 0)),
+  "京都市のほかに、区を合わせると大津市より多い政令指定都市があります");
+const kyotoWards = cityTotals(IMP, P).find((c) => c.city === "京都市")?.wards ?? 0;
+// 都道府県では滋賀県が3番目
+const prefRank = ranking(IMP, P, "prefecture", "high", 3).map((r) => r.entity_id).join();
+check(prefRank === "pref-26,pref-29,pref-25", "国宝・重要文化財（建造物）の都道府県の順位が京都府・奈良県・滋賀県ではありません");
+// 本文で挙げる大津市の寺社が、大津市の国宝・重要文化財（建造物）の一覧にある
+const otsuImp = loadFacilityPoints(CP).filter((p) => p.municipality_id === OTSU && /国宝|重要文化財/.test(p.kind ?? ""));
+check(["延暦寺", "園城寺", "石山寺", "日吉大社"].every((n) => otsuImp.some((p) => p.name.startsWith(n))),
+  "大津市の国宝・重要文化財に延暦寺・園城寺・石山寺・日吉大社が見つかりません");
+
+// 登録有形文化財（建造物）: 区・市町村の単位で犬山市が1位、そのうち博物館明治村の建物
+check(top(REG, 1)[0] === INUYAMA, "登録有形文化財（建造物）の1位が犬山市ではありません");
+const meijiMura = facilityCount(CP, (p) => p.municipality_id === INUYAMA && !!p.types?.includes("登録有形文化財（建造物）")
+  && (p.name.includes("明治村") || !!p.address?.includes("明治村")));
+check((meijiMura ?? 0) > 0, "犬山市の登録有形文化財に明治村の建物が見つかりません");
+const meijiPoint = loadFacilityPoints(CP).find((p) => p.municipality_id === INUYAMA && p.name.includes("明治村") && p.coord);
+const regBigger = cityTotals(REG, P).filter((c) => c.value !== null && c.value > (unitValue(REG, INUYAMA) ?? Infinity)).map((c) => c.city);
+check(regBigger.join() === "京都市,大阪市", `区を合わせて犬山市より登録有形文化財が多い市が京都市・大阪市ではありません（${regBigger.join("・")}）`);
+
+// 史跡: 区・市町村の単位で鎌倉市が1位、区を合わせた京都市の次
+check(top(HIS, 1)[0] === KAMAKURA, "史跡の1位が鎌倉市ではありません");
+const hisBigger = cityTotals(HIS, P).filter((c) => c.value !== null && c.value > (unitValue(HIS, KAMAKURA) ?? Infinity)).map((c) => c.city);
+check(hisBigger.join() === "京都市", `区を合わせて鎌倉市より史跡が多い市が京都市だけではありません（${hisBigger.join("・")}）`);
+---
+<Article slug="cultural-properties">
+  <p>
+    文化庁の「国指定文化財等データベース」から、国宝・重要文化財に指定された建造物（寺社・城・住宅・近代の建物など）を、
+    市区町村ごとに数えました（{asOf}）。政令指定都市は区ごとに数えているので、京都市は{formatNumber(kyotoWards, 0)}区を合わせると{city(IMP, "京都市")}になり、全国で最も多くなります。
+    その次が奈良市の{value(IMP, P, NARA)}、さらにその次が滋賀県大津市の{value(IMP, P, OTSU)}です。
+    大津市の数は、京都市でいちばん多い東山区（{value(IMP, P, HIGASHIYAMA)}）よりも多くなっています。
+  </p>
+  <ArticleRanking id={IMP} period={P} n={10} expect={[NARA, OTSU, HIGASHIYAMA]} caption="国宝・重要文化財（建造物）が多い市区町村" />
+  <p>
+    大津市には、比叡山延暦寺や園城寺（三井寺）、石山寺、日吉大社など、古くからの大きな寺社があり、多くの建物が指定されています。
+    都道府県で比べても、滋賀県は{value(IMP, P, "pref-25")}で、京都府・奈良県に次ぐ3番目です。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${IMP}&p=${P}&a=${OTSU}&l=municipality`}>大津市の国宝・重要文化財を地図で見る</a>
+  </p>
+
+  <h2>登録有形文化財は犬山市が最多</h2>
+  <p>
+    築50年を過ぎた建物などを国が登録する登録有形文化財（建造物）は、区・市町村の単位では愛知県犬山市の{value(REG, P, INUYAMA)}が最も多く、
+    長野市（{value(REG, P, "muni-20201")}）、奈良市（{value(REG, P, NARA)}）が続きます。
+    犬山市の{value(REG, P, INUYAMA)}のうち{meijiMura === null ? "—" : formatNumber(meijiMura, 0)}件は、博物館明治村にある建物です。
+    明治村は、明治時代を中心とした建物を各地から移して公開している野外博物館で、1つの施設にこれだけの登録有形文化財が集まっているのは珍しいと思われます。
+  </p>
+  <ArticleRanking id={REG} period={P} n={10} expect={[INUYAMA, "muni-20201", NARA]} caption="登録有形文化財（建造物）が多い市区町村" />
+  <p>
+    なお、区を合わせると京都市（{city(REG, "京都市")}）と大阪市（{city(REG, "大阪市")}）は犬山市より多くなります。
+    登録有形文化財は1棟ごとに1件と数えるので、町家や蔵の多い古い市街地では数が多くなるようです。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${REG}&p=${P}&a=${INUYAMA}&l=municipality${meijiPoint ? `&cp=${meijiPoint.id}` : ""}`}>犬山市の登録有形文化財を地図で見る</a>
+  </p>
+
+  <h2>史跡は鎌倉市</h2>
+  <p>
+    古墳や城の跡、寺の跡などの史跡は、神奈川県鎌倉市の{value(HIS, P, KAMAKURA)}が区・市町村の単位で最も多く、区を合わせた京都市（{city(HIS, "京都市")}）に次ぐ数です。
+    奈良市は{value(HIS, P, NARA)}です。鎌倉幕府が置かれた鎌倉には、寺の跡や、山を切り開いて通した道（切通し）などが多く残っています。
+  </p>
+  <ArticleRanking id={HIS} period={P} n={10} expect={[KAMAKURA, NARA]} caption="史跡が多い市区町村" />
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${HIS}&p=${P}&a=${KAMAKURA}&l=municipality`}>鎌倉市の史跡を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>国宝・重要文化財は、本堂と山門など複数の棟をまとめて1件と数えます。登録有形文化財は1棟ごとに1件なので、件数をそのまま比べることはできません。</li>
+    <li>政令指定都市は区ごとに数えています。市全体の数は区の合計です。</li>
+    <li>市区町村は、データベースの位置（緯度・経度）のある市区町村です。2つ以上の市区町村にまたがるものは、1か所だけで数えています。</li>
+    <li>地図で「文化財」の点を表示すると、1つ1つの文化財の場所と名前を見られます。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

@@ -1,0 +1,116 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleCompare from "../components/ArticleCompare.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, cityTotal, cityTotals, compareRanking, ranking, raw, value } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
+
+const RYOKAN = "ryokan_hotels";
+const SIMPLE = "simple_lodgings";
+const ONSEN = "onsen_tax";
+const ACC = "accommodation_employees";
+const EMP = "employees";
+const P = "2021-06-01";
+const PT = "2024-04-01";
+const HAKUBA = "muni-20485";
+const TAITO = "muni-13106";
+const HAKONE = "muni-14382";
+const NAHA = "muni-47201";
+const NOZAWA = "muni-20563";
+
+// 旅館・ホテルの1位は白馬村、簡易宿所は台東区・白馬村の順、入湯税は箱根町・別府市・熱海市の順（本文でそう書く）
+const top = (id: string, period: string, n: number) => ranking(id, period, "municipality", "high", n).map((r) => r.entity_id).join();
+check(top(RYOKAN, P, 1) === HAKUBA, "旅館・ホテルの数の1位が白馬村ではありません");
+check(top(SIMPLE, P, 2) === [TAITO, HAKUBA].join(), "簡易宿所の数の1・2位が台東区・白馬村ではありません");
+check(top(ONSEN, PT, 3) === [HAKONE, "muni-44202", "muni-22205"].join(), "入湯税の1〜3位が箱根町・別府市・熱海市ではありません");
+
+// 区を合わせると白馬村より多い市（本文で大阪市・京都市だけと書く）
+const hakuba = raw(RYOKAN, P, HAKUBA);
+const bigger = cityTotals(RYOKAN, P).filter((c) => hakuba !== null && c.value !== null && c.value > hakuba).map((c) => c.city);
+check(bigger.length === 2 && bigger.includes("大阪市") && bigger.includes("京都市"),
+  `区を合わせて白馬村より旅館・ホテルが多い市が大阪市・京都市だけではありません（${bigger.join("・")}）`);
+const cityText = (city: string) => { const v = cityTotal(RYOKAN, P, city); return v === null ? "—" : `${formatNumber(v, 0)}事業所`; };
+
+// 入湯税（百万円）を「6.5億円」の形に（上位が近いので小数1桁まで）
+const oku1 = (v: number | null) => (v === null ? "—" : `${formatNumber(v / 100, 1)}億円`);
+
+// 宿泊業で働く人を、旅館・ホテルと簡易宿所の数で割った目安（1事業所あたり）
+const perPlace = (id: string) => {
+  const acc = raw(ACC, P, id), r = raw(RYOKAN, P, id), s = raw(SIMPLE, P, id);
+  return acc === null || r === null || s === null || r + s === 0 ? null : acc / (r + s);
+};
+const perText = (id: string) => { const v = perPlace(id); return v === null ? "—" : `約${formatNumber(v, 0)}人`; };
+check((perPlace(HAKUBA) ?? 99) < (perPlace(TAITO) ?? 0) && (perPlace(HAKUBA) ?? 99) < (perPlace(HAKONE) ?? 0),
+  "白馬村の1事業所あたりの宿泊業で働く人が、台東区・箱根町より少なくありません");
+
+// 宿泊業で働く人の割合（民営の事業所で働く人が500人以上の市区町村）
+const MIN_EMP = 500;
+const shares = compareRanking({ id: EMP, period: P }, { id: ACC, period: P }, "municipality", "high", 10, [], { minFrom: MIN_EMP });
+const shareOf = (id: string) => shares.find((r) => r.entity_id === id)?.ratio ?? null;
+const pct = (id: string) => { const v = shareOf(id); return v === null ? "—" : `${formatNumber(v * 100, 0)}%`; };
+check((shareOf("muni-01463") ?? 0) > 0.5 && (shareOf("muni-07402") ?? 0) > 0.5, "占冠村・北塩原村の宿泊業で働く人の割合が半分を超えていません");
+check(["muni-14382", NOZAWA, "muni-10426"].every((id) => (shareOf(id) ?? 0) > 0.4), "箱根町・野沢温泉村・草津町の割合が4割を超えていません");
+---
+<Article slug="lodging-hakuba">
+  <p>
+    旅館・ホテルがいちばん多い市区町村はどこでしょうか。2021年の経済センサスで旅館・ホテルの事業所を数えると、
+    1位は長野県白馬村の{value(RYOKAN, P, HAKUBA)}でした。白馬村の人口は{value("population_total", "2025-10-01", HAKUBA)}（2025年）ですが、
+    東京都台東区（{value(RYOKAN, P, TAITO)}）や沖縄県那覇市（{value(RYOKAN, P, NAHA)}）よりも多くの旅館・ホテルがあります。
+  </p>
+  <ArticleRanking id={RYOKAN} period={P} n={12} expect={[HAKUBA, TAITO, HAKONE, NAHA]}
+    caption="旅館・ホテルの数が多い市区町村（2021年）" />
+  <p>
+    政令指定都市は区ごとの値なので、区を合わせると大阪市は{cityText("大阪市")}、京都市は{cityText("京都市")}で、白馬村より多くなります。
+    それ以外の政令指定都市は、区を合わせても白馬村より少ない数です。
+  </p>
+
+  <h2>小さな宿が多い白馬村</h2>
+  <p>
+    事業所の数は、宿の大きさに関係なく1か所を1つと数えます。宿泊業で働く人の数を、旅館・ホテルと簡易宿所（相部屋の宿など）の数で割ると、
+    白馬村は1事業所あたり{perText(HAKUBA)}で、台東区の{perText(TAITO)}、神奈川県箱根町の{perText(HAKONE)}よりずっと少なくなります。
+    白馬村には、スキー場の近くにペンションや民宿のような小さな宿が多く集まっていて、それが数の多さにつながっていると考えられます。
+    簡易宿所の数も、白馬村は{value(SIMPLE, P, HAKUBA)}で、台東区（{value(SIMPLE, P, TAITO)}）に次ぐ2番目です。
+  </p>
+  <ArticleRanking id={SIMPLE} period={P} n={8} expect={[TAITO, HAKUBA]} caption="簡易宿所の数が多い市区町村（2021年）" />
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${RYOKAN}&p=${P}&a=${HAKUBA}&l=municipality`}>白馬村の旅館・ホテルの数を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${SIMPLE}&p=${P}&a=${HAKUBA}&l=municipality`}>簡易宿所の数を地図で見る</a>
+  </p>
+
+  <h2>入湯税がいちばん多いのは箱根町</h2>
+  <p>
+    温泉に入る人に市町村がかける入湯税（標準は1人1日150円）の収入を2024年度で比べると、神奈川県箱根町が{oku1(raw(ONSEN, PT, HAKONE))}で最も多く、
+    大分県別府市（{oku1(raw(ONSEN, PT, "muni-44202"))}）、静岡県熱海市（{oku1(raw(ONSEN, PT, "muni-22205"))}）が続きます。
+    箱根町は旅館・ホテルの数でも上位に入っていて、温泉に泊まる人の多いまちのようです。
+  </p>
+  <ArticleRanking id={ONSEN} period={PT} n={10} expect={[HAKONE, "muni-44202", "muni-22205"]} caption="入湯税の収入額が多い市区町村（2024年度）" />
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ONSEN}&p=${PT}&a=${HAKONE}&l=municipality`}>入湯税の収入額を地図で見る</a>
+  </p>
+
+  <h2>働く人の半分近くが宿で働くまち</h2>
+  <p>
+    宿泊業で働く人を、まちの民営の事業所で働く人と比べると、北海道占冠村が{pct("muni-01463")}、福島県北塩原村が{pct("muni-07402")}で、半分を超えています。
+    箱根町（{pct(HAKONE)}）、長野県野沢温泉村（{pct(NOZAWA)}）、群馬県草津町（{pct("muni-10426")}）も4割を超えていて、
+    宿がまちの大きな働き口になっていることが分かります。
+  </p>
+  <ArticleCompare as="share" level="municipality" n={10} minFrom={MIN_EMP}
+    from={{ id: EMP, period: P, label: "働く人" }} to={{ id: ACC, period: P, label: "宿泊業で働く人" }}
+    expect={["muni-01463", "muni-07402", HAKONE, NOZAWA, "muni-10426"]}
+    caption="働く人のうち宿泊業で働く人の割合が大きい市区町村（2021年）" />
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ACC}&p=${P}&a=${HAKONE}&l=municipality`}>宿泊業で働く人の数を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>旅館・ホテルの数は事業所の数で、部屋の数や泊まった人の数ではありません。事業所の主な事業で分けているので、ほかの事業が主の事業所にある宿は入りません。</li>
+    <li>経済センサスは2021年6月1日現在の値で、新型コロナの流行中のため休業していた宿もあります。</li>
+    <li>宿泊業で働く人には国民宿舎など公営の宿で働く人も入りますが、「働く人」（従業者の数）は民営の事業所だけなので、割合は目安です。</li>
+    <li>入湯税は、日帰りの入浴を税の対象から外したり、税率を変えたりしている市町村もあります。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

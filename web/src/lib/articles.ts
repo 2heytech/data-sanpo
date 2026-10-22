@@ -21,6 +21,31 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "cultural-properties",
+    title: "国宝・重要文化財の建造物：京都・奈良の次は大津市",
+    description: "国宝・重要文化財の建造物を市区町村ごとに数えると、京都市・奈良市の次は滋賀県大津市です。登録有形文化財が最も多い愛知県犬山市、史跡の多い鎌倉市など、文化財の多いまちを見ます。",
+    published: "2026-10-30",
+    indicators: ["important_cultural_buildings", "registered_cultural_buildings", "historic_sites"],
+    mapHref: "/map/?i=important_cultural_buildings&a=muni-25201&l=municipality",
+  },
+  {
+    slug: "lodging-hakuba",
+    title: "旅館・ホテルが最も多い白馬村：宿と温泉のまち",
+    description: "旅館・ホテルの数が最も多い市区町村は長野県白馬村です。小さな宿の多さ、入湯税の多い温泉地、働く人の半分近くが宿で働くまちなど、宿と温泉のまちをデータで見ます。",
+    published: "2026-10-28",
+    indicators: ["ryokan_hotels", "simple_lodgings", "onsen_tax", "accommodation_employees"],
+    mapHref: "/map/?i=ryokan_hotels&p=2021-06-01&a=muni-20485&l=municipality",
+  },
+  {
+    slug: "stations-2019-2024",
+    title: "コロナ前より利用が増えた駅：2019年度と2024年度の乗降客数",
+    description: "コロナ前の2019年度と2024年度の駅の乗降客数を比べます。多くの駅はまだ戻っていませんが、愛・地球博記念公園駅や河口湖駅、新幹線が延びた敦賀駅などは大きく増えています。",
+    published: "2026-10-26",
+    // 駅の乗降客数は地図に重ねる点で、色分けの指標ではないので、記事の地図の画像はない。「データを地図で見る」は駅を選んだ地図
+    indicators: [],
+    mapHref: "/map/?s=station-005422-9745e8",
+  },
+  {
     slug: "population-1920-2025",
     title: "100年前より人口が少ない県：1920年と2025年の都道府県の人口",
     description: "第1回国勢調査の1920年と2025年の人口を都道府県で比べます。100年で約7倍になった県がある一方、1920年より人口が少ない県もあります。人口がいちばん多かった年や順位の移り変わりも見ます。",

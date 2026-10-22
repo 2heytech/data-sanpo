@@ -5,7 +5,8 @@ import release from "../generated/release.json";
 import type { PlacePoints } from "./placeStats";
 import type { Geometry } from "./shape";
 import type {
-  AreasFile, IndicatorCatalog, LegendFile, ReleaseInfo, SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
+  AreasFile, FacilityPoint, IndicatorCatalog, LegendFile, ReleaseInfo, SmallArea, SmallAreasFile, Source, Station, StationsFile,
+  ValueRow, ValuesFile,
 } from "./types";
 
 export const RELEASE = release as ReleaseInfo;
@@ -131,6 +132,17 @@ function placeRows<T>(name: string, key: string): T[] {
       return [];
     }
   });
+}
+
+/** 駅の乗降客数の点（全国）と年度（"2019-04-01" の形。values と同じ順）。公開版にないときは空 */
+export function loadStations(): { periods: string[]; stations: Station[] } {
+  const index = loadPlace("station_passengers") as StationsFile | null;
+  return { periods: (index?.periods ?? []).map((p) => p.period), stations: placeRows<Station>("station_passengers", "stations") };
+}
+
+/** 都道府県ごとのファイルに分けた施設の点（国指定文化財など）を全国分。公開版にないときは空 */
+export function loadFacilityPoints(name: string): FacilityPoint[] {
+  return placeRows<FacilityPoint>(name, "points");
 }
 
 let placePoints: PlacePoints | null | undefined;

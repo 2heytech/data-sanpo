@@ -1,0 +1,128 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleStations from "../components/ArticleStations.astro";
+import { check, station, stationChanges, stationCount } from "../lib/articleData";
+import { articleBySlug } from "../lib/articles";
+import { formatNumber } from "../lib/format";
+import type { Station } from "../lib/types";
+
+const SLUG = "stations-2019-2024";
+const F = "2019-04-01";
+const T = "2024-04-01";
+const FROM = { period: F, label: "2019年度" };
+const TO = { period: T, label: "2024年度" };
+// 比べる駅: 2016〜2019年度に毎年値があり（開業して間もない駅を除く）、2019年度に1日3,000人以上10万人未満
+// （数え方の違いで値が大きく動く大きな駅を除く）の駅
+const MIN = 3000;
+const MAX = 100000;
+const OPTS = { since: "2016-04-01", min: MIN, max: MAX };
+
+const all = stationChanges(F, T, OPTS);
+const grew = all.filter((r) => r.ratio >= 1).length;
+const sortedRatio = all.map((r) => r.ratio).sort((a, b) => a - b);
+const median = sortedRatio.length
+  ? (sortedRatio.length % 2 ? sortedRatio[(sortedRatio.length - 1) / 2]
+    : (sortedRatio[sortedRatio.length / 2 - 1] + sortedRatio[sortedRatio.length / 2]) / 2)
+  : null;
+const pct = all.length ? formatNumber((grew / all.length) * 100, 0) : "—";
+// 本文は「2割ほど」「多くの駅は戻っていない」と書く
+check(all.length === 0 || (grew / all.length >= 0.15 && grew / all.length < 0.3 && median !== null && median < 1),
+  "2019年度を上回った駅の割合が2割ほどではないか、中央値が2019年度以上です");
+
+const ai = station("愛・地球博記念公園", "愛知高速交通");
+const kawaguchiko = station("河口湖", "富士山麓電気鉄道");
+const kamakura = station("鎌倉高校前", "江ノ島電鉄");
+const bayside = station("ベイサイド･ステーション", "舞浜リゾートライン");
+const tsuruga = station("敦賀", "西日本旅客鉄道");
+const tenjinMinami = station("天神南", "福岡市");
+const yakuin = station("薬院", "福岡市");
+const ariakeTennis = station("有明テニスの森", "ゆりかもめ");
+const ariake = station("有明", "ゆりかもめ");
+const shinToyosu = station("新豊洲", "ゆりかもめ");
+const shinTakashima = station("新高島", "横浜高速鉄道");
+
+const count = (s: Station | null, period: string) => {
+  const v = stationCount(s, period);
+  return v === null ? "—" : `${formatNumber(v, 0)}人`;
+};
+const ratioOf = (s: Station | null) => all.find((r) => r.station.id === s?.id)?.ratio ?? null;
+const times = (s: Station | null) => { const r = ratioOf(s); return r === null ? "—" : `${formatNumber(r, 1)}倍`; };
+const mapOf = (s: Station | null) => (s ? `/map/?s=${s.id}` : "/map/");
+
+// 記事の「データを地図で見る」（lib/articles.ts の mapHref）は愛・地球博記念公園駅を開く
+check(articleBySlug(SLUG)?.mapHref === mapOf(ai), "記事の mapHref が愛・地球博記念公園駅の地図になっていません");
+// 敦賀駅の2024年度の値に北陸新幹線が含まれる（本文でそう書く）
+check(!!tsuruga?.lines.includes("北陸新幹線"), "敦賀駅（西日本旅客鉄道）に北陸新幹線の値が含まれていません");
+
+// 七隈線（福岡市地下鉄3号線）の駅のうち、比べられる駅と、2019年度を上回った駅
+const nanakuma = all.filter((r) => r.station.operator === "福岡市" && r.station.lines.some((l) => l.includes("七隈線")));
+const nanakumaGrew = nanakuma.filter((r) => r.ratio >= 1).length;
+check(nanakuma.length === 0 || nanakumaGrew / nanakuma.length >= 0.8, "七隈線の比べられる駅のほとんどが2019年度を上回ってはいません");
+---
+<Article slug={SLUG}>
+  <p>
+    新型コロナウイルス感染症が広がる前の2019年度と、2024年度の駅の乗降客数（1日あたり、乗った人と降りた人の合計）を比べます。
+    2019年度に1日{formatNumber(MIN, 0)}人以上{formatNumber(MAX / 10000, 0)}万人未満だった全国の{formatNumber(all.length, 0)}駅のうち、
+    2024年度に2019年度を上回ったのは{formatNumber(grew, 0)}駅（{pct}%）で、真ん中の駅（中央値）は2019年度の{median === null ? "—" : formatNumber(median * 100, 0)}%です。
+    多くの駅では、まだコロナ前の人数まで戻っていないようです。
+    その一方で、2019年度より大きく増えた駅もあります。どんな駅が並ぶかを見てみます。
+  </p>
+  <ArticleStations from={FROM} to={TO} opts={OPTS} n={14} caption="2019年度より乗降客数が大きく増えた駅"
+    expect={[ai, kawaguchiko, kamakura, bayside, tsuruga, tenjinMinami, yakuin, ariakeTennis, ariake, shinToyosu, shinTakashima]} />
+
+  <h2>観光地の駅</h2>
+  <p>
+    愛知県長久手市の愛・地球博記念公園駅（リニモ）は、2019年度の{count(ai, F)}から2024年度は{count(ai, T)}（{times(ai)}）になりました。
+    駅の前の愛・地球博記念公園には、2022年11月にジブリパークが開園していて、訪れる人が増えたことが大きいと考えられます。
+  </p>
+  <p>
+    山梨県富士河口湖町の河口湖駅（富士山麓電気鉄道）は{count(kawaguchiko, F)}から{count(kawaguchiko, T)}（{times(kawaguchiko)}）、
+    神奈川県鎌倉市の鎌倉高校前駅（江ノ島電鉄）は{count(kamakura, F)}から{count(kamakura, T)}（{times(kamakura)}）です。
+    どちらも観光で訪れる人の多い駅で、海外から訪れる人が増えたことも影響していると考えられます。
+    千葉県浦安市のベイサイド･ステーション駅（ディズニーリゾートライン）も{times(bayside)}になっています。
+  </p>
+  <p class="map-links">
+    <a class="button" href={mapOf(ai)}>愛・地球博記念公園駅を地図で見る</a>
+    <a class="button secondary" href={mapOf(kawaguchiko)}>河口湖駅を地図で見る</a>
+    <a class="button secondary" href={mapOf(kamakura)}>鎌倉高校前駅を地図で見る</a>
+  </p>
+
+  <h2>新幹線や地下鉄が延びた駅</h2>
+  <p>
+    福井県の敦賀駅（JR西日本）は{count(tsuruga, F)}から{count(tsuruga, T)}（{times(tsuruga)}）になりました。
+    2024年3月に北陸新幹線が敦賀まで延び、2024年度の値には新幹線に乗り降りした人も含まれています。
+  </p>
+  <p>
+    福岡市の地下鉄七隈線では、天神南駅が{count(tenjinMinami, F)}から{count(tenjinMinami, T)}（{times(tenjinMinami)}）、
+    薬院駅が{count(yakuin, F)}から{count(yakuin, T)}（{times(yakuin)}）になりました。七隈線の比べられる{formatNumber(nanakuma.length, 0)}駅のうち、{formatNumber(nanakumaGrew, 0)}駅で2019年度を上回っています。
+    七隈線は2023年3月に天神南駅から博多駅まで延びていて、博多駅まで乗り換えなしで行けるようになったことが、利用が増えた理由と考えられます。
+  </p>
+  <p class="map-links">
+    <a class="button" href={mapOf(tsuruga)}>敦賀駅を地図で見る</a>
+    <a class="button secondary" href={mapOf(tenjinMinami)}>天神南駅を地図で見る</a>
+  </p>
+
+  <h2>新しい施設が増えたまちの駅</h2>
+  <p>
+    東京の湾岸を走るゆりかもめでは、有明テニスの森駅（{times(ariakeTennis)}）、有明駅（{times(ariake)}）、新豊洲駅（{times(shinToyosu)}）などが増えました。
+    有明・豊洲のあたりでは、2019年度の後もアリーナや商業施設などの開業が続いていて、訪れる人や住む人が増えたためと考えられます。
+    横浜市の新高島駅（みなとみらい線）も{count(shinTakashima, F)}から{count(shinTakashima, T)}（{times(shinTakashima)}）で、
+    周りでオフィスビルや音楽ホールの開業が続いた時期と重なります。
+  </p>
+  <p class="map-links">
+    <a class="button" href={mapOf(ariakeTennis)}>有明テニスの森駅を地図で見る</a>
+    <a class="button secondary" href={mapOf(shinTakashima)}>新高島駅を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>乗降客数は、国土数値情報「駅別乗降客数データ」の事業者ごとの値です。数え方は事業者によって違い、同じ駅でも事業者の違う値は足していません。</li>
+    <li>乗り換えの多い大きな駅は、乗り換えの人の数え方や、ほかの路線の値に含めて公表されるかどうかで値が大きく動くことがあるため、2019年度に1日{formatNumber(MAX / 10000, 0)}万人以上の駅は比べていません。</li>
+    <li>開業して間もない駅は利用が増え続けることが多いので、2016年度から2019年度まで毎年値がある駅だけで比べています。</li>
+    <li>2019年度は2019年4月から2020年3月までで、終わりのころには新型コロナの影響が出始めていました。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
