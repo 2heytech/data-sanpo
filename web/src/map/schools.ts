@@ -265,6 +265,7 @@ export function initSchools(o: Options): SchoolLayer {
     layer: LAYER,
     kind: "学校",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
+    sourceIds: () => data?.source_ids ?? [],
     show: showSchool,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : at),

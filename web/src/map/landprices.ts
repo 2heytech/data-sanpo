@@ -428,6 +428,7 @@ export function initLandPrices(o: Options): LandPriceLayer {
     layer: LAYER,
     kind: "地価",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
+    sourceIds: () => [...new Set(Object.values(files).flatMap((f) => f?.source_ids ?? []))],
     show: showPoint,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : at),

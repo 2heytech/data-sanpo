@@ -242,6 +242,7 @@ export function initFacilities(o: Options): PointLayer {
     layer: LAYER,
     kind: k.label,
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
+    sourceIds: () => data?.source_ids ?? [],
     show: showPoint,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : at),
