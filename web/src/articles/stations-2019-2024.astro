@@ -64,7 +64,7 @@ check(nanakuma.length === 0 || nanakumaGrew / nanakuma.length >= 0.8, "七隈線
     新型コロナウイルス感染症が広がる前の2019年度と、2024年度の駅の乗降客数（1日あたり、乗った人と降りた人の合計）を比べます。
     2019年度に1日{formatNumber(MIN, 0)}人以上{formatNumber(MAX / 10000, 0)}万人未満だった全国の{formatNumber(all.length, 0)}駅のうち、
     2024年度に2019年度を上回ったのは{formatNumber(grew, 0)}駅（{pct}%）で、真ん中の駅（中央値）は2019年度の{median === null ? "—" : formatNumber(median * 100, 0)}%です。
-    多くの駅では、まだコロナ前の人数まで戻っていないようです。
+    多くの駅では、まだコロナ禍前の人数まで戻っていないようです。
     その一方で、2019年度より大きく増えた駅もあります。どんな駅が並ぶかを見てみます。
   </p>
   <ArticleStations from={FROM} to={TO} opts={OPTS} n={14} caption="2019年度より乗降客数が大きく増えた駅"

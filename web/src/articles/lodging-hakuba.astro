@@ -17,10 +17,13 @@ const TAITO = "muni-13106";
 const HAKONE = "muni-14382";
 const NAHA = "muni-47201";
 const NOZAWA = "muni-20563";
+const TAKAYAMA = "muni-21203";
 
-// 旅館・ホテルの1位は白馬村、簡易宿所は台東区・白馬村の順、入湯税は箱根町・別府市・熱海市の順（本文でそう書く）
+// 旅館・ホテルは白馬村が1位で台東区・高山市が同じ数の2位、簡易宿所は台東区・白馬村の順、入湯税は箱根町・別府市・熱海市の順（本文でそう書く）
 const top = (id: string, period: string, n: number) => ranking(id, period, "municipality", "high", n).map((r) => r.entity_id).join();
 check(top(RYOKAN, P, 1) === HAKUBA, "旅館・ホテルの数の1位が白馬村ではありません");
+const second = ranking(RYOKAN, P, "municipality", "high", 5).filter((r) => r.rank === 2).map((r) => r.entity_id).sort().join();
+check(second === [TAITO, TAKAYAMA].sort().join(), "旅館・ホテルの数の2位が台東区・高山市ではありません");
 check(top(SIMPLE, P, 2) === [TAITO, HAKUBA].join(), "簡易宿所の数の1・2位が台東区・白馬村ではありません");
 check(top(ONSEN, PT, 3) === [HAKONE, "muni-44202", "muni-22205"].join(), "入湯税の1〜3位が箱根町・別府市・熱海市ではありません");
 
@@ -54,10 +57,11 @@ check(["muni-14382", NOZAWA, "muni-10426"].every((id) => (shareOf(id) ?? 0) > 0.
 <Article slug="lodging-hakuba">
   <p>
     旅館・ホテルがいちばん多い市区町村はどこでしょうか。2021年の経済センサスで旅館・ホテルの事業所を数えると、
-    1位は長野県白馬村の{value(RYOKAN, P, HAKUBA)}でした。白馬村の人口は{value("population_total", "2025-10-01", HAKUBA)}（2025年）ですが、
-    東京都台東区（{value(RYOKAN, P, TAITO)}）や沖縄県那覇市（{value(RYOKAN, P, NAHA)}）よりも多くの旅館・ホテルがあります。
+    1位は長野県白馬村の{value(RYOKAN, P, HAKUBA)}でした。2位は同じ数の東京都台東区と岐阜県高山市（{value(RYOKAN, P, TAITO)}）で、
+    台東区には上野や浅草、高山市には古い町並みや奥飛騨温泉郷といった、国内外から多くの人が訪れる観光地があります。
+    白馬村の人口は{value("population_total", "2025-10-01", HAKUBA)}（2025年）ですが、その台東区や高山市、沖縄県那覇市（{value(RYOKAN, P, NAHA)}）よりも多くの旅館・ホテルがあります。
   </p>
-  <ArticleRanking id={RYOKAN} period={P} n={12} expect={[HAKUBA, TAITO, HAKONE, NAHA]}
+  <ArticleRanking id={RYOKAN} period={P} n={12} expect={[HAKUBA, TAITO, TAKAYAMA, HAKONE, NAHA]}
     caption="旅館・ホテルの数が多い市区町村（2021年）" />
   <p>
     政令指定都市は区ごとの値なので、区を合わせると大阪市は{cityText("大阪市")}、京都市は{cityText("京都市")}で、白馬村より多くなります。
@@ -66,10 +70,14 @@ check(["muni-14382", NOZAWA, "muni-10426"].every((id) => (shareOf(id) ?? 0) > 0.
 
   <h2>小さな宿が多い白馬村</h2>
   <p>
-    事業所の数は、宿の大きさに関係なく1か所を1つと数えます。宿泊業で働く人の数を、旅館・ホテルと簡易宿所（相部屋の宿など）の数で割ると、
+    事業所の数は、宿の大きさに関係なく1か所を1つと数えます。宿泊業で働く人の数を、旅館・ホテルと簡易宿所（下で説明します）の数で割ると、
     白馬村は1事業所あたり{perText(HAKUBA)}で、台東区の{perText(TAITO)}、神奈川県箱根町の{perText(HAKONE)}よりずっと少なくなります。
     白馬村には、スキー場の近くにペンションや民宿のような小さな宿が多く集まっていて、それが数の多さにつながっていると考えられます。
+  </p>
+  <p>
+    簡易宿所は、ゲストハウスやホステル、カプセルホテル、山小屋のように、寝る場所を複数の人で共用する形の宿です。
     簡易宿所の数も、白馬村は{value(SIMPLE, P, HAKUBA)}で、台東区（{value(SIMPLE, P, TAITO)}）に次ぐ2番目です。
+    台東区では、上野や浅草の周りに、外国から訪れる人などが泊まるゲストハウスやホステルが多く集まっているためと考えられます。
   </p>
   <ArticleRanking id={SIMPLE} period={P} n={8} expect={[TAITO, HAKUBA]} caption="簡易宿所の数が多い市区町村（2021年）" />
   <p class="map-links">
@@ -91,6 +99,9 @@ check(["muni-14382", NOZAWA, "muni-10426"].every((id) => (shareOf(id) ?? 0) > 0.
   <h2>働く人の半分近くが宿で働くまち</h2>
   <p>
     宿泊業で働く人を、まちの民営の事業所で働く人と比べると、北海道占冠村が{pct("muni-01463")}、福島県北塩原村が{pct("muni-07402")}で、半分を超えています。
+    占冠村にはスキー場やホテルのあるリゾート「星野リゾート トマム」があり、北塩原村には檜原湖や五色沼のある裏磐梯に
+    「裏磐梯レイクリゾート」や「メルキュール裏磐梯リゾート＆スパ」などのホテルがあります。
+    どちらも人口の少ない村に大きなリゾートホテルがあるため、宿で働く人の割合が大きくなっていると考えられます。
     箱根町（{pct(HAKONE)}）、長野県野沢温泉村（{pct(NOZAWA)}）、群馬県草津町（{pct("muni-10426")}）も4割を超えていて、
     宿がまちの大きな働き口になっていることが分かります。
   </p>
