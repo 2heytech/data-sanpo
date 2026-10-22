@@ -1,4 +1,5 @@
-// 寄り道（/articles/）の一覧。本文は pages/articles/<slug>.astro に書く。
+// 寄り道（/articles/）の一覧。本文は articles/<slug>.astro に書き、pages/articles/[slug].astro がページにする。
+// 公開日（published）が来ていない記事は、ページも一覧も作らない。先にマージしておき、公開日の朝のビルドで出す（設計変更記録 #157）。
 // 数値は本文に直接書かず、公開データから出す（components/ArticleValue.astro・ArticleRanking.astro）。
 // 本文で名前を挙げた地域は ArticleRanking の expect に入れ、実データで表に出ないときはビルドを止める（設計変更記録 #126）。
 
@@ -14,9 +15,21 @@ export interface Article {
   indicators: string[];
   /** 記事の地図の画像に使う指標（ないときは indicators の最初。設計変更記録 #142） */
   mapIndicator?: string;
+  /** 「データを地図で見る」の行き先（ないときは地図の画像と同じ。画像と違う指標・時点を見せたいとき。設計変更記録 #157） */
+  mapHref?: string;
 }
 
 export const ARTICLES: Article[] = [
+  {
+    slug: "population-1920-2025",
+    title: "100年前より人口が少ない県：1920年と2025年の都道府県の人口",
+    description: "第1回国勢調査の1920年と2025年の人口を都道府県で比べます。100年で約7倍になった県がある一方、1920年より人口が少ない県もあります。人口がいちばん多かった年や順位の移り変わりも見ます。",
+    published: "2026-10-23",
+    indicators: ["population_history", "population_total"],
+    // 「人口（1920年からの推移）」は都道府県の値だけなので、記事の地図の画像は市区町村の人口（2025年）にする
+    mapIndicator: "population_total",
+    mapHref: "/map/?i=population_history&p=1920-10-01",
+  },
   {
     slug: "area-largest-smallest",
     title: "日本一広い市・いちばん小さい村：市区町村の面積ランキング",
@@ -126,6 +139,21 @@ export const ARTICLES: Article[] = [
 ];
 
 export const articleBySlug = (slug: string) => ARTICLES.find((a) => a.slug === slug);
+
+/**
+ * ビルドする日（日本時間の YYYY-MM-DD）。公開前の記事を確かめるときは ARTICLES_AS_OF=2026-10-30 のように
+ * その日の時点として作れる（公開のビルドでは使わない）
+ */
+export function articlesAsOf(now: Date = new Date()): string {
+  const asOf = process.env.ARTICLES_AS_OF;
+  if (asOf && /^\d{4}-\d{2}-\d{2}$/.test(asOf)) return asOf;
+  return new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/** 公開日が来た記事（ARTICLES の並びのまま）。一覧・ページ・画像・ほかの寄り道はこれだけを使う */
+export function publishedArticles(asOf: string = articlesAsOf()): Article[] {
+  return ARTICLES.filter((a) => a.published <= asOf);
+}
 
 /** 「2026-10-16」→「2026年10月16日」 */
 export function formatDate(iso: string): string {

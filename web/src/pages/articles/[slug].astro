@@ -1,0 +1,15 @@
+---
+// 寄り道の各記事のページ。本文は articles/<slug>.astro に書き、公開日（lib/articles.ts の published）が来た記事だけを作る。
+// 公開日の前にマージした記事は、公開日の朝のビルド（Publish articles）で初めてページになる（設計変更記録 #157）
+import type { AstroComponentFactory } from "astro/runtime/server/index.js";
+import { publishedArticles } from "../../lib/articles";
+
+export function getStaticPaths() {
+  return publishedArticles().map((article) => ({ params: { slug: article.slug } }));
+}
+
+const bodies = import.meta.glob<{ default: AstroComponentFactory }>("../../articles/*.astro", { eager: true });
+const Body = bodies[`../../articles/${Astro.params.slug}.astro`]?.default;
+if (!Body) throw new Error(`寄り道 ${Astro.params.slug} の本文（src/articles/${Astro.params.slug}.astro）がありません`);
+---
+<Body />

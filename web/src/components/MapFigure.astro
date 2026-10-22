@@ -1,19 +1,24 @@
 ---
-// 色分け地図の画像（都道府県ページ・寄り道。設計変更記録 #142）。画像は pages/images/ でビルドのときに作る
+// 色分け地図の画像（都道府県ページ・寄り道。設計変更記録 #142）。画像は pages/images/ でビルドのときに作る。
+// mapButton を付けると、画像の下に「データを地図で見る」の大きなボタンを置く（寄り道。設計変更記録 #157）
 import type { ShareImage } from "../lib/shareImages";
 
-interface Props { image: ShareImage; eager?: boolean }
-const { image, eager = false } = Astro.props;
+interface Props { image: ShareImage; eager?: boolean; mapButton?: boolean; buttonHref?: string }
+const { image, eager = false, mapButton = false, buttonHref = image.mapHref } = Astro.props;
 ---
 <figure class="map-figure">
   <a href={image.mapHref}>
     <img src={image.path} alt={image.alt} width="1200" height="630" loading={eager ? "eager" : "lazy"} decoding="async" />
   </a>
-  <figcaption class="muted small">{image.alt}。<a href={image.mapHref}>地図で拡大して見る</a></figcaption>
+  {mapButton
+    ? <figcaption class="muted small">{image.alt}</figcaption>
+    : <figcaption class="muted small">{image.alt}。<a href={image.mapHref}>地図で拡大して見る</a></figcaption>}
 </figure>
+{mapButton && <p class="map-cta"><a class="button large" href={buttonHref}>データを地図で見る</a></p>}
 
 <style>
   .map-figure { margin: 12px 0 18px; }
   .map-figure img { display: block; width: 100%; max-width: 840px; height: auto; border: 1px solid var(--line); border-radius: 8px; }
   .map-figure figcaption { margin-top: 4px; max-width: 840px; }
+  .map-cta { margin: -6px 0 22px; max-width: 840px; }
 </style>
