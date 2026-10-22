@@ -258,6 +258,7 @@ export function initStations(o: Options): StationLayer {
     layer: LAYER,
     kind: "駅",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
+    sourceIds: () => data?.source_ids ?? [],
     show: showStation,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : shown?.coord ?? null),

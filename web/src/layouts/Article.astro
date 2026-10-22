@@ -2,6 +2,7 @@
 // 寄り道のページの枠。題名・日付・本文・関連する指標とほかの寄り道・広告枠（本文の後）を並べる。
 import Base from "./Base.astro";
 import AdSlot from "../components/AdSlot.astro";
+import ShareButtons from "../components/ShareButtons.astro";
 import MapFigure from "../components/MapFigure.astro";
 import { ARTICLES, articleBySlug, formatDate } from "../lib/articles";
 import { loadIndicators } from "../lib/data";
@@ -56,6 +57,7 @@ const structuredData = {
     {image && <MapFigure image={image} eager />}
     <slot />
   </article>
+  <ShareButtons title={article.title} />
   {related.length > 0 && (
     <section class="sheet">
       <h2>この記事で使った指標</h2>

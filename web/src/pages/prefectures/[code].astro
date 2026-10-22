@@ -4,6 +4,7 @@
 // 「〇〇県 市町村 人口 ランキング」などで探す人の入口と、地域ページへの道にする（設計変更記録 #130）
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
+import ShareButtons from "../../components/ShareButtons.astro";
 import MapFigure from "../../components/MapFigure.astro";
 import NeighborCompare from "../../components/NeighborCompare.astro";
 import ProfileIntro from "../../components/ProfileIntro.astro";
@@ -189,6 +190,7 @@ const structured = breadcrumbList(Astro.site, [
     </section>
   )}
 
+  <ShareButtons title={title} />
   <AdSlot name="page" />
 
   <section class="sheet" id="others">
