@@ -1,0 +1,1 @@
+{"indicator_id":"voter_turnout","period":"2025-07-20","method":"nice","scheme":"greens","zero_blank":false,"pooled_periods":5,"levels":{"municipality":{"breaks":[40.0,45.0,50.0,53.0,55.0,58.0,60.0,62.0,65.0,70.0,80.0],"min":52.184,"max":85.507,"count":62},"prefecture":{"breaks":[51.0,52.0,53.0,54.0,55.0,56.0,57.0,58.0,59.0,60.0],"min":50.482,"max":62.539,"count":47}}}

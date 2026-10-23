@@ -1,0 +1,1 @@
+{"indicator_id":"population_history","period":"2010-10-01","method":"nice","scheme":"blues","zero_blank":false,"pooled_periods":21,"levels":{"prefecture":{"breaks":[700000.0,800000.0,1000000.0,1100000.0,1300000.0,1500000.0,1600000.0,2000000.0,2200000.0,3000000.0,5000000.0],"min":588667.0,"max":13159388.0,"count":47}}}
