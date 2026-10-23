@@ -1,22 +1,14 @@
 ---
-// ページの共有ボタン（X・LINE・はてなブックマーク・リンクのコピー。スマートフォンなどではほかのアプリへの共有も。#153）。
-// 各サービスのボタンの部品（外部のスクリプト）は読み込まず、ふつうのリンクにする（閲覧したことを外部に送らない）。
+// ページのリンクをコピーするボタン（#153・#156）。SNS などへ送るボタンは置かない。
 interface Props {
-  /** 投稿する文に入れるページの題名（サイト名は後ろに足す） */
+  /** ページの題名（ボタンの説明に使う） */
   title: string;
 }
 const { title } = Astro.props;
 const url = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.url.href;
-const text = `${title} | データさんぽ`;
-const q = encodeURIComponent;
 ---
-<section class="share-row" aria-label="このページを共有">
-  <span class="share-row-label">このページを共有</span>
-  <a class="share-chip" href={`https://x.com/intent/post?text=${q(text)}&url=${q(url)}`} target="_blank" rel="noopener">X</a>
-  <a class="share-chip" href={`https://social-plugins.line.me/lineit/share?url=${q(url)}`} target="_blank" rel="noopener">LINE</a>
-  <a class="share-chip" href={`https://b.hatena.ne.jp/add?mode=confirm&url=${q(url)}&title=${q(text)}`} target="_blank" rel="noopener">はてなブックマーク</a>
-  <button type="button" class="share-chip" data-share-copy={url}>リンクをコピー</button>
-  <button type="button" class="share-chip" data-share-native={url} data-share-text={text} hidden>ほかのアプリ</button>
+<section class="share-row" aria-label="このページのリンク">
+  <button type="button" class="share-chip" data-share-copy={url} title={`「${title}」のリンクをコピー`}>このページのリンクをコピー</button>
 </section>
 
 <script>
@@ -30,23 +22,14 @@ const q = encodeURIComponent;
       }
     });
   }
-  for (const b of document.querySelectorAll<HTMLButtonElement>("[data-share-native]")) {
-    if (!navigator.share) continue;
-    b.hidden = false;
-    b.addEventListener("click", () => {
-      navigator.share({ title: b.dataset.shareText, url: b.dataset.shareNative }).catch(() => {});
-    });
-  }
 </script>
 
 <style>
   .share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 24px 0; }
-  .share-row-label { margin-right: 4px; font-size: 0.85rem; font-weight: 700; color: var(--muted); }
   .share-chip {
     display: inline-flex; align-items: center; padding: 6px 14px; border: 1px solid var(--line-strong); border-radius: 999px;
     background: var(--surface); color: var(--accent-ink); font: inherit; font-size: 0.85rem; font-weight: 600; line-height: 1.4;
-    text-decoration: none; cursor: pointer;
+    cursor: pointer;
   }
   .share-chip:hover { background: var(--accent-soft); }
-  .share-chip[hidden] { display: none; }
 </style>

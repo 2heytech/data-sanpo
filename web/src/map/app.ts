@@ -1689,8 +1689,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         pointIds.length ? `地点の出典: ${attributions(pointIds)}` : "",
         `背景地図: ${attributionEl?.textContent?.trim() || "地理院タイル"}`,
       ].filter(Boolean);
-      const text = colorsOn ? `${area ? `${area}の` : ""}${indicator.name}（${p.label}）の地図` : `${area ? `${area}の` : ""}${title}`;
-      return { title, subtitle, legend: lm, credits, text: `${text}｜データさんぽ`,
+      return { title, subtitle, legend: lm, credits,
                fileName: safeFileName(`データさんぽ_${[title, when, area].filter(Boolean).join("_")}.png`) };
     },
   });

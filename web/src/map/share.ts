@@ -1,6 +1,7 @@
-// 地図の画像保存と共有（設計変更記録 #153）。地図の右下のボタンで共有の画面を開く。
+// 地図の画像の保存・コピーと、リンクのコピー（設計変更記録 #153・#156）。地図の右下のボタンで画面を開く。
 // 画像は表示中の地図（WebGL の canvas）に、題名・凡例・出典・サイト名を書き足してブラウザの中で作る（どこにも送らない）。
-// 共有するリンクは URL の状態（指標・時点・選んだ地域・色分けの単位）だけで、地図の位置は入れない（設計書 3章「共有」）。
+// リンクは URL の状態（指標・時点・選んだ地域・色分けの単位）だけで、地図の位置は入れない（設計書 3章「共有」）。
+// SNS などへ送るボタンは置かない（#156）。
 import type { IControl, Map as MapLibreMap } from "maplibre-gl";
 import { tickStep } from "../lib/classify";
 
@@ -28,8 +29,7 @@ export interface ShareView {
   legend: LegendModel | null;
   /** 画像の下に書く出典（「統計: …」「地図: …」の行） */
   credits: string[];
-  /** X などに投稿する文と、保存する画像のファイル名のもと */
-  text: string;
+  /** 保存する画像のファイル名 */
   fileName: string;
 }
 
@@ -54,21 +54,21 @@ export function initShare(o: ShareOptions): void {
   const preview = $<HTMLImageElement>("#share-image");
   const status = $("#share-status");
   const download = $<HTMLAnchorElement>("#share-download");
-  const nativeButton = $<HTMLButtonElement>("#share-native");
+  const imageCopyButton = $<HTMLButtonElement>("#share-image-copy");
   const urlInput = $<HTMLInputElement>("#share-url");
   const copyButton = $<HTMLButtonElement>("#share-copy");
-  const xLink = $<HTMLAnchorElement>("#share-x");
-  const lineLink = $<HTMLAnchorElement>("#share-line");
+  // 画像をクリップボードに入れられるブラウザだけ「画像をコピー」を出す
+  const canCopyImage = typeof ClipboardItem !== "undefined" && !!navigator.clipboard?.write
+    && (ClipboardItem.supports?.("image/png") ?? true);
   let objectUrl: string | null = null;
-  let file: File | null = null;
-  let view: ShareView | null = null;
+  let blob: Blob | null = null;
   let token = 0;
 
   const control: IControl = {
     onAdd() {
       const div = document.createElement("div");
       div.className = "maplibregl-ctrl maplibregl-ctrl-group share-ctrl";
-      div.innerHTML = `<button type="button" aria-haspopup="dialog" title="画像の保存・共有">${ICON_SHARE}<span>共有</span></button>`;
+      div.innerHTML = `<button type="button" aria-haspopup="dialog" title="画像の保存・コピーとリンクのコピー">${ICON_SHARE}<span>共有</span></button>`;
       div.querySelector("button")!.addEventListener("click", () => void open());
       return div;
     },
@@ -78,13 +78,13 @@ export function initShare(o: ShareOptions): void {
 
   async function open() {
     const t = ++token;
-    view = o.view();
-    const url = location.href;
-    urlInput.value = url;
-    xLink.href = `https://x.com/intent/post?text=${encodeURIComponent(view.text)}&url=${encodeURIComponent(url)}`;
-    lineLink.href = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`;
+    const view = o.view();
+    urlInput.value = location.href;
     copyButton.textContent = "コピー";
-    nativeButton.hidden = !navigator.share;
+    blob = null;
+    imageCopyButton.hidden = !canCopyImage;
+    imageCopyButton.textContent = "画像をコピー";
+    imageCopyButton.disabled = true;
     download.removeAttribute("href");
     download.setAttribute("aria-disabled", "true");
     preview.hidden = true;
@@ -93,12 +93,12 @@ export function initShare(o: ShareOptions): void {
     dialog.showModal();
     try {
       const canvas = compose(await snapshot(o.map), view, o.font, await logo());
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
       if (t !== token) return;
-      if (!blob) throw new Error("toBlob");
+      if (!png) throw new Error("toBlob");
       if (objectUrl) URL.revokeObjectURL(objectUrl);
-      objectUrl = URL.createObjectURL(blob);
-      file = new File([blob], view.fileName, { type: "image/png" });
+      objectUrl = URL.createObjectURL(png);
+      blob = png;
       preview.src = objectUrl;
       preview.alt = `${view.title}（${view.subtitle}）の地図の画像`;
       preview.hidden = false;
@@ -106,11 +106,10 @@ export function initShare(o: ShareOptions): void {
       download.href = objectUrl;
       download.download = view.fileName;
       download.removeAttribute("aria-disabled");
-      nativeButton.textContent = navigator.canShare?.({ files: [file] }) ? "画像をアプリで共有" : "ほかのアプリで共有";
+      imageCopyButton.disabled = false;
     } catch {
       if (t !== token) return;
-      file = null;
-      status.textContent = "画像を作れませんでした。リンクの共有はできます。";
+      status.textContent = "画像を作れませんでした。リンクのコピーはできます。";
     }
   }
 
@@ -126,17 +125,14 @@ export function initShare(o: ShareOptions): void {
     }
   });
   urlInput.addEventListener("focus", () => urlInput.select());
-  nativeButton.addEventListener("click", async () => {
-    if (!view) return;
-    const url = urlInput.value;
-    // 画像を付けて送れる端末（スマートフォンなど）は画像も渡す。送り先によっては URL が落ちるので、文に URL を入れる
-    const data: ShareData = file && navigator.canShare?.({ files: [file] })
-      ? { files: [file], title: view.title, text: `${view.text} ${url}` }
-      : { title: view.title, text: view.text, url };
+  imageCopyButton.addEventListener("click", async () => {
+    if (!blob) return;
     try {
-      await navigator.share(data);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      imageCopyButton.textContent = "画像をコピーしました";
     } catch {
-      // 共有を取り消したとき（AbortError）など。何もしない
+      // 権限がないときなど。保存するか、画像を長押し・右クリックしてコピーしてもらう
+      imageCopyButton.textContent = "画像をコピーできませんでした";
     }
   });
 }
