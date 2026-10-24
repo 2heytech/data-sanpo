@@ -16,6 +16,13 @@ describe("地図の画像の題名", () => {
     expect(t.lines.length).toBeLessThanOrEqual(3);
     for (const l of t.lines) expect(["人口が増えた市区町村・", "減った市区町村", "（2025年国勢調査）", "減った市区町村（2025年国勢調査）", "人口が増えた市区町村・減った市区町村"]).toContain(l);
   });
+  it("区切りで収まらない題名は助詞の後で折り返し、数字の途中では切らない", () => {
+    const t = layoutTitle("人口が増えた都道府県は1つだけ：2025年国勢調査の人口増減ランキング");
+    expect(t.lines).toEqual(["人口が増えた都道府県は1つだけ", "2025年国勢調査の", "人口増減ランキング"]);
+    for (const l of t.lines) expect(textWidth(l, t.size)).toBeLessThanOrEqual(536);
+    // 区切りで収まる題名は、これまでどおり助詞の後では折り返さない
+    expect(layoutTitle("東京都の市区町村別：人口増加率（2020→2025年）").lines).toEqual(["東京都の市区町村別", "人口増加率（2020→2025年）"]);
+  });
   it("区切りで収まらない文は文字で折り返し、行が多すぎるときは「…」で切る", () => {
     expect(breakText("あ".repeat(30), 20, 200, 2)).toEqual(["あ".repeat(10), `${"あ".repeat(9)}…`]);
     expect(breakText("全国の市区町村別の人口（2020年）", 22, 536, 2)).toEqual(["全国の市区町村別の人口（2020年）"]);

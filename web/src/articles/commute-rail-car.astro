@@ -1,12 +1,15 @@
 ---
 import Article from "../layouts/Article.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { nationalValue, value } from "../lib/articleData";
+import { check, nationalValue, ranking, raw, value } from "../lib/articleData";
 
 const P = "2020-10-01";
 const CAR = "commute_car_share";
 const RAIL = "commute_rail_share";
 const BIKE = "commute_bicycle_share";
+// 題名の「車で通う人が8割を超える県」: 自家用車の割合が最も高いのが山形県で、80%を超える
+ranking(CAR, P, "prefecture", "high", 1, ["pref-06"]);
+check((raw(CAR, P, "pref-06") ?? 0) > 80, "山形県の自家用車の割合が8割を超えていません");
 ---
 <Article slug="commute-rail-car">
   <p>

@@ -49,6 +49,9 @@ const ratioOf = (s: Station | null) => all.find((r) => r.station.id === s?.id)?.
 const times = (s: Station | null) => { const r = ratioOf(s); return r === null ? "—" : `${formatNumber(r, 1)}倍`; };
 const mapOf = (s: Station | null) => (s ? `/map/?s=${s.id}` : "/map/");
 
+// 題名の「急増したのは、あのテーマパークの駅」: ジブリパークのある愛・地球博記念公園駅が1.5倍以上
+check(all.length === 0 || (ratioOf(ai) ?? 0) >= 1.5, "愛・地球博記念公園駅が2019年度の1.5倍以上ではありません");
+
 // 記事の「データを地図で見る」（lib/articles.ts の mapHref）は愛・地球博記念公園駅を開く
 check(articleBySlug(SLUG)?.mapHref === mapOf(ai), "記事の mapHref が愛・地球博記念公園駅の地図になっていません");
 // 敦賀駅の2024年度の値に北陸新幹線が含まれる（本文でそう書く）

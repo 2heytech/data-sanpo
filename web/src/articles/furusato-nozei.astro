@@ -2,11 +2,14 @@
 import Article from "../layouts/Article.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
 import { formatNumber } from "../lib/format";
-import { oku, raw, rows, value } from "../lib/articleData";
+import { check, oku, ranking, raw, rows, value } from "../lib/articleData";
 
 const P = "2025-04-01";
 const ID = "furusato_amount";
 const PC = "furusato_amount_per_capita";
+// 題名の「住民1人あたり300万円を超える町」: 1人あたりの1位が白糠町で、300万円を超える
+ranking(PC, P, "municipality", "high", 1, ["muni-01668"]);
+check((raw(PC, P, "muni-01668") ?? 0) > 3000000, "白糠町の住民1人あたりの受入額が300万円を超えていません");
 // 全国の合計（都道府県の値＝県と県内の市区町村の受入の合計、を足したもの）。値のない県があれば出さない
 const prefRows = rows(ID, P, "prefecture");
 const total = prefRows.length && prefRows.every((r) => r.value !== null) ? prefRows.reduce((s, r) => s + (r.value as number), 0) : null;

@@ -115,17 +115,22 @@ export function breakText(text: string, size: number, maxWidth: number, maxLines
   return lines && lines.length <= maxLines ? lines : charWrap(text, size, maxWidth, maxLines);
 }
 
-/** 題名の文字の大きさと行。なるべく2行、だめなら3行に収まる、いちばん大きい文字にする */
+/**
+ * 題名の文字の大きさと行。なるべく2行、だめなら3行に収まる、いちばん大きい文字にする。
+ * 「、」「・」などの区切りで収まらないときは、助詞の後でも折り返す（数字や言葉の途中では切らない）
+ */
 export function layoutTitle(text: string, maxWidth = TEXT_W): { size: number; lines: string[] } {
   const parts = text.split("：");
-  const at = (size: number) => {
-    const ls = parts.map((p) => pack(segments(p, false), size, maxWidth));
+  const at = (size: number, soft: boolean) => {
+    const ls = parts.map((p) => pack(segments(p, soft), size, maxWidth));
     return ls.some((l) => !l) ? null : (ls as string[][]).flat();
   };
-  for (const [maxLines, sizes] of [[2, [44, 40, 36]], [3, [44, 40, 36, 32]]] as const) {
-    for (const size of sizes) {
-      const lines = at(size);
-      if (lines && lines.length <= maxLines) return { size, lines };
+  for (const soft of [false, true]) {
+    for (const [maxLines, sizes] of [[2, [44, 40, 36]], [3, [44, 40, 36, 32]]] as const) {
+      for (const size of sizes) {
+        const lines = at(size, soft);
+        if (lines && lines.length <= maxLines) return { size, lines };
+      }
     }
   }
   return { size: 32, lines: charWrap(parts.join(""), 32, maxWidth, 3) };

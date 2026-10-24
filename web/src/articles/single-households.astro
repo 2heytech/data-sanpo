@@ -1,12 +1,14 @@
 ---
 import Article from "../layouts/Article.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { count, nationalValue, value } from "../lib/articleData";
+import { check, count, nationalValue, value } from "../lib/articleData";
 
 const P = "2025-10-01";
 const P0 = "2020-10-01";
 const ID = "single_person_household_share";
 const PPH = "persons_per_household";
+// 題名の「一人暮らしが8割を超えるまちがある」
+check(Number(count(ID, P, "municipality", (v) => v > 80).replace(/,/g, "")) > 0, "一人暮らし世帯の割合が80%を超える市区町村がありません");
 ---
 <Article slug="single-households">
   <p>

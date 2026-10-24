@@ -11,6 +11,8 @@ ranking("taxable_income_per_taxpayer", "2025-04-01", "municipality", "high", 30,
 // 「2020年度から2022年度に減り、2024年度はまた増えた」を確かめる
 const n = (period: string) => Number(count(ID, period, "municipality", atLeast1).replace(/,/g, ""));
 if (!Number.isNaN(n(P))) check(n("2020-04-01") > n("2022-04-01") && n(P) > n("2022-04-01"), "財政力指数が1以上の数の増減が本文と違います");
+// 題名の「財政力指数1位は○○村？」: 1位が愛知県飛島村
+ranking(ID, P, "municipality", "high", 1, ["muni-23427"]);
 ---
 <Article slug="fiscal-strength">
   <p>
