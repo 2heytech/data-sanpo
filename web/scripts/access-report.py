@@ -5,7 +5,7 @@
   python3 web/scripts/access-report.py   （Markdown を出力。最後の行は「ALERTS_JSON: {...}」）
 
   日付は日本時間で区切る。public リポジトリでは実行結果を誰でも見られるので、
-  出すのは日ごとの合計（全体と日本から）と、変化があったときの国・参照元の名前だけにする。
+  出すのは日ごとの合計（全体・日本から・検索から）と、変化があったときの国・参照元の名前だけにする。
 """
 import json
 import os
@@ -17,6 +17,8 @@ from datetime import datetime, timedelta, timezone
 
 HOST = "data-sanpo.com"
 HOME_COUNTRY = "JP"  # 海外の巡回で全体が膨らんでも人の訪問の動きが見えるよう、日本からの数を別に出す
+# 検索から来た訪問とみなす参照元（ホスト名にこの語を含むもの）。表の列名に使う名前と対にする
+SEARCH_ENGINES = {"google": "Google", "yahoo": "Yahoo!", "bing": "Bing", "duckduckgo": "DuckDuckGo"}
 JST = timezone(timedelta(hours=9))
 API = "https://api.cloudflare.com/client/v4"
 
@@ -105,6 +107,7 @@ def main() -> None:
     visits: dict[str, float] = defaultdict(float)
     views: dict[str, float] = defaultdict(float)
     jp_visits: dict[str, float] = defaultdict(float)
+    search: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     country: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     referer: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     data = graphql(token, RUM_QUERY, {"account": account, "start": start, "end": end})
@@ -119,6 +122,11 @@ def main() -> None:
         ref = (r["dimensions"]["refererHost"] or "").lower()
         if ref and not ref.endswith(HOST):
             referer[d][ref] += v
+            labels = ref.split(".")
+            for key, name in SEARCH_ENGINES.items():
+                if key in labels:
+                    search[d][name] += v
+                    break
 
     # ボットを含むリクエスト数（ゾーンの読み取り権限がないトークンでは取れないので、取れたときだけ）
     requests: dict[str, float] | None = None
@@ -157,10 +165,13 @@ def main() -> None:
                 alerts.append({"kind": "requests_up", "day": last, "value": requests[last], "prev_avg": round(base_req)})
 
     print(f"## 訪問状況（日本時間、{days[0]}〜{target}）\n")
-    print("| 日付 | 訪問数 | ページビュー | 日本からの訪問数 | 日本からのページビュー |")
-    print("|---|--:|--:|--:|--:|")
+    engines = list(SEARCH_ENGINES.values())
+    print("| 日付 | 訪問数 | ページビュー | 日本からの訪問数 | 日本からのページビュー | 検索からの訪問数 | "
+          + " | ".join(engines) + " |")
+    print("|---|" + "--:|" * (5 + len(engines)))
     for d in days:
-        print(f"| {d} | {visits[d]:,.0f} | {views[d]:,.0f} | {jp_visits[d]:,.0f} | {country[d][HOME_COUNTRY]:,.0f} |")
+        print(f"| {d} | {visits[d]:,.0f} | {views[d]:,.0f} | {jp_visits[d]:,.0f} | {country[d][HOME_COUNTRY]:,.0f} | "
+              f"{sum(search[d].values()):,.0f} | " + " | ".join(f"{search[d][e]:,.0f}" for e in engines) + " |")
     if requests:
         print("\n| 日付（UTC） | リクエスト数（ボットを含む） |")
         print("|---|--:|")
@@ -171,6 +182,8 @@ def main() -> None:
     print(f"\n前日（{target}）の目立つ変化: {len(alerts)} 件（数は抜き取りからの推計）")
     print("\nALERTS_JSON: " + json.dumps({"day": target, "visits": visits[target], "pageviews": views[target],
                                          "jp_visits": jp_visits[target], "jp_pageviews": country[target][HOME_COUNTRY],
+                                         "search_visits": sum(search[target].values()),
+                                         "search_by_engine": {e: v for e, v in search[target].items() if v},
                                          "prev_avg_pageviews": round(base_views, 1),
                                          "alerts": alerts}, ensure_ascii=False))
 

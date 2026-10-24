@@ -2353,3 +2353,11 @@
   - P14 の入った添付ファイルは消す。代わりは次の全国公開で、P14 を含まない中身から作られる。それまでは Release に元ファイルが
     なく、キャッシュも消えていたときだけ出典から取り直す（70分以上）。
   - 消すのは Actions の作業場所の `data/raw` だけで、取込・書き出しの処理（`pipeline/`）は変えない（site_only は止まらない）。
+
+## 160. 毎朝の訪問集計に検索から来た訪問数を足す — 採用（#91・#150 を広げる）
+
+- 何を: Actions「Access report」の日ごとの表に「検索からの訪問数」と、その内訳（Google・Yahoo!・Bing・DuckDuckGo）の列を足し、
+  ALERTS_JSON にも前日の search_visits・search_by_engine を入れる。参照元のホスト名を「.」で区切った語に
+  google・yahoo・bing・duckduckgo があるものを検索とみなす（www.google.co.jp、search.yahoo.co.jp など）。目立つ変化の決まりは変えない。
+  web/scripts/access-report.py。
+- なぜ: 運営者の依頼（2026-10-24）。検索からの訪問が出始めたので、毎日の動きを続けて見られるようにする。
