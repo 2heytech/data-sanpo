@@ -1,8 +1,9 @@
-import { formatNumber, formatValue } from "./format";
+import { formatNumber, formatValue, shareWords } from "./format";
 import { approxCount, summarizePlaces, type MuniPlaces, type PlacePoints } from "./placeStats";
 import { municipalityPeriods } from "./periods";
+import { isDesignatedWard } from "./prefecturePage";
 import { nationalityTemplate, RANK_TEMPLATES, tag, type RankTemplate, type Tag, type Tone } from "./rankInsights";
-import type { Indicator, ValueRow } from "./types";
+import type { AreasFile, FacilityPoint, Indicator, Municipality, ValueRow } from "./types";
 
 /**
  * 地域ページ「データで見る〇〇」の考察。決まった条件ごとに、数字と推測の文を出す。
@@ -21,6 +22,10 @@ export interface InsightData {
   indicators(): Indicator[];
   /** 駅・空港・港・地価公示・天気の点（ないときは点の考察を出さない） */
   places?(): PlacePoints | null;
+  /** 市区町村と都道府県（県内の合計に占める割合や、県でいちばん人口の多いまちの文に使う。ないときはその文を出さない） */
+  areas?(): Pick<AreasFile, "municipalities" | "prefectures"> | null;
+  /** 国指定文化財の点（全国）と、その時点の表示名（ないときは文化財の文を出さない） */
+  culture?(): { label: string; points: FacilityPoint[] } | null;
 }
 
 interface Stat {
@@ -112,7 +117,7 @@ function countBelow(values: number[], v: number): { lt: number; le: number } {
  * 考察のまとまり（テーマ）。ページではテーマごとに小見出しを付けてまとめる。
  * 並びは、題名の元になった考察のテーマを先に、あとは目立つ考察のあるテーマから（同じなら下の順）
  */
-export const THEMES = ["気候と土地", "交通", "住む人", "住まい", "仕事と産業", "まちの財政", "子育てと学び", "安全と健康", "選挙"] as const;
+export const THEMES = ["気候と土地", "歴史と文化", "交通", "住む人", "住まい", "仕事と産業", "まちの財政", "子育てと学び", "安全と健康", "選挙"] as const;
 export type Theme = (typeof THEMES)[number];
 /** 全国順位の考察（rankInsights）のテーマ。指標のカテゴリから決め、合わないものは指標ごとに決める */
 const CATEGORY_THEME: Record<string, Theme> = {
@@ -132,7 +137,8 @@ export const themeOf = (ind: Indicator): Theme => ID_THEME[ind.id] ?? CATEGORY_T
 
 /** w は見出しに選ぶときの目立ち方（小さいほど目立つ。全国の中の位置など） */
 /** lead: 土地・財政の文で、全国の上位・下位2%に入るときのその位置（全国順位の考察のすぐ後に置き、ほかの文より先に選ぶ） */
-export type Line = { text: string; strong: boolean; tone?: Tone; tag?: Tag; w: number; theme?: Theme; topic?: string; lead?: number };
+/** more: 考察の文に続けて添える文（物差し・移り変わり・数え方の癖。設計変更記録 #163）。見出しや説明文には使わない */
+export type Line = { text: string; strong: boolean; tone?: Tone; tag?: Tag; w: number; theme?: Theme; topic?: string; lead?: number; more?: string[] };
 /**
  * テーマの中の話の順（人口 → 年齢 → 世帯 → 外国人 → 住まい → 地価、のように話がつながる順）。
  * 考察を出す処理の名前と、全国順位の考察の指標の id（国籍別・政党別は名前の頭）で並べる。ないものはテーマの最後
@@ -140,6 +146,8 @@ export type Line = { text: string; strong: boolean; tone?: Tone; tag?: Tag; w: n
 const TOPIC_ORDER = [
   // 気候と土地
   "area", "population_density", "terrain", "altitude", "landuse", "forest", "farmland", "landChange", "bamboo", "weather",
+  // 歴史と文化
+  "culture",
   // 交通
   "airport", "port", "station", "commute", "commute_walk_share", "commute_bicycle_share", "commute_bus_share", "commute_car_share",
   // 住む人
@@ -171,8 +179,62 @@ const MIN_WITHOUT_FILLER = 6;
 // 点のデータの市区町村ごとのまとめは、点のデータ1つにつき1回だけ作る
 const placeCache = new WeakMap<PlacePoints, Map<string, MuniPlaces>>();
 
-/** 「データで見る〇〇」の見出し（特徴を一言で表す文）と考察（テーマごとのまとまりと、その順に並べた文） */
-export interface AreaProfile { title: string | null; groups: { theme: Theme; lines: string[] }[]; lines: string[] }
+/** 市区町村の id からの引き当てと、都道府県ごとの市区町村・都道府県の名前（読んだ一覧1つにつき1回だけ作る） */
+interface AreaIndex { byId: Map<string, Municipality>; byPref: Map<string, Municipality[]>; prefName: Map<string, string> }
+const areaIndexCache = new WeakMap<object, AreaIndex>();
+function areaIndex(areas: Pick<AreasFile, "municipalities" | "prefectures">): AreaIndex {
+  let x = areaIndexCache.get(areas);
+  if (!x) {
+    const byPref = new Map<string, Municipality[]>();
+    for (const m of areas.municipalities) byPref.set(m.prefecture, [...(byPref.get(m.prefecture) ?? []), m]);
+    x = { byId: new Map(areas.municipalities.map((m) => [m.id, m])), byPref, prefName: new Map(areas.prefectures.map((p) => [p.code, p.name])) };
+    areaIndexCache.set(areas, x);
+  }
+  return x;
+}
+
+/** 国指定文化財の市区町村ごとの一覧（2つ以上の市区町村にまたがるものはそれぞれに数える）と、文化財のある市区町村の件数を並べた配列 */
+const cultureCache = new WeakMap<object, { byMuni: Map<string, FacilityPoint[]>; counts: number[] }>();
+function cultureIndex(points: FacilityPoint[]) {
+  let x = cultureCache.get(points);
+  if (!x) {
+    const byMuni = new Map<string, FacilityPoint[]>();
+    for (const p of points) {
+      for (const id of p.municipality_ids ?? (p.municipality_id ? [p.municipality_id] : [])) byMuni.set(id, [...(byMuni.get(id) ?? []), p]);
+    }
+    x = { byMuni, counts: [...byMuni.values()].map((l) => l.length).sort((a, b) => a - b) };
+    cultureCache.set(points, x);
+  }
+  return x;
+}
+/** 文化財の格（小さいほど先に名前を挙げる）。国宝 → 特別史跡・特別名勝・特別天然記念物 → 重要伝統的建造物群保存地区 → 重要文化財・史跡・名勝・天然記念物 → 登録有形文化財 */
+function cultureTier(kind = ""): number {
+  if (kind.includes("国宝")) return 0;
+  if (kind.includes("特別")) return 1;
+  if (kind === "重要伝統的建造物群保存地区") return 2;
+  if (kind.startsWith("登録")) return 4;
+  return 3;
+}
+/** 文に出す文化財の名前（移築した建物の「（旧所在…）」や、所在地の「（石川県輪島市町野町）」は外す）。複数の場所をまとめた長い名前は出さない */
+function cultureName(p: FacilityPoint): string | null {
+  const name = p.name.replace(/（旧所在[^）]*）/g, "").replace(/（[^（）]*[都道府県][^（）]*[市区町村郡][^（）]*）/g, "").trim();
+  // 「■」は元の一覧で表せない文字（「塔の■（ヘツリ）」など）
+  return name.length <= 20 && !/[　■〓]/.test(name) ? name : null;
+}
+function culturePhrase(kind: string, name: string): string {
+  if (kind === "国宝（建造物）") return `国宝「${name}」`;
+  if (kind === "重要伝統的建造物群保存地区") return `重要伝統的建造物群保存地区「${name}」`;
+  return `国の${kind.replace("（建造物）", "")}「${name}」`;
+}
+
+/** 全国の真ん中のまちとの比べの前置き */
+const MIDDLE_HEAD = "全国の市区町村を値の順に並べると、ちょうど真ん中に来るまちは";
+
+/**
+ * 「データで見る〇〇」の見出し（特徴を一言で表す文）と考察（テーマごとのまとまりと、その順に並べた文）。
+ * groups の more は lines と同じ順の、考察に添える文（ないときは空文字）
+ */
+export interface AreaProfile { title: string | null; groups: { theme: Theme; lines: string[]; more: string[] }[]; lines: string[] }
 
 /**
  * 考察の候補（all。目立つ順）から、ページに出す考察と題名を選び、テーマごとに並べる（市区町村・都道府県のページで共通）。
@@ -189,7 +251,14 @@ export function composeProfile(all: Line[], opts: { extra: Line[]; bright: Line[
   const titleLines: Line[] = [];
   const title = headline(picked);
   const groups = arrange(picked);
-  return { title, groups: groups.map((g) => ({ theme: g.theme, lines: g.lines.map((l) => l.text) })),
+  // 全国の真ん中のまちとの比べは、ページで2回目からは短く書く（同じ前置きが続いて読みにくくならないように）
+  let middleSeen = false;
+  const moreText = (l: Line) => (l.more ?? []).map((m) => {
+    if (!m.startsWith(MIDDLE_HEAD)) return m;
+    if (!middleSeen) { middleSeen = true; return m; }
+    return m.replace(MIDDLE_HEAD, "同じように並べると、真ん中に来るまちは");
+  }).join("");
+  return { title, groups: groups.map((g) => ({ theme: g.theme, lines: g.lines.map((l) => l.text), more: g.lines.map(moreText) })),
     lines: groups.flatMap((g) => g.lines.map((l) => l.text)) };
 
   /**
@@ -240,8 +309,8 @@ export function composeProfile(all: Line[], opts: { extra: Line[]; bright: Line[
     const chosen: Line[] = [];
     for (const l of candidates) {
       if (chosen.some((x) => x.tag!.key === l.tag!.key)) continue;
-      // 「盛ん」が2回続くなど、同じ言葉が重なる組み合わせは避ける
-      if (chosen.length === 1 && ["盛ん", "多く", "多い"].some((w) => chosen[0].tag!.renyou.includes(w) && l.tag!.rentai.includes(w))) continue;
+      // 「盛ん」「集まる」が2回続くなど、同じ言葉が重なる組み合わせは避ける
+      if (chosen.length === 1 && ["盛ん", "多く", "多い", "集ま"].some((w) => chosen[0].tag!.renyou.includes(w) && l.tag!.rentai.includes(w))) continue;
       chosen.push(l);
       if (chosen.length === 2) break;
     }
@@ -274,6 +343,33 @@ export function composeProfile(all: Line[], opts: { extra: Line[]; bright: Line[
     const last = list.lastIndexOf(negatives[negatives.length - 1]);
     return list.map((l, i) => (i === last ? bright : l));
   }
+}
+
+/**
+ * 移り変わりを比べる時点（古い順）。国勢調査・住宅・土地統計調査（10月1日の時点）の値で、今の時点より5年以上前のもの。
+ * 毎年の統計は、年によって調べ方が変わったものがあるので比べない（設計変更記録 #163）
+ */
+export function trendBase(ind: Indicator, period: string): string[] {
+  if (ind.kind === "change" || !period.endsWith("-10-01")) return [];
+  const year = (p: string) => Number(p.slice(0, 4));
+  return ind.periods.map((p) => p.period).filter((p) => p.endsWith("-10-01") && year(period) - year(p) >= 5).sort();
+}
+
+/** 移り変わりの文（事実だけを書き、理由は書かない）。割合はポイントの差、それ以外は増減の割合で書く */
+export function trendText(ind: Indicator, now: { period: string; value: number }, then: { period: string; value: number; text: string }): string | null {
+  const year = (p: string) => Number(p.slice(0, 4));
+  if (then.value <= 0) return null;
+  const years = year(now.period) - year(then.period);
+  const same = `${year(then.period)}年も${then.text}で、以前から同じくらいの水準です。`;
+  const r = ((now.value - then.value) / then.value) * 100;
+  if (ind.unit === "%") {
+    // 差が小さくても、もとの割合が小さく何倍にもなっているときは同じ水準と書かない
+    const d = now.value - then.value;
+    if (Math.abs(d) < 1 && Math.abs(r) < 10) return same;
+    return `${year(then.period)}年は${then.text}で、${years}年で${formatNumber(Math.abs(d), ind.digits)}ポイント${d > 0 ? "上がりました" : "下がりました"}。`;
+  }
+  if (Math.abs(r) < 3) return same;
+  return `${year(then.period)}年は${then.text}で、${years}年で${formatNumber(Math.abs(r), 1)}%${r > 0 ? "増えました" : "減りました"}。`;
 }
 
 export function areaInsights(muniId: string, data: InsightData): string[] {
@@ -318,9 +414,17 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     if (!m) { m = summarizePlaces(pts); placeCache.set(pts, m); }
     place = m.get(muniId) ?? {};
   }
+  const areas = data.areas?.() ?? null;
+  const index = areas ? areaIndex(areas) : null;
+  const self = index?.byId.get(muniId);
+  const prefName = self ? index!.prefName.get(self.prefecture) : undefined;
+  const who = self?.name ?? "このまち";
 
   const evacuated = EVACUATION_AREAS.has(muniId);
   const noto = NOTO_2024_AREAS.has(muniId);
+  // 県の中心のまちの文で県内の割合を書いた指標（全国順位の考察では同じ割合を重ねて書かない）
+  let hubShareId: string | null = null;
+  const hub = prefHub();
   const gap = foreignGap();
   const ranked = rankCandidates();
   const on = (theme: Theme, topic: string, l: Line | null): Line | null => {
@@ -332,7 +436,8 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     on("気候と土地", "farmland", farmland()), on("気候と土地", "landChange", landChange()), on("気候と土地", "bamboo", bamboo()),
     on("まちの財政", "fiscal", fiscal())].filter((l): l is Line => !!l);
   const leading = land.filter((l) => l.lead !== undefined).sort((a, b) => a.lead! - b.lead!).slice(0, 2);
-  const all = [on("住む人", "evacuation", evacuation()), on("住む人", "disaster", notoDisaster()), on("住む人", "foreignGap", gap), ...rankNotables(), ...leading, on("交通", "airport", airport()), on("交通", "port", port()),
+  const all = [on("住む人", "evacuation", evacuation()), on("住む人", "disaster", notoDisaster()), on("住む人", "foreignGap", gap), ...rankNotables(), ...leading,
+    on("歴史と文化", "culture", culture()), on("交通", "airport", airport()), on("交通", "port", port()),
     on("交通", "station", station()), ...weather().map((l) => on("気候と土地", "weather", l)), on("住まい", "land", landPrice()),
     on("住む人", "foreignShare", gap ? null : foreignShare()), on("仕事と産業", "daytime", daytime()),
     on("住む人", "populationChange", populationChange()), on("住む人", "ageStructure", ageStructure()),
@@ -345,7 +450,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     .filter((l, _, list) => !(l.topic === "housing" && l.text.startsWith("民営の借家") && list.some((x) => x.topic === "owner_occupied_share")));
   // 題名の候補には、表示する考察のほか、全国の上位・下位10%に入る指標の考察も加える（選んだときは考察にも加える）
   const extra = ranked.filter((f) => f.pos <= 0.1 && f.tag && f.tone !== "neg")
-    .map((f) => ({ ...strong(f.text, f.tone, f.tag, f.pos), theme: f.theme, topic: f.id }));
+    .map((f) => ({ ...strong(f.text, f.tone, f.tag, f.pos), theme: f.theme, topic: f.id, more: f.more }));
   return composeProfile(all, { extra, bright: brightSide(), place: "まち" });
 
   /**
@@ -355,7 +460,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
   function brightSide(): Line[] {
     const best = ranked.find((f) => f.tone === "pos");
     if (!best) return [];
-    if (best.pos <= BRIGHT_SHARE) return [{ ...strong(best.text, best.tone, best.pos <= 0.1 ? best.tag : undefined, best.pos), theme: best.theme, topic: best.id }];
+    if (best.pos <= BRIGHT_SHARE) return [{ ...strong(best.text, best.tone, best.pos <= 0.1 ? best.tag : undefined, best.pos), theme: best.theme, topic: best.id, more: best.more }];
     return [{ ...general(`${best.fact}全国の中では${best.high ? "大きい" : "小さい"}方の半分に入ります。`, best.tone), theme: best.theme, topic: best.id }];
   }
 
@@ -364,11 +469,11 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     const sorted = ranked.filter((f) => f.pos <= RANK_SHARE_FALLBACK);
     const within = sorted.filter((f) => f.pos <= RANK_SHARE);
     return (within.length ? within.slice(0, MAX_RANK_INSIGHTS) : sorted.slice(0, 1))
-      .map((f) => ({ ...strong(f.text, f.tone, f.pos <= 0.1 ? f.tag : undefined, f.pos), theme: f.theme, topic: f.id }));
+      .map((f) => ({ ...strong(f.text, f.tone, f.pos <= 0.1 ? f.tag : undefined, f.pos), theme: f.theme, topic: f.id, more: f.more }));
   }
 
   /** 考察の文がある指標を、全国の中で目立つ順に（同じ系統の指標は1つだけ） */
-  type Ranked = { id: string; pos: number; group: string; text: string; fact: string; high: boolean; tone?: Tone; tag?: Tag; theme: Theme };
+  type Ranked = { id: string; pos: number; group: string; text: string; fact: string; high: boolean; tone?: Tone; tag?: Tag; theme: Theme; more: string[] };
   function rankCandidates(): Ranked[] {
     const jp = (n: number) => n.toLocaleString("ja-JP");
     const found: Ranked[] = [];
@@ -386,16 +491,163 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       const same = s.same > 1 ? `、${jp(s.same)}市区町村が同じ値` : "";
       if (t.high && s.top <= 0.5 && (!t.low || s.top <= s.bottom)) {
         const fact = `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村のうち${jp(s.rankTop)}位です（${s.label}${same}）。`;
-        found.push({ id: ind.id, pos: s.top, group, tone: t.highTone, tag: t.highTag, fact, high: true, text: fact + t.high, theme: themeOf(ind) });
+        // 県の中心のまちの文で同じ指標から「商業と仕事の中心」とまとめたときは、全国順位の考察には結びの推測を重ねない
+        found.push({ id: ind.id, pos: s.top, group, tone: t.highTone, tag: t.highTag, fact, high: true, text: fact + (ind.id === hubShareId ? "" : t.high), theme: themeOf(ind),
+          more: moreFor(s, t, true) });
       } else if (t.low && s.bottom <= 0.5 && (!t.lowWhen || isTop(stat(t.lowWhen.id), t.lowWhen.top))) {
         const fact = s.rankBottom === 1 && s.same > 1
           ? `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村の中で最も低い値です（${s.label}${same}）。`
           : `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村の中で低い方から${jp(s.rankBottom)}番目です（${s.label}${same}）。`;
-        found.push({ id: ind.id, pos: s.bottom, group, tone: t.lowTone, tag: t.lowTag, fact, high: false, text: fact + t.low, theme: themeOf(ind) });
+        found.push({ id: ind.id, pos: s.bottom, group, tone: t.lowTone, tag: t.lowTag, fact, high: false, text: fact + t.low, theme: themeOf(ind),
+          more: moreFor(s, t, false) });
       }
     }
     const seen = new Set<string>();
     return found.sort((a, b) => a.pos - b.pos).filter((f) => !seen.has(f.group) && !!seen.add(f.group));
+  }
+
+  // --- 考察に添える文（物差し・移り変わり・数え方の癖。設計変更記録 #163） ---
+
+  /**
+   * 全国順位の考察に添える文。県内の合計に占める割合（数のとき）、全国の真ん中のまちとの比べ、移り変わりのうち2つまでと、
+   * 指標の数え方の癖。選挙は数え方の癖だけにし、課題に当たる文には移り変わりを添えない。
+   * 住む人の国籍の指標には添えない（国籍の人の多さや増え方を強く書くと、偏見につながるおそれがあるため）
+   */
+  function moreFor(s: Stat, t: RankTemplate, high: boolean): string[] {
+    if (/^(census_foreign_|foreign_|zairyu_foreign_)/.test(s.ind.id)) return [];
+    const facts = themeOf(s.ind) === "選挙" ? [] : [
+      s.ind.id === hubShareId ? null : prefShare(s),
+      middle(s, high),
+      (high ? t.highTone : t.lowTone) === "neg" ? null : trend(s),
+    ];
+    const note = t.note && (!t.noteOn || t.noteOn === (high ? "high" : "low")) ? [t.note] : [];
+    return [...facts.filter((x): x is string => !!x).slice(0, 2), ...note];
+  }
+
+  /** 県内のすべての市区町村の値の合計。1つでも値がない（欠測・秘匿の）ときは、県全体の大きさが分からないので null */
+  function prefTotal(id: string, period: string): number | null {
+    if (!self || !index) return null;
+    const values = new Map(data.rows(id, period).map((r) => [r.entity_id, r.value]));
+    let total = 0;
+    for (const m of index.byPref.get(self.prefecture) ?? []) {
+      const v = values.get(m.id);
+      if (v === null || v === undefined) return null;
+      total += v;
+    }
+    return total;
+  }
+
+  /** 数（販売額・出荷額など）の、県内の合計に占める割合。2割以上で、県内に市区町村が3つ以上あるときだけ */
+  function prefShare(s: Stat): string | null {
+    if (s.ind.kind !== "count" || !self || !prefName || (index!.byPref.get(self.prefecture)?.length ?? 0) < 3) return null;
+    const total = prefTotal(s.ind.id, s.period);
+    if (!total || total <= 0) return null;
+    const pct = (s.value / total) * 100;
+    if (pct < 20 || pct >= 100) return null;
+    return `${prefName}内の合計の${shareWords(pct)}を${who}が占めています。`;
+  }
+
+  /**
+   * 全国の市区町村を値の順に並べたとき、ちょうど真ん中に来るまちの値（平均でなく真ん中なのは、極端に大きい値に引っ張られないため）。
+   * 大きい方の考察で2倍以上のときは、何倍かも書く
+   */
+  function middle(s: Stat, high: boolean): string | null {
+    if (s.top === null) return null;
+    const { values } = sortedOf(data.rows(s.ind.id, s.period));
+    const mid = values[Math.floor((values.length - 1) / 2)];
+    // 表示の桁で0になる値（ほとんどのまちで0に近い指標）とは比べない
+    if (mid === undefined || mid < 0.5 * 10 ** -s.ind.digits) return null;
+    const text = formatValue({ value: mid, status: "observed" }, s.ind, { inText: true });
+    const times = s.value / mid;
+    const multiple = high && times >= 2
+      ? `で、${who}はその約${times >= 10 ? jpn(Math.round(times)) : formatNumber(times, 1).replace(/\.0$/, "")}倍です` : "です";
+    return `${MIDDLE_HEAD}${text}${multiple}。`;
+  }
+
+  /**
+   * 移り変わり。国勢調査・住宅・土地統計調査（10月1日の時点）の値で、5年以上前の最も古い時点と比べる（毎年の統計は、
+   * 年によって調べ方が変わったものがあるので比べない）。事実だけを書き、理由は書かない。
+   * 避難指示などの対象になった12市町村は、避難と帰還で値が大きく動いたので書かない
+   */
+  function trend(s: Stat): string | null {
+    if (evacuated) return null;
+    const then = trendBase(s.ind, s.period).map((p) => stat(s.ind.id, p)).find((x): x is Stat => !!x);
+    return then ? trendText(s.ind, s, then) : null;
+  }
+
+  /** 昼間の人口と住んでいる人の差（同じ国勢調査の回の値どうし）。値がないときは null */
+  function daySurplus(): { diff: number; label: string } | null {
+    const day = stat("daytime_population");
+    const pop = day ? stat("population_total", day.period) : null;
+    return day && pop ? { diff: day.value - pop.value, label: day.label } : null;
+  }
+
+  /**
+   * 県でいちばん人口の多いまちで、県の人口の2割以上が住み、昼間に周りから人が集まる（昼間の人口が住む人より3,000人以上多い）とき、
+   * いくつかの値を合わせて、県の中心のまちとしてまとめる（1つの指標の話で終わらせない。運営者の指摘、設計変更記録 #163）。
+   * 卸売業の販売額が県内の合計の3割以上なら、商業の中心とも書く。政令指定都市の区で数える都道府県と東京都は、
+   * 県の中心を1つの市区町村で表せないので書かない
+   */
+  function prefHub(): Line | null {
+    if (!self || !prefName || !index || evacuated || noto || self.prefecture === "13") return null;
+    const members = index.byPref.get(self.prefecture) ?? [];
+    if (members.length < 3 || members.some(isDesignatedWard)) return null;
+    const pop = stat("population_total");
+    if (!pop) return null;
+    const pops = new Map(data.rows("population_total", pop.period).map((r) => [r.entity_id, r.value]));
+    if (members.some((m) => m.id !== muniId && (pops.get(m.id) ?? 0) >= pop.value)) return null;
+    const total = prefTotal("population_total", pop.period);
+    const ratio = stat("daytime_night_ratio");
+    const surplus = daySurplus();
+    if (!total || (pop.value / total) * 100 < 20 || !ratio || ratio.value < 100 || !surplus || surplus.diff < 3000) return null;
+    const ws = stat("wholesale_sales");
+    const wsTotal = ws ? prefTotal("wholesale_sales", ws.period) : null;
+    const wsPct = ws && wsTotal ? (ws.value / wsTotal) * 100 : 0;
+    if (wsPct >= 30) hubShareId = "wholesale_sales";
+    const ken = prefName.slice(-1);
+    return {
+      ...strong(`${ken}の人口の${shareWords((pop.value / total) * 100)}が${who}に住んでいます（${pop.label}）。` +
+        `昼間の人口は住んでいる人より${approxCount(surplus.diff)}多くなります（${surplus.label}）。` +
+        (wsPct >= 30 ? `卸売業の販売額は、${prefName}内の合計の${shareWords(wsPct)}を占めます（${ws!.label}）。` : "") +
+        `周りのまちから人が通ってくる、${prefName}の${wsPct >= 30 ? "商業と仕事の中心のまち" : "中心的なまち"}と考えられます。`,
+        "pos", tag("hub", `${ken}内から人が集まり`, `${ken}内から人が集まる`), 0.004),
+      topic: "daytime",
+    };
+  }
+
+  /**
+   * 国指定文化財（文化庁「国指定文化財等データベース」のうち場所のあるもの）。国宝・特別史跡などの格の高いものから、種類の違うものを
+   * 3つまで名前を挙げ、件数を書く。件数が10件以上で全国の市区町村の上位5%に入るときだけ、歴史ある建物や名所の多いまちと推測する（設計変更記録 #163）
+   */
+  function culture(): Line | null {
+    const c = data.culture?.();
+    if (!c) return null;
+    const { byMuni, counts } = cultureIndex(c.points);
+    const mine = byMuni.get(muniId) ?? [];
+    if (!mine.length) return null;
+    const year = (p: FacilityPoint) => Number(p.date?.match(/^(\d{4})年/)?.[1] ?? 9999);
+    const picked: { kind: string; name: string; tier: number }[] = [];
+    for (const p of [...mine].sort((a, b) => cultureTier(a.kind) - cultureTier(b.kind) || year(a) - year(b))) {
+      const name = cultureName(p);
+      const tier = cultureTier(p.kind);
+      if (!name || tier > 3 || picked.some((x) => x.kind === p.kind)) continue;
+      picked.push({ kind: p.kind ?? "", name, tier });
+      if (picked.length === 3) break;
+    }
+    const n = mine.length;
+    // 文化財の件数が全国の市区町村の中でどの位置か（文化財のない市区町村も数に入れる）
+    const pos = (counts.length - countBelow(counts, n).lt) / (index?.byId.size ?? byMuni.size);
+    const many = pos <= 0.05 && n >= 10 ? "歴史ある建物や名所の多いまちと考えられます。" : "";
+    const text = picked.length
+      ? `まちには${picked.map((x) => culturePhrase(x.kind, x.name)).join("、")}${n > picked.length ? "など" : ""}があります（${c.label}）。` +
+        (n > picked.length ? `国が指定・登録・選定した文化財は、全部で${jpn(n)}件です。` : "")
+      : mine.every((p) => cultureTier(p.kind) === 4)
+        ? `国の登録有形文化財の建造物が、まちに${jpn(n)}件あります（${c.label}）。`
+        : `国が指定・登録・選定した文化財が、まちに${jpn(n)}件あります（${c.label}）。`;
+    if (many) return strong(text + many, "pos", tag("history", "歴史ある建物や名所が多く", "歴史ある建物や名所の多い"), Math.max(pos, 0.003));
+    const best = picked[0]?.tier ?? 9;
+    if (best <= 2) return strong(text, "pos", undefined, best <= 1 ? 0.06 : 0.09);
+    return general(text, "pos", undefined, picked.length ? 0.6 : 0.85);
   }
 
   /** 外国人: 国勢調査（10月1日）と住民基本台帳（1月1日）の差。数え方の違いに加え、季節で住む人が入れ替わる地域で大きく開く */
@@ -450,21 +702,26 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
   }
 
   function daytime(): Line | null {
+    if (hub) return hub;
     const s = stat("daytime_night_ratio");
     if (!s) return null;
     const head = `昼間の人口は住んでいる人の`;
+    // 昼と夜の人口の差を人数でも添える（割合だけでは、まちの大きさによって人の動きの大きさが分からないため）
+    const d = daySurplus();
+    const more = (l: Line): Line => (d && Math.abs(d.diff) >= 1000
+      ? { ...l, more: [`昼間は住んでいる人より${approxCount(Math.abs(d.diff))}${d.diff > 0 ? "多く" : "少なく"}なります。`] } : l);
     if (s.value >= 130) {
-      return strong(`${head}${formatNumber(s.value / 100, 1)}倍です（${s!.label}）。周りから通勤・通学で人が集まる、職場や学校の多いまちと思われます。`, "pos", tag("hub", "周りから人が集まり", "周りから人が集まる"), 0.04);
+      return more(strong(`${head}${formatNumber(s.value / 100, 1)}倍です（${s!.label}）。周りから通勤・通学で人が集まる、職場や学校の多いまちと思われます。`, "pos", tag("hub", "周りから人が集まり", "周りから人が集まる"), 0.04));
     }
     if (s.value <= 85) {
-      return strong(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。周りのまちへ通勤・通学する人が多い、住宅地としての性格が強いと考えられます。`, undefined, tag("bed", "住宅地としての性格が強く", "住宅地としての性格が強い"));
+      return more(strong(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。周りのまちへ通勤・通学する人が多い、住宅地としての性格が強いと考えられます。`, undefined, tag("bed", "住宅地としての性格が強く", "住宅地としての性格が強い")));
     }
     if (s.value >= 110) {
-      return general(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。周りの地域から働きに来る人がやや多く、地域の中心的なまちのようです。`, undefined, tag("hub", "地域の中心となり", "地域の中心となる"), 0.4);
+      return more(general(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。周りの地域から働きに来る人がやや多く、地域の中心的なまちのようです。`, undefined, tag("hub", "地域の中心となり", "地域の中心となる"), 0.4));
     }
     if (s.value <= 95) {
-      return general(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。まちの外へ通勤・通学する人がやや多いようです。`, undefined,
-        tag("out", "周りのまちへ通う人がやや多く", "周りのまちへ通う人がやや多い"), 0.8);
+      return more(general(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。まちの外へ通勤・通学する人がやや多いようです。`, undefined,
+        tag("out", "周りのまちへ通う人がやや多く", "周りのまちへ通う人がやや多い"), 0.8));
     }
     return general(`${head}${formatNumber(s.value, 0)}%で、昼と夜の人口がほぼ同じです（${s!.label}）。多くの人がまちの中で働き、暮らしていると思われます。`, undefined, tag("near", "職場と住まいが近く", "職場と住まいが近い"), 0.9);
   }
@@ -662,7 +919,8 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
   function furusato(): Line | null {
     const s = stat("furusato_amount_per_capita");
     if (!isTop(s, 0.03)) return null;
-    return strong(`ふるさと納税の受入額が住民1人あたり${s!.text}と全国でも多い方です（${s!.label}）。返礼品などで人気を集めているようです。`, "pos", tag("furusato", "ふるさと納税で人気を集め", "ふるさと納税で人気の"), s!.top!);
+    return { ...strong(`ふるさと納税の受入額が住民1人あたり${s!.text}と全国でも多い方です（${s!.label}）。返礼品などで人気を集めているようです。`, "pos", tag("furusato", "ふるさと納税で人気を集め", "ふるさと納税で人気の"), s!.top!),
+      more: ["返礼品などの経費を差し引く前の額で、人口の少ない町村では1人あたりの額が極端に大きくなります。"] };
   }
 
   function income(): Line | null {

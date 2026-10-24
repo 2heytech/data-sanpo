@@ -13,7 +13,8 @@ import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
 import { formatValue, rankIfVaried, ranked } from "../../lib/format";
 import { municipalityPeriods, prefecturePeriods } from "../../lib/periods";
 import {
-  PREF_RANKING_IDS, PREF_TOP, prefRanking, prefectureDescription, prefectureLead, prefectureNeighbors, wardCitiesOf,
+  PREF_RANKING_IDS, PREF_TOP, prefRanking, prefectureDescription, prefectureFocus, prefectureGrowth, prefectureHistory, prefectureLead,
+  prefectureNeighbors, wardCitiesOf,
 } from "../../lib/prefecturePage";
 import { loadAreaProfile, loadPrefectureProfile } from "../../lib/profiles";
 import { prefectureImage } from "../../lib/shareImages";
@@ -69,6 +70,23 @@ const lead = prefectureLead(pref.name,
   prefRank && popInd ? { text: formatValue(prefRank, popInd, { inText: true }), label: popLabel, rank: prefRank.rank, total: prefPopRows.filter((r) => r.value !== null).length } : null,
   prefChange && prefChange.value !== null ? { value: prefChange.value, label: popLabel } : null,
   munis.length, wardCitiesOf(munis));
+// 県内での人口の集まり方と、人口が増えた市区町村、100年の人口の移り変わり（設計変更記録 #163）
+const wsInd = indicators.get("wholesale_sales");
+const focus = prefectureFocus(pref.name, munis, { rows: popRows, label: popLabel },
+  wsInd ? { rows: rows(wsInd.id, wsInd.default_period, "municipalities"), label: wsInd.periods.find((p) => p.period === wsInd.default_period)?.label ?? "" } : null);
+const growth = prefectureGrowth(munis, { rows: changeRows });
+const histInd = indicators.get("population_history");
+const histPeriods = histInd ? histInd.periods.filter((p) => p.levels.includes("prefecture")).map((p) => p.period).sort() : [];
+const histSeries = histInd ? histPeriods.flatMap((p) => {
+  const r = rows(histInd.id, p, "prefectures").find((x) => x.entity_id === `pref-${pref.code}`);
+  return r && r.value !== null ? [{ year: Number(p.slice(0, 4)), value: r.value, text: formatValue(r, histInd, { inText: true }) }] : [];
+}) : [];
+// 全国の増え方（47都道府県の合計。値のない都道府県があるときは書かない）
+const nationSum = (p: string | undefined) => {
+  const r = p && histInd ? rows(histInd.id, p, "prefectures") : [];
+  return r.length && r.every((x) => x.value !== null) ? r.reduce((a, x) => a + (x.value as number), 0) : null;
+};
+const [nationFirst, nationLast] = [nationSum(histPeriods[0]), nationSum(histPeriods.at(-1))];
 
 // 主な指標: 都道府県の値がある指標の値と、全国の都道府県の中の順位（値のない都道府県は数えない。すべて同じ値なら順位を出さない）。
 // 国勢調査の新しい回（2025年）を先に使い、その都道府県に値がないとき（2025年の静岡県など）は既定の時点で出す（#118 と同じ）
@@ -89,6 +107,10 @@ const groups = statGroups(stats);
 const statCount = stats.length;
 // 特徴を一言で表す題名と、データから考えられること（全国47都道府県の中の順位から。市区町村のページと同じ決まりで書く）
 const profile = loadPrefectureProfile(pref.code, pref.name);
+// 100年の人口の移り変わりは、考察に同じ文がある（全国より大きく増えた）ときは概要に重ねない
+const history = prefectureHistory(histSeries, nationFirst && nationLast ? nationLast / nationFirst : null,
+  profile.lines.some((l) => l.startsWith("国勢調査が始まった")));
+const summary = [...lead, [focus, growth].filter(Boolean).join(""), history ?? ""].filter(Boolean);
 // 海をへだてた隣（北海道と青森県など）は、境界が接していないことを書き添える
 const seaNames = neighborPrefs.filter((n) => n.sea).map((n) => n.pref.name).join("・");
 const compareNote = (neighborPrefs.some((n) => !n.sea) ? "境界が接する都道府県と並べています。" : "") +
@@ -129,7 +151,7 @@ const structured = breadcrumbList(Astro.site, [
   </nav>
 
   <section class="sheet pref-intro">
-    <ProfileIntro name={pref.name} profile={profile} summary={lead} />
+    <ProfileIntro name={pref.name} profile={profile} summary={summary} />
   </section>
 
   {statCount > 0 && (

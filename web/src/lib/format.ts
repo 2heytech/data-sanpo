@@ -21,6 +21,15 @@ export function formatNumber(value: number, digits: number): string {
   }).format(value);
 }
 
+/** 全体のうち4分の1・3分の1・半分・3分の2・4分の3に近い割合は、その言い方を添える */
+const SHARE_WORDS: [number, string][] = [[25, "4分の1"], [100 / 3, "3分の1"], [50, "半分"], [200 / 3, "3分の2"], [75, "4分の3"]];
+
+/** 全体に占める割合（%）の書き方。「約4分の3（76%）」「42%」（設計変更記録 #163） */
+export function shareWords(pct: number): string {
+  const near = SHARE_WORDS.find(([v]) => Math.abs(pct - v) <= 2.5);
+  return near ? `約${near[1]}（${formatNumber(pct, 0)}%）` : `${formatNumber(pct, 0)}%`;
+}
+
 /** 凡例の目盛り用の短い表記（1.2万・350万・1.5億）。1万未満はそのまま。 */
 export function compactNumber(value: number, digits: number): string {
   const a = Math.abs(value);

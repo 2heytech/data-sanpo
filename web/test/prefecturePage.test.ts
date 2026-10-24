@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { prefRanking, prefectureDescription, prefectureLead, prefectureNeighbors, wardCitiesOf } from "../src/lib/prefecturePage";
+import {
+  prefRanking, prefectureDescription, prefectureFocus, prefectureGrowth, prefectureHistory, prefectureLead, prefectureNeighbors, wardCitiesOf,
+} from "../src/lib/prefecturePage";
 import { DESCRIPTION_MAX, areaDescription, formerWard } from "../src/lib/areaSummary";
 import { breadcrumbList, indicatorDataset } from "../src/lib/structured";
 import type { Indicator, Municipality, Source, ValueRow } from "../src/lib/types";
@@ -146,5 +148,33 @@ describe("prefectureDescription", () => {
   it("120字を超えるときは市区町村の名前を入れない", () => {
     const d = prefectureDescription({ name: "東京都", title: "働く世代の多い東京都", insights: [`${"あ".repeat(50)}です。`], muniCount: 62, top3: "世田谷区・練馬区・大田区", statCount: 150 });
     expect(d.endsWith("都内62市区町村の人口ランキングと、150の指標の全国順位が分かります。")).toBe(true);
+  });
+});
+
+describe("都道府県ページの概要に足す文（設計変更記録 #163）", () => {
+  const munis = [muni("99101", "大市北区", "大市"), muni("99102", "大市南区", "大市"), muni("99201", "小市"), muni("99202", "東町"), muni("99203", "西村")];
+  const rows = (values: (number | null)[]) => values.map((v, i) => row(munis[i].id, v));
+  it("いちばん人口の多い市（政令指定都市は区を合わせる）に住む割合と、卸売業の販売額でも中心なら、その割合を書く", () => {
+    expect(prefectureFocus("テスト県", munis, { rows: rows([300, 200, 100, 100, 100]), label: "2025年10月1日現在" },
+      { rows: rows([700, 100, 100, 50, 50]), label: "2020年" }))
+      .toBe("いちばん人口の多い大市に、県の人口の63%が住んでいます（2025年10月1日現在）。卸売業の販売額では、県内の合計の80%を大市が占めています（2020年）。");
+    // 卸売業の販売額に値のない市区町村があるとき（秘匿など）は、県全体が分からないので書かない（0 として扱わない）
+    expect(prefectureFocus("テスト県", munis, { rows: rows([300, 200, 100, 100, 100]), label: "2025年10月1日現在" },
+      { rows: rows([700, 100, 100, null, 50]), label: "2020年" }))
+      .toBe("いちばん人口の多い大市に、県の人口の63%が住んでいます（2025年10月1日現在）。");
+    // 人口が分散している県（いちばん多い市区町村でも15%未満）と、市区町村が3つより少ない県は書かない
+    const many = Array.from({ length: 10 }, (_, i) => muni(`99${300 + i}`, `町${i}`));
+    expect(prefectureFocus("テスト県", many, { rows: many.map((m, i) => row(m.id, 100 + i)), label: "" }, null)).toBeNull();
+    expect(prefectureFocus("テスト県", munis.slice(0, 3), { rows: rows([300, 200, 100]), label: "" }, null)).toBeNull();
+  });
+  it("5年前より人口が増えた市区町村を、増え方の大きい順に5つまで挙げる（1つもないときは書かない）", () => {
+    expect(prefectureGrowth(munis, { rows: rows([1.2, -1, -2, -3, -4]) })).toBe("5年前より人口が増えたのは大市北区だけです。");
+    expect(prefectureGrowth(munis, { rows: rows([1.2, 3.4, -2, null, 0.1]) })).toBe("5年前より人口が増えたのは、大市南区・大市北区・西村の3市区町村です。");
+    expect(prefectureGrowth(munis, { rows: rows([-1, -1, -2, -3, -4]) })).toBeNull();
+  });
+  it("1920年からの100年の人口と、いちばん多かった年を書く（考察に同じ移り変わりの文があるときは書かない）", () => {
+    const series = [{ year: 1920, value: 100, text: "100人" }, { year: 1955, value: 150, text: "150人" }, { year: 2020, value: 120, text: "120人" }];
+    expect(prefectureHistory(series, 2.3)).toBe("国勢調査が始まった1920年の人口は100人で、2020年は120人です（全国は100年で約2.3倍）。いちばん多かったのは1955年の150人です。");
+    expect(prefectureHistory(series, 2.3, true)).toBeNull();
   });
 });

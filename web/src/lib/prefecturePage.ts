@@ -1,7 +1,7 @@
 // 都道府県ページ（/prefectures/<コード>/）の文と表を作る処理（設計変更記録 #130）。
 // 県内の市区町村へのリンクの入口として、人口の順と、主な指標の県内の上位を並べる
 import { descriptionFact, fitDescription, popRank } from "./areaSummary";
-import { formatNumber, formatValue, ranked } from "./format";
+import { formatNumber, formatValue, ranked, shareWords } from "./format";
 import { municipalityPeriods } from "./periods";
 import type { Indicator, Municipality, Period, ValueRow } from "./types";
 
@@ -67,6 +67,70 @@ export function prefectureLead(name: string, pop: PrefPopulation | null, change:
 }
 
 /**
+ * 県内での人口の集まり方（都道府県ページの概要の文。設計変更記録 #163）。いちばん人口の多い市区町村（政令指定都市は区を合わせた市）に
+ * 県の人口の15%以上が住むときだけ書く。卸売業の販売額でも同じ市区町村が県内の合計の3割以上を占めるときは、それも書く。
+ * 県内に値のない市区町村が1つでもある指標は、県全体が分からないので使わない（0 として扱わない）
+ */
+export function prefectureFocus(name: string, munis: Municipality[], pop: { rows: ValueRow[]; label: string },
+  wholesale: { rows: ValueRow[]; label: string } | null): string | null {
+  const ken = name.slice(-1);
+  // 政令指定都市の区は市にまとめる
+  const unitOf = (m: Municipality) => (isDesignatedWard(m) ? m.region! : m.name);
+  const totals = (rows: ValueRow[]): Map<string, number> | null => {
+    const values = new Map(rows.map((r) => [r.entity_id, r.value]));
+    const out = new Map<string, number>();
+    for (const m of munis) {
+      const v = values.get(m.id);
+      if (v === null || v === undefined) return null;
+      out.set(unitOf(m), (out.get(unitOf(m)) ?? 0) + v);
+    }
+    return out;
+  };
+  const people = totals(pop.rows);
+  if (!people || people.size < 3) return null;
+  const sum = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
+  const [top, value] = [...people].sort((a, b) => b[1] - a[1])[0];
+  const share = (value / sum(people)) * 100;
+  if (share < 15) return null;
+  let line = `いちばん人口の多い${top}に、${ken}の人口の${shareWords(share)}が住んでいます（${pop.label}）。`;
+  const sales = wholesale ? totals(wholesale.rows) : null;
+  if (sales && sum(sales) > 0) {
+    const [wTop, wValue] = [...sales].sort((a, b) => b[1] - a[1])[0];
+    const wShare = (wValue / sum(sales)) * 100;
+    if (wTop === top && wShare >= 30) line += `卸売業の販売額では、${ken}内の合計の${shareWords(wShare)}を${top}が占めています（${wholesale!.label}）。`;
+  }
+  return line;
+}
+
+/** 5年前より人口が増えた県内の市区町村（増え方の大きい順に5つまで名前を挙げる）。1つもないときは書かない */
+export function prefectureGrowth(munis: Municipality[], change: { rows: ValueRow[] }): string | null {
+  const byId = new Map(munis.map((m) => [m.id, m]));
+  const grew = change.rows.filter((r) => byId.has(r.entity_id) && r.value !== null && r.value > 0)
+    .sort((a, b) => (b.value as number) - (a.value as number));
+  if (!grew.length) return null;
+  const names = grew.slice(0, 5).map((r) => byId.get(r.entity_id)!.name).join("・");
+  if (grew.length === 1) return `5年前より人口が増えたのは${names}だけです。`;
+  return grew.length <= 5
+    ? `5年前より人口が増えたのは、${names}の${grew.length}市区町村です。`
+    : `5年前より人口が増えたのは${grew.length}市区町村で、増え方が大きいのは${names}です。`;
+}
+
+/**
+ * 1920年（最初の国勢調査）からの100年の人口の移り変わりと、いちばん多かった年（都道府県ページの概要の文。設計変更記録 #163）。
+ * shown は「データから考えられること」に同じ移り変わりの文があるとき（全国より大きく増えた都道府県）で、そのときは書かない
+ */
+export function prefectureHistory(series: { year: number; value: number; text: string }[], nation: number | null, shown = false): string | null {
+  if (series.length < 2 || shown) return null;
+  const first = series[0], last = series[series.length - 1];
+  if (first.value <= 0) return null;
+  const peak = series.reduce((a, b) => (b.value > a.value ? b : a));
+  const years = last.year - first.year;
+  const vs = nation ? `（全国は${years}年で約${formatNumber(nation, 1)}倍）` : "";
+  return `国勢調査が始まった${first.year}年の人口は${first.text}で、${last.year}年は${last.text}です${vs}。` +
+    (peak.year !== last.year ? `いちばん多かったのは${peak.year}年の${peak.text}です。` : "");
+}
+
+/**
  * 都道府県ページの説明文（検索結果に出る文）。特徴の一言と、いちばん目立つ考察の数字から始め、都道府県ごとに違う文にする。
  * 地域ページの areaDescription と同じく120字前後に収め、締め（開くと何が分かるか）は収まる長さのものを付ける（設計変更記録 #144）
  */
@@ -115,8 +179,10 @@ export function prefectureNeighbors(munis: Municipality[]): Map<string, { code: 
   return out;
 }
 
-/** 政令指定都市の区（札幌市中央区など）を区ごとに数えている市の名前（区部の東京23区は市区町村そのものなので含めない） */
+/** 政令指定都市の区（札幌市中央区など）か（区部の東京23区は市区町村そのものなので含めない） */
+export const isDesignatedWard = (m: Municipality): boolean => !!m.region?.endsWith("市") && m.name.startsWith(m.region) && m.name.endsWith("区");
+
+/** 政令指定都市の区を区ごとに数えている市の名前 */
 export function wardCitiesOf(munis: Municipality[]): string[] {
-  return [...new Set(munis.filter((m) => m.region?.endsWith("市") && m.name.startsWith(m.region) && m.name.endsWith("区"))
-    .map((m) => m.region!))];
+  return [...new Set(munis.filter(isDesignatedWard).map((m) => m.region!))];
 }

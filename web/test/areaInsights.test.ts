@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { areaInsights, areaProfile, type InsightData } from "../src/lib/areaInsights";
+import { areaInsights, areaProfile, type AreaProfile, type InsightData } from "../src/lib/areaInsights";
 import type { PlacePoints } from "../src/lib/placeStats";
 import { RANK_TEMPLATES } from "../src/lib/rankInsights";
-import type { Indicator, ValueRow } from "../src/lib/types";
+import type { FacilityPoint, Indicator, Municipality, ValueRow } from "../src/lib/types";
 
 const ind = (id: string, unit: string, digits: number, periods: string[], kind: Indicator["kind"] = "ratio", label?: (p: string) => string) => ({
   id, name: id, unit, digits, kind, default_period: periods[periods.length - 1],
@@ -41,6 +41,11 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>, pla
     ["farmland_field_share", ind("farmland_field_share", "%", 1, ["2026-04-01"], "ratio", () => "2026年度公開")],
     ["fiscal_strength_index", ind("fiscal_strength_index", "", 2, ["2024-04-01"], "ratio", fiscalYear)],
     ["manufacturing_shipments", ind("manufacturing_shipments", "億円", 1, ["2024-01-01"], "count")],
+    // 考察に添える文・県の中心のまち（設計変更記録 #163）
+    ["daytime_population", ind("daytime_population", "人", 0, ["2020-10-01"], "count")],
+    ["wholesale_sales", ind("wholesale_sales", "億円", 1, ["2020-01-01"], "count", () => "2020年")],
+    ["high_rise_household_share", ind("high_rise_household_share", "%", 1, ["2010-10-01", "2015-10-01", "2020-10-01"])],
+    ["elem_class_size", ind("elem_class_size", "人", 1, ["2025-05-01"])],
   ]);
   const ids = Array.from({ length: 200 }, (_, i) => (i === 0 ? first : `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`));
   return {
@@ -420,5 +425,122 @@ describe("土地と財政（面積・地形・土地利用・農地・財政力�
     expect(p.groups.map((g) => g.theme).at(-1)).toBe("まちの財政");
     expect(p.title).not.toContain("財政");
     expect(fiscal(0.3).lines.join("")).not.toContain("財政");
+  });
+});
+
+describe("考察に添える文（物差し・移り変わり・数え方の癖。設計変更記録 #163）", () => {
+  // makeData と同じ並びの市区町村（muni-01001〜01010 が北県、ほかは南県）
+  const ids = Array.from({ length: 200 }, (_, i) => (i === 0 ? "muni-01001" : `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`));
+  const areasOf = (over: Partial<Municipality>[] = []) => ({
+    prefectures: [{ code: "01", name: "北県" }, { code: "02", name: "南県" }],
+    municipalities: ids.map((id, i) => ({ id, name: i === 0 ? "テスト市" : `町${i}`, prefecture: id.slice(5, 7), region: null, ...over[i] })),
+  }) as unknown as NonNullable<ReturnType<NonNullable<InsightData["areas"]>>>;
+  const withAreas = (data: InsightData, areas = areasOf()): InsightData => ({ ...data, areas: () => areas });
+  /** 考察の文（word を含むもの）に添えた文 */
+  const moreOf = (p: AreaProfile, word: string) =>
+    p.groups.flatMap((g) => g.lines.map((l, i) => ({ l, more: g.more[i] }))).find((x) => x.l.includes(word))?.more;
+
+  it("数の指標は、県内の合計に占める割合、全国の真ん中のまちと比べた倍数、数え方の癖を添える", () => {
+    const p = areaProfile("muni-01001", withAreas(makeData({ manufacturing_shipments: { "2024-01-01": fill(900, 10) } })));
+    expect(moreOf(p, "manufacturing_shipments")).toBe("北県内の合計の91%をテスト市が占めています。" +
+      "全国の市区町村を値の順に並べると、ちょうど真ん中に来るまちは10.0億円で、テスト市はその約90倍です。" +
+      "工場のある場所で数えるため、大きな工場が1つあるだけでも大きくなります。");
+    // 考察の文そのもの（説明文や見出しに使う）は変えない
+    expect(p.lines[0]).not.toContain("真ん中");
+  });
+  it("割合の指標は、国勢調査の古い回と比べた移り変わりを事実だけ添える", () => {
+    const p = areaProfile("muni-01001", makeData({ high_rise_household_share: { "2010-10-01": fill(20, 1), "2020-10-01": fill(35, 1) } }));
+    expect(moreOf(p, "high_rise_household_share")).toBe("全国の市区町村を値の順に並べると、ちょうど真ん中に来るまちは1.0%で、このまちはその約35倍です。" +
+      "2010年は20.0%で、10年で15.0ポイント上がりました。");
+    const same = areaProfile("muni-01001", makeData({ high_rise_household_share: { "2010-10-01": fill(34.5, 1), "2020-10-01": fill(35, 1) } }));
+    expect(moreOf(same, "high_rise_household_share")).toContain("2010年も34.5%で、以前から同じくらいの水準です。");
+  });
+  it("全国の真ん中のまちとの比べは、ページで2回目からは前置きを短くする", () => {
+    const p = areaProfile("muni-01001", makeData({
+      manufacturing_shipments: { "2024-01-01": fill(900, 10) },
+      high_rise_household_share: { "2010-10-01": fill(20, 1), "2020-10-01": fill(35, 1) },
+    }));
+    const more = p.groups.flatMap((g) => g.more).filter((m) => m.includes("真ん中"));
+    expect(more).toHaveLength(2);
+    expect(more[0]).toMatch(/^全国の市区町村を値の順に並べると、ちょうど真ん中に来るまちは/);
+    expect(more[1]).toMatch(/^同じように並べると、真ん中に来るまちは/);
+  });
+  it("選挙は数え方の癖だけを添え、住む人の国籍の指標には添えない", () => {
+    const p = areaProfile("muni-01001", makeData({
+      vote_share_sdp: { "2020-10-01": fill(30, 1) },
+      census_foreign_nepal_share: { "2020-10-01": fill(3, 0.1) }, census_foreign_nepal: { "2020-10-01": fill(100, 1) },
+    }));
+    expect(moreOf(p, "vote_share_sdp")).toBe("1回の選挙の結果なので、そのときの情勢にも左右されます。");
+    expect(moreOf(p, "ネパール")).toBe("");
+  });
+  it("学級の人数の数え方の癖（小さな学校の多い地域で少なく出る）は、少ない方の考察にだけ添える", () => {
+    const low = areaProfile("muni-01001", makeData({ elem_class_size: { "2025-05-01": fill(8, 25) } }));
+    expect(moreOf(low, "elem_class_size")).toContain("小さな学校の多い地域で少なく出ます");
+    const high = areaProfile("muni-01001", makeData({ elem_class_size: { "2025-05-01": fill(34, 25) } }));
+    expect(moreOf(high, "elem_class_size")).not.toContain("小さな学校");
+  });
+  it("昼と夜の人口の差を人数でも添える", () => {
+    const p = areaProfile("muni-01001", makeData({
+      daytime_night_ratio: { "2020-10-01": fill(150, 100) },
+      daytime_population: { "2020-10-01": fill(75_000, 1000) }, population_total: { "2020-10-01": fill(50_000, 1000) },
+    }));
+    expect(moreOf(p, "昼間の人口")).toBe("昼間は住んでいる人より約2.5万人多くなります。");
+  });
+
+  describe("県の中心のまち", () => {
+    const values = {
+      population_total: { "2020-10-01": fill(48_000, 1000), "2025-10-01": fill(50_000, 1000) },
+      daytime_night_ratio: { "2020-10-01": fill(107, 100) },
+      daytime_population: { "2020-10-01": fill(52_000, 1000) },
+      wholesale_sales: { "2020-01-01": fill(800, 20) },
+    };
+    it("県でいちばん人口の多いまちで、県の人口の2割以上が住み、昼間に人が集まるときは、いくつかの値から県の中心のまちとしてまとめる", () => {
+      const p = areaProfile("muni-01001", withAreas(makeData(values)));
+      expect(p.lines).toContain("県の人口の85%がテスト市に住んでいます（2025年10月1日現在）。" +
+        "昼間の人口は住んでいる人より4,000人多くなります（2020年10月1日現在）。卸売業の販売額は、北県内の合計の82%を占めます（2020年）。" +
+        "周りのまちから人が通ってくる、北県の商業と仕事の中心のまちと考えられます。");
+      expect(p.lines.join("")).not.toContain("昼間の人口は住んでいる人の107%");
+      expect(p.title).toBe("県内から人が集まるまち");
+      // 卸売業の全国順位の考察には、県内の割合を重ねて書かない
+      expect(moreOf(p, "wholesale_sales")).not.toContain("北県内の合計");
+      expect(moreOf(p, "wholesale_sales")).toContain("テスト市はその約40倍です");
+      // 全国順位の考察には「ビジネスの拠点」という結びを重ねない
+      expect(p.lines.join("")).not.toContain("ビジネスの拠点");
+    });
+    it("卸売業の割合が小さいときは商業とは書かず、県でいちばん人口の多いまちでないとき・政令指定都市の区で数える県では書かない", () => {
+      const small = areaProfile("muni-01001", withAreas(makeData({ ...values, wholesale_sales: { "2020-01-01": fill(50, 20) } })));
+      expect(small.lines.join("")).toContain("周りのまちから人が通ってくる、北県の中心的なまちと考えられます。");
+      const other = areaProfile("muni-01002", withAreas(makeData(values)));
+      expect(other.lines.join("")).not.toContain("中心的なまち");
+      const wards = areasOf([{}, { name: "大市北区", region: "大市" }]);
+      expect(areaProfile("muni-01001", withAreas(makeData(values), wards)).lines.join("")).not.toContain("商業と仕事の中心");
+    });
+  });
+
+  describe("国指定文化財", () => {
+    const point = (municipality_id: string, kind: string, name: string, date: string) =>
+      ({ id: `${municipality_id}-${name}`, name, municipality_id, coord: null, kind, date }) as FacilityPoint;
+    const points = [
+      point("muni-01001", "特別名勝", "兼六園", "1922年3月8日指定"),
+      point("muni-01001", "重要伝統的建造物群保存地区", "東山ひがし", "2001年11月14日選定"),
+      point("muni-01001", "史跡", "城跡", "2008年6月17日指定"),
+      point("muni-01001", "重要文化財（建造物）", "旧松下家住宅（旧所在　石川県金沢市泉新町）", "1971年12月28日指定"),
+      ...[1, 2, 3, 4, 5, 6].map((i) => point("muni-01001", "登録有形文化財（建造物）", `登録${i}`, "2000年1月1日登録")),
+      point("muni-01002", "登録有形文化財（建造物）", "蔵", "2000年1月1日登録"),
+      point("muni-01003", "重要文化財（建造物）", "時国家住宅（石川県輪島市町野町）", "1963年7月1日指定"),
+    ];
+    const data = (id: string) => areaProfile(id, { ...withAreas(makeData({})), culture: () => ({ label: "2026年10月18日現在", points }) });
+    it("格の高いものから種類の違うものを3つまで名前を挙げ、件数が10件以上で全国でも特に多いときだけ推測を添えて題名にも使う", () => {
+      const p = data("muni-01001");
+      expect(p.lines[0]).toBe("まちには国の特別名勝「兼六園」、重要伝統的建造物群保存地区「東山ひがし」、国の重要文化財「旧松下家住宅」などがあります" +
+        "（2026年10月18日現在）。国が指定・登録・選定した文化財は、全部で10件です。歴史ある建物や名所の多いまちと考えられます。");
+      expect(p.groups[0].theme).toBe("歴史と文化");
+      expect(p.title).toBe("歴史ある建物や名所の多いまち");
+    });
+    it("登録有形文化財だけのまちは名前を挙げず、所在地の書き添えは名前から外す", () => {
+      expect(data("muni-01002").lines).toContain("国の登録有形文化財の建造物が、まちに1件あります（2026年10月18日現在）。");
+      expect(data("muni-01003").lines).toContain("まちには国の重要文化財「時国家住宅」があります（2026年10月18日現在）。");
+      expect(data("muni-01004").lines.join("")).not.toContain("文化財");
+    });
   });
 });
