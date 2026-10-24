@@ -27,7 +27,7 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>, pla
     ["vote_share_sdp", { ...ind("vote_share_sdp", "%", 1, ["2020-10-01"]), category: "選挙", family: "vote_share" } as Indicator],
     ["street_crime_total_per_100_residents", ind("street_crime_total_per_100_residents", "件/100人", 2, ["2020-10-01"])],
     // 土地・財政（設計変更記録 #129）
-    ["population_total", ind("population_total", "人", 0, ["2010-10-01", "2025-10-01"], "count")],
+    ["population_total", ind("population_total", "人", 0, ["2010-10-01", "2015-10-01", "2020-10-01", "2025-10-01"], "count")],
     ["area", ind("area", "km²", 2, ["2025-10-01"], "count")],
     ["elevation_mean", ind("elevation_mean", "m", 1, ["2026-10-01"])],
     ["elevation_range", ind("elevation_range", "m", 1, ["2026-10-01"])],
@@ -196,6 +196,26 @@ describe("areaInsights", () => {
     expect(p.title ?? "").not.toMatch(/人口|人が集まる/);
     // ほかの市区町村は今までどおり
     expect(areaInsights("muni-01001", makeData(values)).join("")).toMatch(/住宅の開発.*|職場や学校の多い/);
+  });
+  it("能登半島地震と奥能登豪雨で大きな被害を受けた3市3町は、人口の移り変わりと地震の前の減り方を書き、若い世代の転出や高齢化とは読まない", () => {
+    const values = {
+      population_change_rate: { "2020-10-01": fill(-9.6, -2) },
+      population_total: {
+        "2010-10-01": fill(29858, 1000), "2015-10-01": fill(27216, 1000), "2020-10-01": fill(24608, 1000), "2025-10-01": fill(17649, 1000),
+      },
+      vacant_house_rate: { "2023-10-01": fill(29.2, 10) },
+    };
+    const p = areaProfile("muni-17204", makeData(values, undefined, "muni-17204"));
+    expect(p.lines[0]).toBe("2024年1月の能登半島地震と9月の奥能登豪雨で、大きな被害を受けた能登の3市3町の1つです。" +
+      "国勢調査の人口は2010年が29,858人、2015年が27,216人、2020年が24,608人、2025年は17,649人です。" +
+      "地震の前は5年ごとに8.8%・9.6%減っていましたが、この5年は28.3%減りました。" +
+      "地震と豪雨の後、多くの人がまちの外での生活を続けていることが表れていると考えられます。住む人の年齢や世帯の値も、その影響を大きく受けていると思われます。");
+    // 空き家率は地震の前の値として、地震の前の人口の減り方と合わせて書く
+    expect(p.lines).toContain("空き家率が29.2%と全国でも高い方です（2023年10月1日現在）。地震の前の値です。" +
+      "2015年から2020年の5年間にも人口が減っていたことから、長く使われていない家も多かったと考えられます。");
+    expect(p.lines.join("")).not.toMatch(/若い世代の転出|人口も減っていることから/);
+    // ほかの市区町村は今までどおり
+    expect(areaInsights("muni-01001", makeData(values)).join("")).toMatch(/若い世代の転出や高齢化/);
   });
 });
 

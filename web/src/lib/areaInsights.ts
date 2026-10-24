@@ -67,6 +67,19 @@ const EVACUATION_SKIP = new Set([
   "residence_under1y_share", "residence_under5y_share", "residence_20y_share", "self_employed_share", "professional_share",
   "manager_share", "university_graduate_share", "commute_walk_share", "commute_bicycle_share", "commute_bus_share", "commute_car_share",
 ]);
+/**
+ * 2024年1月の能登半島地震と9月の奥能登豪雨で大きな被害を受けた能登の3市3町（七尾市・輪島市・珠洲市・志賀町・穴水町・能登町。
+ * 石川県「復興事業計画（なりわい再建支援事業）」2025年2月18日）。2020年から2025年の人口は、それまでの5年ごとより大きく減っていて、
+ * まちの外での生活を続ける人が多いと考えられる。若い世代の転出や高齢化として読むと理由を取り違えるので、人口の移り変わりと災害を書き、
+ * 2025年の国勢調査の人口・年齢・世帯から読む考察は出さない（設計変更記録 #161）
+ */
+const NOTO_2024_AREAS = new Set(["17202", "17204", "17205", "17384", "17461", "17463"].map((c) => `muni-${c}`));
+/** 上の3市3町で出さない考察（考察を出す処理の名前と、全国順位の考察の指標の id） */
+const NOTO_2024_SKIP = new Set([
+  "populationChange", "ageStructure", "households", "persons_per_household", "households_with_children_share",
+]);
+/** 能登の3市3町の地震の前の時点（これより前の値は、地震と豪雨の影響を受けていない） */
+const NOTO_2024_FROM = "2024-01-01";
 
 // 値を並べた配列は指標・時点ごとに1回だけ作る（ビルドで約1,900ページが同じ値の表を使うため）
 const sortedCache = new WeakMap<ValueRow[], { values: number[]; nationwide: boolean }>();
@@ -130,7 +143,7 @@ const TOPIC_ORDER = [
   // 交通
   "airport", "port", "station", "commute", "commute_walk_share", "commute_bicycle_share", "commute_bus_share", "commute_car_share",
   // 住む人
-  "evacuation", "populationChange", "history", "ageStructure", "total_fertility_rate", "foreignGap", "foreignShare", "census_foreign", "households",
+  "evacuation", "disaster", "populationChange", "history", "ageStructure", "total_fertility_rate", "foreignGap", "foreignShare", "census_foreign", "households",
   "persons_per_household", "households_with_children_share", "university_graduate_share", "taxable_income_per_taxpayer",
   "income_levy_taxpayer_share", "income",
   // 住まい
@@ -187,8 +200,8 @@ export function composeProfile(all: Line[], opts: { extra: Line[]; bright: Line[
    */
   function arrange(list: Line[]): { theme: Theme; lines: Line[] }[] {
     const score = (l: Line) => {
-      // 避難指示などの対象になった市町村は、ほかの値を読む前提になるので、その文を最初に置く
-      if (l.topic === "evacuation") return -20;
+      // 避難指示などの対象になった市町村と、能登半島地震などの被害を受けた市町は、ほかの値を読む前提になるので、その文を最初に置く
+      if (l.topic === "evacuation" || l.topic === "disaster") return -20;
       const t = titleLines.indexOf(l);
       if (t >= 0) return t - 10;
       // 住む人の国籍の文は、題名と同じく、まちの第一印象にしない
@@ -197,7 +210,7 @@ export function composeProfile(all: Line[], opts: { extra: Line[]; bright: Line[
       return l.w + (l.tone === "neg" ? 0.5 : 0) + (origin ? 0.5 : 0) + (l.theme === "選挙" ? 1 : 0) + (l.theme === "まちの財政" ? 0.5 : 0);
     };
     const topic = (l: Line) => {
-      if (l.topic === "evacuation") return -2;
+      if (l.topic === "evacuation" || l.topic === "disaster") return -2;
       if (titleLines.includes(l)) return -1;
       const t = l.topic ?? "";
       // 指標の系統（国籍別の外国人・政党別の得票率）は名前の頭で見る
@@ -307,6 +320,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
   }
 
   const evacuated = EVACUATION_AREAS.has(muniId);
+  const noto = NOTO_2024_AREAS.has(muniId);
   const gap = foreignGap();
   const ranked = rankCandidates();
   const on = (theme: Theme, topic: string, l: Line | null): Line | null => {
@@ -318,7 +332,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     on("気候と土地", "farmland", farmland()), on("気候と土地", "landChange", landChange()), on("気候と土地", "bamboo", bamboo()),
     on("まちの財政", "fiscal", fiscal())].filter((l): l is Line => !!l);
   const leading = land.filter((l) => l.lead !== undefined).sort((a, b) => a.lead! - b.lead!).slice(0, 2);
-  const all = [on("住む人", "evacuation", evacuation()), on("住む人", "foreignGap", gap), ...rankNotables(), ...leading, on("交通", "airport", airport()), on("交通", "port", port()),
+  const all = [on("住む人", "evacuation", evacuation()), on("住む人", "disaster", notoDisaster()), on("住む人", "foreignGap", gap), ...rankNotables(), ...leading, on("交通", "airport", airport()), on("交通", "port", port()),
     on("交通", "station", station()), ...weather().map((l) => on("気候と土地", "weather", l)), on("住まい", "land", landPrice()),
     on("住む人", "foreignShare", gap ? null : foreignShare()), on("仕事と産業", "daytime", daytime()),
     on("住む人", "populationChange", populationChange()), on("住む人", "ageStructure", ageStructure()),
@@ -326,7 +340,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     on("仕事と産業", "industry", industry()), on("仕事と産業", "shopping", shopping()), on("仕事と産業", "furusato", furusato()),
     on("住む人", "income", income()), on("住まい", "vacancy", vacancy()), on("子育てと学び", "education", education()),
     on("住まい", "land", landGeneral()), on("交通", "station", stationGeneral()), ...land.filter((l) => !leading.includes(l))]
-    .filter((l): l is Line => !!l && !(evacuated && EVACUATION_SKIP.has(l.topic ?? "")))
+    .filter((l): l is Line => !!l && !(evacuated && EVACUATION_SKIP.has(l.topic ?? "")) && !(noto && NOTO_2024_SKIP.has(l.topic ?? "")))
     // 同じことを言う考察は1つにする（持ち家が少ない方の全国順位があれば、借家が多いという文は出さない）
     .filter((l, _, list) => !(l.topic === "housing" && l.text.startsWith("民営の借家") && list.some((x) => x.topic === "owner_occupied_share")));
   // 題名の候補には、表示する考察のほか、全国の上位・下位10%に入る指標の考察も加える（選んだときは考察にも加える）
@@ -360,7 +374,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     const found: Ranked[] = [];
     for (const ind of data.indicators()) {
       const t: RankTemplate | null = RANK_TEMPLATES[ind.id] ?? nationalityTemplate(ind.id, ind.name);
-      if (!t || (evacuated && EVACUATION_SKIP.has(ind.id))) continue;
+      if (!t || (evacuated && EVACUATION_SKIP.has(ind.id)) || (noto && NOTO_2024_SKIP.has(ind.id))) continue;
       const s = stat(ind.id);
       if (!s || s.top === null || s.bottom === null || s.total < 100) continue;
       if (t.minCountOf) {
@@ -473,6 +487,32 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     return strong(`2011年の東京電力福島第一原子力発電所の事故で、避難指示などの対象になった12市町村の1つです。` +
       `国勢調査の人口は${list}です。${back}住む人の年齢や世帯、住み始めた時期などの値も、避難と帰還の影響を大きく受けていると考えられます。`,
       undefined, undefined, 0.05);
+  }
+
+  /**
+   * 能登半島地震と奥能登豪雨で大きな被害を受けた3市3町は、国勢調査の人口の移り変わりと、地震の前の5年ごとの減り方を書く
+   * （5年前からの減り方だけでは、若い世代の転出や高齢化と読み違えるため）。年齢・世帯などの考察を出さない理由も添える
+   */
+  function notoDisaster(): Line | null {
+    if (!noto) return null;
+    const pop = data.indicator("population_total");
+    const series = (pop?.periods.map((p) => p.period).sort() ?? [])
+      .map((p) => ({ period: p, year: p.slice(0, 4), s: stat("population_total", p) }))
+      .filter((x): x is { period: string; year: string; s: Stat } => x.s !== null);
+    const head = "2024年1月の能登半島地震と9月の奥能登豪雨で、大きな被害を受けた能登の3市3町の1つです。";
+    const tail = "住む人の年齢や世帯の値も、その影響を大きく受けていると思われます。";
+    if (series.length < 2) return strong(head + tail, undefined, undefined, 0.05);
+    const list = series.map((x, i) => `${x.year}年${i === series.length - 1 ? "は" : "が"}${x.s.text}`).join("、");
+    // 5年ごとの増減（%）。地震の前の回と、地震の後の最後の回に分ける
+    const rates = series.slice(1).map((x, i) => ({ period: x.period, rate: ((x.s.value - series[i].s.value) / series[i].s.value) * 100 }));
+    const last = rates[rates.length - 1];
+    const before = rates.filter((r) => r.period < NOTO_2024_FROM);
+    const fell = last.period >= NOTO_2024_FROM && last.rate < 0 && before.length > 0 && before.every((r) => r.rate < 0 && r.rate > last.rate);
+    const why = fell
+      ? `地震の前は5年ごとに${before.map((r) => `${formatNumber(-r.rate, 1)}%`).join("・")}減っていましたが、この5年は${formatNumber(-last.rate, 1)}%減りました。` +
+        "地震と豪雨の後、多くの人がまちの外での生活を続けていることが表れていると考えられます。"
+      : "";
+    return strong(`${head}国勢調査の人口は${list}です。${why}${tail}`, undefined, undefined, 0.05);
   }
 
   function populationChange(): Line | null {
@@ -641,6 +681,13 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     const head = `空き家率が${s!.text}と全国でも高い方です（${s!.label}）。`;
     // 4割を超えるのは別荘地・リゾート地（軽井沢町・熱海市など）。人口が減っていても、使われなくなった家とは書かない
     if (s!.value >= 40) return strong(head + "別荘やリゾートマンションなど、ふだん人が住んでいない住宅が多い地域と考えられます。");
+    // 能登の3市3町は、地震の前の空き家率を、地震の前の人口の増減と合わせて読む（地震の後の人口の減り方を理由にしない）
+    if (noto && s!.period < NOTO_2024_FROM) {
+      const prior = stat("population_change_rate", "2020-10-01");
+      return strong(head + "地震の前の値です。" +
+        (prior && prior.value < 0 ? `${Number(prior.period.slice(0, 4)) - 5}年から${prior.period.slice(0, 4)}年の5年間にも人口が減っていたことから、` +
+          "長く使われていない家も多かったと考えられます。" : ""), "neg");
+    }
     if (!change) return strong(head + "別荘や入居者を募集中の賃貸住宅、長く使われていない家など、ふだん人が住んでいない住宅が多いようです。");
     if (change.value >= 0) {
       return strong(head + "人口は減っていないので、別荘や入居者を募集中の賃貸住宅など、ふだん人が住んでいない住宅が多いと考えられます。");
@@ -909,7 +956,11 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     const l = place.land;
     if (!l || l.pos.top <= 0.05 || (l.change && l.change.pos.top <= 0.05 && l.change.rate >= 10)) return null;
     const c = l.change;
-    const change = c ? `同じ地点で比べた${day(c.from)}からの変化は${c.rate > 0 ? "+" : ""}${formatNumber(c.rate, 1)}%です。` : "";
+    // 能登の3市3町は、比べた期間に地震と豪雨があったことを添える（値の動きを、ほかの理由と読み違えないように）
+    const year = (label: string) => Number(label.slice(0, 4));
+    const disaster = c && noto && year(c.from) < year(NOTO_2024_FROM) && year(l.label) > year(NOTO_2024_FROM)
+      ? "この間に能登半島地震と奥能登豪雨がありました。" : "";
+    const change = c ? `同じ地点で比べた${day(c.from)}からの変化は${c.rate > 0 ? "+" : ""}${formatNumber(c.rate, 1)}%です。${disaster}` : "";
     return general(`住宅地の${l.survey ? "都道府県地価調査" : "地価公示"}の価格は、まちの${l.points}地点の中央値で1㎡あたり${yen(l.median)}です（${l.label}）。${change}`);
   }
 }
