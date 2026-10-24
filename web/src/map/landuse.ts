@@ -25,8 +25,8 @@ const LAYERS = [
 ];
 // 再生で次の年度へ送る間隔（タイルが大きいので、指標の再生より長めに見せる）
 const PLAY_INTERVAL_MS = 2200;
-// 地図の幅がこれ以下（スマホなど）のときは、凡例を畳んだ状態で始める（パネルが地図を隠しすぎないように）。
-// 地図の画面の CSS（@container）でパネルを地図の上側に置く幅と同じ
+// 地図の幅がこれ以下（スマホなど）のときは、重ねた点の凡例（地図の左下）を畳んだ状態で始める（app.ts）。
+// 地図の画面の CSS（@container）でパネルを地図の上側に置く幅と同じ。土地利用の凡例はどの幅でも開いた状態で始める（#162）
 export const NARROW_MAP_PX = 560;
 
 interface Options {
@@ -47,8 +47,6 @@ interface Options {
   legendToggle: HTMLButtonElement;
   /** パネルの下の一言（縮小しすぎて見えないときなど） */
   note: HTMLElement;
-  /** 地図の凡例の説明（表示しているときだけ出す） */
-  info: HTMLElement;
   /** 出典（地図の右下の表示に使う） */
   source: Source | undefined;
   /** この層より下（境界の塗り・線より下）に入れる */
@@ -112,7 +110,6 @@ export function initLandUse(o: Options): LandUseLayer {
     o.play.disabled = years.length < 2;
     o.legend.innerHTML = index.legend.map((c) =>
       `<span><span class="sw sq" style="background:${esc(c.color)}"></span>${esc(c.name)}</span>`).join("");
-    if (o.map.getContainer().clientWidth <= NARROW_MAP_PX) o.legendToggle.setAttribute("aria-expanded", "false");
     o.range.addEventListener("input", () => {
       stopPlay();
       setYear(Number(o.range.value));
@@ -156,7 +153,6 @@ export function initLandUse(o: Options): LandUseLayer {
 
   function sync() {
     o.panel.hidden = !visible;
-    o.info.hidden = !visible || !index;
     if (!visible) return;
     o.range.hidden = o.play.hidden = o.ticks.hidden = o.legendToggle.hidden = !index;
     o.legend.hidden = !index || o.legendToggle.getAttribute("aria-expanded") !== "true";

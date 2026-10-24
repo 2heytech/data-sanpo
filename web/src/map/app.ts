@@ -22,6 +22,7 @@ import { initLandUse, NARROW_MAP_PX } from "./landuse";
 import { initTransport } from "./transport";
 import { initFacilities } from "./facilities";
 import { initShare, safeFileName, type LegendModel } from "./share";
+import { PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare } from "./photoEras";
 import type { PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
 import { normalize } from "../lib/search";
@@ -84,8 +85,8 @@ export const BASEMAPS = [
   { id: "relief", label: "標高（色別標高図）", tiles: GSI_TILE("relief") + ".png", minzoom: 5, maxzoom: 15,
     note: "（海域部は海上保安庁海洋情報部の資料を使用して作成）" },
 ];
-// 撮影されているかを確かめるときのズーム（どの年代のタイルもこのズームを持つ）
-const PHOTO_PROBE_ZOOM = 14;
+// 写真の写り方を覚えておくタイルの数の上限（超えたら忘れて読み直す）
+const PHOTO_MASK_CACHE_MAX = 3000;
 
 const PRESETS: Record<string, LngLatBoundsLike> = {
   japan: [128.0, 30.0, 146.0, 45.6],
@@ -733,7 +734,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     };
   }
   closePoints = () => showPoint(null, null);
-  // 地図に重ねているもの（点・土地利用）の凡例（地図の右上）。見出しのボタンで畳める。
+  // 地図に重ねている点の凡例（地図の右上）。見出しのボタンで畳める。
   // 地図の幅が狭いとき（スマホ）は地図を隠しすぎないよう、畳んで始める（#139）
   const notesToggle = $<HTMLButtonElement>("#overlay-notes-toggle");
   if (map.getContainer().clientWidth <= NARROW_MAP_PX) notesToggle.setAttribute("aria-expanded", "false");
@@ -1438,7 +1439,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     panel: $("#landuse-panel"), range: $<HTMLInputElement>("#landuse-year"), label: $<HTMLOutputElement>("#landuse-year-label"),
     ticks: $("#landuse-year-ticks"), play: $<HTMLButtonElement>("#landuse-play"),
     legend: $("#landuse-legend"), legendToggle: $<HTMLButtonElement>("#landuse-legend-toggle"),
-    note: $("#landuse-note"), info: $("#landuse-info"),
+    note: $("#landuse-note"),
     // 背景の地図のすぐ上（境界の塗り・線・地名より下）
     beforeLayer: () => map.getStyle().layers.find((l) => l.id !== "pale" && !BASEMAPS.some((b) => b.id === l.id))?.id,
   });
@@ -1462,33 +1463,56 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     syncBasemap();
     refreshPhotoEras();
   }
-  // 地図の中心で撮影されている年代だけをスライドバーに並べる（中心のタイルがあるかで判断し、結果は覚えておく）
-  const photoTileCache = new Map<string, Promise<boolean>>();
+  // 地図の中央に写っている年代だけをスライドバーに並べる（#162）。表示する縮尺に近いタイルの画像を縮めて読み、
+  // 中央の範囲の半分以上が写っているかで判断する（photoEras.ts）。タイルごとの写り方は覚えておく
+  const photoMasks = new Map<string, Promise<Uint8Array | null>>();
+  const maskCanvas = document.createElement("canvas");
+  maskCanvas.width = maskCanvas.height = PHOTO_MASK_SIZE;
+  const maskContext = maskCanvas.getContext("2d", { willReadFrequently: true });
   let photoEras: typeof PHOTO_ERAS = PHOTO_ERAS.filter((e) => e.id === "photo");
   let photoEraId = "photo";
   let photoChecked = false;   // 縮小したまま航空写真を出したときは、拡大するまで確かめない
-  function hasPhotoTile(era: (typeof PHOTO_ERAS)[number], x: number, y: number): Promise<boolean> {
-    const key = `${era.path}/${x}/${y}`;
-    let p = photoTileCache.get(key);
+  async function readPhotoMask(blob: Blob): Promise<Uint8Array | null> {
+    if (!maskContext) return null;
+    const image = await createImageBitmap(blob);
+    // 描いてから読むまでの間に await を挟まない（ほかのタイルと canvas を取り合わないように）
+    maskContext.clearRect(0, 0, PHOTO_MASK_SIZE, PHOTO_MASK_SIZE);
+    maskContext.drawImage(image, 0, 0, PHOTO_MASK_SIZE, PHOTO_MASK_SIZE);
+    image.close();
+    return photoMask(maskContext.getImageData(0, 0, PHOTO_MASK_SIZE, PHOTO_MASK_SIZE).data);
+  }
+  function photoTileMask(era: (typeof PHOTO_ERAS)[number], z: number, x: number, y: number): Promise<Uint8Array | null> {
+    const key = `${era.path}/${z}/${x}/${y}`;
+    let p = photoMasks.get(key);
     if (!p) {
-      const url = era.tiles.replace("{z}", String(PHOTO_PROBE_ZOOM)).replace("{x}", String(x)).replace("{y}", String(y));
-      p = fetch(url).then((r) => r.ok).catch(() => false);
-      photoTileCache.set(key, p);
+      if (photoMasks.size >= PHOTO_MASK_CACHE_MAX) photoMasks.clear();
+      const url = era.tiles.replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
+      // タイルがない（404）・画像が読めないときは写っていないとする。通信の失敗は覚えず、次に確かめるときに読み直す
+      p = fetch(url).then(
+        (r) => (r.ok ? r.blob().then(readPhotoMask).catch(() => null) : null),
+        () => { photoMasks.delete(key); return null; },
+      );
+      photoMasks.set(key, p);
     }
     return p;
+  }
+  async function photoEraShare(era: (typeof PHOTO_ERAS)[number]): Promise<number> {
+    const container = map.getContainer();
+    const { z, samples } = photoSamples(map.getCenter(), map.getZoom(), container.clientWidth, container.clientHeight, era);
+    const tiles = [...new Set(samples.map((s) => `${s.x}/${s.y}`))];
+    const masks = await Promise.all(tiles.map((t) => {
+      const [x, y] = t.split("/").map(Number);
+      return photoTileMask(era, z, x, y);
+    }));
+    return photoShare(samples, new Map(tiles.map((t, i) => [t, masks[i]])));
   }
   let photoCheck = 0;
   async function refreshPhotoEras() {
     if (baseMode !== "photo" || map.getZoom() < 10) return;   // 縮小しているときは前の結果のまま
-    const { lng, lat } = map.getCenter();
-    const n = 2 ** PHOTO_PROBE_ZOOM;
-    const x = Math.floor((lng + 180) / 360 * n);
-    const r = (lat * Math.PI) / 180;
-    const y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n);
     const check = ++photoCheck;
-    const found = await Promise.all(PHOTO_ERAS.map((e) => e.id === "photo" ? true : hasPhotoTile(e, x, y)));
+    const shares = await Promise.all(PHOTO_ERAS.map((e) => e.id === "photo" ? 1 : photoEraShare(e)));
     if (check !== photoCheck || baseMode !== "photo") return;   // 確かめている間に地図が動いた
-    photoEras = PHOTO_ERAS.filter((_, i) => found[i]);
+    photoEras = PHOTO_ERAS.filter((_, i) => shares[i] >= PHOTO_MIN_SHARE);
     photoChecked = true;
     // 選んでいた年代がこの場所にないときは、いちばん近い年代にする
     if (!photoEras.some((e) => e.id === photoEraId)) {
@@ -1525,7 +1549,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       : `<span>${esc(photoEras[0].label)}</span><span>${esc(photoEras[photoEras.length - 1].label)}</span>`;
     // 年代別の写真は拡大したときだけ出る。撮られていない地域もあり、そこは淡色地図のまま
     photoNote.textContent = zoomIn ? "拡大すると表示されます。"
-      : photoEras.length > 1 ? "この場所で撮影された年代だけを並べています。"
+      : photoEras.length > 1 ? "地図の中央に写っている年代だけを並べています。"
       : photoChecked ? "この場所の昔の写真は見つかりませんでした。"
       : map.getZoom() < 10 ? "拡大すると、昔の写真を年代を選んで見られます。" : "この場所の写真の年代を確かめています。";
   }
@@ -1537,7 +1561,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     photoEraId = photoEras[Number(photoRange.value)]?.id ?? "photo";
     syncBasemap();
   });
-  // 再生: この場所で撮影されている年代を古い順に送り、最新まで来たら止める（途中で地図を動かしてもよい）
+  // 再生: 地図の中央に写っている年代を古い順に送り、最新まで来たら止める（途中で地図を動かしてもよい）
   // 途中で止めたときは、次の再生をその年代から続ける。最新の写真のときだけ最初の年代から
   let photoTimer: number | undefined;
   function stopPhotoPlay() {
