@@ -1,10 +1,14 @@
 ---
 import Article from "../layouts/Article.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { value } from "../lib/articleData";
+import { check, ranking, raw, value } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
 
 const P = "2020-10-01";
 const ID = "daytime_night_ratio";
+// 題名の「昼の人口が住民の17.5倍になる区」: 1位が千代田区で、昼夜間人口比率（%）÷100 が17.5
+ranking(ID, P, "municipality", "high", 1, ["muni-13101"]);
+check(formatNumber((raw(ID, P, "muni-13101") ?? 0) / 100, 1) === "17.5", "千代田区の昼夜間人口比率が17.5倍ではありません");
 ---
 <Article slug="daytime-population">
   <p>

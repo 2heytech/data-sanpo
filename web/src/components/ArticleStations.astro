@@ -1,0 +1,63 @@
+---
+// 寄り道の中の駅の表。2つの年度の乗降客数と倍率（後÷前）を、倍率の大きい順に並べる（lib/articleData.ts の stationChanges）。
+// 駅の名前から、その駅を選んだ地図（推移の表つき）を開く。本文で挙げた駅（expect）が表に入るかを確かめる。
+// スマートフォンでは表を横に動かして見るので、倍率を駅の名前のすぐ後に置く
+import { stationRanking, type StationChangeRow } from "../lib/articleData";
+import { loadAreas } from "../lib/data";
+import { formatNumber } from "../lib/format";
+import type { Station } from "../lib/types";
+
+interface Props {
+  from: { period: string; label: string };
+  to: { period: string; label: string };
+  /** 比べる駅の条件（stationChanges の opts） */
+  opts: { since: string; min: number; max: number };
+  n?: number;
+  expect?: (Station | null)[];
+  caption: string;
+}
+const { from, to, opts, n = 20, expect = [], caption } = Astro.props;
+const list: StationChangeRow[] = stationRanking(from.period, to.period, opts, n, expect);
+const areas = loadAreas();
+const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
+const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));
+const place = (id: string) => {
+  const m = munis.get(id);
+  return m ? `${m.name}（${prefs.get(m.prefecture) ?? ""}）` : "";
+};
+---
+{list.length > 0 && (
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking stations">
+        <caption>{caption}</caption>
+        <thead><tr>
+          <th class="num col-rank">順位</th><th>駅</th><th class="num col-rank">倍率</th>
+          <th class="num col-value">{from.label}</th><th class="num col-value">{to.label}</th>
+        </tr></thead>
+        <tbody>
+          {list.map((r) => (
+            <tr>
+              <td class="num">{`${formatNumber(r.rank, 0)}位`}</td>
+              <td>
+                <a href={`/map/?s=${r.station.id}`}>{r.station.name}</a>
+                <span class="station-meta muted">{r.station.operator}・<a href={`/areas/${r.station.municipality_id}/`}>{place(r.station.municipality_id)}</a></span>
+              </td>
+              <td class="num">{`${formatNumber(r.ratio, 2)}倍`}</td>
+              <td class="num">{`${formatNumber(r.from, 0)}人`}</td>
+              <td class="num">{`${formatNumber(r.to, 0)}人`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <figcaption class="muted">
+      1日あたりの乗降客数（{to.label}÷{from.label}）の倍率の大きい順です。駅の名前から、その駅の年度ごとの推移を地図で見られます。
+    </figcaption>
+  </figure>
+)}
+
+<style>
+  .station-meta { display: block; font-size: 0.8rem; }
+  table.ranking.stations { min-width: 36em; }
+</style>

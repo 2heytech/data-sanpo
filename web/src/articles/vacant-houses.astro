@@ -1,10 +1,13 @@
 ---
 import Article from "../layouts/Article.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { count, nationalValue, value } from "../lib/articleData";
+import { check, count, nationalValue, ranking, raw, value } from "../lib/articleData";
 
 const P = "2023-10-01";
 const ID = "vacant_house_rate";
+// 題名の「空き家率70%の町」: 1位が軽井沢町で、70%台
+ranking(ID, P, "municipality", "high", 1, ["muni-20321"]);
+check(Math.floor(raw(ID, P, "muni-20321") ?? 0) === 70, "軽井沢町の空き家率が70%台ではありません");
 ---
 <Article slug="vacant-houses">
   <p>

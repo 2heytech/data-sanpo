@@ -2,9 +2,9 @@
 // 実データで、本文が前提にしている値・地域が見つからないときは例外を投げてビルドを止める
 // （データを差し替えたあとに、本文と表が食い違ったまま公開しないため。設計変更記録 #126）。
 // 開発用の架空データ（fixture）や都道府県を絞ったプレビューでは地域も値も足りないので、止めずに「—」を出す。
-import { loadAreas, loadIndicators, loadSmallAreas, loadValues, RELEASE } from "./data";
+import { loadAreas, loadFacilityPoints, loadIndicators, loadSmallAreas, loadStations, loadValues, RELEASE } from "./data";
 import { formatNumber, formatValue, ranked } from "./format";
-import type { Indicator, ValueRow } from "./types";
+import type { FacilityPoint, Indicator, Station, ValueRow } from "./types";
 
 export type ArticleLevel = "municipality" | "prefecture";
 
@@ -175,14 +175,16 @@ export interface ArticleCompareRow {
 /**
  * 2つの時点の値を地域ごとに並べ、後の値÷前の値（倍率）の順に並べる。時点ごとに指標が違ってもよい
  * （例: 1920年は「人口（1920年からの推移）」、2025年は「人口」）。どちらかの値がない地域は除き（0 にしない）、
- * expect に挙げた地域が上から n 件に入っていなければ実データでは止める（ranking と同じ）
+ * expect に挙げた地域が上から n 件に入っていなければ実データでは止める（ranking と同じ）。
+ * 2つの指標の割合（例: 宿泊業で働く人÷働く人）にも使う。minFrom を渡すと、前の値がそれ未満の地域を除く（小さな数の割合が極端になるため）
  */
 export function compareRanking(from: { id: string; period: string }, to: { id: string; period: string }, level: ArticleLevel,
-  order: "high" | "low", n: number, expect: string[] = []): ArticleCompareRow[] {
+  order: "high" | "low", n: number, expect: string[] = [], opts: { minFrom?: number } = {}): ArticleCompareRow[] {
   const before = new Map(rows(from.id, from.period, level).map((r) => [r.entity_id, r]));
   const pairs = rows(to.id, to.period, level).flatMap((r) => {
     const b = before.get(r.entity_id);
     if (!b || b.value === null || r.value === null || b.value <= 0) return [];
+    if (opts.minFrom !== undefined && b.value < opts.minFrom) return [];
     return [{ entity_id: r.entity_id, from: b, to: r, ratio: r.value / b.value }];
   });
   if (pairs.length === 0) fail(`${from.id} の ${from.period} と ${to.id} の ${to.period} に、両方の値のある地域がありません`);
@@ -209,4 +211,93 @@ export function peakPeriod(series: { id: string; period: string }[], entityId: s
   }
   if (!best) fail(`${entityId} の値がどの時点にもありません`);
   return best;
+}
+
+/**
+ * 政令指定都市ごとの、区の値の合計（区ごとの値しかない指標で、市全体と比べるため）。
+ * 値のない区が1つでもある市は value を null にする（欠けた合計を市の値にしない）。大きい順
+ */
+export function cityTotals(id: string, period: string): { city: string; value: number | null; wards: number }[] {
+  const byId = new Map(rows(id, period, "municipality").map((r) => [r.entity_id, r.value]));
+  const cities = new Map<string, (number | null)[]>();
+  for (const m of loadAreas().municipalities) {
+    if (!m.region?.endsWith("市") || !m.name.startsWith(m.region)) continue;
+    cities.set(m.region, [...(cities.get(m.region) ?? []), byId.get(m.id) ?? null]);
+  }
+  return [...cities].map(([city, vals]) => ({
+    city, wards: vals.length, value: vals.some((v) => v === null) ? null : vals.reduce<number>((s, v) => s + v!, 0),
+  })).sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
+}
+
+/** 政令指定都市の区の値の合計（cityTotals の1市分）。値がない・市がないときは実データなら止める */
+export function cityTotal(id: string, period: string, city: string): number | null {
+  const hit = cityTotals(id, period).find((c) => c.city === city);
+  if (!hit || hit.value === null) return fail(`${id} の ${period} に ${city} の区の合計がありません`);
+  return hit.value;
+}
+
+/** 駅（名前と事業者で探す。地図に重ねる「駅」の点）。見つからないときは実データなら止める */
+export function station(name: string, operator: string): Station | null {
+  return loadStations().stations.find((s) => s.name === name && s.operator === operator)
+    ?? fail(`駅 ${name}（${operator}）がありません`);
+}
+
+/** 駅の年度の乗降客数（年度は "2019-04-01" の形）。値がないときは実データなら止める */
+export function stationCount(s: Station | null, period: string): number | null {
+  const i = loadStations().periods.indexOf(period);
+  const v = s && i >= 0 ? s.values[i] : null;
+  if (v === null || v === undefined) return fail(`駅 ${s?.name ?? "?"} の ${period} の乗降客数がありません`);
+  return v;
+}
+
+export interface StationChangeRow {
+  station: Station;
+  rank: number;
+  from: number;
+  to: number;
+  /** 後の年度 ÷ 前の年度 */
+  ratio: number;
+}
+
+/**
+ * 2つの年度の乗降客数を駅ごとに比べる（同じ事業者の値どうし。事業者の違う値は足さない）。
+ * 比べる駅は、since から from までの毎年度と to に値があり、from の値が min 以上 max 未満の駅
+ * （開業して間もない駅の伸びや、数え方の違いで値が大きく動く大きな駅を除くため）。倍率の大きい順
+ */
+export function stationChanges(from: string, to: string, opts: { since: string; min: number; max: number }): StationChangeRow[] {
+  const { periods, stations } = loadStations();
+  const [s0, f, t] = [periods.indexOf(opts.since), periods.indexOf(from), periods.indexOf(to)];
+  if (s0 < 0 || f < 0 || t < 0) {
+    fail(`駅の乗降客数に ${opts.since}・${from}・${to} の年度がありません`);
+    return [];
+  }
+  const pairs = stations.flatMap((s) => {
+    const a = s.values[f], b = s.values[t];
+    if (a === null || b === null || a < opts.min || a >= opts.max) return [];
+    if (s.values.slice(s0, f + 1).some((v) => v === null)) return [];
+    return [{ station: s, from: a, to: b, ratio: b / a }];
+  });
+  if (pairs.length === 0) fail(`駅の乗降客数に ${from} と ${to} の両方の値がある駅がありません`);
+  const sorted = pairs.sort((a, b) => b.ratio - a.ratio || a.station.id.localeCompare(b.station.id));
+  let rank = 0;
+  return sorted.map((p, i) => {
+    if (i === 0 || p.ratio !== sorted[i - 1].ratio) rank = i + 1;
+    return { ...p, rank };
+  });
+}
+
+/** stationChanges の上から n 駅。expect に挙げた駅（ID）が入っていなければ実データでは止める */
+export function stationRanking(from: string, to: string, opts: { since: string; min: number; max: number }, n: number,
+  expect: (Station | null)[] = []): StationChangeRow[] {
+  const top = stationChanges(from, to, opts).slice(0, n);
+  const missing = expect.filter((e) => !e || !top.some((r) => r.station.id === e.id));
+  if (missing.length) fail(`駅の乗降客数の伸びの上位${n}に ${missing.map((e) => e?.name ?? "?").join("・")} が入っていません`);
+  return top;
+}
+
+/** 国指定文化財などの点（都道府県ごとのファイルを全国分）のうち、条件に当てはまるものの数 */
+export function facilityCount(name: string, test: (p: FacilityPoint) => boolean): number | null {
+  const points = loadFacilityPoints(name);
+  if (points.length === 0) return fail(`点のデータ ${name} がありません`);
+  return points.filter(test).length;
 }

@@ -1,11 +1,13 @@
 ---
 import Article from "../layouts/Article.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { nationalValue, rankOf, value } from "../lib/articleData";
+import { check, nationalValue, rankOf, ranking, value } from "../lib/articleData";
 
 const P = "2026-01-01";
 const ID = "foreign_residents_share";
 const C = "2025-10-01";
+// 題名の「割合1位は東京でも大阪でもない」: 市区町村の1位が東京都・大阪府の外（北海道赤井川村）
+ranking(ID, P, "municipality", "high", 1, ["muni-01409"]);
 ---
 <Article slug="foreign-residents">
   <p>

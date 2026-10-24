@@ -1,10 +1,13 @@
 ---
 import Article from "../layouts/Article.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { count, nationalValue, value } from "../lib/articleData";
+import { check, count, nationalValue, ranking, value } from "../lib/articleData";
 
 const P = "2025-10-01";
 const ID = "population_change_rate";
+// 題名・見出しの「人口が増えた都道府県は1つだけ」「人口が増えたのは東京都だけ」
+const grewPrefs = ranking(ID, P, "prefecture", "high", 47).filter((r) => (r.value ?? 0) > 0).map((r) => r.entity_id);
+check(grewPrefs.join() === "pref-13", `2020年より人口が増えた都道府県が東京都だけではありません（${grewPrefs.join("・")}）`);
 ---
 <Article slug="population-change-2025">
   <p>
@@ -22,7 +25,8 @@ const ID = "population_change_rate";
   <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={["pref-13", "pref-47"]} caption="人口増加率の高い都道府県（2020→2025年）" />
   <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-05"]} caption="人口増加率の低い都道府県（2020→2025年）" />
   <p class="muted">
-    静岡県は、浜松市の区の再編（2024年）で2020年の区と2025年の区が対応しないため、県の増加率を出していません（県の人口は掲載しています）。
+    浜松市は2024年に区を再編し、2020年の区と2025年の区が対応しないため、浜松市の区の増加率は出していません。
+    都道府県の増加率は、国勢調査の表にある都道府県の人口と、今の区域に組み替えた2020年の人口から計算しているので、静岡県も出しています。
   </p>
 
   <h2>市区町村の8割以上で人口が減った</h2>
