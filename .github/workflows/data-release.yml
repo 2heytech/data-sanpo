@@ -126,6 +126,21 @@ jobs:
           .github/scripts/release-archive.sh restore "$RAW_SOURCES_TAG" "$name" data/raw
           du -sh data/raw
 
+      # sources.toml から外した出典の元ファイルは、キャッシュや Release から戻っても消す。残すと、外したときに一緒に消えた
+      # public_raw = false の指定が効かず、利用条件で再配布に制限のある元ファイルが公開の Release に上がる（#159）
+      - name: Drop raw sources not in sources.toml
+        if: env.SITE_ONLY != 'true'
+        run: |
+          python3 - <<'PY'
+          import pathlib, shutil, tomllib
+          keys = set(tomllib.load(open("pipeline/config/sources.toml", "rb")))
+          raw = pathlib.Path("data/raw")
+          for p in sorted(raw.iterdir()) if raw.is_dir() else []:
+              if p.name not in keys:
+                  print(f"sources.toml にない出典の元ファイルを消します: {p.name}")
+                  shutil.rmtree(p) if p.is_dir() else p.unlink()
+          PY
+
       - name: Install pipeline
         if: env.SITE_ONLY != 'true'
         run: python -m pip install -e "pipeline[dev]"
