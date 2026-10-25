@@ -1,0 +1,911 @@
+{
+  "areas": {
+    "pref-06": {
+      "text": [
+        "山形県は東北地方の日本海側にあり、南から米沢・山形・新庄の盆地と庄内平野を最上川が流れています。",
+        "712年に越後国の出羽郡を分けて出羽国が置かれ、4年後に陸奥国の最上・置賜の2郡が加わり、ほぼ今の山形県の範囲になりました。",
+        "江戸時代には米や紅花などを運ぶ最上川の舟運が盛んになり、西廻り航路が開かれた酒田湊はにぎわいました。",
+        "1871年の廃藩置県で山形・米沢など7県が置かれ、その後の統合を経て1876年に今の山形県ができました。",
+        "県内は地勢や江戸時代の藩のなごりから方言や食べ物などが少しずつ違い、置賜・村山・最上・庄内の4地域に分けられています。"
+      ],
+      "sources": [
+        {
+          "publisher": "山形県",
+          "title": "山形県について",
+          "url": "https://www.pref.yamagata.jp/020026/kensei/shoukai/yamagataken/profile.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06201": {
+      "text": [
+        "山形市は山形盆地の東南部にある県庁所在地で、1889年に全国で最初に市制を施いた31市の1つです。",
+        "860年に円仁が山寺立石寺を開いたと伝えられ、1356年には斯波兼頼がこの地に城を築いて城下町を整えました。",
+        "兼頼の子孫の最上義光の時代に出羽一帯へ勢力を広げ、江戸時代の中ごろからは紅花などの商いで栄えました。",
+        "1954年と1956年にまわりの村々を合わせて、今の市域になりました。",
+        "8月には山形花笠まつりが開かれ、平安時代後期から鎌倉時代初期に建てられたと推定される石鳥居が2基残っています。"
+      ],
+      "sources": [
+        {
+          "publisher": "山形市",
+          "title": "市の概要",
+          "url": "https://www.city.yamagata-yamagata.lg.jp/shiseijoho/yamagatajoho/1008447.html"
+        },
+        {
+          "publisher": "山形県",
+          "title": "山形県について",
+          "url": "https://www.pref.yamagata.jp/020026/kensei/shoukai/yamagataken/profile.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06202": {
+      "text": [
+        "米沢市は山形県の最も南にあって東と南で福島県と接し、最上川の源となる吾妻連峰のすそ野の米沢盆地にあります。",
+        "伊達氏と上杉氏が本拠を置いた城下町として栄え、1567年には伊達政宗が米沢城で生まれました。",
+        "1601年に上杉景勝が会津から移って米沢藩の初代藩主となり、家老の直江兼続が城下を整えて今の城下町の基礎を築きました。",
+        "9代藩主の上杉鷹山が進めた産業振興の代表の米沢織などの織物業が、長くまちの経済を支えてきました。",
+        "米沢市は1889年に全国で最初に市制を施いた31市の1つで、1953年から1955年にかけてまわりの10村を合わせました。"
+      ],
+      "sources": [
+        {
+          "publisher": "米沢市",
+          "title": "米沢市市勢要覧 2025年版",
+          "url": "https://www.city.yonezawa.yamagata.jp/material/files/group/45/shiseiyouran2025.pdf"
+        },
+        {
+          "publisher": "山形県",
+          "title": "山形県について",
+          "url": "https://www.pref.yamagata.jp/020026/kensei/shoukai/yamagataken/profile.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06203": {
+      "text": [
+        "鶴岡市は2005年に鶴岡市・藤島町・羽黒町・櫛引町・朝日村・温海町が合併して今の市になり、東北で最も面積の広い市となりました。",
+        "中世には羽黒山が大きな力をもち、この地を治めた武藤氏は黒川能を手厚く守ったといわれています。",
+        "1591年に直江兼続が大宝寺城を整え、1601年に庄内を治めた最上義光がのちにこの城を鶴ヶ岡城と改めました。",
+        "1622年に酒井忠勝が庄内藩主として入って城下町を整え、酒井氏が約250年にわたり治めました。",
+        "羽黒山には国宝の五重塔と2,446段の石段があり、2月には黒川能の王祇祭が行われます。"
+      ],
+      "sources": [
+        {
+          "publisher": "鶴岡市",
+          "title": "鶴岡市の沿革",
+          "url": "https://www.city.tsuruoka.lg.jp/shisei/gaiyo/soumu-gaiyouenkaku.html"
+        },
+        {
+          "publisher": "山形県",
+          "title": "山形県について",
+          "url": "https://www.pref.yamagata.jp/020026/kensei/shoukai/yamagataken/profile.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06204": {
+      "text": [
+        "酒田市は2005年に酒田市・八幡町・松山町・平田町が合併して今の市になりました。",
+        "平安時代の初めには出羽国府の城輪柵が置かれ、今は国の史跡として政庁の一部が復元されています。",
+        "1672年に河村瑞賢が西廻り航路を整えると酒田の港は大いににぎわい、井原西鶴も「日本永代蔵」で鐙屋の繁栄を紹介しました。",
+        "商都として栄えたまちには大地主の本間家が生まれ、1758年には本間光丘が西浜で植林を始めました。",
+        "1893年には米穀取引所の倉庫として山居倉庫が建てられ、1933年に市になりました。"
+      ],
+      "sources": [
+        {
+          "publisher": "酒田市",
+          "title": "酒田市 略年表",
+          "url": "https://www.city.sakata.lg.jp/shisei/syokai/siryakunenpyou.html"
+        },
+        {
+          "publisher": "山形県",
+          "title": "山形県について",
+          "url": "https://www.pref.yamagata.jp/020026/kensei/shoukai/yamagataken/profile.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06205": {
+      "text": [
+        "新庄市は山形県北東部の最上地域の中心のまちで、国道13号と47号や鉄道が交わることから「東北の十字路」と呼ばれてきました。",
+        "1622年に最上氏が領地を失ったあと、新庄には戸沢氏が入り、幕末まで藩を治めました。",
+        "1689年には松尾芭蕉が「おくの細道」の旅で新庄を訪れ、地元の俳人たちと歌仙を巻きました。",
+        "1949年に市になり、1955年に萩野村、1956年に八向村を合わせました。",
+        "8月の新庄まつりの山車行事は国の重要無形民俗文化財で、新庄まつりはユネスコの無形文化遺産にもなっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "新庄市",
+          "title": "市の概要",
+          "url": "https://www.city.shinjo.yamagata.jp/090/010/20150302183545.html"
+        },
+        {
+          "publisher": "新庄市",
+          "title": "新庄市の歩み",
+          "url": "https://www.city.shinjo.yamagata.jp/090/010/20150225164923.html"
+        },
+        {
+          "publisher": "山形県",
+          "title": "最上地域の紹介",
+          "url": "https://www.pref.yamagata.jp/314001/kensei/shoukai/yamagataken/mogami.html"
+        },
+        {
+          "publisher": "山形県",
+          "title": "山形県について",
+          "url": "https://www.pref.yamagata.jp/020026/kensei/shoukai/yamagataken/profile.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06206": {
+      "text": [
+        "寒河江市は山形県のほぼ中央にあり、最上川と寒河江川が市街地を包むように流れ、月山や葉山を望むまちです。",
+        "1954年8月に寒河江町と西根村・柴橋村・高松村・醍醐村が合併して市になり、同じ年の11月に白岩町と三泉村が加わりました。",
+        "明治時代の初めからさくらんぼが育てられてきた産地で、品種「紅秀峰」もこのまちで生まれました。",
+        "奈良時代に聖武天皇の命で開かれたと伝えられる古刹・慈恩寺には国の重要文化財の仏像が30体あまり伝わり、旧境内は国の史跡になっています。",
+        "秋に開かれる「神輿の祭典」は、市民のまつりに定められています。"
+      ],
+      "sources": [
+        {
+          "publisher": "寒河江市",
+          "title": "寒河江市勢要覧",
+          "url": "https://www.city.sagae.yamagata.jp/shisei/sagae/sagaeshiseiyouran.files/sagaeshiseiyouran.pdf"
+        },
+        {
+          "publisher": "寒河江市",
+          "title": "寒河江市のあゆみ",
+          "url": "https://www.city.sagae.yamagata.jp/shisei/sagae/sagaeshinoayumi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06207": {
+      "text": [
+        "上山市は山形県の南東部、蔵王連峰のすそ野に広がるまちで、半円の形をした盆地に市街地が開けています。",
+        "1954年に上山町と西郷村・本庄村・東村・宮生村・中川村の1町5村が合併して市になりました。",
+        "地名は、応永年間ごろにこの地を治めた最上満長が上山殿と名のったことから来たと伝えられ、のちに月岡へ移された城の城下町が今の市街地のもとになっています。",
+        "上山温泉は1458年に僧の月秀が見つけたのが始まりで、奥羽三楽郷の一つとして栄えました。",
+        "羽州街道の楢下宿・金山越は、近世の街道のようすをよく残す場所として国の史跡になっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "上山市",
+          "title": "上山市プロフィール",
+          "url": "https://www.city.kaminoyama.yamagata.jp/soshiki/2/km201300775.html"
+        },
+        {
+          "publisher": "上山市",
+          "title": "国指定文化財（1から9）",
+          "url": "https://www.city.kaminoyama.yamagata.jp/soshiki/25/km201301215.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06208": {
+      "text": [
+        "村山市は山形県の中心部にあり、東を奥羽山脈、西を出羽丘陵に囲まれ、中央を最上川が蛇行しながら北へ流れています。",
+        "1954年11月に楯岡町と西郷村・大倉村・大久保村・冨本村・戸沢村が合併して市になり、まもなく袖崎村と大高根村も加わりました。",
+        "市の名前は、この地方の総称を生かし、村山地区の中核都市にという思いを込めて付けられました。",
+        "楯岡生まれの最上徳内は江戸時代後期の北方探検家で、幕府の蝦夷地検分隊に加わったのち、さらに8回蝦夷地を調べ、市の記念館にはその測量器などが展示されています。",
+        "東京の浅草寺の仁王尊に納める大わらじは楯岡の荒町で作られ、1964年から奉納が続いています。"
+      ],
+      "sources": [
+        {
+          "publisher": "村山市",
+          "title": "市の概要",
+          "url": "https://www.city.murayama.lg.jp/shisei/gaiyo/shinogaiyou.html"
+        },
+        {
+          "publisher": "村山市",
+          "title": "最上徳内記念館",
+          "url": "https://www.city.murayama.lg.jp/kurashi/gakko/bunka/mogamitokunai.html"
+        },
+        {
+          "publisher": "村山市",
+          "title": "浅草寺大わらじ奉納",
+          "url": "https://www.city.murayama.lg.jp/shisei/gaiyo/oowarazi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06209": {
+      "text": [
+        "長井市は置賜野川・置賜白川・最上川の3つの川に囲まれたまちで、地名の「井」は水の集まる所を表すとされています。",
+        "1954年11月に長井町と長井村・西根村・平野村・豊田村・伊佐沢村の1町5村が合併して市になりました。",
+        "1694年に長井まで最上川の舟運が開かれると、米沢藩の物資を運ぶ起点、商いの町として栄えました。",
+        "舟運のころの面影を残す宮と小出の町並みは、2018年に国の重要文化的景観に選ばれています。",
+        "市内の約40の神社で黒獅子舞が奉納され、あやめ公園では「長井古種」のあやめが咲きます。"
+      ],
+      "sources": [
+        {
+          "publisher": "長井市",
+          "title": "ながいのあらまし（長井市の歴史）",
+          "url": "https://www.city.nagai.yamagata.jp/material/files/group/7/R7_3_rekishi.pdf"
+        },
+        {
+          "publisher": "長井市",
+          "title": "最上川上流域における長井の町場景観",
+          "url": "https://www.city.nagai.yamagata.jp/kanko_bunka_sports/bunka/12698.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06210": {
+      "text": [
+        "天童市は山形県のほぼ中央にあり、東部は奥羽山脈の山地、西部は山形盆地の平野で、南西部を最上川が流れています。",
+        "1954年に1町6村が合併して新しい天童町となり、1958年に市になりました。",
+        "地名は、舞鶴山で念仏を唱えていた行基の前に、天から2人の童子が舞い降りたという伝説から来ていると伝えられています。",
+        "1831年に織田信長の次男信雄の流れをくむ織田信美が入って天童織田藩が成り、藩の吉田大八は財政を立て直す策の一つとして将棋駒づくりを勧めたといわれています。",
+        "舞鶴山には1988年に将棋の森がつくられ、市内の西沼田遺跡は国の史跡になっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "天童市",
+          "title": "天童市のあらまし",
+          "url": "https://www.city.tendo.yamagata.jp/municipal/syokai/namaenoyurai.html"
+        },
+        {
+          "publisher": "天童市",
+          "title": "天童市の歩み",
+          "url": "https://www.city.tendo.yamagata.jp/municipal/syokai/ayumi.html"
+        },
+        {
+          "publisher": "天童市",
+          "title": "天童織田藩のあらまし",
+          "url": "https://www.city.tendo.yamagata.jp/municipal/syokai/tendoodahan.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06211": {
+      "text": [
+        "東根市は山形県の中央部、村山盆地にあり、東は仙台市と接する温泉のある田園都市です。",
+        "名前は、昔、盆地の真ん中にあった「藻が湖」の東で、奥羽山脈のふもとの最も早く開けた所を東根と呼んだことから来たといわれています。",
+        "1954年に東根町と東郷村・高崎村・大富村・小田島村・長瀞村が合併して東根町となり、1958年に市になりました。",
+        "南北朝時代には地頭の小田島長義がこの地を治め、東根小学校の大ケヤキは、長義が城を築いたときすでに大木だったと伝えられています。",
+        "今はさくらんぼやりんごなどの果樹の産地で、市内には山形空港があります。"
+      ],
+      "sources": [
+        {
+          "publisher": "東根市",
+          "title": "東根市の歴史",
+          "url": "https://www.city.higashine.yamagata.jp/administration/about/4"
+        },
+        {
+          "publisher": "東根市",
+          "title": "東根の位置・面積",
+          "url": "https://www.city.higashine.yamagata.jp/administration/about/5"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06212": {
+      "text": [
+        "尾花沢市は山形県のいちばん北東にあり、奥羽山脈や出羽丘陵の山並みが囲む盆地のまちで、1959年に市になりました。",
+        "平野部でも雪が2mほど積もることがある豪雪地帯で、大正から昭和初期の木造旅館が並ぶ銀山温泉があり、2月には尾花沢雪まつりが開かれます。",
+        "雪がもたらす豊かな水と朝夕の寒暖差の大きい気候のもとで米・スイカ・そばなどが育ち、夏スイカは「尾花沢スイカ」の名で全国に出荷されています。",
+        "市の中ほどにある人造湖の徳良湖は「花笠音頭」の発祥地で、大正時代に堤を築く工事の作業中に歌われた歌がもとになっています。",
+        "「おくのほそ道」の旅で尾花沢に入った松尾芭蕉は、友人の鈴木清風を訪ねて10泊しました。"
+      ],
+      "sources": [
+        {
+          "publisher": "尾花沢市",
+          "title": "市の紹介",
+          "url": "https://www.city.obanazawa.yamagata.jp/shisei/obanazawa/726"
+        },
+        {
+          "publisher": "尾花沢市",
+          "title": "雪とスイカと花笠のまち",
+          "url": "https://www.city.obanazawa.yamagata.jp/shisei/obanazawa/727"
+        },
+        {
+          "publisher": "尾花沢市",
+          "title": "令和7年版 尾花沢市の統計",
+          "url": "https://www.city.obanazawa.yamagata.jp/files/original/20260903153053958215e5200.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06213": {
+      "text": [
+        "南陽市は山形県南部の置賜盆地にあり、1967年に赤湯町・宮内町・和郷村の2町1村が合併してできました。",
+        "市の中ほどに湧く赤湯温泉は上杉家が代々湯治に使った湯で、昔は「殿様の御湯」と呼ばれていました。",
+        "南陽市は山形県のぶどう栽培の発祥地で、ワインづくりも明治半ばから続いています。",
+        "漆山地区の珍蔵寺には鶴の恩返しの民話が伝わり、昔話を語り伝える拠点として夕鶴の里がつくられました。",
+        "長岡にある稲荷森古墳は県内最大の前方後円墳で、1980年に国の史跡になりました。"
+      ],
+      "sources": [
+        {
+          "publisher": "南陽市",
+          "title": "プロフィール",
+          "url": "http://www.city.nanyo.yamagata.jp/aramasi/640"
+        },
+        {
+          "publisher": "南陽市",
+          "title": "南陽市のあゆみ",
+          "url": "http://www.city.nanyo.yamagata.jp/aramasi/661"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06301": {
+      "text": [
+        "山辺町は1954年10月1日に、旧山辺町と大寺村・中村・作谷沢村・相模村が合併して生まれました。",
+        "山辺町ふるさと資料館は、江戸時代に紅花や青苧を扱って栄えた商家の敷地に建ち、最上川舟運で山辺に運ばれたお雛さまを2月と3月に飾ります。",
+        "山辺地区はニット・じゅうたん・金属加工などの商工業の中心で、大蕨の棚田は日本の棚田百選に選ばれています。",
+        "外交官の安達峰一郎は1869年に今の山辺町高楯で生まれ、国際連盟日本代表などを務めたのち、常設国際司法裁判所の所長に選ばれました。"
+      ],
+      "sources": [
+        {
+          "publisher": "山辺町",
+          "title": "やまのべ町勢要覧「のべ！自慢」（やまのべ自慢地図）",
+          "url": "https://www.town.yamanobe.yamagata.jp/uploaded/attachment/3108.pdf"
+        },
+        {
+          "publisher": "山辺町",
+          "title": "山辺町ふるさと資料館",
+          "url": "https://www.town.yamanobe.yamagata.jp/soshiki/33/shiryoukan.html"
+        },
+        {
+          "publisher": "山辺町",
+          "title": "日本の棚田百選『大蕨の棚田』",
+          "url": "https://www.town.yamanobe.yamagata.jp/life/3/25/189/"
+        },
+        {
+          "publisher": "山辺町",
+          "title": "やまのべ人物伝 安達峰一郎",
+          "url": "https://www.town.yamanobe.yamagata.jp/soshiki/33/jinbutuden-mineichirou.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06302": {
+      "text": [
+        "中山町は山形県のほぼ中央部にあり、県内の市町村でいちばん面積の小さい町で、北部を最上川が流れています。",
+        "すももの産地として知られ、すももを使ったワインやシャーベットなどもつくられています。",
+        "芋煮会発祥の地を掲げ、毎年秋には「元祖芋煮会in中山」が開かれます。",
+        "須川の左岸に立つ2本のエドヒガン「お達磨の桜」は、樹齢が約750年と推定され、山形県の天然記念物になっています。",
+        "江戸時代に山形城下の大庄屋を務めた柏倉九左衛門の屋敷「旧柏倉家住宅」は、2019年に国の重要文化財になりました。"
+      ],
+      "sources": [
+        {
+          "publisher": "中山町",
+          "title": "中山町のご紹介",
+          "url": "https://www.town.nakayama.yamagata.jp/gyoseijoho/gaiyo/813.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06321": {
+      "text": [
+        "河北町は山形県のほぼ中央にあって最上川と寒河江川に囲まれ、1954年に谷地町・西里村・溝延村・北谷地村の1町3村が合併して生まれました。",
+        "1390年ごろに中条秀長がこの地に入って6代にわたり谷地郷を開発し、のちに谷地城を築いた白鳥十郎長久が谷地本町のまちをつくりました。",
+        "室町時代から紅花が盛んにつくられ、江戸時代から明治の初めにかけては、集めた紅花を最上川の船で送り出す地としてにぎわいました。",
+        "紅花を積んで上方へ向かった船は帰りに日用品とともに上方の文化を持ち帰り、享保雛や古今雛などの人形が今もこの地に伝わっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "河北町",
+          "title": "町の概要",
+          "url": "https://www.town.kahoku.yamagata.jp/gyouseizyouhou/matinogaiyou/purofi-ru/2598.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06322": {
+      "text": [
+        "西川町は山形県のほぼ中央、山形市の西方32kmにあり、1954年10月1日に西山村・川土居村・本道寺村・大井沢村の4村が合併して生まれました。",
+        "町の名前は、西山村と川土居村がつくった「西川中学校組合」の名から取られています。",
+        "朝日連峰や月山とその支脈に囲まれて面積の95%を山地が占め、積雪が6mを超えた記録もある豪雪地帯です。",
+        "月山では春から夏にかけてもスキーができ、ふもとの「月山山麓湧水群」は1985年に名水百選に選ばれました。",
+        "古くから出羽三山の要所として栄えた町の歴史や文化を伝えるため、2019年に西川町歴史文化資料館が開かれました。"
+      ],
+      "sources": [
+        {
+          "publisher": "西川町",
+          "title": "西川町の概要",
+          "url": "https://www.town.nishikawa.yamagata.jp/soshiki/somu/overview.html"
+        },
+        {
+          "publisher": "西川町",
+          "title": "名水百選カード",
+          "url": "https://www.town.nishikawa.yamagata.jp/soshiki/somu/4565.html"
+        },
+        {
+          "publisher": "西川町",
+          "title": "西川町歴史文化資料館",
+          "url": "https://www.town.nishikawa.yamagata.jp/soshiki/kanko/1290.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06323": {
+      "text": [
+        "朝日町は山形県の中央部、朝日連峰の主峰・大朝日岳の東のふもとにあり、町の中を最上川が蛇行しながら北へ流れています。",
+        "日本で初めて旧石器が見つかった大隅遺跡などから、約2万年前には人が住んでいたと推定されています。",
+        "1954年に宮宿町・西五百川村・大谷村の1町2村が合併して、今の朝日町になりました。",
+        "大沼の浮島は1925年に国の名勝に指定され、江戸時代中期の上層農家の家「佐竹家住宅」は国の重要文化財です。",
+        "最上川沿いの河岸段丘ではりんごづくりが盛んで、袋をかけずに育てるふじの栽培方法は朝日町が全国に先がけて確立しました。"
+      ],
+      "sources": [
+        {
+          "publisher": "朝日町",
+          "title": "町の概要",
+          "url": "https://www.town.asahi.yamagata.jp/portal/administration/asahichonogaiyo/machinogaiyou/4234.html"
+        },
+        {
+          "publisher": "朝日町",
+          "title": "朝日町トップページ（町のデータ・特産物）",
+          "url": "https://www.town.asahi.yamagata.jp/"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06324": {
+      "text": [
+        "大江町は山形県のほぼ中央、村山平野の西部にあり、朝日連峰から流れ出る月布川が町を西から東へ流れて最上川に注いでいます。",
+        "1959年に左沢町と漆川村が合併して、今の大江町が生まれました。",
+        "最上川の中流にある左沢は、元禄のころから酒田と米沢を結ぶ舟運の中継の川港として栄え、船着場のにぎわいから民謡「最上川舟唄」が生まれました。",
+        "舟運で栄えた左沢のまちなみは2013年に国の重要文化的景観に選ばれ、南北朝時代に大江氏の一族が築いたと伝わる左沢楯山城跡は国の史跡です。",
+        "町の東部では、りんご・ラ・フランス・もも・すもも・ぶどうなどの果樹づくりが盛んです。"
+      ],
+      "sources": [
+        {
+          "publisher": "大江町",
+          "title": "山形県大江町の紹介",
+          "url": "https://www.town.oe.yamagata.jp/government/ooe-overview/456"
+        },
+        {
+          "publisher": "大江町",
+          "title": "最上川舟唄",
+          "url": "https://www.town.oe.yamagata.jp/kanko-event/kankou-bunka/40"
+        },
+        {
+          "publisher": "大江町",
+          "title": "文化財",
+          "url": "https://www.town.oe.yamagata.jp/kanko-event/kankou-bunka/bunkazai/"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06341": {
+      "text": [
+        "大石田町は最上川の流れる町で、室町時代のころに始まったといわれる大石田河岸は、元禄のころに最上川舟運の中心として最もにぎわいました。",
+        "1792年には幕府の舟役所が置かれ、その跡には大門と塀蔵が再現されています。",
+        "松尾芭蕉や正岡子規も大石田を訪れ、歌人の斎藤茂吉は約2年間この町で暮らし、その住まいだった離れ「聴禽書屋」が残っています。",
+        "大石田町は昔からの「そばの里」で玄そばの産地としても知られ、1998年には町の手打ちそば屋が集まって「大石田そば街道」を結成しました。"
+      ],
+      "sources": [
+        {
+          "publisher": "大石田町",
+          "title": "町の人口・面積・役場の組織機構",
+          "url": "https://www.town.oishida.yamagata.jp/chousei/oishida/profile.html"
+        },
+        {
+          "publisher": "大石田町",
+          "title": "史跡を巡る",
+          "url": "https://www.town.oishida.yamagata.jp/kankou/shiseki01.html"
+        },
+        {
+          "publisher": "大石田町",
+          "title": "歌枕を巡る1",
+          "url": "https://www.town.oishida.yamagata.jp/kankou/sekihi01.html"
+        },
+        {
+          "publisher": "大石田町",
+          "title": "大石田そば街道",
+          "url": "https://www.town.oishida.yamagata.jp/kankou/sobakaidou/index.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06361": {
+      "text": [
+        "金山町は山形県の東北部の最上郡にあり、東は秋田県湯沢市、南は新庄市、北と西は真室川町と接しています。",
+        "町の東北部には神室山系の山々が連なって金山川などの源となり、山林が面積の多くを占める町では林業が盛んです。",
+        "1925年に町制を施行し、1986年には街並み景観条例をつくって「街並みづくり100年運動」を始めました。",
+        "町には樹齢300年を超える杉林があり、地元の職人が手がけた白壁に杉板張りの家々や、石の堤に沿って山の水が流れ鯉が泳ぐ大堰が見られます。",
+        "稲沢番楽は、2002年に山形県の無形民俗文化財に指定されました。"
+      ],
+      "sources": [
+        {
+          "publisher": "金山町",
+          "title": "金山町の位置",
+          "url": "https://www.town.kaneyama.yamagata.jp/kurashi/chosei/machinosugata/1133.html"
+        },
+        {
+          "publisher": "金山町",
+          "title": "金山町のあゆみ",
+          "url": "https://www.town.kaneyama.yamagata.jp/kurashi/chosei/machinosugata/1191.html"
+        },
+        {
+          "publisher": "金山町",
+          "title": "金山町総合パンフ「K-hour」",
+          "url": "https://www.town.kaneyama.yamagata.jp/kanko/775.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06362": {
+      "text": [
+        "最上町は山形県の東北部で秋田県・宮城県と境を接する、農林業と観光の町です。",
+        "町の中ほどに小国盆地が開け、ほかの大部分は奥羽山脈の山や丘陵で、まわりを峰にさえぎられていることから、かつては「小国」と呼ばれていました。",
+        "1954年に東小国村と西小国村が合併して、最上町が生まれました。",
+        "瀬見地区には源義経と弁慶にまつわる史跡が多く、瀬見温泉は1187年に弁慶が見つけたといわれています。",
+        "本城のお城山には細川氏が岩部の館を築きましたが、戦国時代の末に最上義光に攻められて敗れ、その後この地に小国城が築かれたとされています。"
+      ],
+      "sources": [
+        {
+          "publisher": "最上町",
+          "title": "町のあらまし",
+          "url": "https://town.mogami.lg.jp/info/02town-info/01aramashi.php"
+        },
+        {
+          "publisher": "最上町",
+          "title": "位置と地勢",
+          "url": "https://town.mogami.lg.jp/info/02town-info/02chisei.php"
+        },
+        {
+          "publisher": "最上町",
+          "title": "最上町のあゆみ(昭和)",
+          "url": "https://town.mogami.lg.jp/info/03ayumi/02syouwa.php"
+        },
+        {
+          "publisher": "最上町",
+          "title": "歴史・文化・史跡(瀬見地区)",
+          "url": "https://town.mogami.lg.jp/culture/01rekishi-shiseki/21rekishi-semi.php"
+        },
+        {
+          "publisher": "最上町",
+          "title": "歴史・文化・史跡(向町地区)",
+          "url": "https://town.mogami.lg.jp/culture/01rekishi-shiseki/22rekishi-mukaimachi.php"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06363": {
+      "text": [
+        "舟形町は山形県の最上郡の南端にある東西に細長い町で、奥羽山脈と出羽丘陵のふもとに囲まれています。",
+        "1889年に舟形村が生まれ、翌年に堀内地区が分かれて堀内村となり、1954年に両村が合併して今の舟形町になりました。",
+        "最上小国川が町を東西に流れ、鮎釣りの清流として全国に知られています。",
+        "川の流域にある西ノ前遺跡から出土した高さ45cmの縄文時代中期の土偶「縄文の女神」は、2012年に国宝に指定されました。",
+        "猿羽根山の山頂には約1000年前に安置された地蔵尊があり、縁結び・子宝・延命の地蔵として信仰されています。"
+      ],
+      "sources": [
+        {
+          "publisher": "舟形町",
+          "title": "舟形町総合発展計画",
+          "url": "https://www.town.funagata.yamagata.jp/s007/sugata/040/020/210/keikakusyohontai.pdf"
+        },
+        {
+          "publisher": "山形県",
+          "title": "山形県について",
+          "url": "https://www.pref.yamagata.jp/020026/kensei/shoukai/yamagataken/profile.html"
+        },
+        {
+          "publisher": "舟形町",
+          "title": "猿羽根山地蔵尊",
+          "url": "https://www.town.funagata.yamagata.jp/s010/map/map02/030/010/20210903103619.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06364": {
+      "text": [
+        "真室川町は山形県の最北部にあり、東・西・北の三方を険しい山に囲まれ、町を流れる真室川と鮭川の流域に平地や集落が点在しています。",
+        "1956年に真室川町・安楽城村・及位村の1町2村が合併して、今の町が生まれました。",
+        "釜渕五郎前遺跡から出土した土偶は1965年に、内町が所蔵する薬師如来倚像は1987年に、それぞれ国の重要文化財に指定されました。",
+        "1617年に鮭延秀綱が古河城主の土井家に預けられた縁から、茨城県古河市と姉妹都市になっています。",
+        "「真室川音頭」を町の音頭とし、1986年には第1回の真室川音頭全国大会が開かれました。"
+      ],
+      "sources": [
+        {
+          "publisher": "真室川町",
+          "title": "町の概要",
+          "url": "https://www.town.mamurogawa.yamagata.jp/chosei/shokai/1826.html"
+        },
+        {
+          "publisher": "真室川町",
+          "title": "まちの歩み",
+          "url": "https://www.town.mamurogawa.yamagata.jp/chosei/shokai/4871.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06365": {
+      "text": [
+        "大蔵村は南に月山と葉山がそびえ、2つの山から流れ出る銅山川と赤松川が村を通って最上川に注いでいます。",
+        "1476年に成沢から移ってきた満久が清水の地に城を築いて清水氏を名乗り、清水家は最上川の舟運を押さえて、1614年まで7代にわたり最上地方の中心として栄えました。",
+        "村の名前は、清水家7代城主の清水大蔵大輔義親の名前から付けられたといわれています。",
+        "明治の町村制の施行で、清水町村・合海町村・南山村・赤松村の4村が合わさって今の大蔵村になりました。",
+        "807年の開湯とされる肘折温泉郷は肘折火山のカルデラの中にあり、村では肘折こけしや大蔵太鼓などの伝統が受け継がれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "大蔵村",
+          "title": "村の概要",
+          "url": "https://www.vill.ohkura.yamagata.jp/gyoseijoho/okuramuranogaiyo/1021.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06366": {
+      "text": [
+        "鮭川村は山形県北部の最上地域の北西部にあり、東は新庄市、南は戸沢村、北は真室川町、西は酒田市に接する農山村です。",
+        "村の中央を鮭川が流れ、東部は比較的平らな土地で、西部は起伏の大きい山あいです。",
+        "鮭川歌舞伎は村内4か所の村芝居がまとまってできたもので、1773年ごろに江戸の歌舞伎役者から伝わったとされ、1974年に村の指定文化財第1号になりました。",
+        "毎年8月18日には、庭月観音の前を流れる鮭川で、先祖を供養する灯ろう流しが行われます。",
+        "「小杉の大杉」は樹齢1000年とされる杉の巨木で、昔から地区の御神木として親しまれてきました。"
+      ],
+      "sources": [
+        {
+          "publisher": "鮭川村",
+          "title": "位置",
+          "url": "https://www.vill.sakegawa.yamagata.jp/sakegawa/introduction/53"
+        },
+        {
+          "publisher": "鮭川村",
+          "title": "村土",
+          "url": "https://www.vill.sakegawa.yamagata.jp/sakegawa/introduction/52"
+        },
+        {
+          "publisher": "鮭川村",
+          "title": "文化活動",
+          "url": "https://www.vill.sakegawa.yamagata.jp/sakegawa/history/55"
+        },
+        {
+          "publisher": "鮭川村",
+          "title": "伝統行事",
+          "url": "https://www.vill.sakegawa.yamagata.jp/sakegawa/history/56"
+        },
+        {
+          "publisher": "鮭川村",
+          "title": "御神木としての小杉の大杉",
+          "url": "https://www.vill.sakegawa.yamagata.jp/sakegawa/introduction/1680"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06367": {
+      "text": [
+        "戸沢村は山形県北部の最上地方にあり、村の中央を東西に流れる最上川の舟運の要所として古くから栄えました。",
+        "1955年に戸沢村・古口村・角川村の3村が合併して、今の戸沢村が生まれました。",
+        "合併前の古口村にあたる中部は舟運によって早くから開け、角川村にあたる南部は出羽三山の登山口として栄えました。",
+        "最上峡谷の一帯は最上川の舟下りで知られ、村には松尾芭蕉や正岡子規など多くの文人の足跡が残っています。",
+        "1938年に角川村の保険組合が法律に基づく国民健康保険組合として全国で初めて設立の認可を受け、戸沢村は「国保発祥の地」とされています。"
+      ],
+      "sources": [
+        {
+          "publisher": "戸沢村",
+          "title": "第5次戸沢村総合計画後期基本計画",
+          "url": "https://www.vill.tozawa.yamagata.jp/files/libs/4896/202605221012399802.pdf"
+        },
+        {
+          "publisher": "戸沢村",
+          "title": "戸沢村過疎地域持続的発展計画（後期計画）",
+          "url": "https://www.vill.tozawa.yamagata.jp/files/libs/4898/202605221013399946.pdf"
+        },
+        {
+          "publisher": "戸沢村",
+          "title": "国保発祥の地",
+          "url": "https://www.vill.tozawa.yamagata.jp/gyoseijoho/muranoshokai/kokuhohasshonochi/"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06381": {
+      "text": [
+        "高畠町は屋代川と和田川の扇状地に開けた町で、平地では米、山あいではぶどう・りんご・梨がつくられています。",
+        "1954年に高畠町・二井宿村・屋代村・亀岡村・和田村の1町4村が合併して社郷町ができ、1955年に糠野目村が加わって町の名前を高畠町に改めました。",
+        "1380年に伊達宗遠が長井氏を攻めてから伊達家がこの地を治め、高畑城を中心に7代にわたって政治が行われました。",
+        "山や丘には古墳や洞窟の遺跡が多く、縄文時代草創期の遺物が見つかった日向洞窟は1977年に国の指定を受けました。",
+        "亀岡文殊は807年に徳一上人が堂を建てたのが始まりといわれ、日本三文殊の一つとされています。"
+      ],
+      "sources": [
+        {
+          "publisher": "高畠町",
+          "title": "高畠町について",
+          "url": "https://www.town.takahata.yamagata.jp/site/about/"
+        },
+        {
+          "publisher": "高畠町",
+          "title": "町政要覧",
+          "url": "https://www.town.takahata.yamagata.jp/img/about/youran.pdf"
+        },
+        {
+          "publisher": "高畠町",
+          "title": "伊達家との関わり",
+          "url": "https://www.town.takahata.yamagata.jp/soshiki/14/1003.html"
+        },
+        {
+          "publisher": "高畠町",
+          "title": "日向洞窟",
+          "url": "https://www.town.takahata.yamagata.jp/soshiki/14/1008.html"
+        },
+        {
+          "publisher": "高畠町",
+          "title": "亀岡文殊",
+          "url": "https://www.town.takahata.yamagata.jp/soshiki/14/1021.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06382": {
+      "text": [
+        "川西町は山形県南部の置賜地方のほぼ中心にあり、町内には北緯38度と東経140度が交わる地点があります。",
+        "1955年に小松町・大塚村・犬川村・中郡村・玉庭村・吉島村の1町5村が合併して生まれ、最上川の西側にあることから川西町と名づけられました。",
+        "明治の初めにイギリスの旅行家イザベラ・バードが小松に泊まり、米沢平野を「アジアのアルカディア（桃源郷）」とたたえました。",
+        "米づくりが盛んで、町で長く栽培されてきた地大豆「赤豆」は「紅大豆」と名づけられ、町が管理する登録商標になっています。",
+        "200基に及ぶ古墳からなる下小松古墳群は国の史跡で、前方後方墳の天神森古墳は県の史跡に指定されています。"
+      ],
+      "sources": [
+        {
+          "publisher": "川西町",
+          "title": "川西町の概要",
+          "url": "https://www.town.kawanishi.yamagata.jp/machinojoho/machinosyokai/kawanishimachigaiyou.html"
+        },
+        {
+          "publisher": "川西町",
+          "title": "紅（べに）大豆",
+          "url": "https://www.town.kawanishi.yamagata.jp/machinojoho/machinosyokai/benidaizu.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06401": {
+      "text": [
+        "小国町は朝日連峰と飯豊連峰の山なみに囲まれ、ブナを中心とした広葉樹の森が町土の大部分を占めています。",
+        "1954年に小国町・南小国村・北小国村が合併し、1960年に津川村と合併して今の小国町になりました。",
+        "雪が多く、冬の積雪は町の中心部でも2メートル以上、山あいの集落では5メートルになるところもあります。",
+        "1938年には豊かな水を生かした水力発電の電気で合金鉄の製造が始まり、それ以来、工業を中心とする産業が育ちました。",
+        "森とともに生きてきた暮らしの文化を「ぶな文化」と呼び、小玉川地区にはマタギの心が受け継がれ、幕末ごろに伝わったとされる古田歌舞伎は町の文化財です。"
+      ],
+      "sources": [
+        {
+          "publisher": "小国町",
+          "title": "位置と気候と特色",
+          "url": "https://www.town.oguni.yamagata.jp/soshiki/soumu/1350.html"
+        },
+        {
+          "publisher": "小国町",
+          "title": "ぶな文化",
+          "url": "https://www.town.oguni.yamagata.jp/soshiki/soumu/1351.html"
+        },
+        {
+          "publisher": "小国町",
+          "title": "小国町の近代のあゆみ（昭和20年～）",
+          "url": "https://www.town.oguni.yamagata.jp/site/ayumi/1068.html"
+        },
+        {
+          "publisher": "小国町",
+          "title": "小国町の近代のあゆみ（昭和30年～）",
+          "url": "https://www.town.oguni.yamagata.jp/site/ayumi/1069.html"
+        },
+        {
+          "publisher": "小国町",
+          "title": "古田歌舞伎",
+          "url": "https://www.town.oguni.yamagata.jp/soshiki/kyouiku/1021.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06402": {
+      "text": [
+        "白鷹町は山形県の南部中央にあり、東に白鷹丘陵、西に朝日山系がひかえ、町の中央を最上川が流れています。",
+        "1954年に荒砥町・鮎貝村・東根村・白鷹村・十王村・蚕桑村の1町5村が合併し、1955年に朝日町の一部を編入して今の町になりました。",
+        "最上川沿いの田園では米を中心に、りんごやトマト、生乳がつくられ、紅花の産地として「日本の紅（あか）をつくる町」を掲げています。",
+        "樹齢500年以上のエドヒガンザクラの古木が多く「古典桜の里」と呼ばれ、薬師ザクラや釜ノ越サクラは県の天然記念物です。",
+        "深山和紙と白鷹板締小絣の技術は県の無形文化財に、深山の観音寺観音堂は国の重要文化財に指定されています。"
+      ],
+      "sources": [
+        {
+          "publisher": "白鷹町",
+          "title": "町の概要",
+          "url": "https://www.town.shirataka.lg.jp/1105.htm"
+        },
+        {
+          "publisher": "白鷹町",
+          "title": "町の紹介",
+          "url": "https://www.town.shirataka.lg.jp/1051.htm"
+        },
+        {
+          "publisher": "白鷹町",
+          "title": "日本の紅をつくる町",
+          "url": "https://www.town.shirataka.lg.jp/1056.htm"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06426": {
+      "text": [
+        "三川町は山形県の北西部、庄内平野のほぼ中央にあり、町の土地の多くを水田が占めています。",
+        "1955年に横山村・東郷村・押切村が合併して三川村が生まれ、1968年に町制を施行して三川町になりました。",
+        "村の名前は、3つの村の集落が赤川・京田川・大山川の流域にあることから付けられました。",
+        "赤川には1873年に初めての橋が完成し、形が美人の眉毛を思わせることから「蛾眉橋」の名が付きました。",
+        "押切村の大地主の家に生まれた加藤セチは、理化学研究所に入り、女性として初めて主任研究員を務めました。"
+      ],
+      "sources": [
+        {
+          "publisher": "三川町",
+          "title": "平成28年度 三川町勢要覧",
+          "url": "https://www.town.mikawa.yamagata.jp/town/matisiryou/tyouseiyouran.files/H28tyouseiyouran.pdf"
+        },
+        {
+          "publisher": "三川町",
+          "title": "令和8年度 三川町町政資料",
+          "url": "https://www.town.mikawa.yamagata.jp/town/matisiryou/gaikyou.files/R8siryou.pdf"
+        },
+        {
+          "publisher": "三川町",
+          "title": "70周年記念ガイドブック『なかなか三川町』",
+          "url": "https://www.town.mikawa.yamagata.jp/kouhou/nakanaka.files/keiryo.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06428": {
+      "text": [
+        "庄内町は山形県の北西部、庄内平野の南東部から中央にかけてあり、月山の頂を含み、立谷沢川と最上川に沿って南北に長い町です。",
+        "1954年の合併でできた立川町と余目町が、2005年に合併して庄内町が生まれました。",
+        "明治時代に町の農家の阿部亀治が育てた稲「亀ノ尾」の発祥の地で、コシヒカリやつや姫などの血統をたどると亀ノ尾に行き着きます。",
+        "1612年に狩川城主の北館大学助利長が開いた北楯大堰は、2018年に世界かんがい施設遺産に登録され、今も庄内平野の田を潤しています。",
+        "幕末を生きた清河八郎は、庄内藩領だった清川村の生まれで、「維新回天偉業の魁」と呼ばれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "庄内町",
+          "title": "位置と地勢",
+          "url": "https://www.town.shonai.lg.jp/gyousei/gaiyou/ithi.html"
+        },
+        {
+          "publisher": "庄内町",
+          "title": "庄内町の歴史",
+          "url": "https://www.town.shonai.lg.jp/gyousei/gaiyou/rekishi.html"
+        },
+        {
+          "publisher": "庄内町",
+          "title": "庄内町の米",
+          "url": "https://www.town.shonai.lg.jp/okome/index.html"
+        },
+        {
+          "publisher": "庄内町",
+          "title": "「維新の魁」清河八郎",
+          "url": "https://www.town.shonai.lg.jp/kanko/rekishi/kiyokawa-hachiro.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-06461": {
+      "text": [
+        "遊佐町は山形県の最北端にあり、西は庄内砂丘をへだてて日本海に面し、北は鳥海山を境に秋田県と接しています。",
+        "土地は山あい・平野・砂丘に分かれ、鳥海山から流れ出る川が町を通って日本海に注いでいます。",
+        "2020年には「史跡 鳥海山」に続き、小山崎遺跡が町で2件目の国の史跡に指定されました。",
+        "杉沢地区に伝わる山伏の神楽「杉沢比山」は、能楽が大成する前の古い姿を残し、1978年に国の重要無形民俗文化財になりました。",
+        "吹浦地区の3集落に伝わるアマハゲは「遊佐の小正月行事」として国の重要無形民俗文化財になり、2018年には全国の来訪神行事とともに「来訪神仮面・仮装の神々」としてユネスコ無形文化遺産に登録されました。"
+      ],
+      "sources": [
+        {
+          "publisher": "遊佐町",
+          "title": "2026 遊佐町の統計",
+          "url": "https://www.town.yuza.yamagata.jp/uploads/public/archive_0000001095_00/tokei2026.pdf"
+        },
+        {
+          "publisher": "遊佐町",
+          "title": "小山崎遺跡の国史跡指定について",
+          "url": "https://www.town.yuza.yamagata.jp/archive/contents-291"
+        },
+        {
+          "publisher": "遊佐町",
+          "title": "国指定重要無形民俗文化財 杉沢比山",
+          "url": "https://www.town.yuza.yamagata.jp/archive/contents-824"
+        },
+        {
+          "publisher": "遊佐町",
+          "title": "国指定重要無形民俗文化財 遊佐の小正月行事（アマハゲ）",
+          "url": "https://www.town.yuza.yamagata.jp/archive/contents-825"
+        }
+      ],
+      "checked": "2026-10-25"
+    }
+  }
+}

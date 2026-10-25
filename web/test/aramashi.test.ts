@@ -11,7 +11,8 @@ describe("あらまし（設計変更記録 #164）", () => {
       expect(a.checked).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(a.sources.length).toBeGreaterThan(0);
       for (const s of a.sources) {
-        expect(s.url).toMatch(/^https:\/\//);
+        // https で開けない公式サイトだけ http のまま載せる（設計変更記録 #169）
+        expect(s.url).toMatch(/^https?:\/\//);
         expect(s.publisher).not.toBe("");
         expect(s.title).not.toBe("");
       }
