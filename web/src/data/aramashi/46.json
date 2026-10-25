@@ -1,0 +1,1068 @@
+{
+  "areas": {
+    "pref-46": {
+      "text": [
+        "鹿児島県は日本本土の西南部にあり、薩摩・大隅の2つの半島と、種子島・屋久島・奄美大島などの多くの島からなります。",
+        "県全体が火山灰の地層におおわれ、そのおよそ半分がシラス台地です。",
+        "島津氏は12世紀末ごろから力をのばし、16世紀後半にはほぼ今の県の範囲を治めました。",
+        "1543年には種子島に流れ着いたポルトガル人が鉄砲を伝え、1549年にはフランシスコ・ザビエルが来てキリスト教を伝えました。",
+        "19世紀後半の鹿児島は、反射炉や機械工場をつくり、イギリスに留学生を送るなどして西洋の文化を取り入れ、新しい政府づくりの中心となりました。"
+      ],
+      "sources": [
+        {
+          "publisher": "鹿児島県",
+          "title": "地理（概要）",
+          "url": "https://www.pref.kagoshima.jp/aa02/pr/gaiyou/shizen/chiri/tirigaiyo.html"
+        },
+        {
+          "publisher": "鹿児島県",
+          "title": "歴史の概要",
+          "url": "https://www.pref.kagoshima.jp/ba08/pr/gaiyou/rekishi/rekishigaiyou/rekishi-main.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46201": {
+      "text": [
+        "鹿児島市は九州の南端、県本土のほぼ中央にあり、市街地は鹿児島湾に注ぐ甲突川などがつくった小さな平野に広がっています。",
+        "江戸時代は薩摩・大隅・日向の3国を治めた島津氏の城下町として栄え、1871年の廃藩置県で県庁が置かれ、1889年に市になりました。",
+        "19世紀中ごろには島津斉彬のもとで磯地区に反射炉や溶鉱炉がつくられ、ここが日本の近代工業化の始まりの地となりました。",
+        "明治維新では、西郷隆盛や大久保利通らが原動力となって活躍しました。",
+        "1967年に谷山市と、2004年に吉田町・桜島町・喜入町・松元町・郡山町と合併しました。"
+      ],
+      "sources": [
+        {
+          "publisher": "鹿児島市",
+          "title": "位置・地形・気象",
+          "url": "https://www.city.kagoshima.lg.jp/soumu/soumu/soumu/shise/shokai/chike.html"
+        },
+        {
+          "publisher": "鹿児島市",
+          "title": "鹿児島市の生い立ち",
+          "url": "https://www.city.kagoshima.lg.jp/kikakuzaisei/kikaku/seisaku-k/shise/shokai/shoitachi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46203": {
+      "text": [
+        "鹿屋市は大隅半島のほぼ中央にあり、古くから大隅地域の交通や産業、経済、文化の中心としての役目をになってきました。",
+        "2006年に鹿屋市・輝北町・串良町・吾平町が合併して、今の市になりました。",
+        "北部には日本の自然百選に選ばれた高隈山系が連なり、西部は鹿児島湾（錦江湾）に面しています。",
+        "南部の山林地帯には、神代三山陵の1つである吾平山上陵があります。",
+        "第1次産業がまちの基幹産業で、かのやばら園や鹿屋体育大学などの施設も集まっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "鹿屋市",
+          "title": "鹿屋市について",
+          "url": "https://www.city.kanoya.lg.jp/suishin/shise/gaiyo/yoran.html"
+        },
+        {
+          "publisher": "鹿屋市",
+          "title": "統計かのや（令和7年度版）土地・気象",
+          "url": "https://www.city.kanoya.lg.jp/documents/6058/01.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46204": {
+      "text": [
+        "枕崎市は薩摩半島の南端にあり、南は東シナ海に面していて、市の形はほぼ五角形です。",
+        "北部の主峰の蔵多山から山地が東西にのび、中央には花渡川の流域に平地が広がっています。",
+        "1889年の町村制で東南方村となり、1923年に枕崎町、1949年に枕崎市になりました。",
+        "かつお節の大きな産地で、1707年に森弥兵衛が技法を伝えたころから、煮てから煙でいぶして乾かすかつお節づくりが始まったと言われています。",
+        "枕崎漁港は1969年に特定第三種漁港となりました。"
+      ],
+      "sources": [
+        {
+          "publisher": "枕崎市",
+          "title": "市の位置／アクセス",
+          "url": "https://www.city.makurazaki.lg.jp/site/ijyu/65.html"
+        },
+        {
+          "publisher": "枕崎市",
+          "title": "歴史年表",
+          "url": "https://www.city.makurazaki.lg.jp/site/ijyu/69.html"
+        },
+        {
+          "publisher": "枕崎市",
+          "title": "枕崎のかつお節",
+          "url": "https://www.city.makurazaki.lg.jp/soshiki/suisan/5320.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46206": {
+      "text": [
+        "阿久根市は鹿児島県の北西部にあり、東シナ海に沿って約40kmの海岸線が続き、沖合約2kmには阿久根大島が浮かびます。",
+        "高松川の河口にある阿久根港を中心に、昔から海と陸の交通の要所となり、海運業や商業で栄えました。",
+        "平安時代の末には英祢院と呼ばれ、15世紀の中ごろに今の「阿久根」の字に変わったとされています。",
+        "1889年に阿久根村となり、1925年に町、1952年に市となって、1955年に三笠町と合併しました。",
+        "黒潮の流れる暖かな土地で農業や水産業が盛んで、特産品に阿久根ボンタンがあります。"
+      ],
+      "sources": [
+        {
+          "publisher": "阿久根市",
+          "title": "阿久根市の概要",
+          "url": "https://www.city.akune.lg.jp/shiseijoho/17/shinoshokai/1776.html"
+        },
+        {
+          "publisher": "阿久根市",
+          "title": "阿久根市の歴史",
+          "url": "https://www.city.akune.lg.jp/shiseijoho/17/shinoshokai/1777.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46208": {
+      "text": [
+        "出水市は鹿児島県の北西部にあり、北西は八代海（不知火海）に面し、熊本県水俣市などと接しています。",
+        "1453年に島津忠国の弟の用久が薩州家をおこし、その一族が7代140年にわたって出水を治めました。",
+        "肥後との国境にあって守りの上で大事な町だったため、薩摩藩は多くの藩士を郷士として住まわせ、藩境の守りにつかせました。",
+        "藩士の住まいとして出水城のふもとに整えられた出水麓は、1995年に国の重要伝統的建造物群保存地区に選ばれました。",
+        "毎年10月から3月にかけて、冬を越すために多くのツルが渡ってきます。"
+      ],
+      "sources": [
+        {
+          "publisher": "出水市",
+          "title": "出水市の概要",
+          "url": "https://www.city.kagoshima-izumi.lg.jp/page/page_10001.html"
+        },
+        {
+          "publisher": "出水市",
+          "title": "出水市の歴史",
+          "url": "https://www.city.kagoshima-izumi.lg.jp/page/page_00733.html"
+        },
+        {
+          "publisher": "出水市",
+          "title": "武家屋敷（出水麓伝統的建造物群保存地区）について",
+          "url": "https://www.city.kagoshima-izumi.lg.jp/page/page_50001.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46210": {
+      "text": [
+        "指宿市は薩摩半島の南の端、鹿児島湾の入り口にあり、2006年に指宿市・山川町・開聞町の3市町が合併して今の市になりました。",
+        "中央部に池田湖、南西部に「薩摩富士」とも呼ばれる標高924mの開聞岳があり、東部の知林ヶ島は潮の干満で陸続きになります。",
+        "市の全域を霧島火山脈が通り、天然の砂むし温泉をはじめ、多くの温泉が湧いています。",
+        "そうめん流しで知られる唐船峡の周辺は、1日に10万トンもの清水が湧く豊かな水環境をもち、「水の郷百選」に選ばれています。",
+        "橋牟礼川遺跡や水迫遺跡など、歴史上貴重な発見のあった遺跡も多く残っています。"
+      ],
+      "sources": [
+        {
+          "publisher": "指宿市",
+          "title": "指宿市の概要",
+          "url": "https://www.city.ibusuki.lg.jp/main/shisei/about/about/page002601.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46213": {
+      "text": [
+        "西之表市は種子島の北部にあるまちで、馬毛島も市の面積に含まれています。",
+        "種子島は鉄砲が伝わった地で、国内で初めて火縄銃が作られた地でもあり、1983年に開館した鉄砲館にはポルトガル初伝銃や伝国産第1号銃など古式銃約100点が並びます。",
+        "鉄砲伝来が縁でポルトガルとの交流が続き、1993年に同国のヴィラ・ド・ビスポ市と姉妹都市になりました。",
+        "刀鍛冶や鉄砲鍛冶の技を受け継ぐ種子鋏と種子包丁は、鹿児島県の伝統工芸品に指定されています。",
+        "島の鉄分を含んだ土で作る種子島焼は、上塗りをせずほぼ素焼きで仕上げる茶色の焼き物です。"
+      ],
+      "sources": [
+        {
+          "publisher": "西之表市",
+          "title": "自然・景観",
+          "url": "https://www.city.nishinoomote.lg.jp/admin/soshiki/keizaikankoka/kankokouryuka/guide/519.html"
+        },
+        {
+          "publisher": "西之表市",
+          "title": "統計にしのおもて 令和7年度版【概要】",
+          "url": "https://www.city.nishinoomote.lg.jp/material/files/group/90/r7_gaiyo.pdf"
+        },
+        {
+          "publisher": "西之表市",
+          "title": "鉄砲館とは",
+          "url": "https://www.city.nishinoomote.lg.jp/admin/soshiki/kyouikuiinkai/rekishibunkaka/center/teppoukan/8524.html"
+        },
+        {
+          "publisher": "西之表市",
+          "title": "鉄砲館 常設展示",
+          "url": "https://www.city.nishinoomote.lg.jp/admin/soshiki/kyouikuiinkai/rekishibunkaka/center/tenjiannai/8542.html"
+        },
+        {
+          "publisher": "西之表市",
+          "title": "伝統工芸・特産品",
+          "url": "https://www.city.nishinoomote.lg.jp/admin/soshiki/keizaikankoka/kankokouryuka/guide/531.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46214": {
+      "text": [
+        "垂水市は大隅半島の北西部で鹿児島湾に面し、西には桜島があり、東は高隈連山を境に鹿屋市と接しています。",
+        "1955年に垂水町が牛根村・新城村と合併し、1958年に市になりました。",
+        "種子島から移った島津以久が垂水の領主となり、垂水島津家は明治維新まで約250年間この地を治めて、特に学問や教育に力を入れました。",
+        "長い海岸線を生かしたブリやカンパチの養殖が盛んで、びわや柑橘類、きぬさやえんどうなどの栽培も盛んです。",
+        "高隈山系を源とする温泉水は、天然のミネラルを含む飲み水として親しまれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "垂水市",
+          "title": "垂水市の地理歴史",
+          "url": "https://www.city.tarumizu.lg.jp/hisho/shise/gaiyo/profile/gaiyo.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46215": {
+      "text": [
+        "薩摩川内市は、薩摩半島の北西部にある本土の区域と、上甑島・中甑島・下甑島の甑島の区域からなります。",
+        "2004年に川内市・樋脇町・入来町・東郷町・祁答院町・里村・上甑村・下甑村・鹿島村が合併して生まれました。",
+        "市街地を一級河川の川内川が流れ、藺牟田池は県立自然公園、甑島は国定公園に指定されています。",
+        "中世の豪族入来院氏の山城だった清色城跡は国の史跡、その麓の武家屋敷群の入来麓は重要伝統的建造物群保存地区です。",
+        "大晦日の夜に祝福の神様が子どものいる家々を訪れる「甑島のトシドン」は、ユネスコの無形文化遺産になっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "薩摩川内市",
+          "title": "薩摩川内市の紹介",
+          "url": "https://www.city.satsumasendai.lg.jp/gyoseijoho/satsumasendaishi_gaiyo/1/8704.html"
+        },
+        {
+          "publisher": "薩摩川内市",
+          "title": "清色城跡と入来麓伝統的建造物群保存地区",
+          "url": "https://www.city.satsumasendai.lg.jp/kanko_bunka_sports/rekishi_bunkazai/9095.html"
+        },
+        {
+          "publisher": "薩摩川内市",
+          "title": "「甑島のトシドン」はユネスコ無形文化遺産に登録されています",
+          "url": "https://www.city.satsumasendai.lg.jp/kanko_bunka_sports/rekishi_bunkazai/9096.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46216": {
+      "text": [
+        "日置市は薩摩半島のほぼ中央にあり、西は吹上浜と東シナ海に面しています。",
+        "2005年に東市来町・伊集院町・日吉町・吹上町の4町が合併して生まれました。",
+        "妙円寺詣りや流鏑馬、せっぺとべなどの歴史ある伝統行事が受け継がれ、温泉にも恵まれています。",
+        "妙円寺詣りは、1600年の関ケ原の戦いで敵中を突破して帰った島津勢の苦難をしのび、鹿児島城下の武士たちが参拝するようになったもので、今も鎧兜の武者行列が見られます。",
+        "東市来町美山は「薩摩焼の里」で、美山陶遊館では陶工に教わりながら薩摩焼の陶芸を体験できます。"
+      ],
+      "sources": [
+        {
+          "publisher": "日置市",
+          "title": "日置市の概要",
+          "url": "https://www.city.hioki.kagoshima.jp/kouho/shisejoho/gaiyo/gaiyo/hiokishi.html"
+        },
+        {
+          "publisher": "日置市",
+          "title": "沿革",
+          "url": "https://www.city.hioki.kagoshima.jp/kouho/shisejoho/gaiyo/gaiyo/enkaku.html"
+        },
+        {
+          "publisher": "日置市",
+          "title": "妙円寺詣り",
+          "url": "https://www.city.hioki.kagoshima.jp/kanko/kankou/asobu/event-calendar/oct/myoenjimairi.html"
+        },
+        {
+          "publisher": "日置市",
+          "title": "美山陶遊館",
+          "url": "https://www.city.hioki.kagoshima.jp/kanko/kankou/kanko-map/osusume/toyukan.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46217": {
+      "text": [
+        "曽於市は大隅半島の北部にあり、市の北側は都城盆地の一角をなし、南側には志布志湾に注ぐ菱田川が流れています。",
+        "2005年に末吉町・大隅町・財部町の3町が合併して生まれました。",
+        "畜産業が盛んで、お茶や柚子なども特産品になっています。",
+        "岩川八幡神社の弥五郎どん祭りは、南九州の八幡系神社の秋祭りに伝わる大人形の行事の一つで、県の無形民俗文化財に指定されています。",
+        "財部町の山あいにある溝ノ口洞穴は、2021年に国の天然記念物に指定されました。"
+      ],
+      "sources": [
+        {
+          "publisher": "曽於市",
+          "title": "位置・地勢",
+          "url": "https://www.city.soo.kagoshima.jp/gyousei/shigaiyou/iti.html"
+        },
+        {
+          "publisher": "曽於市",
+          "title": "曽於市勢要覧 2022年版",
+          "url": "https://www.city.soo.kagoshima.jp/gyousei/shigaiyou/files/2022youran.pdf"
+        },
+        {
+          "publisher": "曽於市",
+          "title": "曽於市過疎地域持続的発展計画",
+          "url": "https://www.city.soo.kagoshima.jp/gyousei/sisakukeikaku/files/kasokeikaku626.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46218": {
+      "text": [
+        "霧島市は鹿児島県本土のほぼ中央にあって北部に霧島山を抱え、南部は錦江湾に面し、山から湾へ天降川が流れています。",
+        "2005年に国分市と溝辺・横川・牧園・霧島・隼人・福山の6町が合併して、今の霧島市になりました。",
+        "山のふもとから平野にかけて温泉が多くあり、旧国分市には上野原遺跡を中心とした「上野原縄文の森」があります。",
+        "旧溝辺町には1972年に鹿児島空港が開港し、溝辺茶や旧牧園町の霧島茶などのお茶づくりも行われています。",
+        "旧福山町では米酢づくりが盛んで、旧牧園町は霧島国際音楽祭の開かれるまちとして知られてきました。"
+      ],
+      "sources": [
+        {
+          "publisher": "霧島市",
+          "title": "位置・地勢",
+          "url": "https://www.city-kirishima.jp/hisyokouhou/shise/shinoshokai/gaiyo/ichi.html"
+        },
+        {
+          "publisher": "霧島市",
+          "title": "沿革",
+          "url": "https://www.city-kirishima.jp/kikaku/shise/shinoshokai/gaiyo/enkaku.html"
+        },
+        {
+          "publisher": "霧島市",
+          "title": "合併前の1市6町の概要と歴代首長",
+          "url": "https://www.city-kirishima.jp/hisyokouhou/shise/shinoshokai/gaiyo/rekidaikubicyou.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46219": {
+      "text": [
+        "いちき串木野市は西に吹上浜の海岸、東に徐福伝説の残る冠嶽をのぞむまちで、2005年に串木野市と市来町が合併して生まれました。",
+        "縄文時代後期の暮らしを伝える市来貝塚は県の文化財に指定され、冠嶽は薩摩の山岳仏教の中心地として発展してきました。",
+        "江戸時代には薩摩街道出水筋の宿場や海の輸送の拠点として物資が集まり、金の鉱山や遠洋まぐろ漁業のまちとしても栄えてきました。",
+        "1865年に薩摩藩の英国留学生19人が旅立った地でもあります。"
+      ],
+      "sources": [
+        {
+          "publisher": "いちき串木野市",
+          "title": "位置・概要",
+          "url": "https://www.city.ichikikushikino.lg.jp/seisaku3/shise/gaiyo/profile/gaiyo.html"
+        },
+        {
+          "publisher": "いちき串木野市",
+          "title": "統計いちき串木野（土地及び気象）",
+          "url": "https://www.city.ichikikushikino.lg.jp/seisaku3/shise/toke/documents/01totioyobikisyou07.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46220": {
+      "text": [
+        "南さつま市は薩摩半島の南西部にあって南と西が東シナ海に面し、北西には砂丘、南西にはリアス式海岸が続いています。",
+        "2005年に加世田市と笠沙・大浦・坊津・金峰の4町が合併して生まれました。",
+        "坊津は古くから「日本三津」の一つに数えられた大陸貿易の港として栄え、国の名勝にも指定されています。",
+        "坊津の秋目浦は、奈良時代に唐から招かれた高僧鑑真が753年に日本本土へ上陸した地で、12月には遺徳をしのぶ集いが開かれます。",
+        "1987年に始まった吹上浜砂の祭典は砂の彫刻を中心とする催しで、竹田神社夏祭りでは県の無形文化財の士踊が奉納されます。"
+      ],
+      "sources": [
+        {
+          "publisher": "南さつま市",
+          "title": "位置・地勢・歴史",
+          "url": "https://www.city.minamisatsuma.lg.jp/goshokai/gaiyo/e015402.html"
+        },
+        {
+          "publisher": "南さつま市",
+          "title": "市勢要覧2020",
+          "url": "https://www.city.minamisatsuma.lg.jp/goshokai/docs/2020shiseiyouran040314.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46221": {
+      "text": [
+        "志布志市は鹿児島県の東部、志布志湾の奥のほぼ中央にあり、東は宮崎県串間市と接しています。",
+        "2006年に曽於郡の松山町・志布志町・有明町が合併して市になりました。",
+        "北から東は森林の多い丘陵で、中央から西にはシラス台地が広がり、海岸一帯は日南海岸国定公園に入っています。",
+        "沖合いの枇榔島の亜熱帯性植物群落は国の特別天然記念物で、市の中央部にある志布志港は南九州の物流の拠点です。",
+        "武家屋敷群の志布志麓は、日本遺産「薩摩の武士が生きた町」を形づくる一つになっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "志布志市",
+          "title": "志布志市の概況",
+          "url": "https://www.city.shibushi.lg.jp/soshiki/1/1148.html"
+        },
+        {
+          "publisher": "志布志市",
+          "title": "【日本遺産】志布志麓",
+          "url": "https://www.city.shibushi.lg.jp/soshiki/22/1569.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46222": {
+      "text": [
+        "奄美市は鹿児島から南へ約380kmの奄美大島にあり、島の面積の約4割を占めています。",
+        "2006年に名瀬市・住用村・笠利町が合併して生まれ、名瀬・住用・笠利の3地区からなります。",
+        "島には亜熱帯の照葉樹林やマングローブの森が広がり、アマミノクロウサギなどがすむ自然は2021年に世界自然遺産に登録されました。",
+        "島唄や八月踊りなどの伝統文化が伝わり、ヤコウガイを使ったらでん細工や貝さじの製作遺跡も残っています。",
+        "特産の本場奄美大島紬は1300年あまりの歴史をもつ絹織物で、テーチ木と泥で染めた糸で織る泥大島などがあります。"
+      ],
+      "sources": [
+        {
+          "publisher": "奄美市",
+          "title": "奄美市のプロフィール",
+          "url": "https://www.city.amami.lg.jp/kikaku/shise/gaiyo/shokai/sugata.html"
+        },
+        {
+          "publisher": "奄美市",
+          "title": "奄美市の誕生",
+          "url": "https://www.city.amami.lg.jp/kikaku/shise/gaiyo/shokai/tanjo.html"
+        },
+        {
+          "publisher": "奄美市",
+          "title": "本場奄美大島紬",
+          "url": "https://www.city.amami.lg.jp/kanko/tokusan/tsumugi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46223": {
+      "text": [
+        "南九州市は薩摩半島の南部にあり、南は東シナ海に面し、東は指宿市、西は枕崎市・南さつま市と接しています。",
+        "2007年に揖宿郡頴娃町と川辺郡知覧町・川辺町が合併して生まれました。",
+        "農業が基幹産業で、茶やさつまいも、大根が作られ、肉用牛や養豚などの畜産も盛んです。",
+        "焼酎や仏壇づくりの地場産業も受け継がれ、川辺仏壇は国の伝統的工芸品に指定されています。",
+        "知覧町上郡地区は国の重要伝統的建造物群保存地区に選ばれ、知覧麓庭園は国の名勝に指定されています。"
+      ],
+      "sources": [
+        {
+          "publisher": "南九州市",
+          "title": "位置・面積",
+          "url": "https://www.city.minamikyushu.lg.jp/gyoseijoho/minamikyushushinogaiyo/3648.html"
+        },
+        {
+          "publisher": "南九州市",
+          "title": "産業について",
+          "url": "https://www.city.minamikyushu.lg.jp/gyoseijoho/minamikyushushinogaiyo/3649.html"
+        },
+        {
+          "publisher": "南九州市",
+          "title": "南九州市の住所表示",
+          "url": "https://www.city.minamikyushu.lg.jp/gyoseijoho/minamikyushushinogaiyo/3646.html"
+        },
+        {
+          "publisher": "南九州市",
+          "title": "統計南九州（令和7年度版）",
+          "url": "https://www.city.minamikyushu.lg.jp/material/files/group/6/toukeiminamikyushu.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46225": {
+      "text": [
+        "姶良市は鹿児島県のほぼ中央、薩摩半島と大隅半島のつなぎ目にあり、2010年に姶良町・加治木町・蒲生町が合併して生まれました。",
+        "海と緑の山々に囲まれ、活火山の桜島を望むことができます。",
+        "戦国武将の島津義弘はこの地で初陣を飾り、晩年には再び戻ってここで過ごしました。",
+        "名物の加治木まんじゅうは、義弘が石橋の「らんかんばし」を造らせたとき、工事で働く人たちにふるまったのが始まりと伝えられています。",
+        "江戸時代の街道「大口筋」の石畳が残る龍門司坂と白銀坂は国の史跡、蒲生八幡神社の「蒲生のクス」は国の特別天然記念物です。"
+      ],
+      "sources": [
+        {
+          "publisher": "姶良市",
+          "title": "地勢・所在地・面積・沿革",
+          "url": "https://www.city.aira.lg.jp/somu/gyosei/gaiyo/chisei.html"
+        },
+        {
+          "publisher": "姶良市",
+          "title": "島津義弘公ゆかりの地",
+          "url": "https://www.city.aira.lg.jp/hisho/closeup/yoshihirokou.html"
+        },
+        {
+          "publisher": "姶良市",
+          "title": "国指定文化財",
+          "url": "https://www.city.aira.lg.jp/bunkazai/kanko/bunka/bunkazai/kunishitei.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46303": {
+      "text": [
+        "三島村は南西諸島のいちばん北にあり、竹島・硫黄島・黒島の3つの島と、無人の新硫黄島や岩礁からなります。",
+        "竹島と硫黄島は約6300年前に大噴火した鬼界カルデラのふちにあたり、硫黄島では活火山の硫黄岳が今も噴煙を上げています。",
+        "硫黄島は俊寛が流された鬼界ヶ島とされ、壇ノ浦から安徳天皇が落ちのびた地とも伝えられています。",
+        "硫黄島の八朔太鼓踊りの終わりに現れる仮面神「メンドン」は、ユネスコの無形文化遺産に登録されています。",
+        "黒島は村でいちばん大きな島で、2011年に「薩摩黒島の森林植物群落」が国の天然記念物に指定されました。"
+      ],
+      "sources": [
+        {
+          "publisher": "三島村",
+          "title": "三島村概要",
+          "url": "https://mishimamura.com/gaiyoukankou/%e4%b8%89%e5%b3%b6%e6%9d%91%e6%a6%82%e8%a6%81/"
+        },
+        {
+          "publisher": "三島村",
+          "title": "硫黄島について",
+          "url": "https://mishimamura.com/gaiyoukankou/%e4%b8%89%e5%b3%b6%e6%9d%91%e6%a6%82%e8%a6%81/ioujima/"
+        },
+        {
+          "publisher": "三島村",
+          "title": "三島村のお祭り～それぞれの仮面神～",
+          "url": "https://mishimamura.com/education-culture-history/omaturi/"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46304": {
+      "text": [
+        "十島村は屋久島と奄美大島の間にあり、7つの有人島と5つの無人島が南北約160kmにわたって連なる「トカラ列島」の村です。",
+        "中之島と諏訪之瀬島の御岳は今も噴煙を上げる活火山で、小宝島と宝島はサンゴ礁が隆起してできた島です。",
+        "近世には三島村の島々も含む有人の10島がまとめて「じっとうそん」と呼ばれていましたが、1952年に日本へ復帰したあと三島と分かれ、7島の「としまむら」となりました。",
+        "大和と琉球の両方の影響を受けた独自の文化が残り、悪石島では旧暦7月16日のボゼ祭りに、仮面をつけたボゼが現れて悪霊を追い払います。"
+      ],
+      "sources": [
+        {
+          "publisher": "十島村",
+          "title": "十島村の概要",
+          "url": "https://www.tokara.jp/profile/gaiyou/"
+        },
+        {
+          "publisher": "十島村",
+          "title": "悪石島の観光情報",
+          "url": "https://www.tokara.jp/tourism/profile/akusekijima/"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46392": {
+      "text": [
+        "さつま町は鹿児島県の北西部にある、周りを山々に囲まれた盆地のまちで、2005年に宮之城町・鶴田町・薩摩町の3町が合併して生まれました。",
+        "町の北部には標高1,067mの紫尾山がそびえ、町のほぼ中央を川内川が流れています。",
+        "宗功寺公園は江戸時代に建てられた宮之城島津家の菩提寺の跡で、一族の墓所は2020年に国の史跡「鹿児島島津家墓所」を構成する文化財の1つになりました。",
+        "竹の産地で、生け花に使う花器や人形などの竹細工が作られているほか、江戸時代後期に薩摩藩で始まった「薩摩切子」の技術もこのまちで見ることができます。"
+      ],
+      "sources": [
+        {
+          "publisher": "さつま町",
+          "title": "町の概要",
+          "url": "https://www.satsuma-net.jp/machinosugata/machinogaiyo_tokei/1/4206.html"
+        },
+        {
+          "publisher": "さつま町",
+          "title": "宗功寺公園",
+          "url": "https://www.satsuma-net.jp/kanko/machioshiru/3/1134-2/4466.html"
+        },
+        {
+          "publisher": "さつま町",
+          "title": "竹細工",
+          "url": "https://www.satsuma-net.jp/kanko/machioshiru/4/327.html"
+        },
+        {
+          "publisher": "さつま町",
+          "title": "薩摩切子",
+          "url": "https://www.satsuma-net.jp/kanko/machioshiru/4/6985.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46404": {
+      "text": [
+        "長島町は鹿児島県のいちばん北にあり、2006年に東町と長島町が合併して今の町になりました。",
+        "まわりを海に囲まれた大小27の島からなり、薩摩半島とは黒之瀬戸大橋で結ばれています。",
+        "長島には小浜古墳群や指江古墳群をはじめ200基を超す古墳があることから、「古墳の島」と呼ばれています。",
+        "鎌倉時代からは長島氏が治めていましたが、1565年に島津氏に攻められて堂崎城が落ち、それまでの肥後から薩摩に属するようになりました。",
+        "温州みかん発祥の地とされ、ぶりをはじめとする魚の養殖も盛んです。"
+      ],
+      "sources": [
+        {
+          "publisher": "長島町",
+          "title": "長島町はどこにあるの？",
+          "url": "https://www.town.nagashima.lg.jp/town/to0012/"
+        },
+        {
+          "publisher": "長島町",
+          "title": "歴史",
+          "url": "https://www.town.nagashima.lg.jp/town/to0009/"
+        },
+        {
+          "publisher": "長島町",
+          "title": "温州みかん発祥の地",
+          "url": "https://www.town.nagashima.lg.jp/town/to0014/"
+        },
+        {
+          "publisher": "長島町",
+          "title": "養殖ぶり生産",
+          "url": "https://www.town.nagashima.lg.jp/town/to0020/"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46452": {
+      "text": [
+        "湧水町は鹿児島県の中央北端にあり、2005年に姶良郡の吉松町と栗野町が合併して生まれました。",
+        "東の霧島連山と北西の九州山脈矢岳支脈にはさまれた盆地状の地形で、町の中央を川内川が流れ、流域には水田が広がっています。",
+        "竹中池や丸池からは一年中冷たい水がわき出ていて、水道の水源や田の用水に使われています。",
+        "丸池湧水は1985年に「日本名水百選」に選ばれ、9月の初めには池に竹灯籠を浮かべる「名水丸池感謝の夕べ」が開かれます。",
+        "栗野岳は霧島錦江湾国立公園に含まれ、その中腹からは錦江湾や桜島、薩摩半島まで見渡せます。"
+      ],
+      "sources": [
+        {
+          "publisher": "湧水町",
+          "title": "町の概要",
+          "url": "https://www.town.yusui.kagoshima.jp/soshiki/28/248.html"
+        },
+        {
+          "publisher": "湧水町",
+          "title": "湧水町誕生までの背景",
+          "url": "https://www.town.yusui.kagoshima.jp/soshiki/28/249.html"
+        },
+        {
+          "publisher": "湧水町",
+          "title": "丸池湧水（日本名水百選）",
+          "url": "https://www.town.yusui.kagoshima.jp/site/kanko/898.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46468": {
+      "text": [
+        "大崎町は鹿児島県の東南部、大隅半島の東側にあり、1936年に町となって、1955年に野方村と合併しました。",
+        "5世紀半ばに築かれたとされる横瀬古墳は、県内で2番目に大きい前方後円墳です。",
+        "室町時代後期に肝付氏が大崎城を築いたことで、「大崎」の地名が記録に現れました。",
+        "志布志湾沿いに約7km続く海岸の一帯は日南海岸国定公園の一部で、「日本の白砂青松100選」の1つにも選ばれています。",
+        "資源ごみの分別収集に町ぐるみで取り組んでSDGs未来都市に選ばれ、黒牛・黒豚や養殖うなぎの生産も盛んです。"
+      ],
+      "sources": [
+        {
+          "publisher": "大崎町",
+          "title": "第3次大崎町総合計画（本編）",
+          "url": "https://www.town.kagoshima-osaki.lg.jp/ke_kikaku/machiannai/shisaku/kekaku/documents/honpen.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46482": {
+      "text": [
+        "東串良町は大隅半島のほぼ中央、東の端に位置し、肝属平野の中にある町内には傾斜地がなく、なだらかで平らな土地が続いています。",
+        "昔は串良郷と呼ばれ、1889年に串良川を境に西串良村と東串良村に分かれ、東串良村は1932年に町になりました。",
+        "昔から海とのつながりが深く、町を流れる肝属川の河口は天然の港として栄え、中国と盛んに行き来する外国貿易の拠点だったと伝えられています。",
+        "唐仁古墳群は、1934年に国の史跡名勝天然記念物の指定を受けました。",
+        "黒潮の影響で暖かく、施設園芸と超早場米の産地で、ピーマンは1992年に「かごしまブランド」の産地指定を受けました。"
+      ],
+      "sources": [
+        {
+          "publisher": "東串良町",
+          "title": "町の概要",
+          "url": "https://www.higashikushira.com/docs/2018011000191/"
+        },
+        {
+          "publisher": "東串良町",
+          "title": "まちの歴史",
+          "url": "https://www.higashikushira.com/docs/2018011100020/"
+        },
+        {
+          "publisher": "東串良町",
+          "title": "産業",
+          "url": "https://www.higashikushira.com/docs/2018011100013/"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46490": {
+      "text": [
+        "錦江町は鹿児島県の大隅半島中南部にあり、2005年に大根占町と田代町が合併して生まれ、町の名は西側に広がる錦江湾から取られました。",
+        "合併前の大根占町は1933年、田代町は1961年に町になりました。",
+        "土地は海岸地帯、中部の高原地帯、稲尾岳や荒西山などの肝付山地の森林山岳地帯の3つに大きく分かれます。",
+        "国見連山には原生林が残り、半下石渓谷から流れ出た清水が高さ25m、幅30mの神川大滝となって落ち、神川大滝公園には高さ68mのつり橋もあります。",
+        "ピーマンやインゲン、サツマイモ、お茶などを育てる農業が主な産業で、黒毛和牛などの畜産も盛んです。"
+      ],
+      "sources": [
+        {
+          "publisher": "錦江町",
+          "title": "町について",
+          "url": "https://www.town.kinko.lg.jp/mirai-h/chose/profile/machinitsuite.html"
+        },
+        {
+          "publisher": "錦江町",
+          "title": "新町誕生の歴史（大根占町・田代町の歴史）",
+          "url": "https://www.town.kinko.lg.jp/somu-h/chose/profile/enkaku/tashiro.html"
+        },
+        {
+          "publisher": "錦江町",
+          "title": "神川大滝公園",
+          "url": "https://www.town.kinko.lg.jp/kanko-s/kanko/spot/otaki.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46491": {
+      "text": [
+        "南大隅町は大隅半島の南部に位置し、九州本島の南の端にあたる佐多岬も町内にあります。",
+        "町は半島の先端にあって三方を海に囲まれ、南東は大隅海峡、西は鹿児島湾（錦江湾）に臨んでいます。",
+        "2005年3月31日に根占町と佐多町が合わさって、今の南大隅町ができました。",
+        "根占・佐多の両地域は、平安時代から藩政時代にかけて禰寝院に含まれ、その後は島津藩が直接治める土地として発展しました。",
+        "約400年前の雄川の河口は唐や南蛮の船が出入りする貿易港で、樹齢千年以上とされる塩入橋の大クスに船の綱を結んだと伝えられています。"
+      ],
+      "sources": [
+        {
+          "publisher": "南大隅町",
+          "title": "位置及び面積",
+          "url": "https://www.town.minamiosumi.lg.jp/kikaku/machi/machi/ichi/ichi.html"
+        },
+        {
+          "publisher": "南大隅町",
+          "title": "南大隅町誕生までの経緯",
+          "url": "https://www.town.minamiosumi.lg.jp/kikaku/machi/machi/enkatsu/keii.html"
+        },
+        {
+          "publisher": "南大隅町",
+          "title": "歴史（平安から近代）",
+          "url": "https://www.town.minamiosumi.lg.jp/kikaku/machi/machi/gaiyo/rekishi2.html"
+        },
+        {
+          "publisher": "南大隅町",
+          "title": "自然（天然記念物1）",
+          "url": "https://www.town.minamiosumi.lg.jp/kikaku/machi/machi/gaiyo/shizen1.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46492": {
+      "text": [
+        "肝付町は大隅半島の南東部にあり、2005年7月1日に高山町と内之浦町が合併して生まれました。",
+        "中央部には国見山・黒尊岳・甫与志岳など900メートル級の山が連なり、南東部には山が太平洋にそのまま落ち込む海岸線が50キロメートル続きます。",
+        "両町の地域は古くは肝付氏や島津氏が治め、1932年にそれぞれ町になりました。",
+        "塚崎古墳群の1号墳の上に根を張る「塚崎のクス」は推定樹齢1300年とされ、国の天然記念物です。",
+        "約900年の歴史をもつ流鏑馬の神事「高山やぶさめ祭」が、毎年10月に行われています。"
+      ],
+      "sources": [
+        {
+          "publisher": "肝付町",
+          "title": "肝付町の位置・面積等",
+          "url": "https://kimotsuki-town.jp/chosei/shokai/3671.html"
+        },
+        {
+          "publisher": "肝付町",
+          "title": "肝付町のプロフィール",
+          "url": "https://kimotsuki-town.jp/chosei/shokai/1939.html"
+        },
+        {
+          "publisher": "肝付町",
+          "title": "年間イベント",
+          "url": "https://kimotsuki-town.jp/kanko/event/2105.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46501": {
+      "text": [
+        "中種子町は大隅半島の南端からおよそ40キロメートル南にあり、北で西之表市、南で南種子町と接し、東に太平洋、西に東シナ海が広がります。",
+        "立切遺跡は後期旧石器時代前半期の暮らしを伝える遺跡で、落とし穴の跡などが見つかっており、2022年に国の史跡に指定されました。",
+        "本村集落には、郷士の古市源助が1846年に建てた「古市家住宅」が残り、国の重要文化財になっています。",
+        "種子島の各地に伝わる源太郎踊りのうち「町山崎の源太郎踊り」は、男女がともに踊る念仏踊りとして受け継がれ、県の無形民俗文化財に指定されています。"
+      ],
+      "sources": [
+        {
+          "publisher": "中種子町",
+          "title": "位置と地勢",
+          "url": "https://town.nakatane.kagoshima.jp/koho/machinojoho/gaiyo/ichi/chise.html"
+        },
+        {
+          "publisher": "中種子町",
+          "title": "町内の国・県指定文化財",
+          "url": "https://town.nakatane.kagoshima.jp/korina/kyoiku-bunka/bunka/bunkazai/kuni-kenshite.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46502": {
+      "text": [
+        "南種子町は種子島の南端にあり、起伏の多い丘陵が広がる町です。",
+        "島間横峯遺跡では、3万年を超える昔の後期旧石器時代の石器や、約2万7000年前の調理場とみられる礫群が見つかっています。",
+        "1543年にポルトガル人を乗せた明の船が島の最南端の前之浜に流れ着き、町は鉄砲伝来ゆかりの地となっています。",
+        "平行盛の子孫の島主が明治維新までの約700年間にわたって種子島を治め、1889年に南種子村ができ、1956年に町になりました。",
+        "町内には種子島宇宙センターがあり、温暖な気候をいかして超早場米のコシヒカリなどを出荷する農業が基幹産業です。"
+      ],
+      "sources": [
+        {
+          "publisher": "南種子町",
+          "title": "概要・沿革・面積等",
+          "url": "http://www.town.minamitane.kagoshima.jp/outline/gaiyou.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46505": {
+      "text": [
+        "屋久島町は2007年10月1日に上屋久町と屋久町が合併した町で、屋久島と、西北西へおよそ12キロメートル離れた口永良部島から成ります。",
+        "屋久島には九州で最も高い宮之浦岳（1936メートル）をはじめ、標高1000メートル以上の山が45座以上あり、「洋上アルプス」と呼ばれています。",
+        "屋久島は樹齢数千年の屋久杉を含む特殊な森や、亜熱帯から冷温帯に至る植生の垂直分布が評価され、1993年に日本で初めての世界自然遺産に登録されました。",
+        "口永良部島は新岳が噴煙を上げる火山島で、海岸のあちこちに温泉がわいています。"
+      ],
+      "sources": [
+        {
+          "publisher": "屋久島町",
+          "title": "屋久島町の概要",
+          "url": "https://www.town.yakushima.kagoshima.jp/gyosei/machinogaiyo/3130.html"
+        },
+        {
+          "publisher": "屋久島町",
+          "title": "世界自然遺産 屋久島",
+          "url": "https://www.town.yakushima.kagoshima.jp/gyosei/machinogaiyo/3132.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46523": {
+      "text": [
+        "大和村は奄美大島のほぼ中央にあり、海に面した11の集落の背後に、奄美群島で最も高い湯湾岳（奄美岳）がそびえます。",
+        "1908年に「大和浜方」を大和村と改めてから11集落のまま再編成されずに続く、県内で最も古い村です。",
+        "村の名は「大和浜」に由来し、その起こりは大和朝廷の時代にさかのぼるとも伝えられています。",
+        "1611年に直川智がキビの苗を持ち帰って植えたとされ、糖業の創始者としてひらとみ神社にまつられています。",
+        "スモモやタンカンなどの果樹づくりが盛んで、豊年祭では各集落の土俵で奉納相撲が行われます。"
+      ],
+      "sources": [
+        {
+          "publisher": "大和村",
+          "title": "大和村の概要",
+          "url": "https://www.vill.yamato.lg.jp/kikaku/sonse/yamatoson/muranogaiyo.html"
+        },
+        {
+          "publisher": "大和村",
+          "title": "歴史・方言",
+          "url": "https://www.vill.yamato.lg.jp/kikaku/kanko/rekishi-hogen.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46524": {
+      "text": [
+        "宇検村は奄美大島の南西部にあり、北は大和村、東は奄美市住用町、南は瀬戸内町と接しています。",
+        "村の土地の90%以上を山地が占め、標高694mの湯湾岳の頂上付近の国有林の一部は1974年に国定公園に指定されました。",
+        "集落は焼内湾の岸に沿って点在し、湾の入り江は天然の良港として漁船の避難港にもなってきました。",
+        "焼内湾では本マグロの養殖が行われ、湯湾岳の水で仕込む黒糖焼酎やたんかん、マンゴーも村の名産品です。",
+        "8〜9月には14の集落すべてで豊年祭が開かれ、シバサシや浜下り、ムチムレなどの伝統行事も行われています。"
+      ],
+      "sources": [
+        {
+          "publisher": "宇検村",
+          "title": "うけんの地理と気候",
+          "url": "https://www.uken.net/kikakuchousei/muranogaiyo/shokai/chiri/kiko.html"
+        },
+        {
+          "publisher": "宇検村",
+          "title": "宇検村の名産品",
+          "url": "https://www.uken.net/kouhoutoukei/kanko/meisanhin.html"
+        },
+        {
+          "publisher": "宇検村",
+          "title": "行事・祭事",
+          "url": "https://www.uken.net/kouhoutoukei/gyoujibunka.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46525": {
+      "text": [
+        "瀬戸内町は奄美大島の最南端にあり、大島海峡をはさんだ加計呂麻島・請島・与路島の3つの有人島も含み、1956年9月の合併で今の町になりました。",
+        "面積の約87%は山林で、山が海岸に迫るリアス海岸の沿岸に56の集落が点在しています。",
+        "水深の深い入り江は水産業にも使われ、クロマグロや真珠の養殖が行われています。",
+        "加計呂麻島の諸鈍に伝わる「諸鈍シバヤ」は国の重要無形民俗文化財で、旧暦9月9日に大屯神社で奉納されます。",
+        "源平の戦いに敗れた平資盛が諸鈍に城を築いたと伝えられ、シバヤは資盛が土地の人々に教えたのが始まりといわれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "瀬戸内町",
+          "title": "瀬戸内町のあらまし",
+          "url": "https://www.town.setouchi.lg.jp/joho/cho/chosei/gaiyo/profile.html"
+        },
+        {
+          "publisher": "瀬戸内町",
+          "title": "海産物",
+          "url": "https://www.town.setouchi.lg.jp/suisan/kan/taberu/tokusanhin/kaisanbutsu.html"
+        },
+        {
+          "publisher": "瀬戸内町",
+          "title": "民俗芸能・文化財",
+          "url": "https://www.town.setouchi.lg.jp/tosyokan/kan/bunka/minzokugeno/index.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46527": {
+      "text": [
+        "龍郷町は沖縄本島と本土の中ほどに位置して古くは黒潮文化の中継地となり、近世には西郷隆盛の上陸で知られる阿丹崎湊が本土と結ぶ窓口でした。",
+        "愛加那と菊次郎のための新居として西郷が建て、1861年に完成した家の跡は「南洲流謫跡」の名で県の史跡になっています。",
+        "大島紬を代表する柄の「龍郷柄」と「秋名バラ」はこの町で生まれ、町は大島紬とともに発展してきました。",
+        "秋名集落の「秋名アラセツ行事」は1985年に国の無形民俗文化財に指定され、泥染めによる大島紬龍郷柄の技法は町の文化財になっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "龍郷町",
+          "title": "沿革",
+          "url": "https://www.town.tatsugo.lg.jp/kikakukanko/chose/machinoshokai/enkaku.html"
+        },
+        {
+          "publisher": "龍郷町",
+          "title": "西郷南洲流謫跡",
+          "url": "https://www.town.tatsugo.lg.jp/kikakukanko/kanko/rutakuato.html"
+        },
+        {
+          "publisher": "龍郷町",
+          "title": "国・県・町指定文化財",
+          "url": "https://www.town.tatsugo.lg.jp/edu/event-bunka/rekishi-bunka/shitebunkazai.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46529": {
+      "text": [
+        "喜界町は奄美大島の北東の洋上に浮かぶ喜界島の町で、鹿児島から380km、奄美市から69km離れ、平坦な島の大半は隆起サンゴ礁でできています。",
+        "喜界島は1466年から150年ほど琉球王の支配を受け、1609年に島津藩が琉球へ攻め入ったのちは琉球から切り離されて島津藩のもとに置かれました。",
+        "喜界村は1941年に町制を施行し、1956年9月に早町村と合併して今の喜界町になりました。",
+        "特産には白ごまや黒砂糖、花良治集落でしか作られない花良治みかんがあり、秋口のごまの収穫期には島じゅうに「セサミストリート」が現れます。"
+      ],
+      "sources": [
+        {
+          "publisher": "喜界町",
+          "title": "位置・面積・地勢",
+          "url": "https://www.town.kikai.lg.jp/tokei/machi/gaiyo/ichi.html"
+        },
+        {
+          "publisher": "喜界町",
+          "title": "沿革",
+          "url": "https://www.town.kikai.lg.jp/densan/machi/gaiyo/konjaku/index.html"
+        },
+        {
+          "publisher": "喜界町",
+          "title": "特産品",
+          "url": "https://www.town.kikai.lg.jp/kankou/kanko-iju/tokusanhin/tokusanhin.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46530": {
+      "text": [
+        "徳之島町は奄美群島のほぼ中央、周囲89kmの徳之島の東側にあり、鹿児島から南南西へ492kmの位置にあります。",
+        "徳之島は699年に「度感」の名で初めて大和朝廷と通じたとされ、琉球の統治下では島の3つの間切のうち東間切が今の町の前身でした。",
+        "1609年の薩摩藩による琉球征服で奄美群島も薩摩藩の支配を受けるようになり、その支配は1875年に戸長制が始まるまでの266年間に及びました。",
+        "1941年に町になった亀津町と東天城村が1958年4月1日に合併して、徳之島町が発足しました。",
+        "町では豊年祭や浜下り、夏目踊り、十五夜祭りなどの伝統行事が受け継がれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "徳之島町",
+          "title": "徳之島町の位置",
+          "url": "https://www.tokunoshima-town.org/soumuka/machi/tokunoshima/ichi.html"
+        },
+        {
+          "publisher": "徳之島町",
+          "title": "徳之島町のおいたち",
+          "url": "https://www.tokunoshima-town.org/soumuka/machi/tokunoshima/oitachi.html"
+        },
+        {
+          "publisher": "徳之島町",
+          "title": "文化・伝統行事",
+          "url": "https://www.tokunoshima-town.org/omotenashikanko/2026kankoudentoubunnka.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46531": {
+      "text": [
+        "天城町は徳之島の北西部にあって島のほぼ西半分を占め、東は徳之島町、南は伊仙町と接しています。",
+        "天城岳（533m）などの山々のふもとから秋利神川などの川が西へ流れ、東シナ海に注いでいます。",
+        "1908年に阿布木名方と山方が合わさって天城村が生まれ、のちに東天城村が分かれて今の町域となり、1961年に町制を施行しました。",
+        "町名は天城岳から来たといわれ、天城岳の旧名「アメキウデー（雨気岳）」の「雨気」が「天城」に転じたとされています。",
+        "町はトライアスロンIN徳之島でも知られ、「鉄人たちの島」とも呼ばれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "天城町",
+          "title": "天城町の概要",
+          "url": "https://www.town.amagi.lg.jp/docs/191.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46532": {
+      "text": [
+        "伊仙町は徳之島の南西部にあり、1962年に町制を施行しました。",
+        "北部にある標高417mの犬田布岳から南の海岸へなだらかに下る地形で、大部分が隆起サンゴ礁からなる平らな土地は、ほとんどが耕地になっています。",
+        "サンゴ礁の地層のため、町内の各地に鍾乳洞や地下水の流れがあります。",
+        "徳之島カムィヤキ陶器窯跡と面縄貝塚は、どちらも国の史跡に指定されています。",
+        "2015年に「長寿・子宝宣言」を行い、2005年と2013年には町で全国闘牛サミットが開かれました。"
+      ],
+      "sources": [
+        {
+          "publisher": "伊仙町",
+          "title": "伊仙町の町政情報",
+          "url": "https://www.town.isen.kagoshima.jp/mirai/chosejoho/machinogaiyo/chosejoho.html"
+        },
+        {
+          "publisher": "伊仙町",
+          "title": "伊仙町の主な出来事",
+          "url": "https://www.town.isen.kagoshima.jp/mirai/chosejoho/machinogaiyo/omonadekigoto.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46533": {
+      "text": [
+        "和泊町は沖永良部島にあり、1908年に島が和泊村と知名村に分かれ、1941年に和泊村が町になりました。",
+        "沖永良部島は1266年から1609年まで琉球国に属し、その後は1871年の廃藩置県まで薩摩藩の直属の領地でした。",
+        "今も沖縄との交流が深く、暮らしや文化に琉球の色合いが濃く残っています。",
+        "西郷隆盛が1年7か月の牢生活を送った地で、隆盛はその間に若者へ学問を教え、「敬天愛人」の思想を確立したことで知られています。",
+        "花き園芸を中心にした農業に取り組み、地域の資源を生かしたタラソテラピーの施設も整えています。"
+      ],
+      "sources": [
+        {
+          "publisher": "和泊町",
+          "title": "沿革・概要",
+          "url": "https://www.town.wadomari.lg.jp/soumu/wadomaricho/gaiyo/enkaku.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46534": {
+      "text": [
+        "知名町は沖永良部島にあり、標高245mの大山を中心に、そのすそ野に21の集落が広がっています。",
+        "島は琉球王朝が治めた「那覇世」に北山の支配下にあり、島に伝わる文化や言葉、風俗はそのころに由来するとされています。",
+        "1908年に島が知名村と和泊村に分けられ、日本から行政が切り離されて米軍の統治下にあった1946年に町制を施行しました。",
+        "主な産業は農業で、サトウキビや花き、野菜、葉たばこを育てながら畜産も手がける複合経営が定着しています。",
+        "鍾乳洞の昇竜洞は一部が一般に公開されていて、中を歩いて見ることができます。"
+      ],
+      "sources": [
+        {
+          "publisher": "知名町",
+          "title": "町の概要",
+          "url": "https://www.town.china.lg.jp/soshiki/1001/12/413.html"
+        },
+        {
+          "publisher": "知名町",
+          "title": "洞窟編",
+          "url": "https://www.town.china.lg.jp/kanko/asobi/4/index.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-46535": {
+      "text": [
+        "与論町は鹿児島県の最も南にある与論島の町で、1963年に町制を施行しました。",
+        "島は隆起サンゴ礁でできていて周りをサンゴ礁が囲み、北に沖永良部島、南に沖縄本島の北部が見えます。",
+        "1266年に琉球国に納貢してその所属となり、1610年に薩摩藩の所属に移りました。",
+        "与論十五夜踊は、一説では琉球・大島・大和の踊りを合わせて始めたとされる奉納踊で、旧暦3月・8月・10月の15日に与論城跡の神社の前で踊られます。",
+        "十五夜踊は1993年に国の重要無形民俗文化財に指定され、「与論の芭蕉布製造技術」も同じく指定を受けています。"
+      ],
+      "sources": [
+        {
+          "publisher": "与論町",
+          "title": "地勢・シンボル",
+          "url": "https://www.yoron.jp/kiji0037620/index.html"
+        },
+        {
+          "publisher": "与論町",
+          "title": "与論町のあゆみ（町勢要覧）",
+          "url": "https://www.yoron.jp/kiji0037621/3_7621_2506_up_3yanyo8r.pdf"
+        },
+        {
+          "publisher": "与論町",
+          "title": "与論の十五夜踊 国指定重要無形民俗文化財",
+          "url": "https://www.yoron.jp/kiji0036692/index.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    }
+  }
+}

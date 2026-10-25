@@ -1,0 +1,985 @@
+{
+  "areas": {
+    "pref-04": {
+      "text": [
+        "宮城県は東北地方の中ほどにあり、東側は太平洋に開けて日本三景の一つの松島があり、西側には蔵王・船形・栗駒などの山並みが続いています。",
+        "県の中央部には、穀倉地帯の仙台平野が広がっています。",
+        "1300年ほど前は今の福島県・岩手県とあわせて陸奥国と呼ばれ、東北地方を治める中心の役所が多賀城にありました。",
+        "400年ほど前には伊達政宗が仙台に城を構え、仙台藩の礎を築きました。",
+        "1871年の廃藩置県で仙台県が置かれ、翌1872年に宮城県と名前を改め、1876年に今の県の範囲になりました。"
+      ],
+      "sources": [
+        {
+          "publisher": "宮城県",
+          "title": "宮城県の位置・気候",
+          "url": "https://www.pref.miyagi.jp/site/profile/locationj.html"
+        },
+        {
+          "publisher": "宮城県",
+          "title": "私たちの宮城県（一般向け）",
+          "url": "https://www.pref.miyagi.jp/documents/5966/miyagiguider8-otona.pdf"
+        },
+        {
+          "publisher": "宮城県",
+          "title": "みやぎむかし今（明治）",
+          "url": "https://www.pref.miyagi.jp/site/profile/mukaima-meiji.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04101": {
+      "text": [
+        "青葉区は仙台市が政令指定都市になった1989年に生まれ、都心から山形県境まで北西へ帯のように広がる、市内で最も面積の大きな区です。",
+        "1600年に伊達政宗が青葉山に城を構えて以来、区の中心部は城下町として栄え、仙台城跡は2003年に国の史跡になりました。",
+        "広瀬川が区内を東西に35kmにわたって流れ、西部の宮城地区は1987年に仙台市に編入された旧宮城町の地域で、温泉などの観光資源にも恵まれています。",
+        "東北大学をはじめ多くの大学や研究機関があり、博物館や仙台文学館、せんだいメディアテークなどの文化施設も多く集まっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "仙台市",
+          "title": "青葉区の概要",
+          "url": "https://www.city.sendai.jp/aoba-kusesuishin/aobaku/shokai/profile/gaiyo.html"
+        },
+        {
+          "publisher": "仙台市",
+          "title": "青葉区のあゆみ",
+          "url": "https://www.city.sendai.jp/aoba-kusesuishin/aobaku/shokai/profile/ayumi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04102": {
+      "text": [
+        "宮城野区は仙台市の北東部にあり、仙台駅の東側から仙台塩釜港にかけて広がっています。",
+        "区の名前は、昔から歌枕として詩歌に詠まれてきた「宮城野」にちなんでいます。",
+        "榴岡地区は藩政時代に武士や足軽が暮らしたまちで、二十人町や鉄砲町などの町名にその名残があります。",
+        "岩切地区には留守氏の居城だった岩切城跡などの史跡が多く残り、与兵衛沼の周りは古代に多賀城の造営などに使われた瓦の産地でした。",
+        "宮城野地区には県営宮城球場や陸上競技場などが並び、スポーツの場として親しまれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "仙台市",
+          "title": "宮城野区の概要",
+          "url": "https://www.city.sendai.jp/miyagino-kuse/miyaginoku/shokai/profile/gaiyo.html"
+        },
+        {
+          "publisher": "仙台市",
+          "title": "宮城野わがまちコーナー・地域情報",
+          "url": "https://www.city.sendai.jp/miyagino-kuse/miyaginoku/miyagino/index.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04103": {
+      "text": [
+        "若林区は1989年に仙台市が政令指定都市になったときに生まれた区で、市の南東部にあり、東は太平洋に面しています。",
+        "弥生時代には南小泉遺跡に集落ができ、4世紀末には市内で最も大きな前方後円墳である遠見塚古墳が築かれました。",
+        "1605年から伊達政宗が陸奥国分寺薬師堂を再興し、1627年には「若林城」の築城工事が始まりました。",
+        "都心に近い地域には、若林城を中心とした藩政時代の町割りを伝える町名や、伝統ある商店街が残っています。",
+        "卸町駅や六丁の目駅の周りには、卸売・流通・印刷などの産業が集まっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "仙台市",
+          "title": "若林区の概要",
+          "url": "https://www.city.sendai.jp/waka-kuse/wakabayashiku/shokai/profile/gaiyo.html"
+        },
+        {
+          "publisher": "仙台市",
+          "title": "若林区のあゆみ",
+          "url": "https://www.city.sendai.jp/waka-kuse/wakabayashiku/shokai/profile/ayumi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04104": {
+      "text": [
+        "太白区は名取川を源に太古から文化が育まれてきた地域で、川は秋保の神室岳に発し、生出・富沢・大野田を経て太平洋に注ぎます。",
+        "仙台市内の遺跡の約3分の1にあたる250か所近くが名取川沿いにあり、そのほとんどが区内にあるとされています。",
+        "富沢遺跡は約2万年前の暮らしや自然のようすを伝える旧石器時代の遺跡で、郡山遺跡には7世紀後半から8世紀初めにかけて陸奥国の拠点となる役所が置かれました。",
+        "1988年には秋保町が仙台市に編入され、今は秋保総合支所の管轄地域が、区の面積228平方kmのうち145平方kmを占めています。",
+        "区内には秋保大滝や磊々峡などの自然の名所があります。"
+      ],
+      "sources": [
+        {
+          "publisher": "仙台市",
+          "title": "名取川流域の歴史",
+          "url": "https://www.city.sendai.jp/taihaku-katsudo/taihakuku/shokai/taihakuku/natorigawa.html"
+        },
+        {
+          "publisher": "仙台市",
+          "title": "郡山遺跡",
+          "url": "https://www.city.sendai.jp/taihaku-katsudo/taihakuku/shokai/taihakuku/koriyama.html"
+        },
+        {
+          "publisher": "仙台市",
+          "title": "数字で見る太白区",
+          "url": "https://www.city.sendai.jp/taihaku-senkyo/taihakuku/shokai/profile/suji.html"
+        },
+        {
+          "publisher": "仙台市",
+          "title": "仙台市のあゆみ",
+          "url": "https://www.city.sendai.jp/sesakukoho/shise/gaiyo/profile/ayumi.html"
+        },
+        {
+          "publisher": "仙台市",
+          "title": "太白区の魅力",
+          "url": "https://www.city.sendai.jp/taihaku-katsudo/machimeguri.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04105": {
+      "text": [
+        "泉区は仙台市の北部にあり、泉ケ岳のふもとに東西に長く広がっています。",
+        "1955年に七北田村と根白石村が合併して泉村ができ、1957年に泉町、1971年に泉市になりました。",
+        "1988年に泉市が仙台市と合併し、翌1989年に仙台市が政令指定都市になったときに泉区が生まれました。",
+        "丘陵地には住宅団地が次々に造られ、1992年に地下鉄が泉中央まで延びると、駅の周りは市北部の広域拠点に育ちました。",
+        "西部の福岡・朴沢地区には神社や史跡、鹿踊・剣舞などの伝統芸能が残り、根白石地区には田んぼが広がっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "仙台市",
+          "title": "泉区の概要",
+          "url": "https://www.city.sendai.jp/izumi-kuse/izumiku/shokai/profile/gaiyo.html"
+        },
+        {
+          "publisher": "仙台市",
+          "title": "泉区のあゆみ",
+          "url": "https://www.city.sendai.jp/izumi-kuse/izumiku/shokai/profile/ayumi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04202": {
+      "text": [
+        "石巻市は宮城県の北東部、北上川の河口にあり、2005年に旧石巻市と河北・雄勝・河南・桃生・北上・牡鹿の6町が合併して今の市になりました。",
+        "江戸時代には仙台藩のもとで川村孫兵衛重吉が北上川の改修工事を行い、石巻は東北各藩の米を集めて江戸へ送る港として栄えました。",
+        "明治時代からは金華山沖の漁場を背に漁業のまちとして栄え、鮎川は近海捕鯨の基地にもなりました。",
+        "1964年に新産業都市に指定され、1967年に石巻工業港ができてからは、工業都市としても発展しました。",
+        "2001年には、マンガを生かしたまちづくりの中心となる「石ノ森萬画館」ができました。"
+      ],
+      "sources": [
+        {
+          "publisher": "石巻市",
+          "title": "石巻市はこんなまち",
+          "url": "https://www.city.ishinomaki.lg.jp/cont/10151000/1500/1500.html"
+        },
+        {
+          "publisher": "石巻市",
+          "title": "石巻市総合計画 石巻市の沿革",
+          "url": "https://www.city.ishinomaki.lg.jp/cont/10181000/3272/01_1syou_1.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04203": {
+      "text": [
+        "塩竈市は宮城県のほぼ中央、仙台市と松島の間にあり、1941年に市となって、1950年に浦戸村を合わせました。",
+        "奥州一の宮である鹽竈神社の門前町で、港町としても、古くは陸奥の国府・多賀城のための荷揚げ港、藩政時代には伊達藩の港として栄えました。",
+        "名前は、海水を煮て塩をつくるかまど「塩竈」があった場所として名が広まり、地名になったといわれています。",
+        "近海・遠洋漁業の基地として発展し、生マグロの水揚げや、笹かまぼこなどの水産練り製品づくりが盛んです。",
+        "松島の島々の半分以上は市内にあり、人が住む浦戸諸島では菜の花や潮干狩り、海水浴などが楽しまれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "塩竈市",
+          "title": "「塩竈」は、どんなまち?",
+          "url": "https://www.city.shiogama.miyagi.jp/soshiki/48/1030.html"
+        },
+        {
+          "publisher": "塩竈市",
+          "title": "「塩竈」についてのミニ知識",
+          "url": "https://www.city.shiogama.miyagi.jp/soshiki/6/1029.html"
+        },
+        {
+          "publisher": "塩竈市",
+          "title": "塩竈市の歴史(年表)",
+          "url": "https://www.city.shiogama.miyagi.jp/soshiki/5/2372.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04205": {
+      "text": [
+        "気仙沼市は宮城県の北東端にあり、東は太平洋に面し、北は岩手県陸前高田市と接しています。",
+        "2006年に気仙沼市と唐桑町が合併して新しい気仙沼市が生まれ、2009年には本吉町を編入しました。",
+        "沿岸は半島や入り江が入り組んだリアス海岸で三陸復興国立公園に指定されており、湾の入り口に大島がある気仙沼湾は、一年を通して波の静かな天然の良港です。",
+        "この湾は古くから全国の漁船が集まる遠洋・沖合漁業の拠点で、生鮮カツオのほか、サメ・サンマ・メカジキなども多く水揚げされます。",
+        "沿岸ではカキ・ワカメ・ホタテなどの養殖も営まれ、水産加工業や造船業も盛んです。"
+      ],
+      "sources": [
+        {
+          "publisher": "気仙沼市",
+          "title": "位置・地勢",
+          "url": "https://www.kesennuma.miyagi.jp/sec/s002/020/020/010/020/1142505470140.html"
+        },
+        {
+          "publisher": "気仙沼市",
+          "title": "気仙沼市と唐桑町の合併",
+          "url": "https://www.kesennuma.miyagi.jp/sec/s019/020/010/010/010/180331/1252560712136.html"
+        },
+        {
+          "publisher": "気仙沼市",
+          "title": "気仙沼市と本吉町の合併",
+          "url": "https://www.kesennuma.miyagi.jp/sec/s019/020/010/010/020/210901/1252461346058.html"
+        },
+        {
+          "publisher": "気仙沼市",
+          "title": "気仙沼の水産",
+          "url": "https://www.kesennuma.miyagi.jp/sec/s074/010/010/010/010/1174375791459.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04206": {
+      "text": [
+        "白石市は宮城県の南端にあり、西に蔵王連峰、東に阿武隈山系が連なる南北に長い盆地のまちで、市街地の北側を白石川が流れています。",
+        "1602年に片倉景綱が伊達政宗から白石城を与えられてから明治維新まで、片倉家の城下町として歩みました。",
+        "戊辰戦争のときには奥羽25藩の重臣が白石城に集まり、奥羽越列藩同盟（白石同盟）を結びました。",
+        "白石城は明治維新の後に取り壊されましたが、1995年に復元されました。",
+        "戊辰戦争の後に北海道へ渡った旧片倉家中の人々は開拓に励み、今の札幌市白石区や登別市の発展の礎を築きました。"
+      ],
+      "sources": [
+        {
+          "publisher": "白石市",
+          "title": "白石の雄大な自然を守る",
+          "url": "https://www.city.shiroishi.miyagi.jp/soshiki/1/49.html"
+        },
+        {
+          "publisher": "白石市",
+          "title": "白石の歴史を守り受け継ぐ",
+          "url": "https://www.city.shiroishi.miyagi.jp/soshiki/1/48.html"
+        },
+        {
+          "publisher": "白石市",
+          "title": "白石市の歴史",
+          "url": "https://www.city.shiroishi.miyagi.jp/soshiki/30/55.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04207": {
+      "text": [
+        "名取市は宮城県の南東部にあり、北は仙台市、南は岩沼市と接し、東は太平洋に面しています。",
+        "1955年に増田町・閖上町・下増田村・館腰村・愛島村・高舘村の2町4村が合併して名取町となり、1958年に市になりました。",
+        "市の西部は丘陵地で、東部には名取川と阿武隈川の両水系にはさまれた肥えた土地「名取耕土」が広がっています。",
+        "市内には仙台空港があり、東北新幹線や東北本線、仙台東部道路、国道4号などが通っています。",
+        "仙台セリやカーネーションの生産が盛んで、閖上港には赤貝やしらす、ヒラメなど近海の魚介が水揚げされます。"
+      ],
+      "sources": [
+        {
+          "publisher": "名取市",
+          "title": "位置・地勢・気候",
+          "url": "https://www.city.natori.miyagi.jp/page/1475.html"
+        },
+        {
+          "publisher": "名取市",
+          "title": "名取の歴史（昭和30年代）",
+          "url": "https://www.city.natori.miyagi.jp/page/1464.html"
+        },
+        {
+          "publisher": "名取市",
+          "title": "主な農産物",
+          "url": "https://www.city.natori.miyagi.jp/page/1468.html"
+        },
+        {
+          "publisher": "名取市",
+          "title": "主な水産物",
+          "url": "https://www.city.natori.miyagi.jp/page/1469.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04208": {
+      "text": [
+        "角田市は1958年に市になったまちで、仙台市や福島市まで1時間圏内にあり、雪が少なく温暖な気候です。",
+        "角田城は仙台藩の要害の1つで、1598年に伊達家一門の石川昭光が移ってからは、明治維新まで石川氏の居城でした。",
+        "高蔵寺阿弥陀堂と、平安時代末ごろの作と伝えられる像高2.7mの阿弥陀如来坐像は、どちらも国の重要文化財です。",
+        "農業と工業が発展したまちで、宇宙航空研究開発機構（JAXA）の角田宇宙センターがあり、それが縁で宇宙関連施設のある市町と「銀河連邦」として交流しています。"
+      ],
+      "sources": [
+        {
+          "publisher": "角田市",
+          "title": "角田市の概要（令和8年度）",
+          "url": "https://www.city.kakuda.lg.jp/uploaded/attachment/10950.pdf"
+        },
+        {
+          "publisher": "角田市",
+          "title": "角田の「いいところ」を紹介します",
+          "url": "https://www.city.kakuda.lg.jp/soshiki/2/134.html"
+        },
+        {
+          "publisher": "角田市",
+          "title": "角田城跡",
+          "url": "https://www.city.kakuda.lg.jp/site/kokokakuda/1033.html"
+        },
+        {
+          "publisher": "角田市",
+          "title": "阿弥陀如来坐像（勝楽山高蔵寺阿弥陀堂内）",
+          "url": "https://www.city.kakuda.lg.jp/site/kokokakuda/970.html"
+        },
+        {
+          "publisher": "角田市",
+          "title": "銀河連邦共和国紹介",
+          "url": "https://www.city.kakuda.lg.jp/soshiki/4/432.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04209": {
+      "text": [
+        "多賀城市は宮城県のほぼ中央の太平洋岸にあり、仙台市や塩竈市、松島に近く、市の中ほどを砂押川が流れています。",
+        "奈良・平安時代には陸奥国の国府の多賀城が置かれ、724年に大野東人が築いてから11世紀の中ごろまで、古代の東北で政治や文化、軍事の中心となりました。",
+        "多賀城跡は付属寺院の多賀城廃寺跡とともに1922年に国の史跡となり、1966年に特別史跡に指定されました。",
+        "松尾芭蕉が『おくのほそ道』の旅で訪ねた壺碑（多賀城碑）、末の松山、興井の3か所は、国の名勝「おくのほそ道の風景地」になっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "多賀城市",
+          "title": "市の規模",
+          "url": "https://www.city.tagajo.miyagi.jp/koho/shise/gaiyo/profile/ititotikei.html"
+        },
+        {
+          "publisher": "多賀城市",
+          "title": "特別史跡多賀城跡附寺跡",
+          "url": "https://www.city.tagajo.miyagi.jp/bunkazai/shiseki/bunkazai/shitebunkazai/kunishite/terato.html"
+        },
+        {
+          "publisher": "多賀城市",
+          "title": "名勝おくのほそ道の風景地",
+          "url": "https://www.city.tagajo.miyagi.jp/bunkazai/shiseki/bunkazai/shitebunkazai/kunishite/fukechi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04211": {
+      "text": [
+        "岩沼市は宮城県の中央部、仙台市の南にあり、南の市境を阿武隈川が流れて仙台湾に注いでいます。",
+        "市内で東北本線と常磐線が分かれ、国道4号と6号が合わさるほか、仙台空港もある交通の要所です。",
+        "門前町・宿場町として栄え、のちに臨空工業地帯の一角として企業が進出して商工業のまちとなり、1971年に市になりました。",
+        "江戸時代の前半には伊達政宗の孫の田村宗良が仙台藩から3万石を分けられて岩沼藩を開き、藩は約20年続きました。",
+        "1689年には松尾芭蕉が『おくのほそ道』の旅で訪れ、歌枕の「武隈の松（二木の松）」を見て句を詠みました。"
+      ],
+      "sources": [
+        {
+          "publisher": "岩沼市",
+          "title": "岩沼市の概要",
+          "url": "https://www.city.iwanuma.miyagi.jp/shisei/gaiyo/gaiyo/index.html"
+        },
+        {
+          "publisher": "岩沼市",
+          "title": "図表でわかる 岩沼藩三万石",
+          "url": "https://www.city.iwanuma.miyagi.jp/kanko/rekishi/nyumon/iwanumahan.html"
+        },
+        {
+          "publisher": "岩沼市",
+          "title": "『おくのほそ道』と岩沼",
+          "url": "https://www.city.iwanuma.miyagi.jp/kanko/rekishi/nyumon/okunohosomichi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04212": {
+      "text": [
+        "登米市は宮城県の北東部にあり、北は岩手県と接しています。",
+        "2005年4月1日に、迫町・登米町・東和町・中田町・豊里町・石越町・南方町・米山町の登米郡8町と、津山町の9町が合併して生まれました。",
+        "西の丘陵と東北の山あいにはさまれて平らで肥えた「登米耕土」が広がり、宮城米の「ササニシキ」「ひとめぼれ」の主な産地です。",
+        "迫川と夏川が市の中ほどを北西から南東へ流れ、北西部にあるラムサール条約湿地の伊豆沼・内沼には白鳥やガンが渡ってきます。"
+      ],
+      "sources": [
+        {
+          "publisher": "登米市",
+          "title": "位置・地勢・気候",
+          "url": "https://www.city.tome.miyagi.jp/machi/shisejoho/shinogaiyo/shinoshokai/profile-2.html"
+        },
+        {
+          "publisher": "登米市",
+          "title": "合併の経過",
+          "url": "https://www.city.tome.miyagi.jp/machi/shisejoho/shinogaiyo/shinoshokai/profile-3.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04213": {
+      "text": [
+        "栗原市は宮城県の内陸北部にあり、岩手・秋田の両県に接し、面積は800平方キロメートルを超えて県内で最も広い市です。",
+        "2005年4月1日に、築館町・若柳町・栗駒町・高清水町・一迫町・瀬峰町・鶯沢町・金成町・志波姫町・花山村の栗原郡10町村が合併して生まれました。",
+        "古代には伊治城が置かれ、江戸時代には奥州街道の宿駅が整い、本陣が置かれた有壁には今も当時の面影が残っています。",
+        "北部には標高約1,626メートルの栗駒山がそびえ、米（ひとめぼれ）や地酒、牛肉が特産です。"
+      ],
+      "sources": [
+        {
+          "publisher": "栗原市",
+          "title": "栗原市の沿革",
+          "url": "https://www.kuriharacity.jp/w009/030/030/020/19.html"
+        },
+        {
+          "publisher": "栗原市",
+          "title": "栗原市の紹介",
+          "url": "https://www.kuriharacity.jp/w009/030/030/010/10.html"
+        },
+        {
+          "publisher": "栗原市",
+          "title": "栗原市の概要",
+          "url": "https://www.kuriharacity.jp/w009/030/030/030/20.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04214": {
+      "text": [
+        "東松島市は仙台市の北東、石巻圏の西の端にあり、東は石巻市と接し、南は太平洋に面しています。",
+        "2005年4月に矢本町と鳴瀬町の2町が合併して生まれました。",
+        "南部は特別名勝「松島」の一角を占め、宮戸島の南端の嵯峨渓は、荒波と風雨に削られた海食崖が見られる約2kmの一帯です。",
+        "宮戸島の縄文時代の貝塚「里浜貝塚」から出た土器や石器は、奥松島縄文村歴史資料館で見ることができます。",
+        "市内の航空自衛隊松島基地は、アクロバット飛行チーム「ブルーインパルス」の本拠地です。"
+      ],
+      "sources": [
+        {
+          "publisher": "東松島市",
+          "title": "市の概要",
+          "url": "https://www.city.higashimatsushima.miyagi.jp/shisei/shinogaiyo/shi-profile/gaiyo.html"
+        },
+        {
+          "publisher": "東松島市",
+          "title": "東松島市市制施行20周年記念誌（テキスト版）",
+          "url": "https://www.city.higashimatsushima.miyagi.jp/shisei/shinogaiyo/sisihensan/20shuunenkinenshi.files/HM20shunenkinenshi202504text.pdf"
+        },
+        {
+          "publisher": "東松島市",
+          "title": "空と海のまち 観光スポット",
+          "url": "https://www.city.higashimatsushima.miyagi.jp/jikan/kanko-spot/index.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04215": {
+      "text": [
+        "大崎市は宮城県の北西部にあり、西は山形県と秋田県に接しています。",
+        "2006年3月31日に古川市・松山町・三本木町・鹿島台町・岩出山町・鳴子町・田尻町の1市6町が合併して生まれました。",
+        "江合川と鳴瀬川の流れがつくった広い平野は「大崎耕土」と呼ばれ、「ササニシキ」や「ひとめぼれ」の米どころです。",
+        "岩出山は伊達政宗が仙台に移るまでの12年間を過ごした城下町で、松山は伊達家の重臣だった茂庭家の城下町として発展しました。",
+        "岩出山の竹細工や鳴子こけし・鳴子漆器が受け継がれ、開湯から千年あまりの鳴子温泉郷があります。"
+      ],
+      "sources": [
+        {
+          "publisher": "大崎市",
+          "title": "大崎市の誕生",
+          "url": "https://www.city.osaki.miyagi.jp/shisei/shiseijoho/osakishinitsuite/7/3/4818.html"
+        },
+        {
+          "publisher": "大崎市",
+          "title": "おおさきを楽しむ おおさきを味わう",
+          "url": "https://www.city.osaki.miyagi.jp/shisei/shiseijoho/osakishinitsuite/7/3/4056.html"
+        },
+        {
+          "publisher": "大崎市",
+          "title": "時代を伝え 未来を拓く",
+          "url": "https://www.city.osaki.miyagi.jp/shisei/shiseijoho/osakishinitsuite/7/3/5002.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04216": {
+      "text": [
+        "富谷市は宮城県のほぼ中央にあり、南は仙台市泉区などと接し、南北に国道4号や東北自動車道が通っています。",
+        "市の名は、熊谷という地にあった10の神社にちなむ「十宮（とみや）」から来ており、のちに縁起のよい「富谷」の字に改められました。",
+        "江戸時代には奥州街道の七北田宿と吉岡宿の間に新たに置かれた宿場「富谷新町」としてにぎわい、銘茶・銘酒の産地として知られました。",
+        "1889年に富谷村ほか11か村が合わさって新しい富谷村となり、1963年に町、2016年10月10日に市になりました。"
+      ],
+      "sources": [
+        {
+          "publisher": "富谷市",
+          "title": "位置",
+          "url": "https://www.tomiya-city.miyagi.jp/shisei/syoukai/ichi.html"
+        },
+        {
+          "publisher": "富谷市",
+          "title": "あゆみ",
+          "url": "https://www.tomiya-city.miyagi.jp/shisei/syoukai/ayumi.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04301": {
+      "text": [
+        "蔵王町は宮城県の南西部、蔵王連峰の東のふもとにあり、西は蔵王連峰を境に山形県と接しています。",
+        "1955年4月1日に宮村と円田村が合併して町となり、蔵王連峰の一部を含むことから蔵王町と名付けられました。",
+        "町の約6割は山林・原野で、中央を流れる松川が渓谷をつくっています。",
+        "東部には水田が広がり、丘陵地では果樹づくりが盛んで、高原の牛乳から作るチーズなどの乳製品も知られています。",
+        "町の西側は蔵王国定公園に入っており、遠刈田温泉などが蔵王をめぐる観光の拠点です。"
+      ],
+      "sources": [
+        {
+          "publisher": "蔵王町",
+          "title": "蔵王町とは",
+          "url": "https://www.town.zao.miyagi.jp/section/oshirase/town_info/town_info.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04302": {
+      "text": [
+        "七ヶ宿町は蔵王連峰の南のふもと、宮城県のいちばん南西にあり、南は福島県、西は山形県と接しています。",
+        "町の名前は、江戸時代に奥州と羽州を結んだ「山中七ヶ宿街道」に7つの宿場が置かれていたことに由来します。",
+        "この街道は秋田の佐竹氏など奥羽の13大名の参勤交代や出羽三山へ参る人々の行き来でにぎわいましたが、1899年の奥羽線開通後は農林業のまちになりました。",
+        "1889年の町村制で「七ヶ宿村」が生まれ、1957年に単独で町になりました。",
+        "1991年には七ヶ宿ダムが完成し、仙台市などの水がめを抱える「水源の町」でもあります。"
+      ],
+      "sources": [
+        {
+          "publisher": "七ヶ宿町",
+          "title": "七ヶ宿町の概要",
+          "url": "https://town.shichikashuku.miyagi.jp/town/outline.html"
+        },
+        {
+          "publisher": "七ヶ宿町",
+          "title": "七ヶ宿町過疎地域持続的発展計画",
+          "url": "https://town.shichikashuku.miyagi.jp/town/plan/upload_images/%E4%B8%83%E3%83%B6%E5%AE%BF%E7%94%BA%E9%81%8E%E7%96%8E%E5%9C%B0%E5%9F%9F%E6%8C%81%E7%B6%9A%E7%9A%84%E7%99%BA%E5%B1%95%E8%A8%88%E7%94%BB.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04321": {
+      "text": [
+        "大河原町には縄文時代早期から人が住み、4〜5世紀ごろには小島地区に前方後円墳の嶋館古墳が築かれました。",
+        "江戸時代は奥州街道の宿場町で、米や紅花の集まる地としてにぎわい、仙台藩の直轄地として代官所や藩主の泊まる御仮屋が置かれました。",
+        "明治時代からは国や県の出先機関が集まる官庁の町として発達し、1956年に大河原町と金ヶ瀬村が合併して今の町になりました。",
+        "白石川の堤に続く桜並木「一目千本桜」は、1923年と1927年に町出身の人が贈った1,200本の桜を植えたもので、1990年に「さくら名所百選の地」に選ばれました。"
+      ],
+      "sources": [
+        {
+          "publisher": "大河原町",
+          "title": "大河原町はこんな町",
+          "url": "https://www.town.ogawara.miyagi.jp/1272.htm"
+        },
+        {
+          "publisher": "大河原町",
+          "title": "町の象徴「一目千本桜」",
+          "url": "https://www.town.ogawara.miyagi.jp/1456.htm"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04322": {
+      "text": [
+        "村田町は宮城県の南部にあり、古くから東北と関東、仙台と山形を結ぶ交通の要所で、今も東北自動車道の村田インターチェンジがあります。",
+        "地名は、嘉吉年間（1441〜44年）に伊達氏の家臣の小山九郎業朝が村田館を築き、「村田殿」と呼ばれたことに始まるといわれています。",
+        "江戸時代は仙台藩に属し、後期には京都・大阪・江戸との紅花の取引で商人が栄え、その名残の蔵の町並みが伝統的建造物群保存地区になっています。",
+        "1955年に村田町・沼辺村・富岡村菅生地区が合併して新しい村田町となり、1960年に川崎町の櫛挽・道海地区を編入しました。"
+      ],
+      "sources": [
+        {
+          "publisher": "村田町",
+          "title": "村田町の概要",
+          "url": "https://www.town.murata.miyagi.jp/cyosei/murata_syokai/gaiyo/index.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04323": {
+      "text": [
+        "柴田町は仙台市から南へ約25kmにあり、蔵王連峰の雪どけ水を集めた白石川が中心部を流れて、町の南東部を流れる阿武隈川に合わさります。",
+        "伊達騒動で知られる原田甲斐や柴田家の館があった船岡と、仙台藩の米どころで奥州街道の64番目の宿場町だった槻木の2つの町が、1956年に合併して生まれました。",
+        "上川名貝塚や縄文時代中期の深町貝塚などの遺跡があり、昔の商家のたたずまいを伝える「麹屋」も残っています。",
+        "春のさくらまつりのころには、白石川の「一目千本桜」や船岡城址公園の桜を見に、県内外から多くの人が訪れます。"
+      ],
+      "sources": [
+        {
+          "publisher": "柴田町",
+          "title": "町の沿革",
+          "url": "https://www.town.shibata.miyagi.jp/index.cfm/82,27034,219,279,html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04324": {
+      "text": [
+        "川崎町は、1608年に砂金氏が築いた川崎城の跡が発祥の地とされ、のちに伊達氏の一門が置かれて、山形へ続く笹谷街道の守りの拠点となりました。",
+        "1613年に伊達政宗の命で慶長遣欧使節を率いた支倉常長の一族のふるさとで、円福寺の常長の墓所など、ゆかりの史跡が多く残ります。",
+        "1948年に川崎村が町になり、1955年に富岡村支倉地区と合併しました。",
+        "1970年に完成した釜房ダムの湖のほとりでは、1989年に東北で初めての国営公園「みちのく杜の湖畔公園」の一部が開園しました。",
+        "青根温泉は、仙台藩でただ一つの「御殿湯」があった温泉として知られています。"
+      ],
+      "sources": [
+        {
+          "publisher": "川崎町",
+          "title": "歴史街道を行く",
+          "url": "https://www.town.kawasaki.miyagi.jp/soshiki/shogaigakushu/534.html"
+        },
+        {
+          "publisher": "川崎町",
+          "title": "【川崎町ゆかりの人物】支倉常長",
+          "url": "https://www.town.kawasaki.miyagi.jp/soshiki/chishin/532.html"
+        },
+        {
+          "publisher": "川崎町",
+          "title": "川崎町町勢要覧2018",
+          "url": "https://www.town.kawasaki.miyagi.jp/uploaded/attachment/1393.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04341": {
+      "text": [
+        "丸森町は宮城県の南端にあって福島県と接し、町の北部を阿武隈川が流れ、まわりを阿武隈山地の山々に囲まれた盆地の町です。",
+        "1954年に旧丸森町・金山町・筆甫村・大内村・小斎村・舘矢間村・大張村・耕野村の2町6村が合併して、今の丸森町が生まれました。",
+        "阿武隈川とその支流の一帯には貴重な植物の群れや奇岩があり、1988年に阿武隈渓谷県立自然公園に指定されました。",
+        "特産には、400年の伝統を受け継いで原料から育てて漉く丸森和紙や、秋に軒先につるして作るころ柿（干し柿）などがあります。"
+      ],
+      "sources": [
+        {
+          "publisher": "丸森町",
+          "title": "町の概要",
+          "url": "https://www.town.marumori.miyagi.jp/town/detail.php?content=409"
+        },
+        {
+          "publisher": "丸森町",
+          "title": "丸森町合併70周年記念事業",
+          "url": "https://www.town.marumori.miyagi.jp/town/detail.php?content=1321"
+        },
+        {
+          "publisher": "丸森町",
+          "title": "丸森町町勢要覧",
+          "url": "https://www.town.marumori.miyagi.jp/common/img/content/content_20221223_090743.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04362": {
+      "text": [
+        "山元町は宮城県のいちばん南東にあり、東は砂丘の海岸で仙台湾に面し、西は阿武隈山地の北の端にあたる丘陵、南は福島県と接しています。",
+        "1955年に山下村と坂元村が合併して生まれました。",
+        "坂元の蓑首城三ノ丸跡にある町指定文化財「大條家茶室 此君亭」は、仙台藩12代藩主の伊達斉邦が重臣の大條道直に与えた江戸時代の茶室で、1932年に仙台から移されました。",
+        "いちご、りんご、ホッキ貝、ぶどう、いちじくが特産品です。"
+      ],
+      "sources": [
+        {
+          "publisher": "山元町",
+          "title": "山元町の概要",
+          "url": "https://www.town.yamamoto.miyagi.jp/soshiki/1/191.html"
+        },
+        {
+          "publisher": "山元町",
+          "title": "町制施行70周年",
+          "url": "https://www.town.yamamoto.miyagi.jp/soshiki/1/26954.html"
+        },
+        {
+          "publisher": "山元町",
+          "title": "大條家茶室 此君亭の利用・見学方法",
+          "url": "https://www.town.yamamoto.miyagi.jp/soshiki/20/26854.html"
+        },
+        {
+          "publisher": "山元町",
+          "title": "特産品",
+          "url": "https://www.town.yamamoto.miyagi.jp/site/kankou/list51.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04401": {
+      "text": [
+        "松島町は宮城県の沿岸部の中ほど、仙台市と石巻市のほぼ中間にあり、南は多くの島々が浮かぶ松島湾に面しています。",
+        "湾の260余りの島に松が生えていることが「松島」の名のもとで、島々の眺めは古くから日本三景の一つとして知られ、国の特別名勝に指定されています。",
+        "伊達政宗の菩提寺の瑞巌寺は828年に慈覚大師が開いたと伝えられ、政宗が1609年に完成させた本堂は国宝です。",
+        "瑞巌寺のほかに、国の重要文化財の五大堂もあります。",
+        "町の産業は観光業を中心に、農業・水産業・商業が柱になっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "松島町",
+          "title": "松島町長期総合計画（2026-2035）",
+          "url": "https://www.town.miyagi-matsushima.lg.jp/uploaded/attachment/5310.pdf"
+        },
+        {
+          "publisher": "松島町",
+          "title": "町の概要",
+          "url": "https://www.town.miyagi-matsushima.lg.jp/page/1484.html"
+        },
+        {
+          "publisher": "松島町",
+          "title": "瑞巌寺",
+          "url": "https://www.town.miyagi-matsushima.lg.jp/page/1443.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04404": {
+      "text": [
+        "七ヶ浜町は松島湾と太平洋を分けるように突き出た半島にあり、3方向が海に面して、松島湾の入り口に位置しています。",
+        "町の名前は、明治時代に湊浜・松ヶ浜・菖蒲田浜・花渕浜・吉田浜・代ヶ崎浜・東宮浜の7つの集落をひとまとめにして役場の名前に用いたことに由来し、1959年に町になりました。",
+        "東宮浜の大木囲貝塚は縄文時代前期から後期の初めにかけての集落跡で、「大木式土器」の名前のもとになり、1968年に国の史跡に指定されました。",
+        "吉田神社に奉納される吉田浜獅子舞は、明治時代の初めに石巻市渡波の方から伝わったとされ、旧暦3月17日の祭りで舞われます。"
+      ],
+      "sources": [
+        {
+          "publisher": "七ヶ浜町",
+          "title": "歴史・文化",
+          "url": "https://www.shichigahama.com/history/index.html"
+        },
+        {
+          "publisher": "七ヶ浜町",
+          "title": "行政のあゆみ",
+          "url": "https://www.shichigahama.com/town2/admin03.html"
+        },
+        {
+          "publisher": "七ヶ浜町",
+          "title": "大木囲貝塚",
+          "url": "https://www.shichigahama.com/history/property-a01.html"
+        },
+        {
+          "publisher": "七ヶ浜町",
+          "title": "吉田浜獅子舞",
+          "url": "https://www.shichigahama.com/history/property-d01.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04406": {
+      "text": [
+        "利府町は宮城県のほぼ中央にあり、東は松島町、南は仙台市・多賀城市・塩竈市、北は大和町と大郷町に接しています。",
+        "古くは多賀城の国府と、近世に入ると仙台の城下と隣り合い、北方の要所として栄えてきました。",
+        "大貝窯跡では平安時代に瓦を焼いた窯跡が多く見つかり、ここで作られた瓦は陸奥国の政庁だった多賀城などに運ばれました。",
+        "奈良時代の硯沢窯跡からは「宮城郡」の郡名を刻んだ須恵器が出ており、宮城郡を示す最も古い資料です。",
+        "町の特産品は「利府梨」で、梨の花が町の花になっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "利府町",
+          "title": "利府町の概要",
+          "url": "https://www.town.rifu.miyagi.jp/gyosei/chosei/rifuchonoshokai/2602.html"
+        },
+        {
+          "publisher": "利府町",
+          "title": "利府町郷土資料館展示",
+          "url": "https://www.town.rifu.miyagi.jp/gyosei/kosodate_kyoiku_bunka/rekishi_bunkazai/2/3580.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04421": {
+      "text": [
+        "大和町は宮城県のほぼ中央、仙台市の約20km北にあり、西の山形県境まで東西に約32kmのびる、蝶が羽を広げたような形の町です。",
+        "1955年に1町4村が「大きな和の町」をめざして一つになり、大和町が生まれました。",
+        "町のシンボルの七ツ森や船形山、吉田川に代表される自然に恵まれ、1987年に南川ダム、1998年に宮床ダムが完成した水源の町でもあります。",
+        "宮床伊達家ゆかりの品を収めた「宮床宝蔵」や、歌人の原阿佐緒の生家を直した「原阿佐緒記念館」があります。",
+        "仙台北部中核工業団地には、自動車関連産業などの多くの企業が集まっています。"
+      ],
+      "sources": [
+        {
+          "publisher": "大和町",
+          "title": "大和町の概要",
+          "url": "https://www.town.taiwa.miyagi.jp/choseijoho/gaiyo/3142.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04422": {
+      "text": [
+        "大郷町は宮城県のほぼ中央にあり、町の中ほどを吉田川が西から東へ流れて、川沿いに水田が広がっています。",
+        "1954年に大谷・粕川・大松沢の3村が合併して大郷村となり、1959年に町になりました。",
+        "伊達政宗の命でローマへ渡った支倉常長は、帰国後にこの地で身を隠していたと言われ、1996年に支倉常長メモリアルパークが開かれました。",
+        "1991年にはその縁で、スペインのコリア・デル・リオ市との交流が始まりました。",
+        "羽生田植踊と土橋宮林神楽は町の無形文化財に指定され、伝統として受け継がれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "大郷町",
+          "title": "大郷町の概要",
+          "url": "https://www.town.miyagi-osato.lg.jp/soshiki/soumu/gaiyou.html"
+        },
+        {
+          "publisher": "大郷町",
+          "title": "大郷町のあゆみ",
+          "url": "https://www.town.miyagi-osato.lg.jp/soshiki/soumu/ayumi.html"
+        },
+        {
+          "publisher": "大郷町",
+          "title": "2024町勢要覧",
+          "url": "https://www.town.miyagi-osato.lg.jp/uploaded/attachment/8224.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04424": {
+      "text": [
+        "大衡村は宮城県のほぼ中央にある東西に長い楕円形の村で、国道4号や東北自動車道、東北新幹線が南北に通っています。",
+        "宮城県でただ一つの村で、すべての幸せを「万葉」になぞらえた「万葉の里・おおひら」のまちづくりを進めています。",
+        "1955年の全国植樹祭の会場となった御成山には、万葉植物を主にした23haの森林公園「昭和万葉の森」が整えられています。",
+        "村内では旧石器時代から奈良・平安時代の遺跡が多く見つかり、大崎氏の一族の大衡治部大輔宗氏が築いたとされる大衡城の跡も残っています。",
+        "大瓜神楽は1877年ごろに岩手県から南部神楽師を招いて伝えられ、貴船神社の例祭で奉納されます。"
+      ],
+      "sources": [
+        {
+          "publisher": "大衡村",
+          "title": "村の概要",
+          "url": "https://www.village.ohira.miyagi.jp/6/1131.html"
+        },
+        {
+          "publisher": "大衡村",
+          "title": "産業・特産品",
+          "url": "https://www.village.ohira.miyagi.jp/4/1/2/1001.html"
+        },
+        {
+          "publisher": "大衡村",
+          "title": "史跡名所",
+          "url": "https://www.village.ohira.miyagi.jp/4/2/3/1534.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04444": {
+      "text": [
+        "色麻町は宮城県のほぼ中央の北西寄り、仙台から北へ約30kmにある農業の町です。",
+        "町は東西に約24km、南北に約5kmの細長いくさび形で、西部には船形山など奥羽山系の山々が連なっています。",
+        "「色麻」の地名は、奈良時代の737年の出来事を記した『続日本紀』に「色麻柵」として登場します。",
+        "多賀城の創建期の瓦を焼いた奈良時代前半の日の出山瓦窯跡は国の史跡、前方後円墳のある念南寺古墳群は県の史跡です。",
+        "河童とのゆかりが深く、「おかっぱ様」と呼ばれるかっぱの神社があり、河童を町のマスコットにしています。"
+      ],
+      "sources": [
+        {
+          "publisher": "色麻町",
+          "title": "町の概要",
+          "url": "https://www.town.shikama.miyagi.jp/chosei/gaiyo/1/1182.html"
+        },
+        {
+          "publisher": "色麻町",
+          "title": "色麻町の歴史",
+          "url": "https://www.town.shikama.miyagi.jp/kanko_sangyo/kankou/rekishi/1191.html"
+        },
+        {
+          "publisher": "色麻町",
+          "title": "町内の指定文化財",
+          "url": "https://www.town.shikama.miyagi.jp/kyoiku_bunka/rekishi_bunka/1205.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04445": {
+      "text": [
+        "加美町は宮城県の北西部にあり、西は奥羽山脈をはさんで山形県尾花沢市と接しています。",
+        "2003年に中新田町・小野田町・宮崎町の3町が合併して生まれました。",
+        "船形山や「加美富士」と呼ばれる薬萊山がそびえ、鳴瀬川や田川の流れに沿って田園地帯が広がっています。",
+        "城生柵跡と東山官衙遺跡は奈良・平安時代の役所の跡とされ、江戸時代の侍屋敷である松本家住宅とともに国の文化財になっています。",
+        "「中新田の虎舞」や「小野田の田植踊」、「柳沢の焼け八幡」といった芸能や祭りが、それぞれの地域で今も受け継がれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "加美町",
+          "title": "加美町の概要",
+          "url": "https://www.town.kami.miyagi.jp/choseijoho/kamimachinogaiyo/1569.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04501": {
+      "text": [
+        "涌谷町は、1955年に涌谷町と箟岳村が合併して今の町になりました。",
+        "大崎市にまたがる丘陵には東に箟岳山、西に加護坊山がそびえ、頂上からは蔵王連峰や牡鹿半島、金華山まで見渡せます。",
+        "町の北部の黄金山神社の一帯は、749年に東大寺の大仏を造るための金が採れた地で、「黄金山産金遺跡」として1967年に国の史跡に指定されています。",
+        "この金の献上を都は大いに喜び、歌人の大伴家持が万葉集の歌に詠んでいます。",
+        "2019年度には、涌谷町・南三陸町・気仙沼市と岩手県の平泉町・陸前高田市による「みちのくGOLD浪漫」が日本遺産に認定されました。"
+      ],
+      "sources": [
+        {
+          "publisher": "宮城県",
+          "title": "市町村変遷等の状況",
+          "url": "https://www.pref.miyagi.jp/documents/23612/no4.pdf"
+        },
+        {
+          "publisher": "宮城県",
+          "title": "加護坊・箟岳山緑地環境保全地域",
+          "url": "https://www.pref.miyagi.jp/soshiki/sizenhogo/kago-nono.html"
+        },
+        {
+          "publisher": "宮城県",
+          "title": "指定文化財〈史跡〉黄金山産金遺跡",
+          "url": "https://www.pref.miyagi.jp/soshiki/bunkazai/kuni-siseki07.html"
+        },
+        {
+          "publisher": "宮城県",
+          "title": "「みちのくGOLD浪漫」が日本遺産に認定",
+          "url": "https://www.pref.miyagi.jp/soshiki/bunkazai/michinokugold.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04505": {
+      "text": [
+        "美里町は宮城県の北東部にあり、2006年に遠田郡の小牛田町と南郷町が合併して生まれました。",
+        "仙台市から40kmの距離にあり、東北本線・陸羽東線・石巻線が交わる交通の要所です。",
+        "鳴瀬川と江合川が町を流れ、町の面積の約70%を田畑が占める農業の町で、明治時代から北浦梨が作られています。",
+        "縄文時代から人が暮らした土地で、国の史跡の山前遺跡や町の史跡の素山貝塚があります。",
+        "幕末から明治にかけて南部神楽が伝わり、「関根神楽」「不動堂神楽」として受け継がれています。"
+      ],
+      "sources": [
+        {
+          "publisher": "美里町",
+          "title": "美里町の概要",
+          "url": "https://www.town.misato.miyagi.jp/11gaiyo/index.html"
+        },
+        {
+          "publisher": "美里町",
+          "title": "美里町町勢要覧2023",
+          "url": "https://www.town.misato.miyagi.jp/11gaiyo/pdf/chouseiyouran2023.pdf"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04581": {
+      "text": [
+        "女川町は宮城県の東部、牡鹿半島の付け根にあり、1926年に町になりました。",
+        "町の名前は、前九年の役のころ、豪族の安倍貞任が一族の女性や子どもを「安野平」に逃がし、そこから流れ出る渓流を「女川」と呼んだことに由来すると伝えられています。",
+        "リアス式海岸が天然の良港をつくり、カキやホタテ、ホヤ、銀鮭の養殖が盛んで、金華山沖漁場が近いため多くの種類の魚が水揚げされます。",
+        "女川港からは、奥州三大霊場の1つの金華山へ定期船が出ています。",
+        "江島の久須師神社で奉納される「江島法印神楽」は、大正時代に登米地方から習い伝えたもので、県の無形民俗文化財です。"
+      ],
+      "sources": [
+        {
+          "publisher": "女川町",
+          "title": "町の紹介",
+          "url": "https://www.town.onagawa.miyagi.jp/02_01_01.html"
+        },
+        {
+          "publisher": "女川町",
+          "title": "女川町町制施行100周年記念事業",
+          "url": "https://www.town.onagawa.miyagi.jp/100th/index.html"
+        },
+        {
+          "publisher": "女川町",
+          "title": "女川の文化財",
+          "url": "https://www.town.onagawa.miyagi.jp/03_00_09.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    },
+    "muni-04606": {
+      "text": [
+        "南三陸町は宮城県の北東部にあり、東は太平洋に面し、ほかの三方を標高300〜500mの山に囲まれています。",
+        "リアス式海岸の沿岸は三陸復興国立公園の一部になっています。",
+        "1955年に志津川町・戸倉村・入谷村が合わさって志津川町となり、2005年にこの志津川町と歌津町が合併して南三陸町が生まれました。",
+        "歌津館崎の魚竜化石産地と魚竜化石は1975年に、戸倉の椿島暖地性植物群落は1966年に国の天然記念物に指定されています。",
+        "入谷地区に伝わる「入谷の祭りと打囃子」は県の無形民俗文化財です。"
+      ],
+      "sources": [
+        {
+          "publisher": "南三陸町",
+          "title": "南三陸町の地勢、自然",
+          "url": "https://www.town.minamisanriku.miyagi.jp/chosei/gaiyo/1/6181.html"
+        },
+        {
+          "publisher": "南三陸町",
+          "title": "南三陸町の沿革",
+          "url": "https://www.town.minamisanriku.miyagi.jp/chosei/gaiyo/3/6176.html"
+        },
+        {
+          "publisher": "南三陸町",
+          "title": "南三陸町内の指定文化財",
+          "url": "https://www.town.minamisanriku.miyagi.jp/bunka-sports/rekishi-bunkazai/1/6494.html"
+        }
+      ],
+      "checked": "2026-10-25"
+    }
+  }
+}
