@@ -1,8 +1,16 @@
 ---
 import Base from "../layouts/Base.astro";
-import { loadSources, RELEASE } from "../lib/data";
+import { loadAreas, loadSources, RELEASE } from "../lib/data";
+import { allAramashi, aramashiFiles } from "../lib/aramashi";
 import officialSites from "../data/official-sites.json";
 const sources = loadSources();
+// 地域の紹介の文（あらまし）を載せている範囲と、いちばん新しく確かめた日（設計変更記録 #164・#166）
+const aramashiAll = allAramashi();
+const prefNames = new Map(loadAreas().prefectures.map((p) => [p.code, p.name]));
+const aramashiPrefs = aramashiFiles().map(([code]) => prefNames.get(code) ?? code);
+const aramashiScope = aramashiPrefs.length <= 5 ? `${aramashiPrefs.join("・")}の${aramashiAll.length}地域`
+  : `${aramashiPrefs.length}都道府県の${aramashiAll.length.toLocaleString("ja-JP")}地域`;
+const aramashiChecked = aramashiAll.map(([, a]) => a.checked).sort().at(-1) ?? "";
 ---
 <Base menu="出典" description="データさんぽの数字はどこから？ 国勢調査・住民基本台帳・地価公示など、使っている統計と地図の出典、利用条件、加工方法をデータごとにまとめています。">
   <header class="page-head">
@@ -46,10 +54,10 @@ const sources = loadSources();
         </tr>
         <tr>
           <td><strong>都道府県・市区町村の公式サイトや資料</strong>
-            <div class="small">地域のページの「あらまし」（いまは石川県と県内の19市町）。資料で確かめた事実を短くまとめたもので、資料の名前と確かめた日は各ページに載せています</div></td>
+            <div class="small">地域のページの冒頭にある、地域の紹介の文（いまは{aramashiScope}）。資料で確かめた事実を短くまとめたもので、資料の名前と確かめた日は各ページに載せています</div></td>
           <td>各自治体</td>
           <td>事実をデータさんぽの言葉でまとめたもの（資料の文は写していません）</td>
-          <td class="num">2026-10-24</td>
+          <td class="num">{aramashiChecked}</td>
         </tr>
       </tbody>
     </table>

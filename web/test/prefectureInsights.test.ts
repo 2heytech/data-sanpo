@@ -48,6 +48,14 @@ describe("prefectureProfile", () => {
     expect(many.lines.join("")).not.toContain("犯罪");
   });
 
+  it("全国の3位までに入るときは、題名に順位をそのまま書く（同じ値の都道府県があるときは言葉で書く。設計変更記録 #167）", () => {
+    const mfg = ind("manufacturing_shipments", "億円", 1, "2024-01-01", { kind: "count" });
+    const at = (v: (number | null)[]) => prefectureProfile("23", "愛知県", makeData({ manufacturing_shipments: v }, [mfg])).title;
+    expect(at(spread({ 23: 5000 }))).toBe("製造品出荷額が全国1位の愛知県");
+    expect(at(spread({ 23: 5000, 14: 6000, 27: 7000 }))).toBe("製造品出荷額が全国3位の愛知県");
+    expect(at(spread({ 23: 5000, 14: 5000 }))).toBe("ものづくりの盛んな愛知県");
+  });
+
   it("値のない都道府県があるときは、値のある数で数えたことを書く", () => {
     const p = prefectureProfile("05", "秋田県", makeData({ crime_npa_total_per_100_residents: spread({ 5: 0.1, 22: null }, (i) => 0.5 + i / 100) }));
     expect(p.lines.join("")).toContain("値のある全国46都道府県の中で最も低い値です");
