@@ -1,7 +1,7 @@
 import { composeProfile, themeOf, trendBase, trendText, type AreaProfile, type Line, type Theme } from "./areaInsights";
 import { formatNumber, formatValue } from "./format";
 import { prefecturePeriods } from "./periods";
-import { nationalityTemplate, RANK_TEMPLATES, tag, type RankTemplate, type Tag, type Tone } from "./rankInsights";
+import { nationalityTemplate, RANK_TEMPLATES, rankTag, tag, type RankTemplate, type Tag, type Tone } from "./rankInsights";
 import type { Indicator, ValueRow } from "./types";
 
 /**
@@ -59,22 +59,22 @@ const BRIGHT_SHARE = 0.25;
  */
 const PREF_TEMPLATES: Record<string, RankTemplate | null> = {
   population_density: { ...RANK_TEMPLATES.population_density, low: "山林や農地が広く、土地の広さに比べて住む人の少ない地域と考えられます。" },
-  persons_per_household: { ...RANK_TEMPLATES.persons_per_household, highTag: tag("family", "大家族が多く", "大家族の多い"),
+  persons_per_household: { ...RANK_TEMPLATES.persons_per_household, highTag: tag("family", "大家族が多く", "大家族の多い", true),
     high: "三世代で暮らす家族など、大きな世帯が多いと考えられます。" },
   single_person_household_share: { high: "単身で働く人や学生などが多く住んでいると思われます。" },
-  owner_occupied_share: { highTag: tag("settled", "持ち家が多く", "持ち家の多い"), high: "長く住み続ける人の多い地域と考えられます。", highTone: "pos",
-    lowTag: tag("rent", "借家に住む人が多く", "借家に住む人の多い"), low: "借家や賃貸マンションに住む人が多い地域のようです。" },
+  owner_occupied_share: { highTag: tag("settled", "持ち家が多く", "持ち家の多い", true), high: "長く住み続ける人の多い地域と考えられます。", highTone: "pos",
+    lowTag: tag("rent", "借家に住む人が多く", "借家に住む人の多い", true), low: "借家や賃貸マンションに住む人が多い地域のようです。" },
   commute_rail_share: { highTag: tag("rail", "鉄道で通いやすく", "鉄道網の発達した"), high: "鉄道で通勤・通学する人が多く、鉄道網の発達した地域と考えられます。" },
-  commute_bicycle_share: { highTag: RANK_TEMPLATES.commute_bicycle_share.highTag, high: "自転車で通勤・通学する人が多い地域のようです。" },
+  commute_bicycle_share: { highTag: RANK_TEMPLATES.commute_bicycle_share.highTag, title: RANK_TEMPLATES.commute_bicycle_share.title, high: "自転車で通勤・通学する人が多い地域のようです。" },
   // 都道府県全体では鉄道で通う人も多いことがあるので、「鉄道より」とは書かない
-  commute_bus_share: { highTag: tag("bus", "路線バスがよく使われ", "路線バスがよく使われる"), high: "路線バスで通勤・通学する人が多い地域のようです。" },
-  commute_car_share: { ...RANK_TEMPLATES.commute_car_share, highTag: tag("car", "車が暮らしの足となり", "車が暮らしの足となる"),
+  commute_bus_share: { highTag: tag("bus", "路線バスで通う人が多く", "路線バスで通う人の多い"), high: "路線バスで通勤・通学する人が多い地域のようです。" },
+  commute_car_share: { ...RANK_TEMPLATES.commute_car_share, highTag: tag("car", "車で通う人が多く", "車で通う人の多い", true),
     high: "車が欠かせない暮らしの地域と思われます。" },
   hs_grad_university_rate: { high: "高校を卒業して、大学などへ進学する人が多い地域のようです。" },
   hs_grad_vocational_rate: { high: "高校を卒業して、専門学校で資格や技術を身につける進路を選ぶ人が多いようです。" },
   // 低い方の「都市部などで低くなりやすい」は市区町村の人口密度で確かめる文なので、都道府県では高い方だけ
-  total_fertility_rate: { highTag: RANK_TEMPLATES.total_fertility_rate.highTag, high: RANK_TEMPLATES.total_fertility_rate.high, highTone: "pos" },
-  crime_npa_total_per_100_residents: { lowTag: tag("calm", "犯罪の件数が少なく", "落ち着いた"),
+  total_fertility_rate: { highTag: RANK_TEMPLATES.total_fertility_rate.highTag, title: RANK_TEMPLATES.total_fertility_rate.title, high: RANK_TEMPLATES.total_fertility_rate.high, highTone: "pos" },
+  crime_npa_total_per_100_residents: { lowTag: tag("calm", "犯罪の件数が少なく", "落ち着いた", true),
     low: "住民の数に比べて犯罪の件数が少ない、落ち着いた地域のようです。", lowTone: "pos" },
   household_income_1000plus_share: { high: "所得の高い世帯が比較的多く住んでいると思われます。" },
   furusato_amount_per_capita: { highTag: tag("furusato", "ふるさと納税で人気を集め", "ふるさと納税で人気の"),
@@ -89,12 +89,12 @@ const PREF_TEMPLATES: Record<string, RankTemplate | null> = {
   vegetation_secondary_forest_share: { highTag: tag("forest", "里山の林が広がり", "里山の林が広がる"),
     high: "コナラやアカマツなど、人が手を入れてきた里山の林が多い地域と考えられます。" },
   vegetation_plantation_share: { highTag: tag("forest", "スギやヒノキの林が広がり", "スギやヒノキの林が広がる"), high: "スギやヒノキなどを植えた林が多く、林業が営まれてきた地域と考えられます。" },
-  university_student_share: { highTag: tag("campus", "大学が集まり", "大学の集まる"), high: "大学が多く、全国から学生が集まる地域と考えられます。" },
+  university_student_share: { highTag: tag("campus", "大学が集まり", "大学の集まる"), title: "大学生の割合", high: "大学が多く、全国から学生が集まる地域と考えられます。" },
   // 4つの教科は同じ系統（gakuryoku）として1つだけ。低い方は書かない
   ...Object.fromEntries(["gakuryoku_elem_japanese", "gakuryoku_elem_math", "gakuryoku_jhs_japanese", "gakuryoku_jhs_math"].map((id) => [id,
     { highTag: tag("study", "子どもの学力が高く", "子どもの学力が高い"), high: "学んだことがしっかり身についている子どもが多いと考えられます。", highTone: "pos" as Tone }])),
   retail_sales_per_capita: { high: "お店での買い物が多い、商業の盛んな地域と考えられます。" },
-  preschool_kodomoen_share: { ...RANK_TEMPLATES.preschool_kodomoen_share, highTag: tag("kodomoen", "認定こども園に通う子が多く", "認定こども園に通う子の多い") },
+  preschool_kodomoen_share: { ...RANK_TEMPLATES.preschool_kodomoen_share, highTag: tag("kodomoen", "認定こども園に通う子が多く", "認定こども園に通う子の多い", true) },
   // 徒歩で通う人の割合は、農家など職場と住まいが同じ人の多い地域でも高くなり、都道府県全体では「歩いて暮らせる」と読めないため書かない
   commute_walk_share: null,
   // 下の処理で書く（人口の増減・年齢構成・昼夜間人口・面積・地形・土地利用・産業の割合）
@@ -230,7 +230,10 @@ export function prefectureProfile(prefCode: string, name: string, data: PrefInsi
         return [then ? trendText(ind, s, then) : null, note].filter((x): x is string => !!x);
       };
       if (t.high && s.top <= 0.5 && (!t.low || s.top <= s.bottom)) {
-        found.push({ id: ind.id, pos: s.top, rank: s.rankTop, group, tone: t.highTone, tag: t.highTag, theme: prefThemeOf(ind),
+        // 全国の3位までに入るときは、見出しに順位をそのまま書く（市区町村と同じ。設計変更記録 #167）
+        const byRank = t.highTag && t.title && s.rankTop <= RANK_LIMIT && s.same === 1;
+        found.push({ id: ind.id, pos: s.top, rank: s.rankTop, group, tone: t.highTone, tag: byRank ? rankTag(t.highTag!, t.title!, s.rankTop) : t.highTag,
+          theme: prefThemeOf(ind),
           text: `${head}、${among(s)}のうち${s.rankTop}位です（${label}）。${t.high}`, more: more(t.highTone, "high") });
       } else if (t.low && s.bottom <= 0.5) {
         const where = s.rankBottom === 1 ? "最も低い値です" : `低い方から${s.rankBottom}番目です`;
@@ -296,7 +299,7 @@ export function prefectureProfile(prefCode: string, name: string, data: PrefInsi
     }
     if (young) {
       return line("住む人", "ageStructure", `65歳以上の人の割合は${young.text}で、全国の都道府県で${lowest(young, "低く")}なっています（${young.label}）。働く世代や子育て世代が比較的多いようです。`,
-        { tag: tag("young", "働く世代が多く", "働く世代の多い"), w: young.bottom });
+        { tag: tag("young", "働く世代が多く", "働く世代の多い", true), w: young.bottom });
     }
     if (old && kids && isBottom(kids, 10)) {
       return line("住む人", "ageStructure", `65歳以上の人が${old.text}、15歳未満の子どもが${kids.text}です（${old.label}）。全国の都道府県の中でも高齢化が進んだ地域と思われます。`,
@@ -376,12 +379,13 @@ export function prefectureProfile(prefCode: string, name: string, data: PrefInsi
     const agri = topOf(stat("employees_agriculture_share"));
     const head = (s: Stat, what: string) => `${inside}の事業所で働く人のうち${what}が${s.text}で（${s.label}）、全国の都道府県で${highest(s, "高い割合")}です。`;
     if (mfg && (!agri || mfg.top <= agri.top)) {
+      // 見出しには順位をそのまま書く（設計変更記録 #167）
       return line("仕事と産業", "industry", `${head(mfg, "製造業")}工場の多い、ものづくりの盛んな地域と思われます。`,
-        { tone: "pos", tag: tag("mfg", "ものづくりが盛んで", "ものづくりの盛んな"), w: mfg.top });
+        { tone: "pos", tag: rankTag(tag("mfg", "", ""), "製造業で働く人の割合", mfg.rankTop), w: mfg.top });
     }
     if (agri) {
       return line("仕事と産業", "industry", `${head(agri, "農林漁業")}農業や林業、漁業が暮らしを支える地域と思われます。`,
-        { tone: "pos", tag: tag("agri", "農林漁業が盛んで", "農林漁業の盛んな"), w: agri.top });
+        { tone: "pos", tag: rankTag(tag("agri", "", ""), "農林漁業で働く人の割合", agri.rankTop), w: agri.top });
     }
     return null;
   }

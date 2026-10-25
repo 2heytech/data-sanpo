@@ -1,21 +1,19 @@
 ---
-// 地域ページの「〇〇のあらまし」（設計変更記録 #164）。公式サイトなどで確かめた事実の短いまとめと、出典・確かめた日
+// 地域の紹介の文（「あらまし」。設計変更記録 #164）。公式サイトなどで確かめた事実の短いまとめと、そのすぐ下に出典・確かめた日。
+// 見出しは付けず、「データで見る〇〇」の題名の下に、データの概要と合わせて出す（設計変更記録 #166）
 import { checkedLabel, type Aramashi } from "../lib/aramashi";
 
-interface Props { name: string; aramashi: Aramashi }
-const { name, aramashi } = Astro.props;
+interface Props { aramashi: Aramashi }
+const { aramashi } = Astro.props;
 // 資料の名前の中のかぎかっこは、外のかぎかっこと重ならないよう二重かぎかっこにする
 const quoted = (title: string) => title.replace(/「/g, "『").replace(/」/g, "』");
 ---
-<section class="sheet aramashi">
-  <h2>{name}のあらまし</h2>
-  <p>{aramashi.text.join("")}</p>
-  <p class="source muted">出典：{aramashi.sources.map((s, i) => (
-    <>{i > 0 && "、"}<a href={s.url} target="_blank" rel="noopener">{s.publisher}「{quoted(s.title)}」</a></>
-  ))}（{checkedLabel(aramashi.checked)}に確認）。資料で確かめた事実を、データさんぽが短くまとめたものです。</p>
-</section>
+<p class="aramashi">{aramashi.text.join("")}</p>
+<p class="aramashi-source muted">出典：{aramashi.sources.map((s, i) => (
+  <>{i > 0 && "、"}<a href={s.url} target="_blank" rel="noopener">{s.publisher}「{quoted(s.title)}」</a></>
+))}（{checkedLabel(aramashi.checked)}に確認）。資料で確かめた事実を、データさんぽが短くまとめたものです。</p>
 
 <style>
-  .aramashi > p:first-of-type { line-height: 1.9; }
-  .aramashi .source { font-size: 0.86rem; line-height: 1.7; }
+  .aramashi { margin-bottom: 0.3em; line-height: 1.9; }
+  .aramashi-source { margin-top: 0; font-size: 0.82rem; line-height: 1.6; }
 </style>

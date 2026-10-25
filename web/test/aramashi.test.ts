@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allAramashi, checkedLabel } from "../src/lib/aramashi";
+import { allAramashi, aramashiFiles, checkedLabel } from "../src/lib/aramashi";
 
 describe("あらまし（設計変更記録 #164）", () => {
   const all = allAramashi();
@@ -28,6 +28,15 @@ describe("あらまし（設計変更記録 #164）", () => {
         expect(t, id).not.toMatch(/思われます|考えられます|ようです|かもしれません/);
       }
       expect(a.text.join("").length, id).toBeLessThanOrEqual(320);
+    }
+  });
+
+  it("都道府県ごとのファイルには、その都道府県と県内の市区町村だけを書く（設計変更記録 #166）", () => {
+    const files = aramashiFiles();
+    expect(files.length).toBeGreaterThan(0);
+    for (const [code, ids] of files) {
+      expect(code).toMatch(/^\d{2}$/);
+      for (const id of ids) expect(id === `pref-${code}` || id.startsWith(`muni-${code}`), `${code}: ${id}`).toBe(true);
     }
   });
 
