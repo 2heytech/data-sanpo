@@ -195,8 +195,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         <div id="landuse-legend" class="land-bins"></div>
         <p id="landuse-note" class="muted small" hidden></p>
       </section>
-      {/* 地図に重ねている点・土地利用の凡例（左の欄のアイコンでオンにしたものだけ出す）。地図の右上（地図の幅が狭いときは左下）に置き、
-           見出しのボタンで畳める（#139） */}
+      {/* 地図に重ねている点の凡例（左の欄のアイコンでオンにしたものだけ出す）。地図の右上（地図の幅が狭いときは左下）に置き、
+           見出しのボタンで畳める（#139）。土地利用の凡例は地図の上のパネルだけに出す（#162） */}
       <section class="overlay-notes" aria-label="地図に重ねているものの凡例">
         <button type="button" id="overlay-notes-toggle" class="overlay-notes-toggle" aria-expanded="true" aria-controls="overlay-notes-body">凡例</button>
         <div id="overlay-notes-body" class="overlay-notes-body">
@@ -207,11 +207,6 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
               <p id={t.note} class="muted small" hidden></p>
             </div>
           ))}
-          {/* 土地利用図の読み方（年度・色の凡例は地図の上のパネル） */}
-          <div class="overlay-note">
-            <h3><svg viewBox="0 0 24 24" aria-hidden="true" set:html={ICON.landuse} />土地利用（100m四方のマス）</h3>
-            <p id="landuse-info" class="muted small" hidden>100m四方のマスごとに、その中で最も広い土地利用の色で塗っています。年度によって判読の方法が違います。</p>
-          </div>
         </div>
       </section>
       {/* 地点の情報（点を押したとき）。地図の処理がこの要素ごと地図の上のポップアップに移して、押した点から出す（#139） */}
