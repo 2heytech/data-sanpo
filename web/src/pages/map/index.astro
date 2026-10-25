@@ -183,7 +183,6 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         <div class="base-panel-head">
           <output id="landuse-year-label" for="landuse-year" aria-live="polite"></output>
           <span class="base-panel-tools">
-            <button type="button" id="landuse-legend-toggle" class="legend-toggle" aria-expanded="true" aria-controls="landuse-legend">凡例</button>
             <button type="button" class="base-close" aria-label="土地利用を閉じる" title="土地利用を閉じる">×</button>
           </span>
         </div>
@@ -192,7 +191,14 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
           <input id="landuse-year" type="range" min="0" max="0" step="1" value="0" aria-label="土地利用の年度" />
         </div>
         <div id="landuse-year-ticks" class="period-ticks" aria-hidden="true"></div>
-        <div id="landuse-legend" class="land-bins"></div>
+        {/* 凡例の枠の上のフチに開け閉めのつまみを付ける（#165） */}
+        <div class="land-legend">
+          <button type="button" id="landuse-legend-toggle" class="legend-toggle" aria-expanded="true" aria-controls="landuse-legend"
+                  aria-label="凡例を畳む" title="凡例を畳む">
+            <svg viewBox="0 0 12 8" width="12" height="8" aria-hidden="true"><path d="M1.5 6.5 6 2l4.5 4.5" /></svg>
+          </button>
+          <div id="landuse-legend" class="land-bins"></div>
+        </div>
         <p id="landuse-note" class="muted small" hidden></p>
       </section>
       {/* 地図に重ねている点の凡例（左の欄のアイコンでオンにしたものだけ出す）。地図の右上（地図の幅が狭いときは左下）に置き、
@@ -612,15 +618,23 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .base-panel-head output, .base-panel-title { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .base-panel-tools { display: flex; align-items: center; gap: 4px; }
   .base-close { border: 0; background: none; font-size: 1.3rem; line-height: 1; padding: 2px 6px; cursor: pointer; color: var(--muted); }
+  /* 土地利用の凡例の枠。上のフチの真ん中に開け閉めのつまみを載せる。開いているときは ⌃（畳む）、畳むと ⌄（開く） */
+  .land-legend { position: relative; margin-top: 12px; padding-top: 6px; border-top: 1px solid rgba(0,0,0,.14); }
+  .land-legend:has(> .legend-toggle[hidden]) { display: none; }
   .legend-toggle {
-    padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
-    font: inherit; font-size: 0.75rem; color: var(--fg); cursor: pointer;
+    position: absolute; top: 0; left: 50%; transform: translate(-50%, -50%);
+    display: grid; place-items: center; width: 34px; height: 18px; padding: 0;
+    border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); color: var(--accent); cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,.12);
   }
-  .legend-toggle::after { content: " ▾"; font-size: 0.7em; }
-  .legend-toggle[aria-expanded="false"]::after { content: " ▸"; }
+  .legend-toggle svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
+  .legend-toggle[aria-expanded="false"] svg { transform: rotate(180deg); }
+  .legend-toggle:hover { background: var(--accent-soft); }
+  .legend-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .land-legend:has(> .legend-toggle[aria-expanded="false"]) { padding-top: 8px; }
   .base-panel p { margin: 2px 0 0; }
   .base-panel [hidden] { display: none; }
-  .base-panel .land-bins { font-size: 0.75rem; margin: 4px 0 2px; }
+  .base-panel .land-bins { font-size: 0.75rem; margin: 2px 0; }
   .photo-era-ends { display: flex; justify-content: space-between; margin-left: 40px; }
   /* 標高の色の見本（帯と目盛り） */
   .relief-bar { height: 12px; margin-top: 6px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); }

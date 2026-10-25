@@ -155,7 +155,11 @@ export function initLandUse(o: Options): LandUseLayer {
     o.panel.hidden = !visible;
     if (!visible) return;
     o.range.hidden = o.play.hidden = o.ticks.hidden = o.legendToggle.hidden = !index;
-    o.legend.hidden = !index || o.legendToggle.getAttribute("aria-expanded") !== "true";
+    const legendOpen = o.legendToggle.getAttribute("aria-expanded") === "true";
+    o.legend.hidden = !index || !legendOpen;
+    const legendAction = legendOpen ? "凡例を畳む" : "凡例を開く";
+    o.legendToggle.setAttribute("aria-label", legendAction);
+    o.legendToggle.title = legendAction;
     if (!index) {
       o.label.value = "土地利用";
       o.note.hidden = false;
