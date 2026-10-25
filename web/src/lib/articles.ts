@@ -21,6 +21,31 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "agri-output-2024",
+    title: "農業産出額の日本一は北海道でも九州でもない：市町村ランキング",
+    description: "2024年の市町村別の農業産出額で1位になったのは、北海道でも九州でもないまちでした。6年ぶりに入れ替わった1位と2位の宮崎県都城市の違い、米・野菜・果実・畜産それぞれの1位、都道府県の順位も見ます。",
+    published: "2026-11-06",
+    indicators: ["agri_output", "agri_output_vegetables", "agri_output_livestock", "agri_output_rice", "agri_output_fruits"],
+    mapHref: "/map/?i=agri_output&p=2024-01-01&a=muni-23231&l=municipality",
+  },
+  {
+    slug: "households-with-children",
+    title: "いちばん小さい村は子育て世帯の割合1位：子どものいる世帯の割合",
+    description: "2025年国勢調査で、18歳未満の子どもがいる世帯の割合を市区町村と都道府県で比べます。1位は面積が日本一小さい村で、上位には大きな市のとなりのまちが並びます。人で数えた15歳未満の割合との違いも見ます。",
+    published: "2026-11-04",
+    indicators: ["households_with_children_share", "children_0_14_share"],
+    mapHref: "/map/?i=households_with_children_share&p=2025-10-01&a=muni-16321&l=municipality",
+  },
+  {
+    slug: "street-trees-ginkgo",
+    title: "都道のイチョウが最も多い区はどこ？：東京の街路樹の本数",
+    description: "東京都が公開している都道の街路樹のデータで、都の木イチョウの本数を市区町村ごとに数えます。イチョウが最も多い区、街路樹の4割以上がイチョウの市、町丁目で見た多い場所、ケヤキやサクラが多いまちも見ます。",
+    published: "2026-11-02",
+    // 東京都だけの指標なので、記事の地図の画像は東京都の形に合わせた図になる（#168）
+    indicators: ["street_trees_ginkgo", "street_trees", "street_trees_zelkova", "street_trees_cherry", "street_tree_species"],
+    mapHref: "/map/?i=street_trees_ginkgo&p=2026-04-01&a=muni-13105&l=municipality",
+  },
+  {
     slug: "cultural-properties",
     title: "国宝・重要文化財の建造物：京都・奈良の次は大津市",
     description: "国宝・重要文化財の建造物を市区町村ごとに数えると、京都市・奈良市の次は滋賀県大津市です。登録有形文化財が最も多い愛知県犬山市、史跡の多い鎌倉市など、文化財の多いまちを見ます。",

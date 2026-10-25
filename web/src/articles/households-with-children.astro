@@ -1,0 +1,129 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, nationalValue, rankOf, ranking, raw, rows, steadyGrowth, value } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
+
+const ID = "households_with_children_share";
+const CH = "children_0_14_share";
+const P = "2025-10-01";
+const P10 = "2010-10-01";
+const P15 = "2015-10-01";
+const P20 = "2020-10-01";
+const CENSUS = [P10, P15, P20, P];
+const FUNA = "muni-16321";
+const KAWAKITA = "muni-17324";
+const YAESE = "muni-47362";
+const KOSHI = "muni-43216";
+const SHINGU = "muni-40345";
+const HAEBARU = "muni-47350";
+const KASHIMA = "muni-43442";
+
+// 一般世帯の数と、18歳未満の人がいる一般世帯の数（割合の分母・分子）
+const row = (period: string, id: string) => rows(ID, period, "municipality").find((r) => r.entity_id === id);
+const households = (period: string, id: string) => row(period, id)?.denominator ?? null;
+const withChildren = (period: string, id: string) => row(period, id)?.numerator ?? null;
+const hh = (v: number | null) => (v === null ? "—" : `${formatNumber(v, 0)}世帯`);
+const top = (period: string, n: number) => ranking(ID, period, "municipality", "high", n).map((r) => r.entity_id).join();
+
+// 題名: 面積が最も小さい市区町村（舟橋村）が、2025年の子どものいる世帯の割合で1位
+check(ranking("area", P, "municipality", "low", 1)[0]?.entity_id === FUNA, "面積が最も小さい市区町村が舟橋村ではありません");
+check(top(P, 3) === [FUNA, KAWAKITA, YAESE].join(), "2025年の子どものいる世帯の割合の1〜3位が舟橋村・川北町・八重瀬町ではありません");
+// 2010年も1位（一般世帯のほぼ半分）、2015・2020年は川北町が1位で舟橋村が2位
+check(top(P10, 1) === FUNA && (raw(ID, P10, FUNA) ?? 0) > 45 && (raw(ID, P10, FUNA) ?? 100) < 50, "2010年の舟橋村が1位・ほぼ半分ではありません");
+check(top(P15, 2) === [KAWAKITA, FUNA].join() && top(P20, 2) === [KAWAKITA, FUNA].join(), "2015・2020年の1・2位が川北町・舟橋村ではありません");
+// 全国のおよそ2倍
+const ratio = (raw(ID, P, FUNA) ?? 0) / Number(nationalValue(ID, P).replace(/[^0-9.]/g, ""));
+check(ratio > 1.8 && ratio < 2.2, "舟橋村の割合が全国のおよそ2倍ではありません");
+// 全国はおよそ6世帯に1世帯、舟橋村は3世帯に1世帯
+const national = Number(nationalValue(ID, P).replace(/[^0-9.]/g, ""));
+check(national > 15.5 && national < 18.5 && (raw(ID, P, FUNA) ?? 0) > 30 && (raw(ID, P, FUNA) ?? 100) < 36,
+  "全国がおよそ6世帯に1世帯、舟橋村が3世帯に1世帯ではありません");
+// 子どものいる世帯は2015年から約390世帯でほぼ同じ。一般世帯は増え続け、人口も国勢調査のたびに増えている
+const kids = [P15, P20, P].map((p) => withChildren(p, FUNA));
+check(kids.every((v) => v !== null && v >= 375 && v <= 405), "舟橋村の子どものいる世帯が2015年から約390世帯ではありません");
+const hhs = CENSUS.map((p) => households(p, FUNA));
+check(hhs.every((v, i) => v !== null && (i === 0 || v > hhs[i - 1]!)), "舟橋村の一般世帯が増え続けていません");
+check(steadyGrowth("population_total", CENSUS, "municipality").rows.some((r) => r.entity_id === FUNA), "舟橋村の人口が増え続けていません");
+
+// 都道府県: 高いのは沖縄県・滋賀県・佐賀県、低いのは北海道・東京都・高知県
+const prefTop = (order: "high" | "low") => ranking(ID, P, "prefecture", order, 3).map((r) => r.entity_id).join();
+check(prefTop("high") === ["pref-47", "pref-25", "pref-41"].join(), "子どものいる世帯の割合が高い都道府県が沖縄県・滋賀県・佐賀県ではありません");
+check(prefTop("low") === ["pref-01", "pref-13", "pref-39"].join(), "子どものいる世帯の割合が低い都道府県が北海道・東京都・高知県ではありません");
+check((raw("single_person_household_share", P, "pref-13") ?? 0) > 50, "東京都の一人暮らし世帯が一般世帯の半分を超えていません");
+
+// 15歳未満の割合（人で数える）では、舟橋村は1位ではなく、1位は鹿児島県三島村
+check(ranking(CH, P, "municipality", "high", 2).map((r) => r.entity_id).join() === "muni-46303,muni-46304",
+  "15歳未満の割合の1・2位が三島村・十島村ではありません");
+---
+<Article slug="households-with-children">
+  <p>
+    18歳未満の子どもがいる世帯は、どのくらいあるのでしょうか。2025年の国勢調査で、一般世帯のうち18歳未満の人がいる世帯の割合
+    （子どものいる世帯の割合）を見ると、全国では{nationalValue(ID, P)}で、およそ6世帯に1世帯です。
+    10年前の2015年は{nationalValue(ID, P15)}だったので、全国では少しずつ下がっています。
+  </p>
+  <p>
+    市区町村で比べると、1位は富山県舟橋村の{value(ID, P, FUNA)}で、全国のおよそ2倍、3世帯に1世帯です。
+    舟橋村は面積が{value("area", P, FUNA)}と、日本でいちばん小さい市区町村です。
+  </p>
+  <ArticleRanking id={ID} period={P} n={10} expect={[FUNA, KAWAKITA, YAESE, KOSHI, SHINGU, HAEBARU, KASHIMA]}
+    caption="子どものいる世帯の割合が高い市区町村（2025年）" />
+
+  <h2>小さな村に、子どものいる世帯が多い理由</h2>
+  <p>
+    舟橋村は富山市のとなりにあり、村の中を通る富山地方鉄道の越中舟橋駅から富山市の中心へ通えます。駅舎には村立図書館も入っています。
+    平成のはじめから宅地の開発が進み、子育て世代が多く移り住んだようです。
+    人口は2010年の{value("population_total", P10, FUNA)}から2025年は{value("population_total", P, FUNA)}と、国勢調査のたびに増えています。
+  </p>
+  <p>
+    2010年には、舟橋村の一般世帯の{value(ID, P10, FUNA)}、ほぼ半分に子どもがいました。
+    2015年と2020年は石川県川北町が1位で、舟橋村は2位でしたが、2025年にふたたび1位になりました。
+  </p>
+  <p>
+    ただ、舟橋村でも割合は下がってきています。子どものいる世帯の数は、2015年の{hh(withChildren(P15, FUNA))}、2020年の{hh(withChildren(P20, FUNA))}、
+    2025年の{hh(withChildren(P, FUNA))}とほぼ同じですが、一般世帯の数が2010年の{hh(households(P10, FUNA))}から2025年は{hh(households(P, FUNA))}に増えたためです。
+    子どもが大きくなって家を出たり、子どものいない世帯が新しく住んだりして、子どものいない世帯が増えていると考えられます。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${FUNA}&l=municipality`}>舟橋村の子どものいる世帯の割合を地図で見る</a>
+  </p>
+
+  <h2>上位に並ぶのは、大きな市のとなりのまち</h2>
+  <p>
+    2位の石川県川北町（{value(ID, P, KAWAKITA)}）や3位の沖縄県八重瀬町（{value(ID, P, YAESE)}）のほかにも、上位には、
+    熊本市のとなりの熊本県合志市・嘉島町、福岡市のとなりの福岡県新宮町、那覇市のとなりの沖縄県南風原町のように、
+    県庁所在地など大きな市のとなりや近くにある市町村が多く並びます。
+    大きな市へ通いやすく、住宅地が新しくできた郊外のまちに、子育て世帯が多く住んでいると考えられます。
+  </p>
+
+  <h2>都道府県では沖縄県が1位</h2>
+  <p>
+    都道府県では、沖縄県（{value(ID, P, "pref-47")}）が最も高く、滋賀県、佐賀県が続きます。
+    最も低いのは北海道（{value(ID, P, "pref-01")}）で、東京都（{value(ID, P, "pref-13")}）、高知県が続きます。
+    東京都は、<a href="/articles/single-households/">一人暮らしの世帯</a>が一般世帯の半分を超えるため、子どものいる世帯の割合が低くなると考えられます。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-47", "pref-25", "pref-41"]} caption="子どものいる世帯の割合が高い都道府県（2025年）" />
+  <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-01", "pref-13", "pref-39"]} caption="子どものいる世帯の割合が低い都道府県（2025年）" />
+
+  <h2>人で数えると順位が変わる</h2>
+  <p>
+    世帯ではなく、人口に占める15歳未満の子どもの割合で比べると、舟橋村は{value(CH, P, FUNA)}で{rankOf(CH, P, FUNA)}です。
+    1位は鹿児島県三島村（{value(CH, P, "muni-46303")}）で、島の小さな村が上位に入ります。
+    世帯で数えるか、人で数えるかで、順位は変わります。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${CH}&p=${P}&a=${FUNA}&l=municipality`}>15歳未満の割合を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>親子に限らず、18歳未満の人が1人でもいる一般世帯を数えています。寮や病院・施設などの世帯は含みません。</li>
+    <li>舟橋村の一般世帯は{hh(households(P, FUNA))}なので、数十世帯の違いで割合が数ポイント動きます。小さな町村の順位は、調査の回ごとに入れ替わりやすいことに注意してください。</li>
+    <li>一般世帯が50世帯未満の市区町村は値を出していません。</li>
+    <li>2025年は国勢調査の人口等基本集計（2026年9月公表）の値です。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

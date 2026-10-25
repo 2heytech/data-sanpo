@@ -1,0 +1,155 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleCompare from "../components/ArticleCompare.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, compareRanking, ranking, rows, value } from "../lib/articleData";
+import { loadAreas, loadValues } from "../lib/data";
+import { formatNumber } from "../lib/format";
+
+const P = "2026-04-01";
+const ALL = "street_trees";
+const GINKGO = "street_trees_ginkgo";
+const ZELKOVA = "street_trees_zelkova";
+const CHERRY = "street_trees_cherry";
+const DOGWOOD = "street_trees_dogwood";
+const MAPLE = "street_trees_maple";
+const PLANE = "street_trees_plane";
+const SPECIES = "street_tree_species";
+const BUNKYO = "muni-13105";
+const ADACHI = "muni-13121";
+const CHIYODA = "muni-13101";
+const HACHIOJI = "muni-13201";
+const SHINJUKU = "muni-13104";
+const HAMURA = "muni-13227";
+const AKISHIMA = "muni-13207";
+const FUSSA = "muni-13218";
+
+// 島しょを除く東京都の本数（島しょの町村はデータがなく値なし。値のない町村を0として足さない）。region を渡すと区部・多摩だけ
+const regionOf = new Map(loadAreas().municipalities.map((m) => [m.id, m.region]));
+const total = (id: string, region?: string) => rows(id, P, "municipality")
+  .filter((r) => r.value !== null && (!region || regionOf.get(r.entity_id) === region))
+  .reduce((s, r) => s + (r.value as number), 0);
+const trees = (n: number) => `${formatNumber(n, 0)}本`;
+const share = total(ALL) > 0 ? total(GINKGO) / total(ALL) : NaN;
+
+// 題名と本文: イチョウの本数は文京区・足立区・千代田区の順。イチョウは6つの樹種の中で最も多く、都道の街路樹の約1割
+const top = (id: string, n: number) => ranking(id, P, "municipality", "high", n).map((r) => r.entity_id).join();
+check(top(GINKGO, 3) === [BUNKYO, ADACHI, CHIYODA].join(), "都道のイチョウの本数の1〜3位が文京区・足立区・千代田区ではありません");
+check([ZELKOVA, CHERRY, DOGWOOD, MAPLE, PLANE].every((id) => total(GINKGO) > total(id)), "イチョウが6つの樹種の中で最も多くありません");
+check(share > 0.095 && share < 0.115, `イチョウが都道の街路樹の約1割ではありません（${formatNumber(share * 100, 1)}%）`);
+// 上位10のうち9つが区で、10位が多摩で最も多い八王子市。足立区は街路樹の総数が最も多い
+const top10 = ranking(GINKGO, P, "municipality", "high", 10);
+check(top10.length === 10 && top10[9].entity_id === HACHIOJI && top10[9].rank === 10 && top10.slice(0, 9).every((r) => regionOf.get(r.entity_id) === "区部"),
+  "都道のイチョウの上位9が区、10位が八王子市ではありません");
+check(top(ALL, 1) === ADACHI, "都道の街路樹の総数の1位が足立区ではありません");
+
+// 文京区の街路樹の約3割がイチョウ。割合では、となり合う羽村市・昭島市・福生市が文京区より高い（街路樹が1,000本以上の市区町村）
+const MIN_TREES = 1000;
+const shares = compareRanking({ id: ALL, period: P }, { id: GINKGO, period: P }, "municipality", "high", 10, [], { minFrom: MIN_TREES });
+const shareOf = (id: string) => shares.find((r) => r.entity_id === id)?.ratio ?? null;
+const pct = (id: string) => { const v = shareOf(id); return v === null ? "—" : `${formatNumber(v * 100, 1)}%`; };
+check(shares.slice(0, 4).map((r) => r.entity_id).join() === [HAMURA, AKISHIMA, FUSSA, BUNKYO].join(),
+  "イチョウの割合の1〜4位が羽村市・昭島市・福生市・文京区ではありません");
+check(Math.abs((shareOf(BUNKYO) ?? 0) - 0.3) < 0.02, "文京区の街路樹のイチョウの割合が約3割ではありません");
+
+// 町丁目: 東京都で最も多いのは町田市小野路町、次が千代田区永田町一丁目。文京区では本駒込三丁目・音羽一丁目・目白台二丁目・向丘二丁目
+const small = (loadValues(GINKGO, P, "13")?.rows ?? []).filter((r) => r.value !== null)
+  .sort((a, b) => (b.value as number) - (a.value as number));
+const ONOJI = "area-132090050";
+const NAGATACHO = "area-13101006001";
+const BUNKYO_SMALL = ["area-13105028003", "area-13105020001", "area-13105019002", "area-13105024002"];
+if (small.length > 0) {
+  check(small[0].entity_id === ONOJI && small[1].entity_id === NAGATACHO, "町丁目のイチョウの1・2位が小野路町・永田町一丁目ではありません");
+  check(small.filter((r) => r.entity_id.startsWith("area-13105")).slice(0, 4).map((r) => r.entity_id).join() === BUNKYO_SMALL.join(),
+    "文京区の町丁目のイチョウの上位4つが本駒込三丁目・音羽一丁目・目白台二丁目・向丘二丁目ではありません");
+}
+
+// ほかの木: ケヤキ・サクラ類は八王子市、ハナミズキはあきる野市、トウカエデは町田市、プラタナス類は新宿区が1位。樹種の数も新宿区が1位
+check(top(ZELKOVA, 1) === HACHIOJI && top(CHERRY, 1) === HACHIOJI, "ケヤキ・サクラ類の1位が八王子市ではありません");
+const zelkova = ranking(ZELKOVA, P, "municipality", "high", 2);
+check(zelkova[1]?.entity_id === "muni-13224" && zelkova[0].value! > 2 * zelkova[1].value!, "ケヤキの八王子市が2位の多摩市の2倍以上ではありません");
+check(top(DOGWOOD, 1) === "muni-13228" && top(MAPLE, 1) === "muni-13209" && top(PLANE, 1) === SHINJUKU && top(SPECIES, 1) === SHINJUKU,
+  "ハナミズキ・トウカエデ・プラタナス類・樹種の数の1位が、あきる野市・町田市・新宿区・新宿区ではありません");
+// ハナミズキ・トウカエデ・ケヤキは多摩の方が多く、プラタナス類はほとんどが区部
+check([DOGWOOD, MAPLE, ZELKOVA].every((id) => total(id, "多摩") > total(id, "区部")), "ハナミズキ・トウカエデ・ケヤキが区部より多摩に多くありません");
+check(total(PLANE, "区部") > 0.9 * total(PLANE), "プラタナス類の9割以上が区部ではありません");
+---
+<Article slug="street-trees-ginkgo">
+  <p>
+    東京都の木はイチョウです。1966年に、都民のはがきの投票で、ケヤキ・イチョウ・ソメイヨシノの3つの候補から選ばれました。
+    では、東京の道にはどこにイチョウが多いのでしょうか。東京都建設局が公開している「都道の街路樹」のデータで、
+    都道の街路樹を1本ずつ市区町村に分けて数えてみます。
+  </p>
+  <p>
+    島しょを除く東京都の都道の街路樹は{trees(total(ALL))}で、そのうちイチョウは{trees(total(GINKGO))}、約1割です。
+    このサイトで数えている6つの樹種（イチョウ・ハナミズキ・トウカエデ・ケヤキ・サクラ類・プラタナス類）の中では、イチョウが最も多い木です。
+  </p>
+
+  <h2>都道のイチョウが最も多いのは文京区</h2>
+  <p>
+    都道のイチョウが最も多い市区町村は文京区で、{value(GINKGO, P, BUNKYO)}あります。2位は足立区（{value(GINKGO, P, ADACHI)}）、
+    3位は千代田区（{value(GINKGO, P, CHIYODA)}）です。上位には23区が並び、多摩で最も多い八王子市（{value(GINKGO, P, HACHIOJI)}）は10位です。
+  </p>
+  <ArticleRanking id={GINKGO} period={P} n={10} expect={[BUNKYO, ADACHI, CHIYODA, HACHIOJI]} caption="都道のイチョウの本数が多い市区町村（2026年4月）" />
+  <p>
+    文京区の都道の街路樹は全部で{value(ALL, P, BUNKYO)}なので、およそ3本に1本がイチョウです。
+    足立区は街路樹の総数が{value(ALL, P, ADACHI)}と東京都で最も多く、その中でイチョウも多い区です。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${GINKGO}&p=${P}&a=${BUNKYO}&l=municipality`}>都道のイチョウの本数を地図で見る</a>
+  </p>
+
+  <h2>街路樹の4割以上がイチョウの市</h2>
+  <p>
+    街路樹のうちイチョウの割合で比べると（都道の街路樹が{formatNumber(MIN_TREES, 0)}本以上の市区町村）、
+    1位は羽村市の{pct(HAMURA)}で、昭島市（{pct(AKISHIMA)}）、福生市（{pct(FUSSA)}）が続き、文京区（{pct(BUNKYO)}）は4位です。
+    上位の3市は、多摩の西でとなり合う市です。
+  </p>
+  <ArticleCompare as="share" level="municipality" n={8} minFrom={MIN_TREES}
+    from={{ id: ALL, period: P, label: "街路樹" }} to={{ id: GINKGO, period: P, label: "イチョウ" }}
+    expect={[HAMURA, AKISHIMA, FUSSA, BUNKYO]} caption="都道の街路樹のうちイチョウの割合が高い市区町村（2026年4月）" />
+
+  <h2>町丁目で見ると</h2>
+  <p>
+    町丁目ごとに数えると、都道のイチョウが最も多いのは町田市小野路町（{value(GINKGO, P, ONOJI)}）、
+    次が国会議事堂のある千代田区永田町一丁目（{value(GINKGO, P, NAGATACHO)}）です。
+    文京区では、本駒込三丁目（{value(GINKGO, P, BUNKYO_SMALL[0])}）、音羽一丁目（{value(GINKGO, P, BUNKYO_SMALL[1])}）、
+    目白台二丁目（{value(GINKGO, P, BUNKYO_SMALL[2])}）、向丘二丁目（{value(GINKGO, P, BUNKYO_SMALL[3])}）などに多くあります。
+    地図の色分けを町丁目の単位にすると、イチョウの多い町がどこに続いているかが分かります。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${GINKGO}&p=${P}&a=${BUNKYO}&l=small_area`}>文京区の町丁目ごとのイチョウを地図で見る</a>
+  </p>
+
+  <h2>ケヤキとサクラは八王子市</h2>
+  <p>
+    都の木の候補だったほかの2つも見てみます。ケヤキは八王子市が{value(ZELKOVA, P, HACHIOJI)}で最も多く、2位の多摩市（{value(ZELKOVA, P, "muni-13224")}）の2倍以上です。
+    ソメイヨシノなどのサクラ類も八王子市（{value(CHERRY, P, HACHIOJI)}）が1位です。
+  </p>
+  <ArticleRanking id={ZELKOVA} period={P} n={5} expect={[HACHIOJI, "muni-13224"]} caption="都道のケヤキの本数が多い市区町村（2026年4月）" />
+  <ArticleRanking id={CHERRY} period={P} n={5} expect={[HACHIOJI]} caption="都道のサクラ類の本数が多い市区町村（2026年4月）" />
+  <p>
+    ほかの木では、ハナミズキはあきる野市（{value(DOGWOOD, P, "muni-13228")}）、トウカエデは町田市（{value(MAPLE, P, "muni-13209")}）が最も多く、
+    ハナミズキ・トウカエデ・ケヤキは、どれも区部より多摩の方が多く植えられています。
+    反対に、プラタナス類（スズカケノキなど）は{trees(total(PLANE))}のうち{trees(total(PLANE, "区部"))}が区部にあり、
+    新宿区（{value(PLANE, P, SHINJUKU)}）、中央区、港区と都心に多い木です。
+    新宿区は、都道の街路樹の樹種の数も{value(SPECIES, P, SHINJUKU)}と最も多い区です。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ZELKOVA}&p=${P}&a=${HACHIOJI}&l=municipality`}>都道のケヤキの本数を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${SPECIES}&p=${P}&a=${SHINJUKU}&l=municipality`}>樹種の数を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>都道の街路樹だけを数えています。国道・区市町村道の街路樹や、公園・学校・民有地の木は入りません。たとえば八王子市の甲州街道（国道20号）のイチョウ並木は、国道の木なので入っていません。</li>
+    <li>東京都建設局が公開している、1本ごとの位置のデータ（高木・中木）で数えた本数です。区部は2025年2月、多摩は2026年4月に更新されたデータです。</li>
+    <li>島しょの町村は、データがないため値がありません。</li>
+    <li>木の位置で町丁目・市区町村に分けているので、境界の道路の木は、どちらか一方の地域に入ります。</li>
+    <li>樹種は名前で分けています。サクラ類にはソメイヨシノのほかサトザクラなど、プラタナス類にはスズカケノキ・モミジバスズカケノキなどを含みます。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

@@ -1,0 +1,155 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { areaName, check, ranking, raw, value } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
+
+const ID = "agri_output";
+const RICE = "agri_output_rice";
+const VEG = "agri_output_vegetables";
+const FRUIT = "agri_output_fruits";
+const LIVE = "agri_output_livestock";
+const P = "2024-01-01";
+const P23 = "2023-01-01";
+const YEARS = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
+const TAHARA = "muni-23231";
+const MIYAKONOJO = "muni-45202";
+const BETSUKAI = "muni-01691";
+const HOKOTA = "muni-08234";
+const HIROSAKI = "muni-02202";
+const DAISEN = "muni-05212";
+
+const ids = (id: string, period: string, n: number, level: "municipality" | "prefecture" = "municipality") =>
+  ranking(id, period, level, "high", n).map((r) => r.entity_id).join();
+const oku1 = (v: number | null) => (v === null ? "—" : `約${formatNumber(Math.round(v), 0)}億円`);
+
+// 題名: 2024年の1位は北海道でも九州（福岡〜沖縄）でもない田原市。2位は都城市（宮崎県）、3位は別海町（北海道）
+check(ids(ID, P, 4) === [TAHARA, MIYAKONOJO, BETSUKAI, HOKOTA].join(), "2024年の農業産出額の1〜4位が田原市・都城市・別海町・鉾田市ではありません");
+const pref = (id: string) => Number(id.slice(5, 7));
+check(pref(TAHARA) !== 1 && (pref(TAHARA) < 40 || pref(TAHARA) > 47), "1位が北海道・九州・沖縄の市町村です");
+
+// 年ごとの1位・2位。2017・2018年は田原市、2019〜2023年は都城市が1位で、2024年に田原市が6年ぶりに1位
+const byYear = YEARS.map((y) => ({ year: y, top: ranking(ID, `${y}-01-01`, "municipality", "high", 2) }));
+const firstOf = (y: number) => byYear.find((b) => b.year === y)?.top[0]?.entity_id;
+check(byYear.every((b) => b.top.map((r) => r.entity_id).sort().join() === [TAHARA, MIYAKONOJO].sort().join()),
+  "2017〜2024年の1・2位が毎年、田原市と都城市ではありません");
+check([2017, 2018, 2024].every((y) => firstOf(y) === TAHARA) && [2019, 2020, 2021, 2022, 2023].every((y) => firstOf(y) === MIYAKONOJO),
+  "年ごとの1位が、2017・2018・2024年は田原市、2019〜2023年は都城市ではありません");
+// 2024年は田原市の野菜が増え、都城市の産出額が減った
+check((raw(VEG, P, TAHARA) ?? 0) > (raw(VEG, P23, TAHARA) ?? Infinity) && (raw(ID, P, MIYAKONOJO) ?? Infinity) < (raw(ID, P23, MIYAKONOJO) ?? 0),
+  "2024年に田原市の野菜が増え、都城市の産出額が減っていません");
+
+// 田原市の内訳: 野菜は鉾田市に次ぐ2位。米・野菜・果実・畜産で6割あまり、残りに花きなど
+check(ids(VEG, P, 2) === [HOKOTA, TAHARA].join(), "野菜の産出額の1・2位が鉾田市・田原市ではありません");
+const four = (id: string) => [RICE, VEG, FRUIT, LIVE].reduce((s, i) => s + (raw(i, P, id) ?? NaN), 0);
+const fourShare = four(TAHARA) / (raw(ID, P, TAHARA) ?? NaN);
+check(fourShare > 0.6 && fourShare < 0.7, `田原市の4品目の合計が6割あまりではありません（${formatNumber(fourShare * 100, 0)}%）`);
+const rest = (raw(ID, P, TAHARA) ?? NaN) - four(TAHARA);
+
+// 都城市は畜産が1位で、産出額の約8割。別海町は畜産が2位
+check(ids(LIVE, P, 2) === [MIYAKONOJO, BETSUKAI].join(), "畜産の産出額の1・2位が都城市・別海町ではありません");
+const liveShare = (raw(LIVE, P, MIYAKONOJO) ?? NaN) / (raw(ID, P, MIYAKONOJO) ?? NaN);
+check(liveShare > 0.75 && liveShare < 0.85, "都城市の畜産が産出額の約8割ではありません");
+
+// 品目ごとの1位: 米は大仙市、果実は弘前市
+check(ids(RICE, P, 1) === DAISEN && ids(FRUIT, P, 1) === HIROSAKI, "米・果実の1位が大仙市・弘前市ではありません");
+// 米の2〜5位は山形県・宮城県・秋田県・新潟県、果実の2〜4位は山梨県
+check(ids(RICE, P, 5).split(",").slice(1).map((id) => id.slice(5, 7)).join() === "06,04,05,15", "米の2〜5位が山形県・宮城県・秋田県・新潟県のまちではありません");
+check(ids(FRUIT, P, 4).split(",").slice(1).every((id) => id.startsWith("muni-19")), "果実の2〜4位が山梨県のまちではありません");
+
+// 都道府県: 北海道・鹿児島県・茨城県の順で、愛知県は8位。田原市は愛知県の4分の1あまり
+check(ids(ID, P, 3, "prefecture") === ["pref-01", "pref-46", "pref-08"].join(), "都道府県の1〜3位が北海道・鹿児島県・茨城県ではありません");
+check(ranking(ID, P, "prefecture", "high", 8)[7]?.entity_id === "pref-23", "愛知県が都道府県の8位ではありません");
+const aichiShare = (raw(ID, P, TAHARA) ?? NaN) / (raw(ID, P, "pref-23") ?? NaN);
+check(aichiShare > 0.25 && aichiShare < 0.3, "田原市が愛知県の農業産出額の4分の1あまりではありません");
+---
+<Article slug="agri-output-2024">
+  <p>
+    米や野菜、くだもの、牛乳や肉など、そのまちで生まれた農産物の額を「農業産出額」といいます。
+    農林水産省の「市町村別農業産出額（推計）」で、2024年の市町村を比べてみます。
+  </p>
+  <p>
+    都道府県では北海道が飛び抜けて多く、鹿児島県・熊本県・宮崎県の九州の3県も上位10に入ります。
+    ところが市町村の1位は、北海道でも九州でもなく、愛知県田原市の{value(ID, P, TAHARA)}でした。
+    2位は宮崎県都城市（{value(ID, P, MIYAKONOJO)}）、3位は北海道別海町（{value(ID, P, BETSUKAI)}）です。
+  </p>
+  <ArticleRanking id={ID} period={P} n={10} expect={[TAHARA, MIYAKONOJO, BETSUKAI, HOKOTA, HIROSAKI]} caption="農業産出額が多い市町村（2024年）" />
+
+  <h2>6年ぶりに入れ替わった1位</h2>
+  <p>
+    田原市と都城市は、毎年1位を争っています。このサイトにある2017年以降では、2017年と2018年は田原市が1位、
+    2019年から2023年までは都城市が5年続けて1位でした。2024年は、田原市の野菜が{value(VEG, P23, TAHARA)}から{value(VEG, P, TAHARA)}に増え、
+    都城市は{value(ID, P23, MIYAKONOJO)}から{value(ID, P, MIYAKONOJO)}に減ったため、田原市が6年ぶりに1位になりました。
+  </p>
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking">
+        <caption>農業産出額の市町村の1位・2位（2017〜2024年）</caption>
+        <thead><tr><th class="col-rank">年</th><th>1位</th><th>2位</th></tr></thead>
+        <tbody>
+          {byYear.map((b) => (
+            <tr>
+              <td>{b.year}年</td>
+              {b.top.map((r) => <td>{areaName(r.entity_id)} {value(ID, `${b.year}-01-01`, r.entity_id)}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </figure>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${TAHARA}&l=municipality`}>田原市の農業産出額を地図で見る</a>
+  </p>
+
+  <h2>田原市は、野菜と花の渥美半島</h2>
+  <p>
+    田原市は、愛知県の南東にのびる渥美半島の大部分を占める市です。1968年に豊川用水の水が届いてから、
+    温室やビニールハウスで育てる施設園芸と、畑の野菜の産地として大きくなったようです。
+  </p>
+  <p>
+    2024年の内訳は、野菜が{value(VEG, P, TAHARA)}で、茨城県鉾田市に次ぐ2位です。キャベツやブロッコリー、トマトなどが作られています。
+    畜産は{value(LIVE, P, TAHARA)}、米は{value(RICE, P, TAHARA)}、果実は{value(FRUIT, P, TAHARA)}です。
+    この4つを合わせても産出額の6割あまりで、残りの{oku1(rest)}には、全国一の産地になっている輪ギク（電照菊）などの花が含まれます。
+    野菜と花の両方が大きいことが、田原市の強みと考えられます。
+  </p>
+  <ArticleRanking id={VEG} period={P} n={5} expect={[HOKOTA, TAHARA]} caption="野菜の産出額が多い市町村（2024年）" />
+
+  <h2>2位の都城市は畜産のまち</h2>
+  <p>
+    2位の都城市は、畜産（牛・豚・鶏など）の産出額が{value(LIVE, P, MIYAKONOJO)}で1位です。産出額の約8割を畜産が占めています。
+    3位の別海町も畜産が2位（{value(LIVE, P, BETSUKAI)}）で、乳牛の多い酪農のまちです。
+    同じ上位でも、野菜と花の田原市と、畜産の都城市・別海町では、中身がまったく違います。
+  </p>
+  <ArticleRanking id={LIVE} period={P} n={5} expect={[MIYAKONOJO, BETSUKAI]} caption="畜産の産出額が多い市町村（2024年）" />
+
+  <h2>米・果実の1位</h2>
+  <p>
+    米の1位は秋田県大仙市（{value(RICE, P, DAISEN)}）で、山形県・宮城県・秋田県・新潟県の米どころのまちが続きます。
+    果実の1位は、りんごの産地の青森県弘前市（{value(FRUIT, P, HIROSAKI)}）で、2〜4位には山梨県のぶどうや桃のまちが並びます。
+  </p>
+  <ArticleRanking id={RICE} period={P} n={5} expect={[DAISEN, "muni-06203", "muni-04212", "muni-05203", "muni-15202"]} caption="米の産出額が多い市町村（2024年）" />
+  <ArticleRanking id={FRUIT} period={P} n={5} expect={[HIROSAKI, "muni-19211", "muni-19213", "muni-19205"]} caption="果実の産出額が多い市町村（2024年）" />
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${RICE}&p=${P}&a=${DAISEN}&l=municipality`}>米の産出額を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${FRUIT}&p=${P}&a=${HIROSAKI}&l=municipality`}>果実の産出額を地図で見る</a>
+  </p>
+
+  <h2>都道府県では愛知県は8位</h2>
+  <p>
+    都道府県の1位は北海道（{value(ID, P, "pref-01")}）で、鹿児島県、茨城県が続きます。愛知県は{value(ID, P, "pref-23")}で8位です。
+    田原市1つで、愛知県の農業産出額の4分の1あまりにあたります。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={["pref-01", "pref-46", "pref-08", "pref-43", "pref-45", "pref-23"]} caption="農業産出額が多い都道府県（2024年）" />
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>市町村の値は、農林水産省が都道府県の農業産出額を、作付面積や家畜の頭数などで市町村に割り振った推計値です。</li>
+    <li>政令指定都市と東京23区は、区ごとの値が公表されていないため、地図と表には入っていません。農林水産省の推計では、市全体で比べても2024年の1位は田原市です。</li>
+    <li>都道府県の値は「生産農業所得統計」の公表値で、市町村の推計に入らない品目も含むため、市町村の値を足しても一致しません。</li>
+    <li>農業産出額は、農産物を農家が売った値段で計算した額で、農家のもうけ（所得）ではありません。1月から12月までの1年間の値です。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
