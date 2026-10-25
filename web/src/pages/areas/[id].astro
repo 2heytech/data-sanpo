@@ -4,11 +4,13 @@ import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
 import ShareButtons from "../../components/ShareButtons.astro";
 import AreaShape from "../../components/AreaShape.astro";
+import Aramashi from "../../components/Aramashi.astro";
 import NeighborCompare from "../../components/NeighborCompare.astro";
 import ProfileIntro from "../../components/ProfileIntro.astro";
 import SmallAreaRanking from "../../components/SmallAreaRanking.astro";
 import StatList from "../../components/StatList.astro";
-import { loadAreas, loadIndicators, loadValues } from "../../lib/data";
+import { RELEASE, loadAreas, loadIndicators, loadValues } from "../../lib/data";
+import { aramashiOf } from "../../lib/aramashi";
 import { formatValue, rankIfVaried } from "../../lib/format";
 import { areaDescription, areaSummary, formerWard } from "../../lib/areaSummary";
 import { loadAreaProfile } from "../../lib/profiles";
@@ -79,6 +81,8 @@ const pageTitle = pref || former
   ? `${muni.name}（${[pref, former?.label].filter(Boolean).join("・")}）の人口・統計データと順位` : `${muni.name}の人口・統計データと順位`;
 // 表に出すのは値のある指標だけ（データなしの行は出さない）。ジャンル・カテゴリごとにまとめる
 const groups = statGroups(stats);
+// 公式サイトなどで確かめた事実の短いまとめ（設計変更記録 #164）。開発用の架空データでは地名が実在しないので出さない
+const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
 ---
 <Base title={pageTitle} description={description} prefecture={pref || undefined} structuredData={structured}>
   <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/areas/">市区町村の一覧</a>{prefPath && <> › <a href={prefPath}>{pref}</a></>}</nav>
@@ -102,6 +106,8 @@ const groups = statGroups(stats);
       </div>
     </section>
   )}
+
+  {aramashi && <Aramashi name={muni.name} aramashi={aramashi} />}
 
   <section class="sheet" id="stats">
     <h2>主な指標<span class="count">{statCount}</span></h2>
