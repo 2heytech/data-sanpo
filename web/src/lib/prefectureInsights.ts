@@ -1,4 +1,4 @@
-import { composeProfile, themeOf, type AreaProfile, type Line, type Theme } from "./areaInsights";
+import { composeProfile, themeOf, trendBase, trendText, type AreaProfile, type Line, type Theme } from "./areaInsights";
 import { formatNumber, formatValue } from "./format";
 import { prefecturePeriods } from "./periods";
 import { nationalityTemplate, RANK_TEMPLATES, tag, type RankTemplate, type Tag, type Tone } from "./rankInsights";
@@ -109,6 +109,14 @@ const prefThemeOf = (ind: Indicator): Theme => PREF_THEMES[ind.id] ?? themeOf(in
 const PREF_NAMES: Record<string, string> = {
   crime_npa_total_per_100_residents: "住民100人当たりの犯罪の認知件数",
 };
+/**
+ * 数え方の癖（RANK_TEMPLATES の note）を都道府県のページにも添える指標。市町村の値だけの癖（農業産出額の推計、
+ * 合計特殊出生率のベイズ推定など）は、都道府県の値には当てはまらないので添えない（設計変更記録 #163）
+ */
+const PREF_NOTE_IDS = new Set([
+  "population_density", "life_expectancy_male", "life_expectancy_female", "taxable_income_per_taxpayer", "vacant_house_rate",
+  "elem_class_size", "jhs_class_size", "jhs_students_private", "inbound_guest_nights", "manufacturing_shipments", "wholesale_sales",
+]);
 /** 住む人の国籍の指標（題名や、考察が少ないときに足す文には使わない） */
 const isOrigin = (id: string) => /^(census_foreign_|foreign_|zairyu_foreign_)/.test(id);
 const templateOf = (ind: Indicator): RankTemplate | null =>
@@ -150,8 +158,8 @@ export function prefectureProfile(prefCode: string, name: string, data: PrefInsi
   const inside = `${name.slice(-1)}内`;
   const highest = (s: Stat, word: string) => (s.rankTop === 1 ? `最も${word}` : `${s.rankTop}番目に${word}`);
   const lowest = (s: Stat, word: string) => (s.rankBottom === 1 ? `最も${word}` : `${s.rankBottom}番目に${word}`);
-  const line = (theme: Theme, topic: string, text: string, opts: { strong?: boolean; tone?: Tone; tag?: Tag; w: number }): Line =>
-    ({ text, strong: opts.strong ?? true, tone: opts.tone, tag: opts.tag, w: opts.w, theme, topic });
+  const line = (theme: Theme, topic: string, text: string, opts: { strong?: boolean; tone?: Tone; tag?: Tag; w: number; more?: string[] }): Line =>
+    ({ text, strong: opts.strong ?? true, tone: opts.tone, tag: opts.tag, w: opts.w, theme, topic, more: opts.more });
 
   // 「全国47都道府県」。値のない都道府県があるとき（2025年の静岡県など）は、値のある数で数えたことを書く
   const among = (s: Stat) => (s.total < s.count ? `値のある全国${s.total}都道府県` : `全国${s.total}都道府県`);
@@ -163,15 +171,15 @@ export function prefectureProfile(prefCode: string, name: string, data: PrefInsi
   // 目立つ順（強い考察を先に）。同じ目立ち方なら、この都道府県向けに書いた文を先にする
   const byWeight = (a: Line, b: Line) => a.w - b.w;
   const rankLines = ranked.map((f) => line(f.theme, f.id, f.text,
-    { strong: f.rank <= RANK_LIMIT, tone: f.tone, tag: f.pos <= 0.1 ? f.tag : undefined, w: f.pos }));
+    { strong: f.rank <= RANK_LIMIT, tone: f.tone, tag: f.pos <= 0.1 ? f.tag : undefined, w: f.pos, more: f.more }));
   const all = [...own, ...rankLines].sort((a, b) => Number(b.strong) - Number(a.strong) || byWeight(a, b));
   const extra = ranked.filter((f) => f.pos <= 0.1 && f.tag && f.tone !== "neg")
-    .map((f) => line(f.theme, f.id, f.text, { tone: f.tone, tag: f.tag, w: f.pos }));
+    .map((f) => line(f.theme, f.id, f.text, { tone: f.tone, tag: f.tag, w: f.pos, more: f.more }));
   const profile = composeProfile(all, { extra, bright: brightSide(), place: name });
   if (profile.title) return profile;
   // 題名にできる言い回しがないときは、全国の10位までの指標からも探す（選挙・国籍・課題に当たる文は使わない）
   const wider = allCandidates().filter((f) => f.rank <= FILL_LIMIT && f.tag && f.tone !== "neg" && f.theme !== "選挙" && !isOrigin(f.id))
-    .slice(0, 1).map((f) => line(f.theme, f.id, f.text, { strong: false, tone: f.tone, tag: f.tag, w: f.pos }));
+    .slice(0, 1).map((f) => line(f.theme, f.id, f.text, { strong: false, tone: f.tone, tag: f.tag, w: f.pos, more: f.more }));
   if (!wider.length) return profile;
   // すでに考察に入っている文なら、その文に言い回しを付ける（同じ文を2回出さない）
   const withTag = all.map((l) => (l.text === wider[0].text ? { ...l, tag: wider[0].tag } : l));
@@ -180,11 +188,11 @@ export function prefectureProfile(prefCode: string, name: string, data: PrefInsi
   /** 全国の中で比較的よい位置にある、良いところに当たる指標を1つ（課題に当たる文が多いときに入れる） */
   function brightSide(): Line[] {
     const best = [...allCandidates()].filter((f) => f.tone === "pos" && f.pos <= BRIGHT_SHARE).sort((a, b) => a.pos - b.pos)[0];
-    return best ? [line(best.theme, best.id, best.text, { tone: "pos", w: best.pos })] : [];
+    return best ? [line(best.theme, best.id, best.text, { tone: "pos", w: best.pos, more: best.more })] : [];
   }
 
   /** 考察の文がある指標で、全国の上位・下位5位までに入るもの（同じ系統の指標は1つだけ。3位までを目立つ考察にする） */
-  type Ranked = { id: string; pos: number; rank: number; group: string; text: string; tone?: Tone; tag?: Tag; theme: Theme };
+  type Ranked = { id: string; pos: number; rank: number; group: string; text: string; tone?: Tone; tag?: Tag; theme: Theme; more: string[] };
   function rankCandidates(): Ranked[] {
     const seen = new Set<string>();
     return allCandidates().filter((f) => f.rank <= GENERAL_LIMIT)
@@ -213,13 +221,21 @@ export function prefectureProfile(prefCode: string, name: string, data: PrefInsi
       const group = ind.family ?? ind.id;
       const head = `${PREF_NAMES[ind.id] ?? ind.name}は${s.text}で`;
       const label = s.same > 1 ? `${s.label}、${s.same}都道府県が同じ値` : s.label;
+      // 考察に添える文: 移り変わり（課題に当たる向き・選挙・国籍は除く）と数え方の癖
+      const more = (tone: Tone | undefined, side: "high" | "low") => {
+        const then = tone === "neg" || prefThemeOf(ind) === "選挙" || isOrigin(ind.id) ? undefined
+          : trendBase(ind, s.period).map((p) => stat(ind.id, p)).find((x): x is Stat => !!x);
+        const base = RANK_TEMPLATES[ind.id];
+        const note = (PREF_NOTE_IDS.has(ind.id) || ind.family === "vote_share") && (!base?.noteOn || base.noteOn === side) ? base?.note : undefined;
+        return [then ? trendText(ind, s, then) : null, note].filter((x): x is string => !!x);
+      };
       if (t.high && s.top <= 0.5 && (!t.low || s.top <= s.bottom)) {
         found.push({ id: ind.id, pos: s.top, rank: s.rankTop, group, tone: t.highTone, tag: t.highTag, theme: prefThemeOf(ind),
-          text: `${head}、${among(s)}のうち${s.rankTop}位です（${label}）。${t.high}` });
+          text: `${head}、${among(s)}のうち${s.rankTop}位です（${label}）。${t.high}`, more: more(t.highTone, "high") });
       } else if (t.low && s.bottom <= 0.5) {
         const where = s.rankBottom === 1 ? "最も低い値です" : `低い方から${s.rankBottom}番目です`;
         found.push({ id: ind.id, pos: s.bottom, rank: s.rankBottom, group, tone: t.lowTone, tag: t.lowTag, theme: prefThemeOf(ind),
-          text: `${head}、${among(s)}の中で${where}（${label}）。${t.low}` });
+          text: `${head}、${among(s)}の中で${where}（${label}）。${t.low}`, more: more(t.lowTone, "low") });
       }
     }
     return found.sort((a, b) => a.pos - b.pos);

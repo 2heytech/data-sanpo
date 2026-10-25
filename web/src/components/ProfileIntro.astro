@@ -1,5 +1,6 @@
 ---
 // 「データで見る〇〇」の中身。特徴を一言で表す題名、概要の文、テーマごとの「データから考えられること」。
+// 考察に添える文（物差し・移り変わり・数え方の癖）は、考察の下に少し小さく出す（設計変更記録 #163）。
 // 地域ページと都道府県ページで使う（設計変更記録 #113・#116・#140）
 import type { AreaProfile } from "../lib/areaInsights";
 
@@ -16,7 +17,7 @@ const { name, profile, summary } = Astro.props;
       {profile.groups.map((g) => (
         <section class="insight-group">
           <h4>{g.theme}</h4>
-          <ul class="insights">{g.lines.map((line) => <li>{line}</li>)}</ul>
+          <ul class="insights">{g.lines.map((line, i) => <li>{line}{g.more[i] && <span class="more">{g.more[i]}</span>}</li>)}</ul>
         </section>
       ))}
     </div>
@@ -39,6 +40,7 @@ const { name, profile, summary } = Astro.props;
   }
   .insights { margin: 0; padding-left: 1.2em; }
   .insights li + li { margin-top: 0.5em; }
+  .insights .more { display: block; margin-top: 0.25em; color: var(--muted); font-size: 0.92em; }
   @media (max-width: 640px) {
     .insight-group { grid-template-columns: 1fr; }
     .insight-group h4 { justify-self: start; }

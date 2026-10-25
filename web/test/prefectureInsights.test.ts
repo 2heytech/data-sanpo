@@ -74,3 +74,12 @@ describe("prefectureProfile", () => {
     expect(p.title).toBeNull();
   });
 });
+
+describe("考察に添える文（設計変更記録 #163）", () => {
+  it("都道府県の値にも当てはまる数え方の癖だけを添える", () => {
+    const p = prefectureProfile("01", "北海道", makeData({ life_expectancy_female: spread({ 1: 99 }), vote_share_sdp: spread({ 1: 90 }) }));
+    const more = (word: string) => p.groups.flatMap((g) => g.lines.map((l, i) => ({ l, m: g.more[i] }))).find((x) => x.l.includes(word))?.m;
+    expect(more("平均寿命（女性）")).toBe("国勢調査の年の前後の死亡の状況から計算した値で、住む人の実際の寿命の平均ではありません。");
+    expect(more("社会民主党")).toBe("1回の選挙の結果なので、そのときの情勢にも左右されます。");
+  });
+});
