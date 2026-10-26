@@ -79,7 +79,10 @@ export function prefectureImage(pref: Prefecture): ShareImage | null {
   };
 }
 
-/** 寄り道の画像: 記事の主な指標の、全国の市区町村別の地図（区切りは全国で1つ） */
+/**
+ * 寄り道の画像: 記事の主な指標の、全国の市区町村別の地図（区切りは全国で1つ）。
+ * 1つの都道府県だけの指標（東京都の街路樹など）は、全国の図では小さすぎるので、その都道府県の形に合わせた図にする（#168）
+ */
 export function articleImage(article: Article): ShareImage | null {
   const id = article.mapIndicator ?? article.indicators[0];
   const ind = id ? loadIndicators().find((i) => i.id === id) : undefined;
@@ -88,16 +91,22 @@ export function articleImage(article: Article): ShareImage | null {
   const legend = loadLegend(ind.id, latest.period.period)!;
   const change = ind.kind === "change";
   const unit = ind.unit === "%" ? "" : ind.unit;
-  const what = `全国の市区町村別の${ind.name}（${latest.period.label}）`;
+  const prefs = loadAreas().prefectures;
+  const only = ind.prefectures?.length === 1 ? prefs.find((p) => p.code === ind.prefectures![0]) : undefined;
+  const what = `${only ? only.name : "全国"}の市区町村別の${ind.name}（${latest.period.label}）`;
   return {
     path: `/images/articles/${article.slug}.png`,
     alt: `${what}を色分けした地図`,
-    // 地図も全国の市区町村別の色分けで開く（縮尺に任せると都道府県別になるため。#146）
-    mapHref: mapHref({ indicator: ind.id, period: latest.period.period, level: "municipality" }),
+    // 地図も市区町村別の色分けで開く（縮尺に任せると都道府県別になるため。#146）
+    mapHref: mapHref({ indicator: ind.id, period: latest.period.period, level: "municipality", ...(only ? { area: `pref-${only.code}` } : {}) }),
     spec: () => ({
       title: article.title,
       subtitle: what,
-      features: municipalityFeatures(loadAreas().prefectures.map((p) => p.code)),
+      features: municipalityFeatures(only ? [only.code] : prefs.map((p) => p.code)),
+      ...(only ? {
+        frameGeometries: (loadBoundaries("prefectures")?.features ?? [])
+          .filter((f) => f.properties.id === `pref-${only.code}`).map((f) => f.geometry),
+      } : {}),
       values: new Map(latest.rows.map((r) => [r.entity_id, r.value])),
       breaks: latest.legend.breaks,
       scheme: legend.scheme,
@@ -107,7 +116,7 @@ export function articleImage(article: Article): ShareImage | null {
       unitLabel: unit ? `単位：${unit}` : undefined,
       // 地図の境界は総務省統計局（国勢調査の境界データ）
       source: `出典：${[...new Set([...providersOf(ind, latest.period.period), "総務省統計局"])].join("・")}の公開データ（統計・境界）をもとにデータさんぽが作成（data-sanpo.com）`,
-      frame: "japan",
+      frame: only ? "fit" : "japan",
     }),
   };
 }
