@@ -4,7 +4,6 @@
 // 「〇〇県 市町村 人口 ランキング」などで探す人の入口と、地域ページへの道にする（設計変更記録 #130）
 import Base from "../../layouts/Base.astro";
 import AdSlot from "../../components/AdSlot.astro";
-import Aramashi from "../../components/Aramashi.astro";
 import ShareButtons from "../../components/ShareButtons.astro";
 import MapFigure from "../../components/MapFigure.astro";
 import NeighborCompare from "../../components/NeighborCompare.astro";
@@ -109,7 +108,7 @@ const groups = statGroups(stats);
 const statCount = stats.length;
 // 特徴を一言で表す題名と、データから考えられること（全国47都道府県の中の順位から。市区町村のページと同じ決まりで書く）
 const profile = loadPrefectureProfile(pref.code, pref.name);
-// 公式サイトなどで確かめた事実の短いまとめ（設計変更記録 #164）
+// 公式サイトなどで確かめた事実の短いまとめ（設計変更記録 #164）。「データで見る〇〇」の中に出す（#166）
 const aramashi = RELEASE.is_fixture ? null : aramashiOf(`pref-${pref.code}`);
 // 100年の人口の移り変わりは、考察に同じ文がある（全国より大きく増えた）ときは概要に重ねない
 const history = prefectureHistory(histSeries, nationFirst && nationLast ? nationLast / nationFirst : null,
@@ -155,10 +154,8 @@ const structured = breadcrumbList(Astro.site, [
   </nav>
 
   <section class="sheet pref-intro">
-    <ProfileIntro name={pref.name} profile={profile} summary={summary} />
+    <ProfileIntro name={pref.name} profile={profile} summary={summary} aramashi={aramashi} />
   </section>
-
-  {aramashi && <Aramashi name={pref.name} aramashi={aramashi} />}
 
   {statCount > 0 && (
     <section class="sheet" id="stats">

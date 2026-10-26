@@ -2,7 +2,7 @@ import { formatNumber, formatValue, shareWords } from "./format";
 import { approxCount, summarizePlaces, type MuniPlaces, type PlacePoints } from "./placeStats";
 import { municipalityPeriods } from "./periods";
 import { isDesignatedWard } from "./prefecturePage";
-import { nationalityTemplate, RANK_TEMPLATES, tag, type RankTemplate, type Tag, type Tone } from "./rankInsights";
+import { nationalityTemplate, RANK_TEMPLATES, rankTag, tag, type RankTemplate, type Tag, type Tone } from "./rankInsights";
 import type { AreasFile, FacilityPoint, Indicator, Municipality, ValueRow } from "./types";
 
 /**
@@ -57,6 +57,14 @@ const RANK_SHARE = 0.02;
 /** 上の範囲に入る指標がない市区町村は、この範囲まで広げて一番目立つ指標を1つ挙げる */
 const RANK_SHARE_FALLBACK = 0.2;
 const MAX_RANK_INSIGHTS = 3;
+/** 見出しに全国の順位を書く範囲（この順位まで。比べる市区町村が RANK_TITLE_MIN 以上で、同じ値のまちがないとき。設計変更記録 #167） */
+const RANK_TITLE_LIMIT = 10;
+const RANK_TITLE_MIN = 1000;
+/** 見出しで、多くの地域に当てはまる言い回し（Tag の plain）の目立ち方を割り引く倍率と、2つつなぐときの長さの上限（「まち」などを除く） */
+const PLAIN_TAG_WEIGHT = 4;
+const TITLE_MAX = 26;
+/** 見出しで2つつながない、同じ言葉・似た言葉のまとまり */
+const SIMILAR_WORDS = [["盛ん"], ["多く", "多い"], ["集ま"], ["全国"], ["広が"], ["森", "林", "山々", "山地", "山あい"], ["働く人"], ["通う"]];
 
 /**
  * 2011年の東京電力福島第一原子力発電所の事故で、避難指示などの対象になった12市町村（田村市・南相馬市・川俣町・広野町・楢葉町・
@@ -221,6 +229,17 @@ function cultureName(p: FacilityPoint): string | null {
   // 「■」は元の一覧で表せない文字（「塔の■（ヘツリ）」など）
   return name.length <= 20 && !/[　■〓]/.test(name) ? name : null;
 }
+/**
+ * 見出しの言い回し。国宝・特別史跡などは名前を出し（長い名前は出さない）、重要伝統的建造物群保存地区は町並みが残ることを書く。
+ * 名前の中のかぎかっこは、外のかぎかっこと重ならないよう二重かぎかっこにする
+ */
+function cultureTag(x: { kind: string; name: string; tier: number }): Tag | undefined {
+  if (x.tier === 2) return tag("history", "伝統的な町並みが残り", "伝統的な町並みの残る");
+  const name = x.name.replace(/（[^）]*）/g, "").replace(/「/g, "『").replace(/」/g, "』");
+  if (name.length > 10) return undefined;
+  const label = x.kind === "国宝（建造物）" ? "国宝" : x.kind.replace("（建造物）", "");
+  return tag("history", `${label}「${name}」があり`, `${label}「${name}」のある`);
+}
 function culturePhrase(kind: string, name: string): string {
   if (kind === "国宝（建造物）") return `国宝「${name}」`;
   if (kind === "重要伝統的建造物群保存地区") return `重要伝統的建造物群保存地区「${name}」`;
@@ -302,19 +321,25 @@ export function composeProfile(all: Line[], opts: { extra: Line[]; bright: Line[
    */
   function headline(list: Line[]): string | null {
     const extra = opts.extra.filter((f) => !list.some((l) => l.text === f.text));
-    const usable = (ls: Line[]) => ls.filter((l) => l.tag && l.tone !== "neg").sort((a, b) => a.w - b.w);
+    // 多くの地域に当てはまる言い回しは、目立ち方を割り引く（ほかに目立つ特徴があればそちらを先にする。設計変更記録 #167）
+    const score = (l: Line) => l.w * (l.tag!.plain ? PLAIN_TAG_WEIGHT : 1);
+    const usable = (ls: Line[]) => ls.filter((l) => l.tag && l.tone !== "neg").sort((a, b) => score(a) - score(b));
     let candidates = usable([...list, ...extra, ...lines.filter((l) => !list.includes(l))]);
     // ほかに言い回しがないときだけ、外したありきたりな考察（職場と住まいが近いなど）からも作る
     if (!candidates.length) candidates = usable(all.filter((l) => !lines.includes(l)));
     const chosen: Line[] = [];
     for (const l of candidates) {
       if (chosen.some((x) => x.tag!.key === l.tag!.key)) continue;
-      // 「盛ん」「集まる」が2回続くなど、同じ言葉が重なる組み合わせは避ける
-      if (chosen.length === 1 && ["盛ん", "多く", "多い", "集ま"].some((w) => chosen[0].tag!.renyou.includes(w) && l.tag!.rentai.includes(w))) continue;
+      // 「盛ん」「集まる」「全国〇位」が2回続く、「森」と「山林」が並ぶなど、同じ言葉や似た言葉が重なる組み合わせは避ける
+      if (chosen.length === 1 && SIMILAR_WORDS.some((ws) => ws.some((w) => chosen[0].tag!.renyou.includes(w)) && ws.some((w) => l.tag!.rentai.includes(w)))) continue;
+      // 長くなりすぎる組み合わせは避ける（全国の順位を書いた言い回しは長いため）
+      if (chosen.length === 1 && chosen[0].tag!.renyou.length + 1 + l.tag!.rentai.length > TITLE_MAX) continue;
       chosen.push(l);
       if (chosen.length === 2) break;
     }
     if (!chosen.length) return null;
+    // 多くの地域に当てはまる言い回しは後ろにする（そのまちならではの特徴から読めるように）
+    chosen.sort((a, b) => Number(!!a.tag!.plain) - Number(!!b.tag!.plain));
     // 見出しの元になった考察が表示する考察にないときは、いちばん後ろの一般的な考察と入れ替えて加える
     for (const l of chosen) {
       if (list.includes(l)) continue;
@@ -491,8 +516,11 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       const same = s.same > 1 ? `、${jp(s.same)}市区町村が同じ値` : "";
       if (t.high && s.top <= 0.5 && (!t.low || s.top <= s.bottom)) {
         const fact = `${ind.name}は${s.text}で、全国${jp(s.total)}市区町村のうち${jp(s.rankTop)}位です（${s.label}${same}）。`;
+        // 全国の10位までに入るときは、見出しに順位をそのまま書く（設計変更記録 #167）
+        const byRank = t.highTag && t.title && s.rankTop <= RANK_TITLE_LIMIT && s.same === 1 && s.total >= RANK_TITLE_MIN;
         // 県の中心のまちの文で同じ指標から「商業と仕事の中心」とまとめたときは、全国順位の考察には結びの推測を重ねない
-        found.push({ id: ind.id, pos: s.top, group, tone: t.highTone, tag: t.highTag, fact, high: true, text: fact + (ind.id === hubShareId ? "" : t.high), theme: themeOf(ind),
+        found.push({ id: ind.id, pos: s.top, group, tone: t.highTone, tag: byRank ? rankTag(t.highTag!, t.title!, s.rankTop) : t.highTag, fact, high: true,
+          text: fact + (ind.id === hubShareId ? "" : t.high), theme: themeOf(ind),
           more: moreFor(s, t, true) });
       } else if (t.low && s.bottom <= 0.5 && (!t.lowWhen || isTop(stat(t.lowWhen.id), t.lowWhen.top))) {
         const fact = s.rankBottom === 1 && s.same > 1
@@ -644,9 +672,10 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       : mine.every((p) => cultureTier(p.kind) === 4)
         ? `国の登録有形文化財の建造物が、まちに${jpn(n)}件あります（${c.label}）。`
         : `国が指定・登録・選定した文化財が、まちに${jpn(n)}件あります（${c.label}）。`;
-    if (many) return strong(text + many, "pos", tag("history", "歴史ある建物や名所が多く", "歴史ある建物や名所の多い"), Math.max(pos, 0.003));
+    // 見出しは、件数や文化財の名前など、データにあることをそのまま書く（設計変更記録 #167）
+    if (many) return strong(text + many, "pos", tag("history", `国の文化財が${jpn(n)}件あり`, `国の文化財が${jpn(n)}件ある`), Math.max(pos, 0.003));
     const best = picked[0]?.tier ?? 9;
-    if (best <= 2) return strong(text, "pos", undefined, best <= 1 ? 0.06 : 0.09);
+    if (best <= 2) return strong(text, "pos", cultureTag(picked[0]), best <= 1 ? 0.06 : 0.09);
     return general(text, "pos", undefined, picked.length ? 0.6 : 0.85);
   }
 
@@ -721,9 +750,9 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     }
     if (s.value <= 95) {
       return more(general(`${head}${formatNumber(s.value, 0)}%です（${s!.label}）。まちの外へ通勤・通学する人がやや多いようです。`, undefined,
-        tag("out", "周りのまちへ通う人がやや多く", "周りのまちへ通う人がやや多い"), 0.8));
+        tag("out", "周りのまちへ通う人がやや多く", "周りのまちへ通う人がやや多い", true), 0.8));
     }
-    return general(`${head}${formatNumber(s.value, 0)}%で、昼と夜の人口がほぼ同じです（${s!.label}）。多くの人がまちの中で働き、暮らしていると思われます。`, undefined, tag("near", "職場と住まいが近く", "職場と住まいが近い"), 0.9);
+    return general(`${head}${formatNumber(s.value, 0)}%で、昼と夜の人口がほぼ同じです（${s!.label}）。多くの人がまちの中で働き、暮らしていると思われます。`, undefined, tag("near", "職場と住まいが近く", "職場と住まいが近い", true), 0.9);
   }
 
   /**
@@ -827,11 +856,11 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中では高めです（${aged!.label}）。高齢化が進みつつある地域と考えられます。`, "neg");
     }
     if (isBottom(aged, 0.3)) {
-      return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中では低めです（${aged!.label}）。働く世代や子育て世代が比較的多いようです。`, undefined, tag("young", "働く世代が多く", "働く世代の多い"), 0.4);
+      return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中では低めです（${aged!.label}）。働く世代や子育て世代が比較的多いようです。`, undefined, tag("young", "働く世代が多く", "働く世代の多い", true), 0.4);
     }
     if (aged.top === null) return general(`65歳以上の人の割合は${aged!.text}です（${aged!.label}）。`);
     return general(`65歳以上の人の割合は${aged!.text}で、全国の市区町村の中ではほぼ真ん中くらいです（${aged!.label}）。全国の平均的な年齢構成に近い地域と考えられます。`,
-      undefined, tag("avg", "全国の平均的な年齢構成で", "全国の平均的な年齢構成に近い"), 0.95);
+      undefined, undefined, 0.95);
   }
 
   function households(): Line | null {
@@ -854,7 +883,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     }
     const size = stat("persons_per_household");
     if (isTop(size, 0.1)) {
-      return strong(`1世帯あたりの人数が${size!.text}と全国でも多い方です（${size!.label}）。三世代で暮らす家族など、大きな世帯が多いと考えられます。`, undefined, tag("family", "大家族が多く", "大家族の多い"), size!.top!);
+      return strong(`1世帯あたりの人数が${size!.text}と全国でも多い方です（${size!.label}）。三世代で暮らす家族など、大きな世帯が多いと考えられます。`, undefined, tag("family", "大家族が多く", "大家族の多い", true), size!.top!);
     }
     return null;
   }
@@ -862,7 +891,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
   function housing(): Line | null {
     const owner = stat("owner_occupied_share");
     if (isTop(owner, 0.1)) {
-      return strong(`持ち家に住む世帯が${owner!.text}と全国でも多い方です（${owner!.label}）。長く住み続ける人が多い地域と考えられます。`, "pos", tag("settled", "持ち家が多く", "持ち家の多い"), owner!.top!);
+      return strong(`持ち家に住む世帯が${owner!.text}と全国でも多い方です（${owner!.label}）。長く住み続ける人が多い地域と考えられます。`, "pos", tag("settled", "持ち家が多く", "持ち家の多い", true), owner!.top!);
     }
     const rented = stat("private_rented_share");
     if (isTop(rented, 0.1)) {
@@ -880,23 +909,27 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
     }
     const car = stat("commute_car_share");
     if (isTop(car, 0.1)) {
-      return strong(`通勤・通学に自家用車を使う人が${car!.text}と多く（${car!.label}）、車が欠かせない暮らしと思われます。`, undefined, tag("car", "車が暮らしの足となり", "車が暮らしの足となる"), car!.top!);
+      return strong(`通勤・通学に自家用車を使う人が${car!.text}と多く（${car!.label}）、車が欠かせない暮らしと思われます。`, undefined, tag("car", "車で通う人が多く", "車で通う人の多い", true), car!.top!);
     }
     return null;
   }
 
   function industry(): Line | null {
+    // 見出しは「ものづくりが盛ん」のような言葉でなく、働く人の割合をそのまま書く（設計変更記録 #167）。
+    // 2割に満たないときは、割合だけでは特徴に見えにくいので、言葉で書く（words。ないときは見出しに使わない）
+    const share = (key: string, name: string, s: Stat, words?: Tag, plain = false) => s.value < 20 ? words
+      : tag(key, `働く人の${formatNumber(s.value, 0)}%が${name}で`, `働く人の${formatNumber(s.value, 0)}%が${name}の`, plain);
     const mfg = stat("employees_manufacturing_share");
     if (isTop(mfg, 0.1)) {
-      return strong(`まちの事業所で働く人のうち製造業が${mfg!.text}を占めていて（${mfg!.label}）、工場の多いものづくりのまちと思われます。`, "pos", tag("mfg", "ものづくりが盛んで", "ものづくりの盛んな"), mfg!.top!);
+      return strong(`まちの事業所で働く人のうち製造業が${mfg!.text}を占めていて（${mfg!.label}）、工場の多いものづくりのまちと思われます。`, "pos", share("mfg", "製造業", mfg!, tag("mfg", "ものづくりが盛んで", "ものづくりの盛んな")), mfg!.top!);
     }
     const agri = stat("employees_agriculture_share");
     if (isTop(agri, 0.1)) {
-      return strong(`まちの事業所で働く人のうち農林漁業が${agri!.text}を占めていて（${agri!.label}）、農業や漁業が暮らしを支えていると思われます。`, "pos", tag("agri", "農業や漁業が盛んで", "農業や漁業の盛んな"), agri!.top!);
+      return strong(`まちの事業所で働く人のうち農林漁業が${agri!.text}を占めていて（${agri!.label}）、農業や漁業が暮らしを支えていると思われます。`, "pos", share("agri", "農林漁業", agri!, tag("agri", "農業や漁業が盛んで", "農業や漁業の盛んな")), agri!.top!);
     }
     const commerce = stat("employees_commerce_share");
     if (isTop(commerce, 0.1)) {
-      return strong(`まちの事業所で働く人のうち卸売業・小売業が${commerce!.text}を占めていて（${commerce!.label}）、商業がまちを支える産業のようです。`, "pos", tag("commerce", "商業が盛んで", "商業の盛んな"), commerce!.top!);
+      return strong(`まちの事業所で働く人のうち卸売業・小売業が${commerce!.text}を占めていて（${commerce!.label}）、商業がまちを支える産業のようです。`, "pos", share("commerce", "卸売業・小売業", commerce!, tag("commerce", "商業が盛んで", "商業の盛んな")), commerce!.top!);
     }
     // 目立つ産業がないときは、3つのうち全国の中で最も高い位置にあるものを挙げる
     const options: { s: Stat | null; name: string; key: string }[] = [{ s: mfg, name: "製造業", key: "mfg" }, { s: agri, name: "農林漁業", key: "agri" }, { s: commerce, name: "卸売業・小売業", key: "commerce" }];
@@ -905,7 +938,7 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       .sort((a, b) => a.s.top! - b.s.top!)[0];
     if (!best) return null;
     return general(`まちの事業所で働く人のうち${best.name}が${best.s.text}で、全国の市区町村の中では多めです（${best.s.label}）。${best.name}がまちの主な産業の1つと考えられます。`, "pos",
-      tag(best.key, `${best.name}が主な産業で`, `${best.name}が主な産業の`), 0.6);
+      share(best.key, best.name, best.s, undefined, true), 0.6);
   }
 
   function shopping(): Line | null {

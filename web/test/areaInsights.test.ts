@@ -11,8 +11,8 @@ const ind = (id: string, unit: string, digits: number, periods: string[], kind: 
 }) as unknown as Indicator;
 const fiscalYear = (p: string) => `${p.slice(0, 4)}年度`;
 
-// 2つの都道府県の市区町村 200 個。対象は muni-01001（first で別の id にできる）
-function makeData(values: Record<string, Record<string, (number | null)[]>>, places?: PlacePoints, first = "muni-01001"): InsightData {
+// 2つの都道府県の市区町村 200 個（count で変えられる）。対象は muni-01001（first で別の id にできる）
+function makeData(values: Record<string, Record<string, (number | null)[]>>, places?: PlacePoints, first = "muni-01001", count = 200): InsightData {
   const inds = new Map<string, Indicator>([
     ["foreign_resident_share", ind("foreign_resident_share", "%", 1, ["2025-10-01"])],
     ["foreign_residents_share", ind("foreign_residents_share", "%", 1, ["2026-01-01"])],
@@ -46,8 +46,11 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>, pla
     ["wholesale_sales", ind("wholesale_sales", "億円", 1, ["2020-01-01"], "count", () => "2020年")],
     ["high_rise_household_share", ind("high_rise_household_share", "%", 1, ["2010-10-01", "2015-10-01", "2020-10-01"])],
     ["elem_class_size", ind("elem_class_size", "人", 1, ["2025-05-01"])],
+    // 題名に働く人の割合を書く（設計変更記録 #167）
+    ["employees_manufacturing_share", ind("employees_manufacturing_share", "%", 1, ["2021-06-01"])],
+    ["employees_agriculture_share", ind("employees_agriculture_share", "%", 1, ["2021-06-01"])],
   ]);
-  const ids = Array.from({ length: 200 }, (_, i) => (i === 0 ? first : `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`));
+  const ids = Array.from({ length: count }, (_, i) => (i === 0 ? first : `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`));
   return {
     indicator: (id) => inds.get(id),
     indicators: () => [...inds.values()],
@@ -309,7 +312,35 @@ describe("考察の並び", () => {
 describe("題名（特徴を一言で表す文）", () => {
   it("全国順位が特に高い指標の言い回しから作る", () => {
     const p = areaProfile("muni-01001", makeData({ commute_bicycle_share: { "2020-10-01": fill(40, 10) } }));
-    expect(p.title).toBe("自転車で暮らしやすいまち");
+    expect(p.title).toBe("自転車で通う人の多いまち");
+  });
+  describe("データで言えることをそのまま書く（設計変更記録 #167）", () => {
+    // 全国の市区町村 1,200 個のうち、上から rank 番目の値（同じ値のまちがほかにあるときは same）
+    const ranked = (rank: number, same = false) => [500, ...Array.from({ length: 1199 }, (_, i) => (i < rank - 1 ? 900 - i : same && i === rank - 1 ? 500 : 10))];
+    it("全国の10位までに入るときは、言葉でなく順位を書く（同じ値のまちがあるとき・比べるまちが少ないときは言葉で書く）", () => {
+      const at = (v: number[], count = 1200) => areaProfile("muni-01001", makeData({ manufacturing_shipments: { "2024-01-01": v } }, undefined, "muni-01001", count)).title;
+      expect(at(ranked(3))).toBe("製造品出荷額が全国3位のまち");
+      expect(at(ranked(11))).toBe("ものづくりの盛んなまち");
+      expect(at(ranked(3, true))).toBe("ものづくりの盛んなまち");
+      expect(at(fill(500, 10))).toBe("ものづくりの盛んなまち");
+    });
+    it("多くの地域に当てはまる言い回し（少人数の学級など）は、ほかに目立つ特徴があれば後回しにする", () => {
+      const classes = fill(5, 25);
+      expect(areaProfile("muni-01001", makeData({ elem_class_size: { "2025-05-01": classes } })).title).toBe("少人数の学級が多いまち");
+      // 自転車は全国で3番目（上位1.5%）、学級の人数は全国で最も少ない（下位0.5%）。言い回しが「多く」「多い」で重なるので1つだけにする
+      const bicycle = [30, 40, 40, ...Array(197).fill(10)];
+      expect(areaProfile("muni-01001", makeData({ elem_class_size: { "2025-05-01": classes }, commute_bicycle_share: { "2020-10-01": bicycle } })).title)
+        .toBe("自転車で通う人の多いまち");
+    });
+    it("産業は働く人の割合を書く（2割に満たないときは言葉で書き、全国の上位1割に入らない産業では題名に使わない）", () => {
+      const at = (id: string, v: number[]) => areaProfile("muni-01001", makeData({ [id]: { "2021-06-01": v } }));
+      expect(at("employees_manufacturing_share", fill(45.2, 15)).title).toBe("働く人の45%が製造業のまち");
+      expect(at("employees_agriculture_share", fill(12, 3)).title).toBe("農業や漁業の盛んなまち");
+      // 全国の上位3割（多め）で、働く人の15%
+      const p = at("employees_agriculture_share", [15, ...Array(59).fill(20), ...Array(140).fill(5)]);
+      expect(p.lines[0]).toContain("農林漁業がまちの主な産業の1つと考えられます。");
+      expect(p.title).toBeNull();
+    });
   });
   it("課題に当たる考察からは作らない", () => {
     const p = areaProfile("muni-01001", makeData({ population_change_rate: { "2020-10-01": fill(-12, -2) } }));
@@ -535,7 +566,17 @@ describe("考察に添える文（物差し・移り変わり・数え方の癖�
       expect(p.lines[0]).toBe("まちには国の特別名勝「兼六園」、重要伝統的建造物群保存地区「東山ひがし」、国の重要文化財「旧松下家住宅」などがあります" +
         "（2026年10月18日現在）。国が指定・登録・選定した文化財は、全部で10件です。歴史ある建物や名所の多いまちと考えられます。");
       expect(p.groups[0].theme).toBe("歴史と文化");
-      expect(p.title).toBe("歴史ある建物や名所の多いまち");
+      expect(p.title).toBe("国の文化財が10件あるまち");
+    });
+    it("国宝・特別史跡などは名前を、重要伝統的建造物群保存地区は町並みが残ることを題名に書く（長い名前は書かない。設計変更記録 #167）", () => {
+      const one = (kind: string, name: string) => areaProfile("muni-01005", {
+        ...withAreas(makeData({})), culture: () => ({ label: "2026年10月18日現在", points: [point("muni-01005", kind, name, "1950年1月1日指定")] }),
+      }).title;
+      expect(one("国宝（建造物）", "本堂（元方丈）")).toBe("国宝「本堂」のあるまち");
+      expect(one("特別史跡", "古墳群")).toBe("特別史跡「古墳群」のあるまち");
+      expect(one("重要伝統的建造物群保存地区", "宿場町")).toBe("伝統的な町並みの残るまち");
+      expect(one("特別天然記念物", "とても長い名前の天然記念物の木")).toBeNull();
+      expect(one("重要文化財（建造物）", "住宅")).toBeNull();
     });
     it("登録有形文化財だけのまちは名前を挙げず、所在地の書き添えは名前から外す", () => {
       expect(data("muni-01002").lines).toContain("国の登録有形文化財の建造物が、まちに1件あります（2026年10月18日現在）。");

@@ -1,14 +1,18 @@
 ---
 // 「データで見る〇〇」の中身。特徴を一言で表す題名、概要の文、テーマごとの「データから考えられること」。
 // 考察に添える文（物差し・移り変わり・数え方の癖）は、考察の下に少し小さく出す（設計変更記録 #163）。
-// 地域ページと都道府県ページで使う（設計変更記録 #113・#116・#140）
+// 地域ページと都道府県ページで使う（設計変更記録 #113・#116・#140）。
+// 資料で確かめた紹介の文（あらまし）があれば、題名の下・データの概要の前に出す（設計変更記録 #166）
 import type { AreaProfile } from "../lib/areaInsights";
+import type { Aramashi as AramashiData } from "../lib/aramashi";
+import Aramashi from "./Aramashi.astro";
 
-interface Props { name: string; profile: AreaProfile; summary: string[] }
-const { name, profile, summary } = Astro.props;
+interface Props { name: string; profile: AreaProfile; summary: string[]; aramashi?: AramashiData | null }
+const { name, profile, summary, aramashi } = Astro.props;
 ---
 <h2>データで見る{name}</h2>
 {profile.title && <p class="catch">{profile.title}</p>}
+{aramashi && <Aramashi aramashi={aramashi} />}
 {summary.map((line) => <p>{line}</p>)}
 {profile.lines.length > 0 && (
   <>
