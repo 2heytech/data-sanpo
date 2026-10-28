@@ -3490,6 +3490,39 @@ attribution = "出典：国土交通省 国土数値情報（駅別乗降客数�
 modification_note = "駅を事業者ごとにまとめ、駅の位置から市区町村を求めて作成"
 redistributable = true
 
+# 道路交通センサス（国土交通省「全国道路・街路交通情勢調査 一般交通量調査」の箇所別基本表、都道府県ごとの CSV）。
+# 令和3年度は Shift_JIS、平成27年度は BOM 付き UTF-8。形式は pipeline/tdm/ingest/mlit_road_census.py（docs/design-changes.md #172）。
+# 国土交通省ウェブサイトのコンテンツは公共データ利用規約 第1.0版（PDL1.0）で、商用利用・加工・再配布ができる（CC BY 4.0 と両立）。
+[mlit_road_census_2021]
+kind = "mlit_road_census"
+per_prefecture = true
+fiscal_year = 2021
+title = "令和3年度 全国道路・街路交通情勢調査 一般交通量調査 箇所別基本表"
+provider = "国土交通省 道路局"
+url = "https://www.mlit.go.jp/road/census/r3/index.html"
+download_url = "https://www.mlit.go.jp/road/census/r3/data/csv/kasyo{pref}.csv"
+files = ["kasyo??.csv"]
+license = "公共データ利用規約（第1.0版）（PDL1.0）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：「令和3年度 全国道路・街路交通情勢調査」（国土交通省）"
+modification_note = "一般国道・都道府県道の区間の交通量・大型車・混雑時の旅行速度を、区間の市区町村ごとに区間延長で重み付けして平均"
+redistributable = true
+
+[mlit_road_census_2015]
+kind = "mlit_road_census"
+per_prefecture = true
+fiscal_year = 2015
+title = "平成27年度 全国道路・街路交通情勢調査 一般交通量調査 箇所別基本表"
+provider = "国土交通省 道路局"
+url = "https://www.mlit.go.jp/road/census/h27/index.html"
+download_url = "https://www.mlit.go.jp/road/census/h27/data/csv/kasyo{pref}.csv"
+files = ["kasyo??.csv"]
+license = "公共データ利用規約（第1.0版）（PDL1.0）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：「平成27年度 全国道路・街路交通情勢調査」（国土交通省）"
+modification_note = "一般国道・都道府県道の区間の交通量・大型車・混雑時の旅行速度を、区間の市区町村ごとに区間延長で重み付けして平均"
+redistributable = true
+
 # 地価公示（国土交通省 国土数値情報 L01、都道府県別）。2026年の公示の標準地に、1983年からの価格の推移が入っている。
 [mlit_l01_2026]
 kind = "mlit_landprice"

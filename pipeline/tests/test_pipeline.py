@@ -2513,6 +2513,47 @@ def test_school_municipal(built):
     assert by["elem_class_size"]["category"] == "教育"
 
 
+def test_road_census(built):
+    # 道路交通センサスの区間を市区町村ごとに集めた平均（#172）
+    def rows(ind, period, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/{period}/{level}.json")["rows"]}
+    vol = rows("road_traffic_volume", "2021-04-01", "municipalities")
+    # 台キロ (10000×1 + 6000×2 + 4000×2 + 5000×1 + 1000×1) ÷ 延長 (1 + 2×½ + 2×½ + 1)。上下線が分かれた区間は
+    # 延長を半分ずつ、複断面の側道は延長に数えず、高速自動車国道・指定市の一般市道と値のない区間は含めない
+    assert vol["muni-13199"]["value"] == 9000
+    assert "numerator" not in vol["muni-13199"]   # fraction = false
+    assert vol["muni-13299"]["value"] is None and vol["muni-13299"]["status"] == "missing"
+    assert vol["muni-13499"]["value"] is None and vol["muni-13499"]["status"] == "not_applicable"
+    assert vol["muni-14199"]["value"] == 20000
+    # 都道府県は区間すべてから（値のない市区町村があっても出す）
+    assert rows("road_traffic_volume", "2021-04-01", "prefectures")["pref-13"]["value"] == 9000
+    share = rows("road_large_vehicle_share", "2021-04-01", "municipalities")
+    assert abs(share["muni-13199"]["value"] - 10.0) < 1e-6 and abs(share["muni-14199"]["value"] - 25.0) < 1e-6
+    speed = rows("road_congested_speed", "2021-04-01", "municipalities")
+    # 距離 (1 + 1 + 2 + 2) ÷ 時間 (1/20 + 1/30 + 2/40 + 2/40)。車種別・非混雑時・前回の速度の列は使わない
+    assert abs(speed["muni-13199"]["value"] - 6 / (1 / 20 + 1 / 30 + 2 / 40 + 2 / 40)) < 0.01
+    assert speed["muni-14199"]["value"] == 15.0
+    # 平成27年度の表（BOM 付き UTF-8・見出しの違う列）
+    old = rows("road_traffic_volume", "2015-04-01", "municipalities")
+    assert old["muni-13199"]["value"] == 8000 and old["muni-14199"]["value"] == 18000
+    assert rows("road_congested_speed", "2015-04-01", "municipalities")["muni-13199"]["value"] == 25.0
+    assert abs(rows("road_large_vehicle_share", "2015-04-01", "prefectures")["pref-14"]["value"] - 10.0) < 1e-6
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert [p["label"] for p in by["road_traffic_volume"]["periods"]] == ["2015年度", "2021年度"]
+    assert by["road_congested_speed"]["category"] == "交通"
+
+
+def test_road_census_columns():
+    from tdm.ingest.mlit_road_census import _columns, road_length_weight
+    head = ["市区町村コード", "道路種別", "区間延長（ｋｍ）", "区間種別", "分離区間／分離区分",
+            "２４時間自動車類交通量（上下合計）／合計（台）", "２４時間自動車類交通量（上下合計）／大型車（台）",
+            "朝夕（混雑時）／上り／旅行速度／合計（ｋｍ／ｈ）"]
+    with pytest.raises(ValueError, match="下り"):
+        _columns(head)   # 速度の列が見つからないときは止める
+    assert road_length_weight("1", "1") == 0.5 and road_length_weight("3", "3") == 0.0
+    assert road_length_weight("0", "0") == 1.0 and road_length_weight("2", "2") == 1.0
+
+
 def test_preschool_shares(built):
     rows = {r["entity_id"]: r for r in
             load(built, "values/preschool_kindergarten_share/2020-10-01/municipalities.json")["rows"]}

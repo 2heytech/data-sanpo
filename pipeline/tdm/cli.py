@@ -33,7 +33,8 @@ from .ingest import (cfa_childcare, estat_boundary, estat_census_history, estat_
                      gsi_area, jma_normals,
                      estat_small_area, maff_agri_output, meti_manufacturing, mhlw_vital,
                      keishicho_crime, kokode_nurseries, mext_school_aid, school_counts, school_readers,
-                     mlit_facilities, mlit_inbound, mlit_landprice, mlit_stations, mlit_transport, nier_gakuryoku,
+                     mlit_facilities, mlit_inbound, mlit_landprice, mlit_road_census, mlit_stations, mlit_transport,
+                     nier_gakuryoku,
                      cultural_properties, michi_no_eki, npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_finance,
                      soumu_furusato,
                      soumu_tax, tokyo_childcare,
@@ -254,7 +255,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "town_elevation", "land_use_tiles", "farmland_areas", "vegetation_areas",
                         "school_counts", "kokode_nurseries", "cfa_childcare", "isj_block_points",
                         "mlit_michi_no_eki", "gsi_michi_no_eki", "wikidata_michi_no_eki",
-                        "kunishitei_cultural_properties"):
+                        "kunishitei_cultural_properties", "mlit_road_census"):
             continue
         if cfg.get("per_prefecture"):
             # 都道府県ごとの出典は、今回の対象の都道府県のファイルだけを使う（キャッシュにほかの都道府県があっても）
@@ -378,6 +379,9 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = soumu_furusato.ingest(conn, files[0], src, catalog)
         elif kind == "mlit_inbound":
             result[key] = mlit_inbound.ingest(conn, files[0], src, catalog, int(cfg["year"]))
+        elif kind == "mlit_road_census":   # 道路交通センサスの箇所別基本表（都道府県ごとの CSV）
+            result[key] = mlit_road_census.ingest(conn, _prefecture_files(paths, key, cfg, prefs), src, catalog,
+                                                  int(cfg["fiscal_year"]))
         elif kind == "nier_gakuryoku":
             result[key] = nier_gakuryoku.ingest(conn, files, src, catalog, cfg["school"],
                                                 (cfg["period"], cfg["period"], "point"))
