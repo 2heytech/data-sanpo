@@ -1,12 +1,13 @@
 ---
-// トップページ: ロゴと「地図をひらく」を大きく置き、その下に指標の一覧（ジャンル別の表）をまとめる
-// （指標の一覧ページはここに集約した。docs/design-changes.md #47）。
+// トップページ: ロゴと「地図をひらく」を大きく置き、その下に指標の一覧（ジャンルごとのカードに指標名を並べる）をまとめる
+// （指標の一覧ページはここに集約した。docs/design-changes.md #47・#173）。
 import Base from "../layouts/Base.astro";
 import AdSlot from "../components/AdSlot.astro";
 import CategoryIcon from "../components/CategoryIcon.astro";
 import { loadAreas, loadIndicators, loadPlace } from "../lib/data";
-import type { Indicator, WeatherElement } from "../lib/types";
+import type { WeatherElement } from "../lib/types";
 import { GENRES as BASE_GENRES } from "../lib/genres";
+import { listItems, listTags, type ListItem, type ListTag } from "../lib/indicatorList";
 import { publishedArticles } from "../lib/articles";
 
 const indicators = loadIndicators();
@@ -17,7 +18,7 @@ const regions = ["区部", "多摩", "島しょ"] as const;  // 東京都の地�
 // ジャンル（指標の category）の並びは lib/genres.ts（地図の指標の選択画面と共有）
 const GENRES = structuredClone(BASE_GENRES);
 // 地図の点で見るデータ（地域の塗り分けではなく、駅・学校・地点ごとの値）。地図で点の表示をオンにして開く。
-// 地価は地価公示と都道府県地価調査を地図で1つの「地価」の表示にまとめている（#134）ので、1行にする
+// 地価は地価公示と都道府県地価調査を地図で1つの「地価」の表示にまとめている（#134）ので、1つの項目にする
 interface PointRow { files: string[]; category: string; show: string; name?: string; description?: string }
 const POINT_ROWS: PointRow[] = [
   { files: ["station_passengers"], category: "交通", show: "stations" },
@@ -33,84 +34,43 @@ const POINT_ROWS: PointRow[] = [
 const POINTS = POINT_ROWS.flatMap(({ files, ...p }) => {
   const ds = files.flatMap((f) => loadPlace(f) ?? []);
   if (!ds.length) return [];
-  const years = ds.flatMap((d) => d.periods.map((x) => Number(x.label.match(/\d{4}/)?.[0]))).filter((y) => y > 0);
-  const first = Math.min(...years);
-  const last = Math.max(...years);
-  // まとめた行でも、片方しかない公開版ではその指標の名前・説明にする
+  // まとめた項目でも、片方しかない公開版ではその指標の名前・説明にする
   const merged = ds.length > 1;
-  return [{ ...p, name: (merged && p.name) || ds[0].name, unit: ds[0].unit,
-    description: (merged && p.description) || ds[0].description,
-    years: !years.length ? "" : first === last ? `${last}年` : `${first}〜${last}年` }];
+  return [{ ...p, name: (merged && p.name) || ds[0].name, description: (merged && p.description) || ds[0].description }];
 }).concat(weatherPoints());
-// 天気（気象庁の平年値）は1ファイルに日照時間・降水量などをまとめているので、指標ごとに1行にする（#94）
+// 天気（気象庁の平年値）は1ファイルに日照時間・降水量などをまとめているので、指標ごとに1つの項目にする（#94）
 function weatherPoints() {
   const d = loadPlace("weather_normals") as (ReturnType<typeof loadPlace> & { elements?: WeatherElement[] }) | null;
-  return (d?.elements ?? []).map((e) => ({
-    file: "weather_normals", category: "天気", show: `weather&wx=${e.id}`, name: e.name, unit: e.unit,
-    description: e.description, years: d!.periods[0]?.label ?? "",
-  }));
+  return (d?.elements ?? []).map((e) => ({ category: "天気", show: `weather&wx=${e.id}`, name: e.name, description: e.description }));
 }
 const hasCategory = (c: string) => indicators.some((i) => i.category === c) || POINTS.some((p) => p.category === c);
 const known = new Set(GENRES.flatMap((g) => g.categories));
 const rest = [...new Set(indicators.map((i) => i.category))].filter((c) => !known.has(c));
 if (rest.length) GENRES.push({ title: "その他", categories: rest });
+const genres = GENRES.filter((g) => g.categories.some(hasCategory))
+  .map((g) => ({ ...g, categories: g.categories.filter(hasCategory) }));
 
-// 種別・基準で切り替える指標（犯罪・交通事故など）は、基準（件数・100人当たり）の違いを1行にまとめる
-const COUNT_BASES = new Set(["件数", "人数", "割合"]);
-// 種別だけが違い基準が1つの組（政党別の得票率・国籍別の外国人住民・教科別の学力テストなど）は、
-// 種別も1行にまとめて種別名を並べる。名前が「共通の名前（種別）」の形の組だけが対象（住民税と課税対象所得のような組は分ける）
-const groupName = (i: Indicator) => i.name.replace(/（[^（）]*）$/, "");
-function groupable(members: Indicator[]): boolean {
-  const name = groupName(members[0]);
-  return new Set(members.map((m) => m.facets!.type)).size >= 2 &&
-    new Set(members.map((m) => m.facets!.basis)).size === 1 &&
-    members.every((m) => m.name === name || m.name === `${name}（${m.facets!.type}）`);
+// 一覧の項目（指標名のボタン）と範囲の札（東京都だけ・都道府県別だけ・地図の点）
+const byId = new Map(indicators.map((i) => [i.id, i]));
+const prefName = new Map(areas.prefectures.map((p) => [p.code, p.name]));
+interface Entry { item: ListItem; tags: ListTag[] }
+function entriesOf(category: string): Entry[] {
+  const items = listItems(indicators, category).map((item) => ({
+    item, tags: listTags(item, byId, areas.prefectures.length, (code) => prefName.get(code) ?? code),
+  }));
+  const points = POINTS.filter((p) => p.category === category).map((p) => {
+    const href = `/map/?show=${p.show}`;
+    return { item: { title: p.name, href, description: p.description, members: [{ label: p.name, href, extras: [] }], ids: [] },
+      tags: [{ kind: "point", text: "点" } as ListTag] };
+  });
+  return [...items, ...points];
 }
-// まとめた行の説明（種別ごとの説明を1つにしたもの）。ないときは「総数」など組の名前そのものの指標の説明を使う
-const GROUP_DESCRIPTIONS: Record<string, string> = {
-  vote_share: "衆議院・参議院の比例代表選挙で、有効投票のうち各政党が得た票の割合。",
-  foreign: "住民基本台帳に記録されている外国人の数（各年1月1日現在）。全国の総数と、東京都の区市町村の国籍・地域別の人数。",
-  zairyu_foreign: "在留外国人統計による、市区町村ごとの国籍・地域別の在留外国人の数（各年12月末現在）。",
-  gakuryoku: "全国学力・学習状況調査の平均正答率（小学6年生の国語・算数、中学3年生の国語・数学）。その都道府県の公立学校の児童・生徒の結果。",
-  commute: "その地域に住む15歳以上の通勤者・通学者のうち、ふだんの通勤・通学にそれぞれの交通手段を使う人の割合。",
-  jhs_progress: "市区町村の公立小学校を卒業した子どもの進学先（公立・都内の私立・都内の国立・都外の中学校等）の割合。",
-  street_trees: "都道沿いに植えられている街路樹（高木・中木）の本数。総数と、主な樹種ごとの本数。",
-};
-interface Row { main: Indicator; variants: Indicator[]; grouped?: boolean }
-function rowsOf(category: string): Row[] {
-  const list = indicators.filter((i) => i.category === category);
-  const rows: Row[] = [];
-  for (const ind of list) {
-    if (!ind.family || !ind.facets) {
-      rows.push({ main: ind, variants: [] });
-      continue;
-    }
-    const members = list.filter((o) => o.family === ind.family);
-    if (groupable(members)) {
-      if (members[0] === ind) rows.push({ main: ind, variants: members, grouped: true });
-      continue;
-    }
-    // 同じ種別の指標のうち、件数・人数・割合の基準のもの（なければ最初のもの）を行の代表にする
-    const same = list.filter((o) => o.family === ind.family && o.facets?.type === ind.facets!.type);
-    const main = same.find((o) => COUNT_BASES.has(o.facets!.basis)) ?? same[0];
-    if (main !== ind) continue;
-    rows.push({ main, variants: same.filter((o) => o !== main) });
-  }
-  return rows;
-}
-
-// 時点の表示（例: 2010・2015・2020年、2019〜2025年）
-function yearsOf(ind: Indicator): string {
-  const years = [...new Set(ind.periods.filter((p) => !p.aggregate)
-    .map((p) => Number(p.period.slice(0, 4))))].sort((a, b) => a - b);
-  if (!years.length) return "";
-  const consecutive = years.every((y, k) => k === 0 || y - years[k - 1] === 1);
-  const text = years.length >= 3 && consecutive ? `${years[0]}〜${years[years.length - 1]}年` : `${years.join("・")}年`;
-  return ind.periods.some((p) => p.aggregate) ? `${text}（5年合計も）` : text;
-}
-const basisLabel = (i: Indicator) => i.facets?.basis.replace("あたり", "当たり") ?? i.name;
-const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRIPTIONS[main.family!]
-  ?? (members.find((m) => m.name === groupName(main)) ?? main).description;
+const genreCount = (g: { categories: string[] }) => indicators.filter((i) => g.categories.includes(i.category)).length
+  + POINTS.filter((p) => g.categories.includes(p.category)).length;
+const total = indicators.length + POINTS.length;
+const allTags = genres.flatMap((g) => g.categories.flatMap((c) => entriesOf(c).flatMap((e) => e.tags)));
+const areaExample = allTags.find((t) => t.kind === "area")?.text;
+const tagKinds = new Set(allTags.map((t) => t.kind));
 ---
 <Base title="データさんぽ | 日本を、データで歩く。" titleIsFull
   description={`気になるまちは全国で何位？ 人口・年収・地価・選挙・犯罪・子育てなど${indicators.length}の指標を、都道府県・市区町村・町丁目の色分け地図とランキングで見比べられます。`}>
@@ -121,65 +81,53 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
   </section>
 
   <section class="sheet">
-    <h2 id="indicators">掲載している指標</h2>
-    <p class="muted small">指標名を選ぶと、意味・計算方法・注意点のページを開きます。</p>
-    <nav class="toc" aria-label="ジャンル">
-      {GENRES.filter((g) => g.categories.some(hasCategory)).map((g, k) => <a href={`#genre-${k}`}>{g.title}</a>)}
-    </nav>
-    {GENRES.filter((g) => g.categories.some(hasCategory)).map((g, k) => (
-      <section class="genre">
-        <h3 id={`genre-${k}`}>{g.title}</h3>
-        {g.categories.filter(hasCategory).map((c) => (
-          <div class="category">
-            <h4><CategoryIcon category={c} />{c}</h4>
-            <div class="table-scroll">
-              <table class="indicator-table">
-                <thead><tr><th>指標</th><th class="hide-sp">単位</th><th class="hide-sp">時点</th><th>内容</th></tr></thead>
-                <tbody>
-                  {rowsOf(c).map(({ main, variants, grouped }) => grouped ? (
-                    <tr>
-                      <td>
-                        <strong>{groupName(main)}</strong>
-                        <div class="small">{variants.map((v, k) => (<>{k > 0 && "・"}<a href={`/indicators/${v.id}/`}>{v.facets!.type}</a></>))}</div>
-                        <div class="small muted show-sp">{[main.unit, yearsOf(main)].filter(Boolean).join("・")}</div>
-                      </td>
-                      <td class="nowrap hide-sp">{main.unit}</td>
-                      <td class="nowrap hide-sp">{yearsOf(main)}</td>
-                      <td>{groupDescription(main, variants)}</td>
-                    </tr>
-                  ) : (
-                    <tr>
-                      <td>
-                        <a href={`/indicators/${main.id}/`}><strong>{main.name}</strong></a>
-                        {variants.length > 0 && (
-                          <div class="small">{variants.map((v, k) => (<>{k > 0 && "・"}<a href={`/indicators/${v.id}/`}>{basisLabel(v)}</a></>))}</div>
-                        )}
-                        <div class="small muted show-sp">{[main.unit, yearsOf(main)].filter(Boolean).join("・")}</div>
-                      </td>
-                      <td class="nowrap hide-sp">{main.unit}</td>
-                      <td class="nowrap hide-sp">{yearsOf(main)}</td>
-                      <td>{main.description}</td>
-                    </tr>
-                  ))}
-                  {POINTS.filter((p) => p.category === c).map((p) => (
-                    <tr>
-                      <td>
-                        <a href={`/map/?show=${p.show}`}><strong>{p.name}</strong></a>
-                        <div class="small muted">地図の点で表示</div>
-                        <div class="small muted show-sp">{p.unit}・{p.years}</div>
-                      </td>
-                      <td class="nowrap hide-sp">{p.unit}</td>
-                      <td class="nowrap hide-sp">{p.years}</td>
-                      <td>{p.description}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+    <h2 id="indicators">掲載している指標 <span class="total">{total}</span></h2>
+    <p class="muted small">名前を選ぶと、ランキングと意味・計算方法のページを開きます。数字の付いた名前は、選ぶと種類ごとの指標が開きます。</p>
+    {tagKinds.size > 0 && (
+      <p class="small tag-keys">
+        {areaExample && <span><span class="tag tag-area">{areaExample}</span>その地域の分だけ</span>}
+        {tagKinds.has("pref") && <span><span class="tag tag-pref">県別</span>都道府県ごとの値だけ</span>}
+        {tagKinds.has("point") && <span><span class="tag tag-point">点</span>地図の点（駅・学校など）</span>}
+      </p>
+    )}
+    <div class="genre-cards">
+      {genres.map((g, k) => (
+        <section class="genre-card" id={`genre-${k}`}>
+          <header><h3>{g.title}</h3><span class="genre-count">{genreCount(g)}の指標</span></header>
+          {g.categories.map((c) => (
+            <div class="category">
+              <h4><CategoryIcon category={c} />{c}</h4>
+              <ul class="chips">
+                {entriesOf(c).map(({ item, tags }) => {
+                  const tagEls = tags.map((t) => <span class={`tag tag-${t.kind}`}>{t.text}</span>);
+                  if (item.members.length > 1) return (
+                    <li class="chip-more">
+                      <details>
+                        <summary class="chip" title={item.description}>{item.title}<span class="count">{item.members.length}</span>{tagEls}</summary>
+                        <p class="more-links">
+                          {item.members.map((m) => (
+                            <span><a href={m.href}>{m.label}</a>{m.extras.length > 0 && (
+                              <span class="extras">（{m.extras.map((x, j) => (<>{j > 0 && "・"}<a href={x.href}>{x.label}</a></>))}）</span>
+                            )}</span>
+                          ))}
+                        </p>
+                      </details>
+                    </li>
+                  );
+                  const m = item.members[0];
+                  if (m.extras.length) return (
+                    <li><span class="chip chip-split" title={item.description}>
+                      <a href={m.href}>{item.title}</a>{m.extras.map((x) => <a class="chip-sub" href={x.href}>{x.label}</a>)}{tagEls}
+                    </span></li>
+                  );
+                  return <li><a class="chip" href={item.href} title={item.description}>{item.title}{tagEls}</a></li>;
+                })}
+              </ul>
             </div>
-          </div>
-        ))}
-      </section>
-    ))}
+          ))}
+        </section>
+      ))}
+    </div>
   </section>
 
   <AdSlot name="top" />
@@ -242,13 +190,61 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
   .hero h1 img { width: min(520px, 92%); height: auto; }
   .area-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
   .button.big { font-size: 1.3rem; padding: 16px 52px; box-shadow: 0 6px 18px rgba(11, 92, 173, .35); }
-  .genre h3 { border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 1.8em; scroll-margin-top: 100px; }
   #indicators { scroll-margin-top: 100px; }
-  .category h4 { display: flex; align-items: center; gap: 8px; font-size: 1rem; margin: 1.4em 0 0.5em; }
-  .indicator-table th { white-space: nowrap; }
-  .indicator-table td:first-child { min-width: 16em; }
-  .indicator-table td:last-child { min-width: 16em; color: #2c3a4a; }
-  .show-sp, .sp-only { display: none; }
+  #indicators .total {
+    font-size: 0.85rem; font-weight: 700; color: var(--accent-ink); background: var(--accent-soft);
+    border-radius: 999px; padding: 2px 10px; vertical-align: 0.15em;
+  }
+  .tag-keys { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); margin: 0 0 12px; }
+  .tag-keys > span { display: inline-flex; align-items: center; gap: 6px; }
+  .genre-cards { columns: 2; column-gap: 16px; }
+  .genre-card {
+    break-inside: avoid; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 10px;
+    margin: 0 0 16px; background: var(--surface); scroll-margin-top: 100px;
+  }
+  .genre-card header {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    border-bottom: 2px solid var(--accent); padding-bottom: 6px; margin-bottom: 4px;
+  }
+  .genre-card h3 { margin: 0; font-size: 1.08rem; }
+  .genre-count { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+  .category h4 { display: flex; align-items: center; gap: 6px; margin: 10px 0 6px; font-size: 0.88rem; }
+  .category h4 :global(.category-icon) { width: 26px; height: 26px; }
+  .category h4 :global(.category-icon svg) { width: 16px; height: 16px; }
+  .chips { list-style: none; padding: 0; margin: 0 0 4px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 11px; border: 1px solid var(--line); border-radius: 999px;
+    font-size: 0.86rem; line-height: 1.5; text-decoration: none; color: var(--fg); background: var(--surface);
+  }
+  a.chip:hover, summary.chip:hover { border-color: #b9d0ea; background: var(--accent-soft); color: var(--accent-ink); }
+  .chip-split { gap: 0; padding: 0; }
+  .chip-split a { padding: 3px 4px 3px 11px; color: var(--fg); text-decoration: none; }
+  .chip-split a:hover { color: var(--accent-ink); text-decoration: underline; }
+  .chip-split .chip-sub { padding: 3px 8px; border-left: 1px solid var(--line); font-size: 0.78rem; color: var(--accent); }
+  .chip-split .chip-sub:last-of-type { padding-right: 11px; }
+  .chip-split .tag { margin-right: 8px; }
+  .tag { font-size: 0.66rem; font-weight: 700; border-radius: 4px; padding: 0 4px; line-height: 1.5; white-space: nowrap; }
+  .tag-area { background: #fff1d1; color: #7a4d00; }
+  .tag-point { background: #e6f4ea; color: #1f6b3a; }
+  .tag-pref { background: #eef0f3; color: #46525f; }
+  .chip-more summary { cursor: pointer; list-style: none; }
+  .chip-more summary::-webkit-details-marker { display: none; }
+  .chip-more .count {
+    font-size: 0.72rem; font-weight: 700; color: var(--accent-ink); background: var(--accent-soft);
+    border-radius: 999px; padding: 0 6px; line-height: 1.5;
+  }
+  .chip-more summary::after {
+    content: ""; width: 6px; height: 6px; margin: 0 0 3px 2px;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg);
+  }
+  .chip-more details[open] summary { background: var(--accent-soft); border-color: #b9d0ea; color: var(--accent-ink); }
+  .chip-more details[open] summary::after { transform: rotate(-135deg); margin: 3px 0 0 2px; }
+  .chip-more:has(details[open]) { flex-basis: 100%; }
+  .more-links {
+    display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 4px; padding: 8px 12px;
+    background: var(--panel); border-radius: 10px; font-size: 0.86rem; line-height: 1.7;
+  }
+  .more-links .extras { font-size: 0.8rem; }
   .steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .steps li { counter-increment: step; position: relative; padding: 12px 12px 12px 52px; border: 1px solid var(--line); border-radius: 10px; }
   .steps li::before {
@@ -265,11 +261,8 @@ const groupDescription = (main: Indicator, members: Indicator[]) => GROUP_DESCRI
   .area-links a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
   @media (max-width: 720px) {
     .hero { padding: 28px 14px 22px; }
-    .sp-only { display: inline; }
     .steps { grid-template-columns: 1fr; }
-    .hide-sp { display: none; }
-    .show-sp { display: block; }
-    .indicator-table td:first-child { min-width: 9em; width: 42%; }
-    .indicator-table td:last-child { min-width: 0; font-size: 0.88rem; }
+    .genre-cards { columns: 1; }
+    .genre-card { padding: 12px 12px 8px; }
   }
 </style>
