@@ -103,6 +103,11 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     <meta property="og:image:alt" content={ogAlt} />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {/* ホーム画面に追加したときの名前・アイコン・全画面表示（設計変更記録 #171。アイコンの作り方は scripts/app-icons.mjs） */}
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content={SITE_NAME} />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="sitemap" href="/sitemap-index.xml" />
     {preload && <link rel="modulepreload" href={preload} />}
     <script>
