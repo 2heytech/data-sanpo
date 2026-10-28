@@ -647,6 +647,38 @@
       ],
       "checked": "2026-10-25"
     },
+    "muni-04361": {
+      "text": [
+        "亘理町は宮城県の南東部、仙台市の南約26kmにあり、東に太平洋、西に阿武隈高地、北に阿武隈川があります。",
+        "地名の「わたり」は阿武隈川を渡る土地だったことに由来するといわれ、江戸時代に亘理伊達家のもとで築かれた城下町の面影が今も各所に残っています。",
+        "1955年に亘理町・荒浜町・吉田村・逢隈村が合併して、今の亘理町になりました。",
+        "郷土料理の「はらこめし」は、荒浜の漁民が鮭の腹子をご飯と炊いて仙台藩主の政宗に差し出し、たいそう喜ばれたことから世にもてはやされるようになったと伝えられています。",
+        "亘理町では、温暖な気候を生かしたイチゴづくりも盛んです。"
+      ],
+      "sources": [
+        {
+          "publisher": "亘理町",
+          "title": "町の概要",
+          "url": "https://www.town.watari.miyagi.jp/town/detail.php?content=267"
+        },
+        {
+          "publisher": "亘理町",
+          "title": "亘理町の沿革",
+          "url": "https://www.town.watari.miyagi.jp/town/detail.php?content=116"
+        },
+        {
+          "publisher": "亘理町",
+          "title": "元祖亘理のはらこめし",
+          "url": "https://www.town.watari.miyagi.jp/tourism/detail.php?content=96"
+        },
+        {
+          "publisher": "亘理町",
+          "title": "亘理のイチゴ",
+          "url": "https://www.town.watari.miyagi.jp/tourism/detail.php?content=2444"
+        }
+      ],
+      "checked": "2026-10-28"
+    },
     "muni-04362": {
       "text": [
         "山元町は宮城県のいちばん南東にあり、東は砂丘の海岸で仙台湾に面し、西は阿武隈山地の北の端にあたる丘陵、南は福島県と接しています。",
