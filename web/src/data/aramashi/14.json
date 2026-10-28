@@ -1002,6 +1002,38 @@
       ],
       "checked": "2026-10-25"
     },
+    "muni-14217": {
+      "text": [
+        "南足柄市は神奈川県の西端にあり、金時山を中心に箱根外輪山と足柄山塊が広がる、西が高く東が低い地形です。",
+        "1955年に南足柄町と岡本村・福沢村・北足柄村が合併し、1972年に市になりました。",
+        "足柄峠へ向かう足柄道は奈良・平安時代に官道となり、江戸時代には東海道の裏街道の矢倉沢往還として整えられ、矢倉沢に関所が置かれました。",
+        "中世に開かれた大雄山最乗寺があり、相模人形芝居は江戸時代に班目に泊まった旅人に習って始まったと言われています。",
+        "「足柄山の金太郎」の伝説の地で、地蔵堂地区には金太郎の生家跡や、産湯に使ったとされる夕日の滝があります。"
+      ],
+      "sources": [
+        {
+          "publisher": "南足柄市",
+          "title": "南足柄市のプロフィール",
+          "url": "https://www.city.minamiashigara.kanagawa.jp/machi/syoukai/profile.html"
+        },
+        {
+          "publisher": "南足柄市",
+          "title": "南足柄市統計書（沿革）",
+          "url": "https://www.city.minamiashigara.kanagawa.jp/global-image/units/204418/1-20260313140025.pdf"
+        },
+        {
+          "publisher": "南足柄市",
+          "title": "南足柄市の歴史",
+          "url": "https://www.city.minamiashigara.kanagawa.jp/machi/syoukai/rekishi.html"
+        },
+        {
+          "publisher": "南足柄市",
+          "title": "金太郎伝説",
+          "url": "https://www.city.minamiashigara.kanagawa.jp/kankou/kintaro/kintarodensetu.html"
+        }
+      ],
+      "checked": "2026-10-28"
+    },
     "muni-14218": {
       "text": [
         "綾瀬市は神奈川県のほぼ中央にある南北に長いまちで、蓼川・比留川・目久尻川がつくった河岸段丘と平地からなります。",
