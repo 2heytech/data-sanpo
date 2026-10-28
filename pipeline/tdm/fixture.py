@@ -179,6 +179,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_school_aid(directory))
     out.update(_write_school_basic(directory))
     out.update(_write_school_municipal(directory))
+    out.update(_write_road_census(directory))
     out.update(_write_housing(directory))
     out.update(_write_vital(directory))
     out["census_history"] = _write_census_history(directory)
@@ -930,6 +931,67 @@ def _write_school_municipal(directory: Path) -> dict[str, Path]:
         path.parent.mkdir(parents=True, exist_ok=True)
         write_sheets(path, sheets)
         out[f"school_{name}"] = path
+    return out
+
+
+# 道路交通センサスの箇所別基本表（#172）。列は実際の表の見出し（令和3年度は Shift_JIS、平成27年度は BOM 付き UTF-8）。
+# 似た見出しの列（車種別・非混雑時・前回の調査の速度）と、右端に繰り返される列も入れておく。
+# 区間: (市区町村コード, 道路種別, 区間種別, 分離区分, 延長, 24時間合計, 24時間大型車, 上りの速度, 下りの速度)
+ROAD_CENSUS = {
+    2021: {"13": [("13199", "3", "0", "0", 1.0, 10000, 1000, 20.0, 30.0),
+                  ("13199", "4", "1", "1", 2.0, 6000, 600, 40.0, None),      # 上下線が分かれた区間の上り線
+                  ("13199", "4", "1", "2", 2.0, 4000, 400, None, 40.0),      # 同じ区間の下り線
+                  ("13199", "6", "2", "2", 1.0, 5000, 500, None, None),      # 複断面区間の本線
+                  ("13199", "6", "2", "4", 1.0, 1000, 100, None, None),      # 同じ区間の側道（延長は数えない）
+                  ("13199", "1", "0", "0", 3.0, 80000, 9000, 60.0, 60.0),    # 高速自動車国道（含めない）
+                  ("13199", "7", "0", "0", 1.0, 30000, 3000, 10.0, 10.0),    # 指定市の一般市道（含めない）
+                  ("13199", "4", "6", "0", 0.5, None, None, None, None),     # 交通不能区間（値なし）
+                  ("13299", "6", "8", "0", 0.4, None, None, None, None)],    # 値のある区間がない市区町村
+           "14": [("14199", "5", "0", "0", 2.0, 20000, 5000, 15.0, 15.0)]},
+    2015: {"13": [("13199", "4", "0", "0", 1.0, 8000, 1200, 25.0, 25.0)],
+           "14": [("14199", "3", "0", "0", 2.0, 18000, 1800, 20.0, 20.0)]},
+}
+
+
+def _write_road_census(directory: Path) -> dict[str, Path]:
+    heads = {
+        2021: ["交通調査基本区間番号", "道路種別", "市区町村コード", "区間種別", "分離区間／分離区分",
+               "区間延長（ｋｍ）", "２４時間自動車類交通量（上下合計）／小型車（台）",
+               "２４時間自動車類交通量（上下合計）／大型車（台）", "２４時間自動車類交通量（上下合計）／合計（台）",
+               "平成２７年度／２４時間自動車類交通量（台）", "朝夕（混雑時）／上り／旅行速度／小型車（ｋｍ／ｈ）",
+               "朝夕（混雑時）／上り／旅行速度／合計（ｋｍ／ｈ）", "朝夕（混雑時）／下り／旅行速度／合計（ｋｍ／ｈ）",
+               "昼間（非混雑時）／上り／旅行速度／合計（ｋｍ／ｈ）", "平成２７年度／混雑時／上り／平均旅行速度（ｋｍ／ｈ）",
+               "交通調査基本区間番号", "道路種別"],
+        2015: ["交通調査基本区間番号", "道路種別", "市区町村コード", "区間種別", "分離区間／分離区分",
+               "区間延長（ｋｍ）", "２４時間自動車類交通量（上下合計）／小型車（台）",
+               "２４時間自動車類交通量（上下合計）／大型車（台）", "２４時間自動車類交通量（上下合計）／合計（台）",
+               "混雑時／上り／旅行速度計測・非計測の別", "混雑時／上り／旅行速度（ｋｍ／ｈ）",
+               "混雑時／下り／旅行速度（ｋｍ／ｈ）", "昼間非混雑時／上り／旅行速度（ｋｍ／ｈ）",
+               "平成２２年度／旅行速度／混雑時／上り（ｋｍ／ｈ）"],
+    }
+    def cell(v) -> str:
+        return "" if v is None else (f"{v:g}" if isinstance(v, float) else str(v))
+    out = {}
+    for year, prefs in ROAD_CENSUS.items():
+        for pref, sections in prefs.items():
+            buf = io.StringIO()
+            w = csv.writer(buf, lineterminator="\r\n")
+            w.writerow(heads[year])
+            for i, (code, road, kind, sep, length, total, large, up, down) in enumerate(sections):
+                small = None if total is None else total - large
+                no = f"{pref}{i:09d}"
+                if year == 2021:
+                    w.writerow([no, road, code, kind, sep, cell(length), cell(small), cell(large), cell(total),
+                                "", cell(None if up is None else up + 5), cell(up), cell(down), "50", "33.3", no, road])
+                else:
+                    w.writerow([no, road, code, kind, sep, cell(length), cell(small), cell(large), cell(total),
+                                "1", cell(up), cell(down), "50", "33.3"])
+            key = f"mlit_road_census_{year}"
+            path = directory / key / pref / f"kasyo{pref}.csv"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(buf.getvalue().encode("cp932") if year == 2021
+                             else buf.getvalue().encode("utf-8-sig"))
+            out[f"{key}_{pref}"] = path
     return out
 
 
