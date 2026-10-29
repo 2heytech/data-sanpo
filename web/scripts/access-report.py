@@ -9,6 +9,7 @@
 """
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -64,6 +65,10 @@ query($account: String!, $start: Time!, $end: Time!) {
   } }
 }""" % HOST
 
+# 市区町村のページ（/areas/muni-xxxxx/）は名前をつけて別の表にする。名前は公開中の一覧ページから取る
+MUNI_PAGE = re.compile(r"^/areas/(muni-\d{5})/$")
+TOP_MUNIS = 50
+
 # ページ別。訪問の多い順に TOP_PAGES 件を出す（URL の ? 以降は requestPath に含まれない）
 TOP_PAGES = 20
 PAGE_QUERY = """
@@ -87,6 +92,19 @@ query($zone: String!, $start: Date!, $end: Date!) {
     }
   } }
 }"""
+
+
+def muni_names() -> dict[str, str]:
+    """「東京都 品川区」のような名前。一覧ページが読めないときは空（表は id のまま出す）。"""
+    try:
+        req = urllib.request.Request(f"https://{HOST}/areas/", headers={"User-Agent": "access-report"})
+        with urllib.request.urlopen(req, timeout=60) as res:
+            html = res.read().decode("utf-8")
+    except (urllib.error.URLError, TimeoutError, UnicodeDecodeError):
+        return {}
+    prefs = dict(re.findall(r'href="/prefectures/(\d{2})/"[^>]*>([^<]+?)の人口', html))
+    return {mid: f"{prefs.get(mid[5:7], '')} {name}".strip()
+            for mid, name in re.findall(r'href="/areas/(muni-\d{5})/"[^>]*>([^<]+)</a>', html)}
 
 
 def is_search(ref: str) -> bool:
@@ -214,6 +232,15 @@ def main() -> None:
     print("|---|--:|")
     for p in search_pages:
         print(f"| {p} | {page_search[p]:,.0f} |")
+    muni_pages = sorted((p for p in page_views if MUNI_PAGE.match(p)), key=lambda p: (-page_views[p], p))
+    names = muni_names() if muni_pages else {}
+    print(f"\n### 市区町村のページ（8日間のページビューの多い順、上位{TOP_MUNIS}）\n")
+    print(f"見られた市区町村のページ {len(muni_pages):,} 件、ページビュー計 {sum(page_views[p] for p in muni_pages):,.0f}\n")
+    print("| 市区町村 | 8日間のページビュー | うち前日 | 8日間の検索からの訪問数 |")
+    print("|---|--:|--:|--:|")
+    for p in muni_pages[:TOP_MUNIS]:
+        mid = MUNI_PAGE.match(p).group(1)
+        print(f"| {names.get(mid, mid)} | {page_views[p]:,.0f} | {page_views_target[p]:,.0f} | {page_search[p]:,.0f} |")
     if requests:
         print("\n| 日付（UTC） | リクエスト数（ボットを含む） |")
         print("|---|--:|")
