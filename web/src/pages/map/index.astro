@@ -6,7 +6,7 @@ import CategoryIcon from "../../components/CategoryIcon.astro";
 import { readFileSync } from "node:fs";
 import { DATA_BASE, RELEASE, loadIndicators } from "../../lib/data";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
-const maplibreUrl = `/vendor/maplibre-gl@${version}/maplibre-gl.mjs`;
+const maplibreUrl = `/vendor/maplibre-gl-${version}/maplibre-gl.mjs`;
 // 右の欄の「〇〇の公式サイト」の URL 一覧（pages/official-sites.json.ts）。架空の地名を使う開発用データでは出さない
 const officialSitesUrl = RELEASE.is_fixture ? "" : "/official-sites.json";
 // 指標の選択画面で使う分類のアイコン（地図の処理が複製して使う）。点レイヤーのカテゴリも含める
