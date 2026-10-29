@@ -2626,3 +2626,14 @@
 - 守ること: 一覧からすべての指標のページにリンクする（開閉する項目の中のリンクも HTML に含める。検索エンジンが各指標の
   ページをたどれるように）。指標を足したときは、同じ形の組なら INDICATOR_GROUPS に id を足す。URL・ヘッダーの「指標」の
   行き先（/#indicators）は変えない。
+
+## 174. MapLibre の配信フォルダ名から「@」をなくし、長期キャッシュを付ける — 採用（#13 を直す）
+
+- 何を: `/vendor/maplibre-gl@{版}/` を `/vendor/maplibre-gl-{版}/` にする（web/scripts/copy-vendor.mjs・web/src/pages/map/index.astro）。
+  あわせて web/public/_headers に `/vendor/*` の `Cache-Control: public, max-age=31536000, immutable` を足す。
+- なぜ: 交通量の公開確認のとき、公開サイトで `/vendor/maplibre-gl@6.11.2/maplibre-gl.mjs` などを開くと、
+  Cloudflare の配信が「@」を「%40」に直す転送（307、`location: /vendor/maplibre-gl%406.11.2/…`）を返していた
+  （2026-10-29 に GitHub Actions から確かめた。本体・共有部・Worker の3つとも）。地図を開くたびに往復が3回余分に入り、
+  表示が遅れる。また #13 では「版付きなので長期キャッシュできる」としていたが、_headers に /vendor/* の決まりがなく、
+  毎回確かめに行っていた。フォルダ名に「@」を使わなければ転送はなくなり、版が変わればフォルダ名も変わるので長期キャッシュしてよい。
+- ファイルの数は変わらない（フォルダ名だけ）。
