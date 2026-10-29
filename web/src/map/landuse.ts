@@ -51,6 +51,8 @@ interface Options {
   source: Source | undefined;
   /** この層より下（境界の塗り・線より下）に入れる */
   beforeLayer: () => string | undefined;
+  /** 年度が決まった・変わったとき（共有URLに入れる。#175） */
+  onYear: () => void;
 }
 
 export interface LandUseLayer {
@@ -58,12 +60,19 @@ export interface LandUseLayer {
   setVisible(on: boolean): Promise<boolean>;
   /** 縮尺が変わったとき（縮小しすぎて見えないことを知らせる） */
   sync(): void;
+  /** 表示している年度（読み込む前は、選んでおいた年度か null） */
+  year(): number | null;
+  /** 年度を選ぶ（共有URLから開いたとき）。読み込む前なら、読み込んだときにその年度にする。ない年度なら最新のまま */
+  chooseYear(year: number): void;
+  /** 凡例（土地利用の区分の名前と色。画像の凡例に使う）。読み込む前は空 */
+  legend(): { name: string; color: string }[];
 }
 
 export function initLandUse(o: Options): LandUseLayer {
   let index: LandUseIndex | null = null;
   let available = new Set<string>();
   let at = 0;   // index.years の番号
+  let wanted: number | null = null;   // 読み込む前に選んだ年度
   let visible = false;
   let blank: Promise<ImageBitmap> | null = null;
   let timer: number | undefined;
@@ -77,7 +86,9 @@ export function initLandUse(o: Options): LandUseLayer {
     }
     available = new Set(index.years.flatMap((y) =>
       Object.entries(y.tiles).flatMap(([z, ts]) => ts.map((t) => `${y.year}/${z}/${t}`))));
-    at = index.years.length - 1;
+    // 共有URLで選んだ年度があればその年度、なければ最新
+    const w = index.years.findIndex((y) => y.year === wanted);
+    at = w >= 0 ? w : index.years.length - 1;
     // 一覧にないタイル（海だけの範囲）は、読まずに透明な画像にする
     o.maplibregl.addProtocol(PROTOCOL, async (params, abort) => {
       const key = params.url.slice(PROTOCOL.length + 3);
@@ -142,6 +153,7 @@ export function initLandUse(o: Options): LandUseLayer {
     at = i;
     for (const l of LAYERS) (o.map.getSource(l.id) as RasterTileSource).setTiles([tileUrl()]);
     sync();
+    o.onYear();
   }
 
   function stopPlay() {
@@ -189,8 +201,21 @@ export function initLandUse(o: Options): LandUseLayer {
       if (o.map.getLayer(l.id)) o.map.setLayoutProperty(l.id, "visibility", on && ok ? "visible" : "none");
     }
     sync();
+    // 読み込んで年度が決まったら知らせる（URL に年度を入れる）
+    if (on && ok) o.onYear();
     return ok;
   }
 
-  return { setVisible, sync };
+  return {
+    setVisible, sync,
+    year: () => (index ? index.years[at].year : wanted),
+    chooseYear(year: number) {
+      if (!index) wanted = year;
+      else {
+        const i = index.years.findIndex((y) => y.year === year);
+        if (i >= 0) setYear(i);
+      }
+    },
+    legend: () => index?.legend.map((c) => ({ name: c.name, color: c.color })) ?? [],
+  };
 }

@@ -5,6 +5,7 @@ import FeedbackLink from "../../components/FeedbackLink.astro";
 import CategoryIcon from "../../components/CategoryIcon.astro";
 import { readFileSync } from "node:fs";
 import { DATA_BASE, RELEASE, loadIndicators } from "../../lib/data";
+import { RELIEF_GRADIENT, RELIEF_STOPS, reliefAt } from "../../map/relief";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl-${version}/maplibre-gl.mjs`;
 // 右の欄の「〇〇の公式サイト」の URL 一覧（pages/official-sites.json.ts）。架空の地名を使う開発用データでは出さない
@@ -53,14 +54,6 @@ const BASES = [
   { id: "relief", name: "標高", title: "標高（色別標高図）", icon: ICON.relief },
   { id: "landuse", name: "土地利用", title: "土地利用（100m四方のマス）", icon: ICON.landuse },
 ];
-// 標高の色の見本（地理院タイル「色別標高図」の平らな所の色を、標高ごとに読み取ったもの）。帯は等間隔で、目盛りは一部だけ書く
-const RELIEF_STOPS = [
-  { m: 0, color: "#2db5ae", tick: "0m" }, { m: 10, color: "#2db579" }, { m: 50, color: "#52b52d" },
-  { m: 100, color: "#71b52d", tick: "100" }, { m: 200, color: "#99b52d" }, { m: 300, color: "#b5a92d", tick: "300" },
-  { m: 500, color: "#b5902d" }, { m: 1000, color: "#b5562d", tick: "1000" }, { m: 2000, color: "#b5491b" },
-  { m: 3000, color: "#b54212", tick: "3000m" },
-];
-const reliefGradient = `linear-gradient(to right, ${RELIEF_STOPS.map((s, i) => `${s.color} ${(i / (RELIEF_STOPS.length - 1)) * 100}%`).join(", ")})`;
 const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "観光", "天気"])];
 ---
 <Base menu="地図" preload={maplibreUrl} description="全国の市区町村・町丁目を、人口・高齢化・年収・地価などで色分けした地図。地名で探して拡大すれば、となりのまちとの違いや年ごとの移り変わりがひと目で分かります。" wide>
@@ -173,9 +166,9 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
           <span class="base-panel-title">標高（色別標高図）</span>
           <button type="button" class="base-close" aria-label="標高を閉じる" title="標高を閉じる">×</button>
         </div>
-        <div class="relief-bar" style={`background: ${reliefGradient}`} aria-hidden="true"></div>
+        <div class="relief-bar" style={`background: ${RELIEF_GRADIENT}`} aria-hidden="true"></div>
         <div class="relief-ticks muted small" aria-hidden="true">
-          {RELIEF_STOPS.map((s, i) => s.tick && <span style={`left: ${(i / (RELIEF_STOPS.length - 1)) * 100}%`}>{s.tick}</span>)}
+          {RELIEF_STOPS.map((s, i) => s.tick && <span style={`left: ${reliefAt(i) * 100}%`}>{s.tick}</span>)}
         </div>
         <p id="relief-note" class="muted small" hidden></p>
       </section>
@@ -254,7 +247,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         <div class="picker-list" tabindex="-1" autofocus></div>
       </div>
     </dialog>
-    {/* 画像の保存・コピーとリンクのコピー（地図の右下のボタンで開く。#153・#156）。画像は表示中の地図からブラウザの中で作り、リンクには地図の位置を入れない。SNS などへ送るボタンは置かない */}
+    {/* 画像の保存・コピーとリンクのコピー（地図の右下のボタンで開く。#153・#156）。画像は表示中の地図からブラウザの中で作る。
+         リンクには画面で切り替えたもの（背景・重ねた点など）を入れ、地図の位置と縮尺はチェックで外せる（#175）。SNS などへ送るボタンは置かない */}
     <dialog id="share-dialog" class="share-dialog" aria-labelledby="share-title">
       <div class="share-head">
         <h2 id="share-title">画像とリンクのコピー</h2>
@@ -274,9 +268,11 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
           <input id="share-url" type="text" readonly aria-label="この地図のリンク" />
           <button type="button" id="share-copy" class="button secondary">コピー</button>
         </div>
+        <label class="share-view"><input type="checkbox" id="share-view" checked />地図の位置と縮尺も入れる</label>
         <ul class="share-notes muted small">
           <li>画像は、いま表示している地図にこの端末の中で題名・凡例・出典を書き足して作ります。コピーできないときは、保存するか、画像を長押し（パソコンでは右クリック）してコピーしてください。</li>
-          <li>リンクには指標・時点・選んだ地域・色分けの単位だけが入り、地図の位置や縮尺は入りません。開くと選んだ地域（なければ日本全体）を表示します。</li>
+          <li>リンクには、指標・時点・選んだ地域・色分けの単位・背景（航空写真の年代、土地利用の年度）・重ねた地点・表示の切替が入ります。開くと同じ表示になります。</li>
+          <li>「地図の位置と縮尺も入れる」を外すと、開いたときは選んだ地域（なければ日本全体）を表示します。自宅の近くや現在地を見ているときは外してください。</li>
         </ul>
       </div>
     </dialog>
@@ -425,6 +421,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .share-link { display: flex; gap: 8px; }
   .share-link input { flex: 1; min-width: 0; font: inherit; font-size: 0.85rem; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--muted); }
   .share-link .button { flex: none; }
+  .share-view { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.85rem; cursor: pointer; }
+  .share-view input { width: 16px; height: 16px; margin: 0; }
   @media (max-width: 720px) {
     .picker { width: 100vw; height: 100dvh; max-width: none; max-height: none; border-radius: 0; }
     .share-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }

@@ -4,7 +4,7 @@
 // 都道府県の分だけ places/station_passengers/<都道府県>.json から読む（createPrefLoader）。
 // 駅は事業者ごとに別の点。同じ駅の他の事業者の値は並べて表示し、合計しない。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml } from "./points";
+import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml, type FocusPoint, pointUrlState } from "./points";
 import { formatNumber, STATUS_LABEL } from "../lib/format";
 import type { Source, StationsFile, Station } from "../lib/types";
 import { esc } from "../lib/html";
@@ -31,6 +31,8 @@ interface Options {
   labelFont: string[];
   /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
+  /** 共有URLの地点へ地図を動かす */
+  focus: FocusPoint;
 }
 
 export type StationLayer = PointLayer;
@@ -243,7 +245,7 @@ export function initStations(o: Options): StationLayer {
     void setVisible(true).then(async () => {
       const s = await loader.find((x) => x.id === initial);
       if (!s) return;
-      o.map.jumpTo({ center: s.coord, zoom: Math.max(o.map.getZoom(), 14, PLACES_MIN_ZOOM) });
+      o.focus(s.coord, Math.max(14, PLACES_MIN_ZOOM));
       showStation(initial);
     });
   }
@@ -259,6 +261,7 @@ export function initStations(o: Options): StationLayer {
     kind: "駅",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     sourceIds: () => data?.source_ids ?? [],
+    urlState: () => pointUrlState(o.toggle.checked, "stations", "s", shown?.id, !o.panel.hidden),
     show: showStation,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : shown?.coord ?? null),
