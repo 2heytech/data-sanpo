@@ -2,7 +2,7 @@
 // 空港は全国で約100、港は数百と少ないので、places/<指標>.json の1ファイルに全件をまとめ、全国を見ているときから表示する。
 // 空港・港1か所の値なので地域には割り振らない（docs/design-changes.md #110）。選ぶと国内・国際の内訳と年ごとの推移を出す。
 import type { Map as MapLibreMap } from "maplibre-gl";
-import { sourcesHtml, type PointLayer } from "./points";
+import { sourcesHtml, type PointLayer, type FocusPoint, pointUrlState } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, TransportFile, TransportPoint } from "../lib/types";
 import { esc } from "../lib/html";
@@ -36,6 +36,8 @@ interface Options {
   labelFont: string[];
   /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
+  /** 共有URLの地点へ地図を動かす */
+  focus: FocusPoint;
 }
 
 /** 最新の年に値のある年の番号（値がひとつもなければ最後の年） */
@@ -142,10 +144,12 @@ export function initTransport(o: Options): PointLayer {
 
   /** 情報を出している地点の位置 */
   let at: [number, number] | null = null;
+  let picked: string | null = null;
   function showPoint(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, ["==", ["get", "id"], id ?? ""]);
     const p = id ? byId.get(id) : undefined;
     at = p && data ? p.coord : null;
+    picked = p && data ? p.id : null;
     if (!p || !data) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -194,7 +198,7 @@ export function initTransport(o: Options): PointLayer {
     void setVisible(true).then(() => {
       const p = initial ? byId.get(initial) : undefined;
       if (!p) return;
-      o.map.jumpTo({ center: p.coord, zoom: Math.max(o.map.getZoom(), 9) });
+      o.focus(p.coord, 9);
       showPoint(p.id);
     });
   }
@@ -204,6 +208,7 @@ export function initTransport(o: Options): PointLayer {
     kind: k.label,
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     sourceIds: () => data?.source_ids ?? [],
+    urlState: () => pointUrlState(o.toggle.checked, k.show, k.param, picked, !o.panel.hidden),
     show: showPoint,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : at),
