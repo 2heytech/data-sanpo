@@ -5,7 +5,7 @@
   python3 web/scripts/access-report.py   （Markdown を出力。最後の行は「ALERTS_JSON: {...}」）
 
   日付は日本時間で区切る。public リポジトリでは実行結果を誰でも見られるので、
-  出すのは日ごとの合計（全体・日本から・検索から）と、変化があったときの国・参照元の名前だけにする。
+  出すのは日ごとの合計（全体・日本から・検索から）、ページ別の数（公開しているページの URL だけ）と、変化があったときの国・参照元の名前だけにする。
 """
 import json
 import os
@@ -64,6 +64,20 @@ query($account: String!, $start: Time!, $end: Time!) {
   } }
 }""" % HOST
 
+# ページ別。訪問の多い順に TOP_PAGES 件を出す（URL の ? 以降は requestPath に含まれない）
+TOP_PAGES = 20
+PAGE_QUERY = """
+query($account: String!, $start: Time!, $end: Time!) {
+  viewer { accounts(filter: {accountTag: $account}) {
+    rows: rumPageloadEventsAdaptiveGroups(limit: 10000,
+        filter: {datetime_geq: $start, datetime_lt: $end, requestHost: "%s"}) {
+      count
+      sum { visits }
+      dimensions { datetimeHour requestPath refererHost }
+    }
+  } }
+}""" % HOST
+
 ZONE_QUERY = """
 query($zone: String!, $start: Date!, $end: Date!) {
   viewer { zones(filter: {zoneTag: $zone}) {
@@ -73,6 +87,11 @@ query($zone: String!, $start: Date!, $end: Date!) {
     }
   } }
 }"""
+
+
+def is_search(ref: str) -> bool:
+    labels = ref.split(".")
+    return any(key in labels for key in SEARCH_ENGINES)
 
 
 def jst_day(ts: str) -> str:
@@ -122,11 +141,23 @@ def main() -> None:
         ref = (r["dimensions"]["refererHost"] or "").lower()
         if ref and not ref.endswith(HOST):
             referer[d][ref] += v
-            labels = ref.split(".")
             for key, name in SEARCH_ENGINES.items():
-                if key in labels:
+                if key in ref.split("."):
                     search[d][name] += v
                     break
+
+    # ページ別: 8日間と前日のページビュー、8日間の検索からの訪問
+    page_views: dict[str, float] = defaultdict(float)
+    page_views_target: dict[str, float] = defaultdict(float)
+    page_search: dict[str, float] = defaultdict(float)
+    for r in graphql(token, PAGE_QUERY, {"account": account, "start": start, "end": end})["viewer"]["accounts"][0]["rows"]:
+        path = r["dimensions"]["requestPath"] or "/"
+        page_views[path] += r["count"]
+        if jst_day(r["dimensions"]["datetimeHour"]) == target:
+            page_views_target[path] += r["count"]
+        if is_search((r["dimensions"]["refererHost"] or "").lower()):
+            page_search[path] += r["sum"]["visits"]
+    top_pages = sorted(page_views, key=lambda p: (-page_views[p], p))[:TOP_PAGES]
 
     # ボットを含むリクエスト数（ゾーンの読み取り権限がないトークンでは取れないので、取れたときだけ）
     requests: dict[str, float] | None = None
@@ -172,6 +203,17 @@ def main() -> None:
     for d in days:
         print(f"| {d} | {visits[d]:,.0f} | {views[d]:,.0f} | {jp_visits[d]:,.0f} | {country[d][HOME_COUNTRY]:,.0f} | "
               f"{sum(search[d].values()):,.0f} | " + " | ".join(f"{search[d][e]:,.0f}" for e in engines) + " |")
+    print(f"\n### よく見られたページ（8日間のページビューの多い順、上位{TOP_PAGES}）\n")
+    print(f"| ページ | 8日間のページビュー | うち前日 | 8日間の検索からの訪問数 |")
+    print("|---|--:|--:|--:|")
+    for p in top_pages:
+        print(f"| {p} | {page_views[p]:,.0f} | {page_views_target[p]:,.0f} | {page_search[p]:,.0f} |")
+    search_pages = sorted((p for p in page_search if page_search[p]), key=lambda p: (-page_search[p], p))[:TOP_PAGES]
+    print(f"\n### 検索から入ったページ（8日間の訪問数の多い順、上位{TOP_PAGES}）\n")
+    print("| ページ | 検索からの訪問数 |")
+    print("|---|--:|")
+    for p in search_pages:
+        print(f"| {p} | {page_search[p]:,.0f} |")
     if requests:
         print("\n| 日付（UTC） | リクエスト数（ボットを含む） |")
         print("|---|--:|")
@@ -184,6 +226,8 @@ def main() -> None:
                                          "jp_visits": jp_visits[target], "jp_pageviews": country[target][HOME_COUNTRY],
                                          "search_visits": sum(search[target].values()),
                                          "search_by_engine": {e: v for e, v in search[target].items() if v},
+                                         "top_pages_day": {p: v for p, v in sorted(page_views_target.items(),
+                                                                                   key=lambda kv: -kv[1])[:10] if v},
                                          "prev_avg_pageviews": round(base_views, 1),
                                          "alerts": alerts}, ensure_ascii=False))
 
