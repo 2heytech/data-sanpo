@@ -7640,6 +7640,22 @@ attribution = "出典：国土地理院 地理院タイル（標高タイル（�
 modification_note = "ズーム12の標高タイル（約30m間隔）の画素を、中心が入る町丁・字等ごとに平均・最高・最低にして作成"
 redistributable = true
 
+# 標高タイルのズーム14から画素ごとに計算した傾斜（#179、prepare.toml の slope）。period は elevation_towns と同じ
+[slope_towns]
+kind = "town_slope"
+period = "2026-10-01"
+title = "地理院タイル 標高タイル（基盤地図情報数値標高モデル）から計算した傾斜"
+provider = "国土地理院"
+url = "https://maps.gsi.go.jp/development/demtile.html"
+download_url = "https://github.com/2heytech/data-sanpo/releases/download/derived-sources/slope_towns-v1.csv.gz"
+optional = true
+files = ["slope_towns-v1.csv.gz"]   # download_url のファイル名と同じにする（古い版が残っていても使わない）
+license = "国土地理院コンテンツ利用規約（公共データ利用規約（第1.0版）（PDL1.0））"
+license_url = "https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html"
+attribution = "出典：国土地理院 地理院タイル（標高タイル（基盤地図情報数値標高モデル））"
+modification_note = "ズーム14の標高タイル（元の標高は約10m間隔）から画素ごとに傾斜（度）を計算し、画素の中心が入る町丁・字等ごとに平均と傾斜の区分ごとの点の数にして作成"
+redistributable = true
+
 [farmland_towns]
 kind = "farmland_areas"
 title = "筆ポリゴンデータ（2026年度公開）"

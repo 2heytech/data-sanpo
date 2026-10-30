@@ -252,7 +252,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
                         "gsi_airports", "gsi_ports", "soumu_election", "soumu_fiscal_indicators",
                         "soumu_settlement", "soumu_tax_collection", "gsi_area", "land_use_cells", "urban_land_use_cells",
-                        "town_elevation", "land_use_tiles", "farmland_areas", "vegetation_areas",
+                        "town_elevation", "town_slope", "land_use_tiles", "farmland_areas", "vegetation_areas",
                         "school_counts", "kokode_nurseries", "cfa_childcare", "isj_block_points",
                         "mlit_michi_no_eki", "gsi_michi_no_eki", "wikidata_michi_no_eki",
                         "kunishitei_cultural_properties", "mlit_road_census"):
@@ -409,6 +409,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = derived_towns.ingest_cells(conn, files[0], src, catalog, cfg, prefs)
         elif kind == "town_elevation":
             result[key] = derived_towns.ingest_elevation(conn, files[0], src, catalog, cfg, prefs)
+        elif kind == "town_slope":
+            result[key] = derived_towns.ingest_slope(conn, files[0], src, catalog, cfg, prefs)
         elif kind == "land_use_tiles":
             result[key] = f"{len(files)} ファイル（公開版の land_use/ に書き出す）"
         elif kind == "gsi_area":
@@ -691,7 +693,7 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--release-id")
         p.add_argument("--note")
     p = sub.add_parser("prepare")
-    p.add_argument("job", help="config/prepare.toml の集計の名前（land_use・elevation・farmland・vegetation）")
+    p.add_argument("job", help="config/prepare.toml の集計の名前（land_use・elevation・slope・farmland・vegetation など）")
     p.add_argument("--out", type=Path, default=DEFAULT_PATHS.data_dir / "derived")
     p.add_argument("--list", action="store_true", help="作るファイルの名前だけを表示する")
     p = sub.add_parser("fixture")

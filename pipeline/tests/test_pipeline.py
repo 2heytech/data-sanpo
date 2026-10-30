@@ -1691,6 +1691,95 @@ def test_elevation_tile_decode_and_summary(tmp_path):
     assert list(tmp_path.rglob("*.none"))   # 404 のタイルは覚えておき、やり直したときに取り直さない
 
 
+def test_slope(built):
+    """地面の傾斜（標高タイルから計算した町丁・字等ごとの集計、#179）。平均は合計 ÷ 点の数、割合は点の数から。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    mean, flat, steep = (by[k] for k in ("slope_mean", "slope_flat_share", "slope_steep_share"))
+    assert mean["unit"] == "度" and flat["unit"] == steep["unit"] == "%" and mean["category"] == "土地"
+    assert [p["period"] for p in mean["periods"]] == ["2026-10-01"]
+    towns = {key: t for key, t, _, _ in fixture._fixture_towns()}
+    th = fixture.SLOPE_THRESHOLDS
+    from tdm.prepare import load_jobs
+    assert load_jobs()["slope"]["thresholds"] == th   # 集計の境目と fixture を揃える（背景「傾斜」の区分とも同じ）
+
+    def values(indicator, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{indicator}/2026-10-01/{level}.json")["rows"]}
+    key = "13299001001"
+    n, total, at_least = fixture.slope_stats(key, towns[key])
+    assert values("slope_mean", "13")[f"area-{key}"]["value"] == pytest.approx(total / n, abs=1e-3)
+    assert "numerator" not in values("slope_mean", "13")[f"area-{key}"]
+    assert values("slope_flat_share", "13")[f"area-{key}"]["value"] == pytest.approx(
+        (n - at_least[th.index(3)]) / n * 100, abs=1e-3)
+    rows = values("slope_steep_share", "13")
+    assert rows[f"area-{key}"]["value"] == pytest.approx(at_least[th.index(15)] / n * 100, abs=1e-3)
+    assert rows["area-13499001001"]["status"] == "not_applicable"     # 海だけ（点がない）
+    assert rows["area-13499001002"]["status"] == "withheld"           # 点が20未満
+    # 市区町村は中の町丁・字等の点の数の合計（値を出さない小さな地域の点も入る）。都道府県は市区町村の合計
+    stats = {k: fixture.slope_stats(k, t) for k, t in towns.items()}
+    munis = values("slope_steep_share", "municipalities")
+    city = [v for k, v in stats.items() if k.startswith("13499")]
+    assert munis["muni-13499"]["value"] == pytest.approx(
+        sum(v[2][th.index(15)] for v in city) / sum(v[0] for v in city) * 100, abs=1e-3)
+    pref = [v for k, v in stats.items() if k.startswith("14")]
+    assert values("slope_mean", "prefectures")["pref-14"]["value"] == pytest.approx(
+        sum(v[1] for v in pref) / sum(v[0] for v in pref), abs=1e-3)
+    # 山の多い島は平らな市街地より急な斜面が多い
+    assert munis["muni-13499"]["value"] > munis["muni-13199"]["value"]
+
+
+def test_slope_tiles_and_summary(tmp_path):
+    """標高タイルから画素ごとの傾斜（周りの8画素。タイルの端は隣のタイルを使う）と、町丁・字等ごとの集計（#179）。"""
+    import io
+    import math
+    import urllib.error
+    import numpy as np
+    import shapely
+    pil = pytest.importorskip("PIL.Image")
+    from tdm.prepare import slope as sl
+    from tdm.prepare.elevation import tile_box
+    from tdm.prepare.towns import Towns
+
+    zoom, tx, ty = 14, 14550, 6451
+    rise = math.tan(math.radians(11)) * float(sl.pixel_meters(zoom, ty).mean())   # 東へ11度で上がる斜面
+
+    def png(dx: int, dy: int) -> bytes:
+        _, c = np.mgrid[0:256, 0:256]
+        x = np.round((100 + (dx * 256 + c) * rise) * 100).astype(np.int64)
+        rgb = np.stack([x >> 16, (x >> 8) & 255, x & 255], axis=-1).astype(np.uint8)
+        buf = io.BytesIO()
+        pil.fromarray(rgb, "RGB").save(buf, "PNG")
+        return buf.getvalue()
+    pngs = {(tx + dx, ty + dy): png(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)}
+
+    west, south, east, north = tile_box(zoom, tx, ty)
+    mid = (west + east) / 2
+    geoms = [shapely.box(west, south, mid, north), shapely.box(mid, south, east, north),
+             shapely.box(east + 1, south, east + 2, north)]   # タイルのない（海の）地域
+    towns = Towns("13", ["W", "E", "S"], geoms, shapely.STRtree(geoms))
+    thresholds = [3, 10, 12, 30]
+    url = "https://example.invalid/{z}/{x}/{y}.png"
+
+    def getter(missing=()):
+        def get(u):
+            x, y = (int(v) for v in u.removesuffix(".png").split("/")[-2:])
+            if (x, y) in pngs and (x, y) not in missing:
+                return pngs[(x, y)]
+            raise urllib.error.HTTPError(u, 404, "Not Found", None, None)
+        return get
+
+    rows = {r[0]: r[1:] for r in sl.summarize(towns, url, zoom, thresholds, tmp_path / "a", getter(), workers=4)}
+    half = 128 * 256
+    assert rows["W"][0] == half and rows["E"][0] == half
+    assert rows["E"][1] == pytest.approx(11 * half, rel=1e-3)          # タイルの端の画素も11度
+    assert rows["E"][2:] == [half, half, 0, 0]                          # 3度以上・10度以上・12度以上・30度以上
+    assert rows["S"] == [0, "", "", "", "", ""]
+    # 東のタイルがない（海）と、東の端の列は東隣を同じ高さとして計算するので傾斜がゆるくなる
+    east_missing = {(tx + 1, ty + dy) for dy in (-1, 0, 1)}
+    rows = {r[0]: r[1:] for r in sl.summarize(towns, url, zoom, thresholds, tmp_path / "b", getter(east_missing),
+                                              workers=4)}
+    assert rows["E"][2:] == [half, half - 256, 0, 0] and rows["W"][2:] == [half, half, 0, 0]
+
+
 def test_fetch_skips_optional_source_not_yet_released(tmp_path):
     """まだ Release に置いていない集計（optional = true）は 404 なら飛ばす。ほかのエラーや、optional でない出典は止める。"""
     import urllib.error

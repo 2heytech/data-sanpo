@@ -44,6 +44,29 @@ class Towns:
         out[pi[first]] = gi[first]
         return out
 
+    def prepare(self) -> None:
+        """locate_in_box で点を調べる前に、地域の図形を調べやすくしておく（GEOS の prepared geometry）。"""
+        shapely.prepare(np.array(self.geoms, dtype=object))
+
+    def locate_in_box(self, lon: np.ndarray, lat: np.ndarray, box: tuple[float, float, float, float]) -> np.ndarray:
+        """locate と同じ（境界線の上の点はどちらか一方の地域）。点がすべて box（西・南・東・北）の中にあるとき
+        （タイルの画素の中心など）に使う。box にかかる地域ごとに、その地域の範囲の中の点だけを調べるので、
+        点が多いときに locate よりずっと速い（ズーム14のタイル1枚 6万5千点で数十倍。先に prepare を呼んでおく）。
+        GEOS の準備した図形を同時に使うと落ちることがあるので、いくつものスレッドから呼ばない。"""
+        out = np.full(len(lon), -1, dtype=np.int64)
+        area = shapely.box(*box)
+        candidates = self.tree.query(area, predicate="intersects")
+        if len(candidates) == 1 and shapely.contains(self.geoms[candidates[0]], area):
+            out[:] = candidates[0]
+            return out
+        for g in candidates:
+            geom = self.geoms[g]
+            x0, y0, x1, y1 = geom.bounds
+            sel = np.flatnonzero((out < 0) & (lon >= x0) & (lon <= x1) & (lat >= y0) & (lat <= y1))
+            if len(sel):
+                out[sel[shapely.intersects_xy(geom, lon[sel], lat[sel])]] = g
+        return out
+
 
 def read_towns(shp: Path, pref: str, encoding: str = "cp932") -> Towns:
     reader = shapefile.Reader(str(shp), encoding=encoding)

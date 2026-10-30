@@ -1536,6 +1536,22 @@ def elevation_stats(key: str, t: int) -> tuple[int, float, float, float]:
     return n, round(mean * n, 1), low, high
 
 
+# 傾斜の集計（#179）の「○度以上」の境目（config/prepare.toml の slope.thresholds と同じ）
+SLOPE_THRESHOLDS = [3, 4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40]
+
+
+def slope_stats(key: str, t: int) -> tuple[int, float, list[int]]:
+    """(点の数, 傾斜の合計, ○度以上の点の数…)。13199 は平ら、13299 はゆるい坂、13499 は山の多い島
+    （海だけの地域は点がなく、陸の少ない地域は点が8つ）、14199 は平ら。"""
+    city = key[:5]
+    if city == "13499" and t == 0:
+        return 0, 0.0, [0] * len(SLOPE_THRESHOLDS)
+    n = 8 if (city == "13499" and t == 1) else 36000
+    mean = {"13199": 1.5 + t / 10, "13299": 5.0 + t, "13499": 18.0 + 2 * t, "14199": 2.0 + t / 4}[city]
+    # 傾斜が指数分布に従うとして、○度以上の点の数を作る（境目が大きいほど少ない）
+    return n, round(mean * n, 1), [round(n * math.exp(-th / mean)) for th in SLOPE_THRESHOLDS]
+
+
 # 農地の区画（筆ポリゴン）・植生（現存植生図2024）の集計（#124）。面積は ha、区画は数
 FARMLAND_COLUMNS = ["田", "畑", "田の区画", "畑の区画", "面積"]
 VEGETATION_COLUMNS = ["自然林", "二次林", "植林地", "竹林", "その他"]
@@ -1646,6 +1662,10 @@ def _write_derived_towns(directory: Path) -> dict[str, Path]:
     for key, t, _, _ in towns:
         n, total, low, high = elevation_stats(key, t)
         elevation.append([key, n, total, low, high] if n else [key, 0, "", "", ""])
+    slope = []
+    for key, t, _, _ in towns:
+        n, total, at_least = slope_stats(key, t)
+        slope.append([key, n, total, *at_least] if n else [key, 0, "", *([""] * len(SLOPE_THRESHOLDS))])
     farmland = [[key, 2026, *farmland_areas(key, t)] for key, t, _, _ in towns]
     vegetation = [[key, 2024, *vegetation_areas(key, t)] for key, t, _, _ in towns]
     return {
@@ -1656,6 +1676,8 @@ def _write_derived_towns(directory: Path) -> dict[str, Path]:
         "urban_land_use_towns": write_gz("urban_land_use_towns", ["KEY_CODE", "年度", *URBAN_COLUMNS, "都市地域の範囲外"],
                                          urban),
         "elevation_towns": write_gz("elevation_towns", ["KEY_CODE", "点の数", "標高の合計", "最低", "最高"], elevation),
+        "slope_towns": write_gz("slope_towns", ["KEY_CODE", "点の数", "傾斜の合計",
+                                                *(f"{th}度以上" for th in SLOPE_THRESHOLDS)], slope),
         "land_use_tiles": _write_land_use_tiles(directory, towns),
     }
 

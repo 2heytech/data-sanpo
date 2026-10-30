@@ -28,6 +28,17 @@ outputs = { towns = "elevation_towns" }
 tiles = "https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png"
 zoom = 12
 
+# 同じ標高タイルのズーム14（元の標高は約10m間隔。1画素は東京あたりで約8m四方）から、画素ごとの傾斜（度）を計算して
+# 町丁・字等ごとに足す（#179、地図の背景「傾斜」と同じ計算）。thresholds: 「○度以上」の点の数を数える境目
+# （背景「傾斜」の区分の境目と同じ。指標はこのうち 3度・15度を使う）。workers: タイルを同時に取得する数。
+[slope]
+method = "slope"
+outputs = { towns = "slope_towns" }
+tiles = "https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png"
+zoom = 14
+thresholds = [3, 4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40]
+workers = 32
+
 # 農林水産省「筆ポリゴン」（2026年度公開、農地の区画。#124）。筆ポリゴン公開サイトの地図が使っている ArcGIS Online の
 # 地物サービスから、区画ごとの耕地の種類（田・畑）・重心点・面積を読む（区画の形は読まない）。
 # サービスの名前は公開年度ごとに変わる（FudePolygonTemp_2026）。年度を変えるときは sources.toml の版も上げる。

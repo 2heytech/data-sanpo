@@ -296,6 +296,68 @@ source_kind = "town_elevation"
 elevation_value = "range"
 legend = { method = "nice", classes = 12, scheme = "bupu" }
 
+# 地面の傾斜（#179）。標高タイルのズーム14から画素ごとに計算した傾斜を、Actions「Prepare derived sources」で町丁・字等ごとに
+# 足した CSV（sources.toml の slope_towns）から取り込む。列は 点の数・傾斜の合計・○度以上（と取込で作る ○度未満）。
+[slope_mean]
+name = "平均傾斜"
+category = "土地"
+unit = "度"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1
+fraction = false
+min_denominator = 20
+levels = ["municipality", "small_area"]
+description = "地域の中の地面の傾き（度）の平均。約10m間隔の標高から地面の各所の傾きを計算して平均したもので、坂や斜面の多さの目安。"
+method = "国土地理院 地理院タイル「標高タイル（基盤地図情報数値標高モデル）」のズーム14（元の標高は約10m間隔、1画素は東京あたりで約8m四方）の画素ごとに、周りの8画素の標高から傾斜（度）を計算し（Horn 法）、画素の中心が町丁・字等の中に入る点の傾斜の平均。市区町村・都道府県は中の点すべての平均。"
+caveats = ["建物や木の高さを除いた地面の傾きです。崖・石垣・段差など、約10mより短い急な所はなだらかになります。", "元の標高は主に地形図の等高線から作られているため、平地のゆるい傾き（数度）は粗い値です。", "湖や川の水面の点も含みます。", "画素の中心が入る町丁・字等に数えています（境界で画素を分けません）。傾斜を計算した点が20未満の小さな町丁・字等は値を表示しません。"]
+source_kind = "town_slope"
+numerator_columns = ["傾斜の合計"]
+denominator_columns = ["点の数"]
+denominator_label = "傾斜を計算した点"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[slope_flat_share]
+name = "平らな土地の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+fraction = false
+min_denominator = 20
+levels = ["municipality", "small_area"]
+description = "地域の地面のうち、傾きが3度未満の平らな土地の割合。約10m間隔の標高から地面の各所の傾きを計算して求めたもの。"
+method = "国土地理院 地理院タイル「標高タイル（基盤地図情報数値標高モデル）」のズーム14（元の標高は約10m間隔、1画素は東京あたりで約8m四方）の画素ごとに、周りの8画素の標高から傾斜（度）を計算し（Horn 法）、画素の中心が町丁・字等の中に入る点のうち、傾斜が3度未満の点の数 ÷ 点の数 × 100。市区町村・都道府県の値は点の数の合計から計算。"
+caveats = ["建物や木の高さを除いた地面の傾きです。崖・石垣・段差など、約10mより短い急な所はなだらかになります。", "元の標高は主に地形図の等高線から作られているため、平地のゆるい傾き（数度）は粗い値です。", "湖や川の水面の点も含みます。", "画素の中心が入る町丁・字等に数えています（境界で画素を分けません）。傾斜を計算した点が20未満の小さな町丁・字等は値を表示しません。"]
+source_kind = "town_slope"
+numerator_columns = ["3度未満"]
+denominator_columns = ["点の数"]
+denominator_label = "傾斜を計算した点"
+legend = { method = "nice", classes = 12, scheme = "bugn" }
+
+[slope_steep_share]
+name = "急な斜面の割合"
+category = "土地"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+fraction = false
+min_denominator = 20
+levels = ["municipality", "small_area"]
+description = "地域の地面のうち、傾きが15度以上の急な斜面の割合。約10m間隔の標高から地面の各所の傾きを計算して求めたもの。"
+method = "国土地理院 地理院タイル「標高タイル（基盤地図情報数値標高モデル）」のズーム14（元の標高は約10m間隔、1画素は東京あたりで約8m四方）の画素ごとに、周りの8画素の標高から傾斜（度）を計算し（Horn 法）、画素の中心が町丁・字等の中に入る点のうち、傾斜が15度以上の点の数 ÷ 点の数 × 100。市区町村・都道府県の値は点の数の合計から計算。"
+caveats = ["建物や木の高さを除いた地面の傾きです。崖・石垣・段差など、約10mより短い急な所はなだらかになります。", "元の標高は主に地形図の等高線から作られているため、平地のゆるい傾き（数度）は粗い値です。", "湖や川の水面の点も含みます。", "画素の中心が入る町丁・字等に数えています（境界で画素を分けません）。傾斜を計算した点が20未満の小さな町丁・字等は値を表示しません。", "地面の傾きの割合で、土砂災害の起こりやすさを表すものではありません。"]
+source_kind = "town_slope"
+numerator_columns = ["15度以上"]
+denominator_columns = ["点の数"]
+denominator_label = "傾斜を計算した点"
+legend = { method = "nice", classes = 12, scheme = "rdpu" }
+
 # 農地の区画（農林水産省「筆ポリゴン」）と植生（環境省「現存植生図2024」）（#124）。土地利用と同じく、Actions
 # 「Prepare derived sources」で町丁・字等ごとに面積（ha）を足した CSV（sources.toml の farmland_towns・vegetation_towns）から取り込む。
 # 面積の内訳は端数が大きく見えるので、分子・分母は公開ファイルに書かない（fraction = false）。
