@@ -1,25 +1,28 @@
 // 背景の「傾斜」（設計変更記録 #177）。地理院タイル「標高タイル」（dem_png、基盤地図情報 数値標高モデル）をブラウザで読み、
 // 画素ごとの地面の傾斜（度）を計算して、区分ごとに色を塗った画像を地図に重ねる（計算はブラウザの中だけ）。
 // 傾斜の計算は地理院の傾斜量図と同じ、周りの8画素の標高を使う方法（Horn 法）。タイルの端の画素は隣のタイルの標高を使う。
-// 区分の境目は、歩いて感じる坂の違いが見えるよう12度までは2度ごと（3〜4度だけ1度）、急な斜面は15度から5度ごとの12段階にする（#178）。
+// 区分の境目は、歩いて感じる坂の違いが見えるよう4度までは1度ごと、12度までは2度ごと、急な斜面は15度から5度ごとの14段階にする（#178・#180）。
+// 色は薄い黄から緑・青を経て濃い紫へ（viridis）。区分ごとに色合いと明るさの両方が変わり、色覚の違いがあっても明るさの順で区分の順がわかる。
 // 3度・15度・30度は指標「平らな土地の割合」「急な斜面の割合」と同じ。30度は法律の「急傾斜地」の基準
 import type * as MapLibre from "maplibre-gl";
 
-/** 傾斜の区分（min 度以上）。3度未満は色を塗らず、下の地図をそのまま見せる。色は薄い黄から橙・赤を経て濃い紫へ */
+/** 傾斜の区分（min 度以上）。1度未満は色を塗らず、下の地図をそのまま見せる */
 export const SLOPE_CLASSES: { min: number; label: string; color: string | null }[] = [
-  { min: 0, label: "3度未満", color: null },
-  { min: 3, label: "3〜4度", color: "#fff3b0" },
-  { min: 4, label: "4〜6度", color: "#ffe082" },
-  { min: 6, label: "6〜8度", color: "#fec95a" },
-  { min: 8, label: "8〜10度", color: "#fdac3f" },
-  { min: 10, label: "10〜12度", color: "#fb8b30" },
-  { min: 12, label: "12〜15度", color: "#f4672a" },
-  { min: 15, label: "15〜20度", color: "#e3452a" },
-  { min: 20, label: "20〜25度", color: "#c72d2f" },
-  { min: 25, label: "25〜30度", color: "#a31f3c" },
-  { min: 30, label: "30〜35度", color: "#7b1648" },
-  { min: 35, label: "35〜40度", color: "#521045" },
-  { min: 40, label: "40度以上", color: "#2d0a35" },
+  { min: 0, label: "1度未満", color: null },
+  { min: 1, label: "1〜2度", color: "#f6ef9a" },
+  { min: 2, label: "2〜3度", color: "#fde725" },
+  { min: 3, label: "3〜4度", color: "#cae126" },
+  { min: 4, label: "4〜6度", color: "#97d745" },
+  { min: 6, label: "6〜8度", color: "#66ca5f" },
+  { min: 8, label: "8〜10度", color: "#3eba75" },
+  { min: 10, label: "10〜12度", color: "#22a884" },
+  { min: 12, label: "12〜15度", color: "#21968b" },
+  { min: 15, label: "15〜20度", color: "#27828d" },
+  { min: 20, label: "20〜25度", color: "#2f6e8e" },
+  { min: 25, label: "25〜30度", color: "#385a8c" },
+  { min: 30, label: "30〜35度", color: "#414487" },
+  { min: 35, label: "35〜40度", color: "#472b79" },
+  { min: 40, label: "40度以上", color: "#461261" },
 ];
 /** 塗る色の不透明度（0〜255）。下の地図の道や地名が透けて見えるようにする */
 export const SLOPE_ALPHA = 200;
@@ -91,7 +94,7 @@ export function slopeTile(dems: (Float32Array | null)[], z: number, y: number): 
 
 const CLASS_RGB = SLOPE_CLASSES.map((s) => s.color && [1, 3, 5].map((i) => parseInt(s.color!.slice(i, i + 2), 16)));
 
-/** 傾斜（度）→ 区分の色の画素（RGBA）。3度未満と標高のない画素は透明 */
+/** 傾斜（度）→ 区分の色の画素（RGBA）。1度未満と標高のない画素は透明 */
 export function paintSlope(slope: Float32Array): Uint8ClampedArray<ArrayBuffer> {
   const out = new Uint8ClampedArray(slope.length * 4);
   for (let i = 0; i < slope.length; i++) {

@@ -62,13 +62,13 @@ describe("傾斜の計算", () => {
 
 describe("傾斜の色", () => {
   const rgb = (hex: string) => [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16));
-  it("区分は3度未満（色なし）と、3・4・6・8・10・12・15・20・25・30・35・40度で区切る12段階", () => {
-    expect(SLOPE_CLASSES.map((c) => c.min)).toEqual([0, 3, 4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40]);
-    expect(SLOPE_CLASSES.filter((c) => c.color).length).toBe(12);
+  it("区分は1度未満（色なし）と、1・2・3・4・6・8・10・12・15・20・25・30・35・40度で区切る14段階", () => {
+    expect(SLOPE_CLASSES.map((c) => c.min)).toEqual([0, 1, 2, 3, 4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40]);
+    expect(SLOPE_CLASSES.filter((c) => c.color).length).toBe(14);
     expect(new Set(SLOPE_CLASSES.map((c) => c.color)).size).toBe(SLOPE_CLASSES.length);
   });
-  it("区分ごとの色。境目の値は上の区分、3度未満と標高のない画素は透明", () => {
-    const values = [1, NaN, 89, ...SLOPE_CLASSES.slice(1).flatMap((c) => [c.min - 0.01, c.min])];
+  it("区分ごとの色。境目の値は上の区分、1度未満と標高のない画素は透明", () => {
+    const values = [0.5, NaN, 89, ...SLOPE_CLASSES.slice(1).flatMap((c) => [c.min - 0.01, c.min])];
     const rgba = paintSlope(Float32Array.from(values));
     const px = (i: number) => [...rgba.slice(i * 4, i * 4 + 4)];
     expect(px(0)[3]).toBe(0);
