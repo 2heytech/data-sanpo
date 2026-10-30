@@ -1749,7 +1749,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         ? { title: "標高", gradient: { stops: RELIEF_STOPS.map((st, i) => ({ at: reliefAt(i), color: st.color })),
                                      ticks: RELIEF_STOPS.flatMap((st, i) => (st.tick ? [{ at: reliefAt(i), text: st.tick }] : [])) } }
         : baseMode === "slope"
-          ? { title: "傾斜（3度未満は色なし）",
+          ? { title: "傾斜（1度未満は色なし）",
               items: SLOPE_CLASSES.flatMap((c) => (c.color ? [{ color: c.color, label: c.label }] : [])) }
           : null;
   initShare({
