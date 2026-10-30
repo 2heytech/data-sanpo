@@ -2,27 +2,27 @@
 // 画素ごとの地面の傾斜（度）を計算して、区分ごとに色を塗った画像を地図に重ねる（計算はブラウザの中だけ）。
 // 傾斜の計算は地理院の傾斜量図と同じ、周りの8画素の標高を使う方法（Horn 法）。タイルの端の画素は隣のタイルの標高を使う。
 // 区分の境目は、歩いて感じる坂の違いが見えるよう4度までは1度ごと、12度までは2度ごと、急な斜面は15度から5度ごとの14段階にする（#178・#180）。
-// 色は意味のまとまりごとに色合いを変える（3度未満は緑、3〜8度は黄、8〜15度は橙、15〜30度は赤、30度以上は紫。まとまりの中は濃さで分ける）。
+// 色は薄い黄から緑・青を経て濃い紫へ（viridis）。区分ごとに色合いと明るさの両方が変わり、色覚の違いがあっても明るさの順で区分の順がわかる。
 // 3度・15度・30度は指標「平らな土地の割合」「急な斜面の割合」と同じ。30度は法律の「急傾斜地」の基準
 import type * as MapLibre from "maplibre-gl";
 
 /** 傾斜の区分（min 度以上）。1度未満は色を塗らず、下の地図をそのまま見せる */
 export const SLOPE_CLASSES: { min: number; label: string; color: string | null }[] = [
   { min: 0, label: "1度未満", color: null },
-  { min: 1, label: "1〜2度", color: "#c2e5cc" },
-  { min: 2, label: "2〜3度", color: "#80c99f" },
-  { min: 3, label: "3〜4度", color: "#fff09a" },
-  { min: 4, label: "4〜6度", color: "#ffd95c" },
-  { min: 6, label: "6〜8度", color: "#f5bd35" },
-  { min: 8, label: "8〜10度", color: "#fd9f55" },
-  { min: 10, label: "10〜12度", color: "#f57c37" },
-  { min: 12, label: "12〜15度", color: "#e65a22" },
-  { min: 15, label: "15〜20度", color: "#dc3a3a" },
-  { min: 20, label: "20〜25度", color: "#b81f33" },
-  { min: 25, label: "25〜30度", color: "#8c112d" },
-  { min: 30, label: "30〜35度", color: "#702477" },
-  { min: 35, label: "35〜40度", color: "#4c175e" },
-  { min: 40, label: "40度以上", color: "#2a0b40" },
+  { min: 1, label: "1〜2度", color: "#f6ef9a" },
+  { min: 2, label: "2〜3度", color: "#fde725" },
+  { min: 3, label: "3〜4度", color: "#cae126" },
+  { min: 4, label: "4〜6度", color: "#97d745" },
+  { min: 6, label: "6〜8度", color: "#66ca5f" },
+  { min: 8, label: "8〜10度", color: "#3eba75" },
+  { min: 10, label: "10〜12度", color: "#22a884" },
+  { min: 12, label: "12〜15度", color: "#21968b" },
+  { min: 15, label: "15〜20度", color: "#27828d" },
+  { min: 20, label: "20〜25度", color: "#2f6e8e" },
+  { min: 25, label: "25〜30度", color: "#385a8c" },
+  { min: 30, label: "30〜35度", color: "#414487" },
+  { min: 35, label: "35〜40度", color: "#472b79" },
+  { min: 40, label: "40度以上", color: "#461261" },
 ];
 /** 塗る色の不透明度（0〜255）。下の地図の道や地名が透けて見えるようにする */
 export const SLOPE_ALPHA = 200;
