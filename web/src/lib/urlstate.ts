@@ -15,7 +15,7 @@ export interface MapState {
   area?: string;
   /** 色分けの単位を手で選んだとき（prefecture・municipality・small_area）。ないときは縮尺に合わせて切り替える（#146） */
   level?: string;
-  /** 背景。航空写真は撮影年代の ID（photo は最新、photo1945 など）、標高は relief、土地利用は年度つき（landuse2021）。地図のときはなし */
+  /** 背景。航空写真は撮影年代の ID（photo は最新、photo1945 など）、標高は relief、傾斜は slope、土地利用は年度つき（landuse2021）。地図のときはなし */
   base?: string;
   /** 既定ではオフのものでオンにしているもの（駅などの重ねる点、背景が写真などのときの色分け）。?show= */
   show?: string[];
