@@ -15,11 +15,11 @@ import tomllib
 from pathlib import Path
 
 from ..config import CONFIG_DIR, Paths, load_sources
-from . import cultural_properties, elevation, farmland, land_use, vegetation, zairyu
+from . import cultural_properties, elevation, farmland, land_use, slope, vegetation, zairyu
 from .towns import load_towns
 
-METHODS = {"land_use": land_use, "elevation": elevation, "farmland": farmland, "vegetation": vegetation,
-           "cultural_properties": cultural_properties, "zairyu": zairyu}
+METHODS = {"land_use": land_use, "elevation": elevation, "slope": slope, "farmland": farmland,
+           "vegetation": vegetation, "cultural_properties": cultural_properties, "zairyu": zairyu}
 
 
 def load_jobs() -> dict[str, dict]:

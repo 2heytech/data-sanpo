@@ -11,6 +11,9 @@ farmland_areas（筆ポリゴン、#124）は「KEY_CODE, 年度, 田, 畑（ha�
 town_elevation: 列は「KEY_CODE, 点の数, 標高の合計, 最低, 最高」（標高タイルの画素の数と標高）。
   elevation_value = "mean" は 標高の合計 ÷ 点の数、"range" は 最高 − 最低。市区町村・都道府県の高低差は、中の町丁・字等の
   最高・最低から求める（平均標高の都道府県の値は、公開ファイルを作るときに市区町村の合計から作る）。
+town_slope（#179）: 列は「KEY_CODE, 点の数, 傾斜の合計, 3度以上, 4度以上, …」（標高タイルの画素ごとの傾斜の点の数・度の合計・
+  その傾斜以上の点の数）。「○度以上」の列ごとに「○度未満」（点の数 − ○度以上）も作り、指標の値は
+  numerator_columns の合計 ÷ denominator_columns の合計 × scale。市区町村の値は町丁・字等の合計から計算する。
 
 集計に含まれない都道府県（集計を全国で作り直す前の都道府県など）は取り込まない（値なしの行も作らない）。
 """
@@ -176,4 +179,42 @@ def ingest_elevation(conn: sqlite3.Connection, path: Path, source_id: str, catal
             insert_observation(conn, **obs)
             n_rows += 1
         result[indicator_id] = n_rows
+    return result
+
+
+def ingest_slope(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, cfg: dict,
+                 prefs: list[str]) -> dict:
+    rows = read_rows(path)
+    targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "town_slope"}
+    areas = _areas(conn, prefs)
+    period = (cfg["period"], cfg["period"], "point")
+    by_area: dict[str, dict[str, float]] = {}
+    covered: set[str] = set()
+    unmatched = []
+    for r in rows:
+        entity_id = small_area_entity_id(r["KEY_CODE"])
+        if prefecture_of(entity_id) not in prefs:
+            continue
+        covered.add(prefecture_of(entity_id))
+        if entity_id not in areas:
+            unmatched.append(r["KEY_CODE"])
+            continue
+        c = {k: float(v or 0) for k, v in r.items() if k != "KEY_CODE"}
+        for k in [k for k in c if k.endswith("度以上")]:
+            c[k.removesuffix("以上") + "未満"] = c["点の数"] - c[k]
+        by_area[entity_id] = c
+    munis: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for entity_id, muni in areas.items():
+        for k, v in by_area.get(entity_id, {}).items():   # 画素の中心が1つも入らない小さな地域は点が0
+            munis[muni][k] += v
+    result: dict = {"unmatched": unmatched}
+    for indicator_id, d in targets.items():
+        n = 0
+        for entity_id, c in [*((e, by_area.get(e, {})) for e in areas if prefecture_of(e) in covered),
+                             *munis.items()]:
+            _insert_ratio(conn, entity_id, indicator_id, d, period, source_id,
+                          sum(c.get(k, 0) for k in d["numerator_columns"]),
+                          sum(c.get(k, 0) for k in d["denominator_columns"]), 0, cfg)
+            n += 1
+        result[indicator_id] = n
     return result
