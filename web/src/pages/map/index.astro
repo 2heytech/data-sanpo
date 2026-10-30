@@ -175,17 +175,21 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         </div>
         <p id="relief-note" class="muted small" hidden></p>
       </section>
-      {/* 傾斜の区分（#177）。3度未満は色を塗らない */}
+      {/* 傾斜の区分（#177・#178）。区分を同じ幅で並べた帯の下に境目の度を書く。3度未満は色を塗らない */}
       <section id="slope-panel" class="base-panel" aria-label="傾斜の色" hidden>
         <div class="base-panel-head">
           <span class="base-panel-title">傾斜（標高から計算）</span>
           <button type="button" class="base-close" aria-label="傾斜を閉じる" title="傾斜を閉じる">×</button>
         </div>
-        <div class="land-bins slope-bins">
-          {SLOPE_CLASSES.map((c) => (
-            <span><span class:list={["sw sq", { none: !c.color }]} style={c.color ? `background: ${c.color}` : undefined}></span>{c.label}{c.color ? "" : "（色なし）"}</span>
-          ))}
+        <div class="slope-bar" aria-hidden="true">
+          {SLOPE_CLASSES.map((c) => <span class:list={{ none: !c.color }} style={c.color ? `background: ${c.color}` : undefined}></span>)}
         </div>
+        <div class="slope-ticks muted small" aria-hidden="true">
+          {SLOPE_CLASSES.map((c, i) => <span style={`left: ${(i / SLOPE_CLASSES.length) * 100}%`}>{c.min}{i === SLOPE_CLASSES.length - 1 && <span class="unit">度</span>}</span>)}
+        </div>
+        <ul class="visually-hidden">
+          {SLOPE_CLASSES.map((c) => <li>{c.label}{c.color ? "" : "（色なし）"}</li>)}
+        </ul>
         <p class="muted small base-caption">建物や木を除いた地面の傾き。約10m間隔の標高から計算しています。</p>
         <p id="slope-note" class="muted small" hidden></p>
       </section>
@@ -657,6 +661,13 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .relief-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
   .relief-ticks span:first-child { transform: none; margin-left: -6px; }
   .relief-ticks span:last-child { transform: translateX(-100%); margin-left: 6px; }
+  /* 傾斜の区分の帯（色なしの区分は白）と、境目の度 */
+  .slope-bar { display: flex; height: 12px; margin-top: 6px; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+  .slope-bar span { flex: 1; }
+  .slope-bar span.none { background: #fff; }
+  .slope-ticks { position: relative; height: 1.4em; margin-top: 2px; }
+  .slope-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+  .slope-ticks span:first-child { transform: none; }
   /* 地図の幅が狭いとき（スマホ・狭い窓）は、背景の切替を左端に寄せ、パネルはそのすぐ下に置く
      （地図の下側は縮尺・出典・ズームのボタンで混むため）。幅は landuse.ts の NARROW_MAP_PX と同じ */
   @container (max-width: 560px) {
@@ -673,6 +684,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   @container (max-width: 400px) {
     .base-switch button { gap: 2px; padding: 5px 4px; font-size: 0.76rem; }
     .base-switch svg { width: 14px; height: 14px; }
+    .slope-ticks .unit { display: none; }
   }
   /* 出典が長いとき（標高の「海域部は…」など）は右下で折り返し、左下の縮尺に重ねない */
   .map-wrap .maplibregl-ctrl-bottom-right { max-width: calc(100% - 120px); }
@@ -760,7 +772,6 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     border: 1px solid #fff; box-shadow: 0 0 0 1px #bbb;
   }
   .land-bins .sw.sq { border-radius: 2px; border: 0; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
-  .land-bins .sw.none { background: #fff; }
   .trend-scroll { max-height: 260px; overflow-y: auto; }
   .city-total { margin: 10px 0; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--panel);
     display: flex; flex-direction: column; gap: 2px; }
