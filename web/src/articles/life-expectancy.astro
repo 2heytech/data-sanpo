@@ -1,0 +1,146 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, ranking, rows, value } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
+
+const M = "life_expectancy_male";
+const F = "life_expectancy_female";
+const P = "2020-01-01";
+const P15 = "2015-01-01";
+const ASAO = "muni-14137";
+const AOBA = "muni-14117";
+const TSUZUKI = "muni-14118";
+const MIYADA = "muni-20388";
+const NISSHIN = "muni-23230";
+const MASHIKI = "muni-43443";
+const TAKAMORI = "muni-20403";
+const KUSATSU = "muni-25206";
+const KITANAKAGUSUKU = "muni-47327";
+
+const top = (id: string, period: string, n: number, level: "municipality" | "prefecture" = "municipality") =>
+  ranking(id, period, level, "high", n);
+const idsAt = (id: string, period: string, rank: number, level: "municipality" | "prefecture" = "municipality") =>
+  top(id, period, 20, level).filter((r) => r.rank === rank).map((r) => r.entity_id).sort().join();
+
+// 都道府県（このサイトの値は小数第1位）: 男性は長野県・滋賀県が並んで1位、3位は奈良県。女性は滋賀県・京都府・岡山県が並んで1位
+check(idsAt(M, P, 1, "prefecture") === ["pref-20", "pref-25"].join() && idsAt(M, P, 3, "prefecture") === "pref-29",
+  "2020年の都道府県の男性の1位が長野県・滋賀県、3位が奈良県ではありません");
+check(idsAt(F, P, 1, "prefecture") === ["pref-25", "pref-26", "pref-33"].join(), "2020年の都道府県の女性の1位が滋賀県・京都府・岡山県ではありません");
+
+// 市区町村: 男女とも麻生区が1位。男性2位は青葉区、3位は宮田村・日進市。女性2位は益城町・高森町・草津市
+check(idsAt(M, P, 1) === ASAO && idsAt(F, P, 1) === ASAO, "2020年の男女の1位が川崎市麻生区ではありません");
+check(idsAt(M, P, 2) === AOBA && idsAt(M, P, 3) === [MIYADA, NISSHIN].sort().join(), "2020年の男性の2・3位が青葉区・宮田村と日進市ではありません");
+check(idsAt(F, P, 2) === [MASHIKI, TAKAMORI, KUSATSU].sort().join(), "2020年の女性の2位が益城町・高森町・草津市ではありません");
+check(top(M, P, 5).some((r) => r.entity_id === TSUZUKI && r.rank === 5), "2020年の男性の5位に都筑区が入っていません");
+
+// 2015年: 男性は青葉区が1位で麻生区が2位、女性は北中城村が1位
+check(idsAt(M, P15, 1) === AOBA && idsAt(M, P15, 2) === ASAO, "2015年の男性の1・2位が青葉区・麻生区ではありません");
+check(idsAt(F, P15, 1) === KITANAKAGUSUKU, "2015年の女性の1位が北中城村ではありません");
+
+// 男性の上位30位（同じ値を含む）のうち長野県の市町村の数
+const topWithTies = (id: string, n: number) => {
+  const vs = rows(id, P, "municipality").filter((r) => r.value !== null).sort((a, b) => (b.value as number) - (a.value as number));
+  const cut = vs[n - 1]?.value ?? Infinity;
+  return vs.filter((r) => (r.value as number) >= cut);
+};
+const male30 = topWithTies(M, 30);
+const naganoMale = male30.filter((r) => r.entity_id.startsWith("muni-20")).length;
+check(naganoMale >= 10 && naganoMale > male30.filter((r) => r.entity_id.startsWith("muni-14")).length,
+  "男性の上位30に長野県の市町村が10以上入っていない、または神奈川県より少ない");
+
+// 2015→2020年に平均寿命が延びた市区町村の割合（男性は9割を超え、女性は約9割）
+const longer = (id: string) => {
+  const before = new Map(rows(id, P15, "municipality").map((r) => [r.entity_id, r.value]));
+  const pairs = rows(id, P, "municipality").flatMap((r) => {
+    const b = before.get(r.entity_id);
+    return r.value === null || b === null || b === undefined ? [] : [[b, r.value]];
+  });
+  return pairs.filter(([b, a]) => a > b).length / pairs.length;
+};
+const maleLonger = longer(M);
+const femaleLonger = longer(F);
+check(maleLonger > 0.9 && femaleLonger > 0.85 && femaleLonger < 0.95, "2015→2020年に延びた市区町村が男性9割超・女性約9割ではありません");
+---
+<Article slug="life-expectancy">
+  <p>
+    平均寿命は、生まれたばかりの0歳の人が、その年の死亡の状況が続くとしたときに平均してあと何年生きられるかを表した値（0歳の平均余命）です。
+    厚生労働省は国勢調査の年ごとに、都道府県別と市区町村別の「生命表」を作っています。
+    いま公表されている最新の2020年の生命表で、平均寿命の長い都道府県と市区町村を見てみます。
+    全国の平均寿命は、男性が81.49年、女性が87.60年です（都道府県別生命表）。
+  </p>
+
+  <h2>都道府県では、男性は滋賀県、女性は岡山県</h2>
+  <p>
+    このサイトの値（小数第1位）では、男性は長野県と滋賀県が{value(M, P, "pref-25")}で並び、女性は滋賀県・京都府・岡山県が{value(F, P, "pref-33")}で並びます。
+    小数第2位まで載っている厚生労働省の「都道府県別生命表」では、男性は滋賀県（82.73年）が1位、長野県（82.68年）が2位、奈良県（82.40年）が3位です。
+    女性は岡山県（88.29年）が1位で、滋賀県（88.26年）、京都府（88.25年）が続きます。
+    滋賀県は、男女とも2位以内に入っています。
+  </p>
+  <ArticleRanking id={M} period={P} level="prefecture" n={8} expect={["pref-20", "pref-25", "pref-29", "pref-26", "pref-14"]} caption="男性の平均寿命が長い都道府県（2020年）" />
+  <ArticleRanking id={F} period={P} level="prefecture" n={8} expect={["pref-25", "pref-26", "pref-33", "pref-20"]} caption="女性の平均寿命が長い都道府県（2020年）" />
+
+  <h2>入れ替わってきた1位</h2>
+  <p>
+    都道府県別生命表は1965年から5年ごとに作られています。男性の1位は、1965〜1975年は東京都、1980・1985年は沖縄県、
+    1990年から2010年までは長野県が5回続けて1位で、2015年からは滋賀県です。滋賀県は2000年に6位、2005・2010年に2位と順位を上げてきました。
+  </p>
+  <p>
+    女性の1位は、1975年から2005年まで沖縄県が7回続けて1位で、2010・2015年は長野県、2020年は岡山県です。
+    厚生労働省によると、1965年から2020年まで毎回10位以内に入っているのは、男性では長野県と神奈川県、女性では岡山県だけです。
+  </p>
+
+  <h2>市区町村では、男女とも川崎市麻生区が1位</h2>
+  <p>
+    市区町村の1位は、男女とも神奈川県川崎市麻生区で、男性は{value(M, P, ASAO)}、女性は{value(F, P, ASAO)}です。
+    男性の2位は横浜市青葉区（{value(M, P, AOBA)}）、3位は長野県宮田村と愛知県日進市（{value(M, P, MIYADA)}）です。
+    女性の2位は、熊本県益城町・長野県高森町・滋賀県草津市が{value(F, P, KUSATSU)}で並びます。
+  </p>
+  <ArticleRanking id={M} period={P} n={10} expect={[ASAO, AOBA, MIYADA, NISSHIN, TSUZUKI]} caption="男性の平均寿命が長い市区町村（2020年）" />
+  <ArticleRanking id={F} period={P} n={12} expect={[ASAO, MASHIKI, TAKAMORI, KUSATSU, AOBA]} caption="女性の平均寿命が長い市区町村（2020年）" />
+  <p>
+    市区町村別生命表は2000年から作られていて、2020年が5回目です。麻生区によると、男女とも同じ市区町村が1位になったのは今回が初めてです。
+    前回の2015年は、男性は横浜市青葉区（{value(M, P15, AOBA)}）が1位で麻生区（{value(M, P15, ASAO)}）が2位、女性は沖縄県北中城村（{value(F, P15, KITANAKAGUSUKU)}）が1位でした。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${M}&p=${P}&a=${ASAO}&l=municipality`}>男性の平均寿命を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${F}&p=${P}&a=${ASAO}&l=municipality`}>女性の平均寿命を地図で見る</a>
+  </p>
+
+  <h2>麻生区・青葉区・都筑区はとなり合う区</h2>
+  <p>
+    麻生区は川崎市の北西の端にある区で、小田急線の新百合ヶ丘駅のまわりなどに住宅地が広がっています。
+    男性2位の横浜市青葉区は麻生区のとなりで、男性5位の横浜市都筑区（{value(M, P, TSUZUKI)}）も青葉区のとなりです。
+    どの区も多摩丘陵に住宅地が開発された地域で、平均寿命の長い区がとなり合ってまとまっています。
+  </p>
+  <p>
+    麻生区の保健所の支所（地域みまもり支援センター）は、男女とも1位になった大きな理由として、がん・心臓病・脳卒中で亡くなる人の割合が全国よりかなり低いことを挙げ、
+    健康診断の受診など、区民の健康への意識の高さにも触れています。
+  </p>
+
+  <h2>長野県の市町村も多い</h2>
+  <p>
+    男性の上位30位（同じ値を含めて{formatNumber(male30.length, 0)}市区町村）のうち、{formatNumber(naganoMale, 0)}が長野県の市町村です。
+    宮田村・豊丘村・原村など、長野県の南部の町村が多く入っています。女性でも、高森町・伊那市・佐久市・箕輪町が上位にあります。
+    ただし、人口の少ない町村の値は、まわりの地域の死亡の状況も使って推定しているため、となり合う町村は近い値になりやすいと考えられます。
+  </p>
+
+  <h2>9割の市区町村で延びた平均寿命</h2>
+  <p>
+    2015年と2020年の両方に値のある市区町村のうち、平均寿命が延びたのは、男性で{formatNumber(maleLonger * 100, 0)}%、女性で{formatNumber(femaleLonger * 100, 0)}%でした。
+    都道府県別生命表でも、全国の平均寿命は2015年から2020年に男性で0.72年、女性で0.60年延びています。
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>平均寿命は、その年の死亡の状況が続くとしたときの値です。その地域に住む人が実際に何歳まで生きたかの平均ではありません。</li>
+    <li>市区町村別生命表は国勢調査の年の前後の死亡数から計算し、人口の少ない町村は、まわりの地域の死亡の状況も使って推定しています。</li>
+    <li>平均寿命の違いには、年齢ごとの病気や事故などさまざまなことが関わっていて、このデータだけでは理由は分かりません。</li>
+    <li>このサイトの都道府県の値は小数第1位までです。本文の小数第2位までの値は、厚生労働省の「令和2年都道府県別生命表」の値です。</li>
+    <li>2020年が、2026年10月時点で公表されている最新の生命表です。政令指定都市は区ごとの値です。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

@@ -1,0 +1,151 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, count, indicator, nationalValue, ranking, raw, rows, value } from "../lib/articleData";
+import { loadValues } from "../lib/data";
+import { formatNumber, formatValue } from "../lib/format";
+
+const ID = "employees_manufacturing_share";
+const COUNT = "employees_manufacturing";
+const SHIP = "manufacturing_shipments";
+const P = "2021-06-01";
+const PS = "2024-01-01";
+const SAKAKI = "muni-20521";
+const BANDAI = "muni-07407";
+const OSHINO = "muni-19424";
+const KOSAI = "muni-22221";
+const OGUCHI = "muni-23361";
+const TOYOTA = "muni-23211";
+const ANJO = "muni-23212";
+const KARIYA = "muni-23210";
+const HIGASHIOSAKA = "muni-27227";
+const CHIYODA = "muni-13101";
+const KURASHIKI = "muni-33202";
+const ICHIHARA = "muni-12219";
+// 豊田市トヨタ町・刈谷市昭和町一丁目
+const TOYOTA_CHO = "area-232110610";
+const SHOWA_CHO = "area-23210058001";
+
+const ids = (id: string, period: string, n: number, level: "municipality" | "prefecture" = "municipality") =>
+  ranking(id, period, level, "high", n).map((r) => r.entity_id).join();
+const cho = (v: number | null) => (v === null ? "—" : `約${formatNumber(v / 10000, 1)}兆円`);
+// 働く人（全産業）の数は、割合の分母から出す（単位の書き方は「製造業で働く人の数」と同じ）
+const persons = (entity: string) => {
+  const r = rows(ID, P, "municipality").find((x) => x.entity_id === entity);
+  const ind = indicator(COUNT);
+  return r?.denominator === undefined || !ind ? "—" : formatValue({ value: r.denominator, status: "derived" }, ind);
+};
+
+// 題名: 1位の坂城町は7割を超える。7割を超えるのは坂城町・磐梯町・忍野村の3つだけ
+check(ids(ID, P, 3) === [SAKAKI, BANDAI, OSHINO].join(), "製造業で働く人の割合の1〜3位が坂城町・磐梯町・忍野村ではありません");
+const top4 = ranking(ID, P, "municipality", "high", 4);
+check(top4.slice(0, 3).every((r) => (r.value ?? 0) >= 70) && (top4[3]?.value ?? 100) < 70, "7割を超える市区町村が3つではありません");
+
+// 市だけで数えると湖西市が1位（全体で5位）。大口町は上位10に入る
+check(ranking(ID, P, "municipality", "high", 1, [], { kind: "市" })[0]?.entity_id === KOSAI, "市の中の1位が湖西市ではありません");
+check(ranking(ID, P, "municipality", "high", 5)[4]?.entity_id === KOSAI, "湖西市が5位ではありません");
+
+// 働く人が10万人を超える市区町村では、安城市・豊田市・刈谷市の順
+const big = rows(ID, P, "municipality").filter((r) => r.value !== null && (r.denominator ?? 0) >= 100000)
+  .sort((a, b) => (b.value as number) - (a.value as number));
+check(big.slice(0, 3).map((r) => r.entity_id).join() === [ANJO, TOYOTA, KARIYA].join(), "働く人が10万人を超える市区町村の1〜3位が安城市・豊田市・刈谷市ではありません");
+
+// 人数は豊田市が1位、東大阪市が2位、千代田区が3位。町丁・字等ではトヨタ町が1位、刈谷市昭和町一丁目が2位
+check(ids(COUNT, P, 3) === [TOYOTA, HIGASHIOSAKA, CHIYODA].join(), "製造業で働く人の数の1〜3位が豊田市・東大阪市・千代田区ではありません");
+const areaRank = (entity: string) => loadValues(COUNT, P, entity.slice(5, 7))?.rows.find((r) => r.entity_id === entity)?.national_rank;
+check(areaRank(TOYOTA_CHO) === 1 && areaRank(SHOWA_CHO) === 2, "製造業で働く人の数の町丁・字等の1・2位がトヨタ町・昭和町一丁目ではありません");
+
+// 出荷額（2024年）は豊田市が1位で、2位の倉敷市の3倍を超え、全国の5%あまり
+check(ids(SHIP, PS, 3) === [TOYOTA, KURASHIKI, ICHIHARA].join(), "製造品出荷額等の1〜3位が豊田市・倉敷市・市原市ではありません");
+const shipJapan = rows(SHIP, PS, "prefecture").reduce((s, r) => s + (r.value ?? NaN), 0);
+const toyotaShare = (raw(SHIP, PS, TOYOTA) ?? NaN) / shipJapan;
+const toyotaTimes = (raw(SHIP, PS, TOYOTA) ?? NaN) / (raw(SHIP, PS, KURASHIKI) ?? NaN);
+check(toyotaShare > 0.05 && toyotaShare < 0.06 && toyotaTimes > 3.5 && toyotaTimes < 4, "豊田市の出荷額が全国の5%あまり・倉敷市の約3.6倍ではありません");
+
+// 都道府県: 滋賀県が1位。愛知県は8位
+check(ids(ID, P, 1, "prefecture") === "pref-25", "都道府県の1位が滋賀県ではありません");
+check(ranking(ID, P, "prefecture", "high", 8)[7]?.entity_id === "pref-23", "愛知県が都道府県の8位ではありません");
+---
+<Article slug="manufacturing-share">
+  <p>
+    工場など、ものを作る事業所で働く人は、どのまちに多いのでしょうか。
+    総務省・経済産業省の「経済センサス‐活動調査」（2021年6月1日現在）で、民営の事業所で働く人のうち、
+    製造業の事業所で働く人の割合を市区町村ごとに比べてみます。全国では{nationalValue(ID, P)}です。
+  </p>
+  <p>
+    1位は長野県坂城町の{value(ID, P, SAKAKI)}で、町で働く人の7割あまりが製造業の事業所で働いています。
+    2位は福島県磐梯町（{value(ID, P, BANDAI)}）、3位は山梨県忍野村（{value(ID, P, OSHINO)}）で、7割を超えるのはこの3つだけです。
+    5割以上の市区町村は、全国で{count(ID, P, "municipality", (v) => v >= 50)}あります。
+  </p>
+  <ArticleRanking id={ID} period={P} n={10} expect={[SAKAKI, BANDAI, OSHINO, KOSAI, OGUCHI]} caption="製造業で働く人の割合が高い市区町村（2021年）" />
+
+  <h2>上位の3つは、それぞれ違うものづくりのまち</h2>
+  <p>
+    坂城町は、長野県の北部、千曲川沿いの町です。町自身が「ものづくりのまち」と紹介しているように、機械や金属を加工する工場が多く集まっています。
+    町で働く{persons(SAKAKI)}のうち、製造業の事業所で働く人は{value(COUNT, P, SAKAKI)}です。
+  </p>
+  <p>
+    磐梯町は、福島県の会津地方、磐梯山のふもとの町です。カメラの交換レンズなどを作るシグマの会津工場があり、同社はこの工場を唯一の生産の拠点にしています。
+    町で働く人は{persons(BANDAI)}と多くはありませんが、そのうち{value(COUNT, P, BANDAI)}が製造業の事業所で働いています。
+  </p>
+  <p>
+    忍野村は、山梨県の富士山のふもとの村です。工作機械を動かす制御装置（CNC）や産業用ロボットを作るファナックの本社と工場があります。
+    割合は事業所のある場所で数えるので、まわりの市町村から通って働く人も含みます。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${SAKAKI}&l=municipality`}>坂城町のまわりを地図で見る</a>
+  </p>
+
+  <h2>市の1位は湖西市、働く人の多い市では西三河</h2>
+  <p>
+    市だけで比べると、1位は全体でも5位の静岡県湖西市（{value(ID, P, KOSAI)}）です。浜名湖の西にある市で、自動車などを作るスズキの湖西工場があります。
+    9位の愛知県大口町には、工作機械のオークマの本社と工場があります。
+  </p>
+  <p>
+    働く人が10万人を超える大きな市区町村に限ると、安城市（{value(ID, P, ANJO)}）、豊田市（{value(ID, P, TOYOTA)}）、刈谷市（{value(ID, P, KARIYA)}）の順で、
+    どれも自動車に関わる工場が多い、愛知県の西三河の市です。
+  </p>
+
+  <h2>人数では豊田市、町丁目ではトヨタ町</h2>
+  <p>
+    製造業で働く人の数では、愛知県豊田市が{value(COUNT, P, TOYOTA)}で、2位の大阪府東大阪市（{value(COUNT, P, HIGASHIOSAKA)}）を大きく上回る1位です。
+    町丁・字等まで細かく見ると、トヨタ自動車の本社と工場がある豊田市トヨタ町が{value(COUNT, P, TOYOTA_CHO)}で全国1位、
+    デンソーの本社がある刈谷市昭和町一丁目（{value(COUNT, P, SHOWA_CHO)}）が2位です。
+  </p>
+  <p>
+    3位には東京都千代田区（{value(COUNT, P, CHIYODA)}）が入ります。製造業の会社の本社も「製造業の事業所」として数えるため、大きな会社の本社が集まる千代田区は、
+    工場が少なくても人数が多くなると考えられます。千代田区の割合は{value(ID, P, CHIYODA)}です。
+  </p>
+  <ArticleRanking id={COUNT} period={P} n={5} expect={[TOYOTA, HIGASHIOSAKA, CHIYODA]} caption="製造業で働く人が多い市区町村（2021年）" />
+
+  <h2>出荷額では豊田市が飛び抜ける</h2>
+  <p>
+    工場が1年間に出荷した製品の額などを表す「製造品出荷額等」（経済産業省、2024年）でも、豊田市は{cho(raw(SHIP, PS, TOYOTA))}で1位です。
+    全国の{formatNumber(toyotaShare * 100, 1)}%にあたり、2位の岡山県倉敷市（{cho(raw(SHIP, PS, KURASHIKI))}）の{formatNumber(toyotaTimes, 1)}倍です。
+    倉敷市と3位の千葉県市原市は、石油化学や鉄鋼などのコンビナートがある市です。
+  </p>
+  <ArticleRanking id={SHIP} period={PS} n={5} expect={[TOYOTA, KURASHIKI, ICHIHARA]} caption="製造品出荷額等が多い市区町村（2024年）" />
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${SHIP}&p=${PS}&a=${TOYOTA}&l=municipality`}>製造品出荷額等を地図で見る</a>
+  </p>
+
+  <h2>都道府県では滋賀県が1位</h2>
+  <p>
+    都道府県で比べると、1位は滋賀県（{value(ID, P, "pref-25")}）で、三重県、富山県、静岡県、群馬県が続きます。
+    製造品出荷額等が1位の愛知県は{value(ID, P, "pref-23")}で8位です。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={["pref-25", "pref-24", "pref-16", "pref-22", "pref-10", "pref-23"]} caption="製造業で働く人の割合が高い都道府県（2021年）" />
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>2021年6月1日現在の「経済センサス‐活動調査」の値です。国・地方公共団体の事業所で働く人は含みません。</li>
+    <li>事業所の所在地で数えます。そのまちに住んでいる人の仕事ではなく、そのまちの事業所で働いている人の数です。</li>
+    <li>「製造業の事業所」には、工場のほか、製造業の会社の本社や営業所なども含みます。</li>
+    <li>事業所で働く人が50人未満の地域は、割合を表示していません。</li>
+    <li>製造品出荷額等は、別の調査（経済産業省「経済構造実態調査」）の2024年の値で、個人経営を除く製造業の事業所の値です。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

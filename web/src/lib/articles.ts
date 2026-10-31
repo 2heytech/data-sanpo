@@ -21,6 +21,31 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "life-expectancy",
+    title: "平均寿命の長い都道府県・市区町村はどこ？",
+    description: "厚生労働省の生命表（2020年）で、平均寿命の長い都道府県と市区町村を男女別に見ます。都道府県の1位の移り変わり、男女とも1位になった市区町村、上位に多い長野県の町村、2015年からの延びも見ます。",
+    published: "2026-11-13",
+    indicators: ["life_expectancy_male", "life_expectancy_female"],
+    mapHref: "/map/?i=life_expectancy_male&p=2020-01-01&a=muni-14137&l=municipality",
+  },
+  {
+    slug: "inbound-guest-share",
+    title: "宿泊者の半分以上が外国人の都道府県はどこ？：延べ宿泊者に占める外国人の割合",
+    description: "観光庁の宿泊旅行統計調査（2025年）で、ホテル・旅館の延べ宿泊者に占める外国人の割合を都道府県で比べます。半分を超えたのはどこか、コロナ禍の前からの移り変わり、日本人の宿泊者の増減も見ます。",
+    published: "2026-11-11",
+    // 都道府県の値だけの指標なので、記事の地図の画像は都道府県別の図になる（#185）
+    indicators: ["inbound_guest_share", "inbound_guest_nights", "guest_nights_japanese"],
+    mapHref: "/map/?i=inbound_guest_share&p=2025-01-01&a=pref-13&l=prefecture",
+  },
+  {
+    slug: "manufacturing-share",
+    title: "働く人の7割が工場で働く町：製造業で働く人の割合ランキング",
+    description: "経済センサス（2021年）で、働く人のうち製造業の事業所で働く人の割合を市区町村ごとに比べます。7割を超える3つの町村、市の1位、人数が最も多い豊田市とトヨタ町、出荷額、都道府県の順位も見ます。",
+    published: "2026-11-09",
+    indicators: ["employees_manufacturing_share", "employees_manufacturing", "manufacturing_shipments"],
+    mapHref: "/map/?i=employees_manufacturing_share&p=2021-06-01&a=muni-20521&l=municipality",
+  },
+  {
     slug: "agri-output-2024",
     title: "農業産出額の日本一は北海道でも九州でもない：市町村ランキング",
     description: "2024年の市町村別の農業産出額で1位になったのは、北海道でも九州でもないまちでした。6年ぶりに入れ替わった1位と2位の宮崎県都城市の違い、米・野菜・果実・畜産それぞれの1位、都道府県の順位も見ます。",

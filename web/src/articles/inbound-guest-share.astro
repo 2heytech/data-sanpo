@@ -1,0 +1,145 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { areaName, check, count, nationalValue, ranking, raw, rows, value } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
+
+const ID = "inbound_guest_share";
+const FOREIGN = "inbound_guest_nights";
+const JAPANESE = "guest_nights_japanese";
+const P = "2025-01-01";
+const P24 = "2024-01-01";
+const P19 = "2019-01-01";
+const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
+const TOKYO = "pref-13";
+const KYOTO = "pref-26";
+const OSAKA = "pref-27";
+const FUKUOKA = "pref-40";
+const HOKKAIDO = "pref-01";
+const CHIBA = "pref-12";
+const ISHIKAWA = "pref-17";
+
+const period = (y: number) => `${y}-01-01`;
+const over = (y: number) => rows(ID, period(y), "prefecture").filter((r) => r.value !== null && r.value >= 50).map((r) => r.entity_id).sort().join();
+
+// 題名: 2025年は東京都と京都府の2つで、宿泊者の半分以上が外国人
+check(ranking(ID, P, "prefecture", "high", 2).map((r) => r.entity_id).join() === [TOKYO, KYOTO].join(), "2025年の1・2位が東京都・京都府ではありません");
+check(over(2025) === [TOKYO, KYOTO].join(), "2025年に半分以上が外国人の都道府県が東京都・京都府ではありません");
+// 半分を超えたのは2024年の東京都が最初（2015年以降）
+check(over(2024) === TOKYO && YEARS.filter((y) => y < 2024).every((y) => over(y) === ""), "半分以上が外国人の都道府県が2024年の東京都から始まっていません");
+// 2019年は京都府が1位。2021年は最も高い千葉県でも5%未満
+const firstOf = (y: number) => ranking(ID, period(y), "prefecture", "high", 1)[0];
+check(firstOf(2019)?.entity_id === KYOTO, "2019年の1位が京都府ではありません");
+check(firstOf(2021)?.entity_id === CHIBA && (firstOf(2021)?.value ?? 100) < 5, "2021年の1位が千葉県（5%未満）ではありません");
+
+// 2024→2025年: 東京都・京都府は外国人が増え日本人が減った。大阪府は外国人が減り日本人が増えて、割合が下がった
+const up = (id: string, e: string) => (raw(id, P, e) ?? NaN) > (raw(id, P24, e) ?? NaN);
+const down = (id: string, e: string) => (raw(id, P, e) ?? NaN) < (raw(id, P24, e) ?? NaN);
+check([TOKYO, KYOTO].every((e) => up(FOREIGN, e) && down(JAPANESE, e)), "2024→2025年に東京都・京都府の外国人が増え、日本人が減っていません");
+check(down(FOREIGN, OSAKA) && up(JAPANESE, OSAKA) && down(ID, OSAKA), "2024→2025年に大阪府の外国人が減り、日本人が増え、割合が下がっていません");
+
+// 外国人の延べ宿泊者数は東京都が1位で、全国の約3分の1
+check(ranking(FOREIGN, P, "prefecture", "high", 1)[0]?.entity_id === TOKYO, "外国人延べ宿泊者数の1位が東京都ではありません");
+const foreignJapan = rows(FOREIGN, P, "prefecture").reduce((s, r) => s + (r.value ?? NaN), 0);
+const tokyoShare = (raw(FOREIGN, P, TOKYO) ?? NaN) / foreignJapan;
+check(tokyoShare > 0.3 && tokyoShare < 0.36, "東京都が外国人延べ宿泊者数の約3分の1ではありません");
+
+// 2019→2025年に割合が大きく上がったのは東京都・京都府・福岡県・石川県の順
+const rise = rows(ID, P, "prefecture").flatMap((r) => {
+  const before = rows(ID, P19, "prefecture").find((b) => b.entity_id === r.entity_id)?.value;
+  return r.value === null || before === null || before === undefined ? [] : [{ id: r.entity_id, diff: r.value - before }];
+}).sort((a, b) => b.diff - a.diff);
+check(rise.slice(0, 4).map((r) => r.id).join() === [TOKYO, KYOTO, FUKUOKA, ISHIKAWA].join(), "2019→2025年の割合の上がり幅の1〜4位が東京都・京都府・福岡県・石川県ではありません");
+// 全国の割合は2023年はまだ2019年より低く、2024年に上回った
+const japan = (y: number) => {
+  const rs = rows(ID, period(y), "prefecture");
+  return rs.reduce((s, r) => s + (r.numerator ?? NaN), 0) / rs.reduce((s, r) => s + (r.denominator ?? NaN), 0);
+};
+check(japan(2023) < japan(2019) && japan(2024) > japan(2019), "全国の割合が2023年は2019年より低く、2024年に上回ったのではありません");
+const tenths = Number(count(ID, P, "prefecture", (v) => v < 10).replace(/,/g, ""));
+check(tenths >= 20 && tenths <= 26, "1割未満の都道府県が半分近くではありません");
+---
+<Article slug="inbound-guest-share">
+  <p>
+    ホテルや旅館に泊まった人のうち、外国から来た人はどのくらいいるのでしょうか。
+    観光庁の「宿泊旅行統計調査」で、2025年の延べ宿泊者数（1人が2泊すると2人泊と数えます）に占める外国人の割合を、都道府県で比べてみます。
+    全国では{nationalValue(ID, P)}で、宿泊者の4人に1人あまりが外国人でした。
+  </p>
+  <p>
+    1位は東京都の{value(ID, P, TOKYO)}、2位は京都府の{value(ID, P, KYOTO)}で、この2つは宿泊者の半分以上が外国人です。
+    3位は大阪府（{value(ID, P, OSAKA)}）、4位は福岡県（{value(ID, P, FUKUOKA)}）、5位は北海道（{value(ID, P, HOKKAIDO)}）です。
+    一方で、外国人の割合が1割に満たない県が{count(ID, P, "prefecture", (v) => v < 10)}あり、外国からの宿泊者は一部の都道府県に集まっていることが分かります。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={[TOKYO, KYOTO, OSAKA, FUKUOKA, HOKKAIDO]} caption="延べ宿泊者に占める外国人の割合が高い都道府県（2025年）" />
+
+  <h2>半分を超えたのは2024年から</h2>
+  <p>
+    このサイトにある2015年以降で、外国人が宿泊者の半分を超えたのは、2024年の東京都（{value(ID, P24, TOKYO)}）が初めてです。2025年は京都府も半分を超えました。
+  </p>
+  <p>
+    コロナ禍の前の2019年は、京都府が{value(ID, P19, KYOTO)}で1位でした。2020年から2022年は外国からの入国が大きく制限され、
+    2021年は最も高い千葉県でも{value(ID, period(2021), CHIBA)}でした。2023年から外国人の宿泊者が戻り、全国の割合は2019年の{nationalValue(ID, P19)}に対し、
+    2024年に{nationalValue(ID, P24)}と、コロナ禍の前を上回りました。
+  </p>
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking">
+        <caption>延べ宿泊者に占める外国人の割合の1位と、東京都・京都府・大阪府（2015〜2025年）</caption>
+        <thead><tr><th class="col-rank">年</th><th>1位</th><th>東京都</th><th>京都府</th><th>大阪府</th></tr></thead>
+        <tbody>
+          {YEARS.map((y) => (
+            <tr>
+              <td>{y}年</td>
+              <td>{areaName(firstOf(y)?.entity_id ?? "")}</td>
+              {[TOKYO, KYOTO, OSAKA].map((e) => <td>{value(ID, period(y), e)}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </figure>
+
+  <h2>日本人の宿泊者が減ったことも</h2>
+  <p>
+    2024年から2025年にかけて、東京都の外国人の延べ宿泊者は{value(FOREIGN, P24, TOKYO)}から{value(FOREIGN, P, TOKYO)}に増え、
+    日本人は{value(JAPANESE, P24, TOKYO)}から{value(JAPANESE, P, TOKYO)}に減りました。
+    京都府も、外国人が{value(FOREIGN, P24, KYOTO)}から{value(FOREIGN, P, KYOTO)}に増え、日本人が{value(JAPANESE, P24, KYOTO)}から{value(JAPANESE, P, KYOTO)}に減っています。
+    割合が上がったのは、外国人が増えただけでなく、日本人の宿泊者が減ったためでもあります。
+  </p>
+  <p>
+    大阪府は反対で、大阪・関西万博が開かれた2025年は、日本人が{value(JAPANESE, P24, OSAKA)}から{value(JAPANESE, P, OSAKA)}に増えた一方、
+    外国人は{value(FOREIGN, P24, OSAKA)}から{value(FOREIGN, P, OSAKA)}に減り、割合は{value(ID, P24, OSAKA)}から{value(ID, P, OSAKA)}に下がりました。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${JAPANESE}&p=${P}&a=${TOKYO}&l=prefecture`}>日本人の延べ宿泊者数を地図で見る</a>
+  </p>
+
+  <h2>人数では東京都が全国の3分の1</h2>
+  <p>
+    外国人の延べ宿泊者数は、東京都が{value(FOREIGN, P, TOKYO)}で1位です。全国の外国人の延べ宿泊者の{formatNumber(tokyoShare * 100, 0)}%、
+    およそ3分の1が東京都に泊まっています。大阪府、京都府、北海道、沖縄県が続きます。
+  </p>
+  <ArticleRanking id={FOREIGN} period={P} level="prefecture" n={5} expect={[TOKYO, OSAKA, KYOTO, HOKKAIDO]} caption="外国人延べ宿泊者数が多い都道府県（2025年）" />
+
+  <h2>2019年と比べて割合が大きく上がったところ</h2>
+  <p>
+    コロナ禍の前の2019年と比べると、割合が最も大きく上がったのは東京都（{value(ID, P19, TOKYO)}→{value(ID, P, TOKYO)}）で、
+    京都府（{value(ID, P19, KYOTO)}→{value(ID, P, KYOTO)}）が続きます。大都市のほかでは、福岡県（{value(ID, P19, FUKUOKA)}→{value(ID, P, FUKUOKA)}）や
+    石川県（{value(ID, P19, ISHIKAWA)}→{value(ID, P, ISHIKAWA)}）も大きく上がっています。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${ISHIKAWA}&l=prefecture`}>外国人の割合を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>観光庁「宿泊旅行統計調査」の年の確定値です。宿泊施設のある都道府県で数え、日帰りの観光客や、知人の家・民泊（届出住宅）への宿泊は含みません。</li>
+    <li>ここでの外国人は、日本に住所のない人です。日本に住む外国人の宿泊は日本人の側に入ります（住所の分からない施設は国籍で分けています）。</li>
+    <li>延べ宿泊者数は、1人が2泊すれば2人泊と数えます。泊まった人の実人数ではありません。</li>
+    <li>都道府県の値だけです。市区町村の値は公表されていません。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
