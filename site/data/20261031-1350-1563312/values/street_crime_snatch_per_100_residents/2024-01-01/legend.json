@@ -1,0 +1,1 @@
+{"indicator_id":"street_crime_snatch_per_100_residents","period":"2024-01-01","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":5,"levels":{"municipality":{"breaks":[0.01,0.02,0.03],"min":0.0,"max":0.0241,"count":1725},"prefecture":{"breaks":[0.0002],"min":0.0,"max":0.0016,"count":39}}}

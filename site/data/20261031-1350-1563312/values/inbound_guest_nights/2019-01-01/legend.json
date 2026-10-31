@@ -1,0 +1,1 @@
+{"indicator_id":"inbound_guest_nights","period":"2019-01-01","method":"nice","scheme":"oranges","zero_blank":false,"pooled_periods":11,"levels":{"prefecture":{"breaks":[3.0,6.0,10.0,15.0,20.0,30.0,40.0,70.0,100.0,200.0,500.0],"min":9.536,"max":2935.065,"count":47}}}

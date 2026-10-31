@@ -1,0 +1,1 @@
+{"indicator_id":"guest_nights_simple_lodging","period":"2021-01-01","method":"nice","scheme":"oranges","zero_blank":false,"pooled_periods":11,"levels":{"prefecture":{"breaks":[10.0,15.0,20.0,25.0,30.0,35.0,40.0,50.0,70.0,100.0,200.0],"min":2.561,"max":214.239,"count":47}}}

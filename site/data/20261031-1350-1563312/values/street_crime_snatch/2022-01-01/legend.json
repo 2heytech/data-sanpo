@@ -1,0 +1,1 @@
+{"indicator_id":"street_crime_snatch","period":"2022-01-01","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":5,"levels":{"municipality":{"breaks":[2.0,3.0,5.0,7.0,10.0,11.0,12.0,15.0,16.0,20.0,22.0,25.0,30.0],"min":0.0,"max":35.0,"count":1646},"prefecture":{"breaks":[2.0,3.0,4.0,5.0,10.0,20.0,30.0,100.0,110.0,130.0,140.0],"min":0.0,"max":138.0,"count":37}}}
