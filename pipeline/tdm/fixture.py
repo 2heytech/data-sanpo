@@ -1552,6 +1552,31 @@ def slope_stats(key: str, t: int) -> tuple[int, float, list[int]]:
     return n, round(mean * n, 1), [round(n * math.exp(-th / mean)) for th in SLOPE_THRESHOLDS]
 
 
+# 土地利用別の傾斜の集計（#181）の境目と区分（config/prepare.toml の slope_land_use と同じ）
+SLOPE_LAND_USE_THRESHOLDS = [1, 2, 2.86, 3, 4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40]
+SLOPE_LAND_USES = ["建物用地", "田", "畑など"]
+
+
+def slope_land_use_stats(key: str, t: int) -> list[tuple[str, int, float, list[int]]]:
+    """区分ごとの (区分, 点の数, 傾斜の合計, ○度以上の点の数…)。点のない区分は入れない。
+    13199 は田・畑のない平らな市街地、13299 はゆるい坂の住宅地と平らな田（畑などは市区町村の合計でも1,500点未満）、
+    13499 は斜面の田・畑の多い島（海だけの地域は点がなく、陸の少ない地域は建物用地の点が40だけ）、14199 は平らな田と畑。"""
+    city = key[:5]
+    if city == "13499" and t == 0:
+        return []
+    spec = {"13199": {"建物用地": (5000 + 100 * t, 1.0 + t / 20)},
+            "13299": {"建物用地": (3000, 4.0 + t / 2), "田": (800, 1.5 + t / 10), "畑など": (200 if t < 5 else 0, 3.0)},
+            "13499": {"建物用地": (40, 12.0) if t == 1 else (1200, 10.0 + t),
+                      "田": (0 if t == 1 else 600, 6.0 + t / 2), "畑など": (0 if t == 1 else 900, 15.0 + t)},
+            "14199": {"建物用地": (2500, 1.5), "田": (2000, 0.8 + t / 20), "畑など": (700, 2.0 + t / 10)}}[city]
+    out = []
+    for land in SLOPE_LAND_USES:
+        n, mean = spec.get(land, (0, 1.0))
+        if n:
+            out.append((land, n, round(mean * n, 1), [round(n * math.exp(-th / mean)) for th in SLOPE_LAND_USE_THRESHOLDS]))
+    return out
+
+
 # 農地の区画（筆ポリゴン）・植生（現存植生図2024）の集計（#124）。面積は ha、区画は数
 FARMLAND_COLUMNS = ["田", "畑", "田の区画", "畑の区画", "面積"]
 VEGETATION_COLUMNS = ["自然林", "二次林", "植林地", "竹林", "その他"]
@@ -1666,6 +1691,8 @@ def _write_derived_towns(directory: Path) -> dict[str, Path]:
     for key, t, _, _ in towns:
         n, total, at_least = slope_stats(key, t)
         slope.append([key, n, total, *at_least] if n else [key, 0, "", *([""] * len(SLOPE_THRESHOLDS))])
+    slope_land_use = [[key, land, n, total, *at_least] for key, t, _, _ in towns
+                      for land, n, total, at_least in slope_land_use_stats(key, t)]
     farmland = [[key, 2026, *farmland_areas(key, t)] for key, t, _, _ in towns]
     vegetation = [[key, 2024, *vegetation_areas(key, t)] for key, t, _, _ in towns]
     return {
@@ -1678,6 +1705,9 @@ def _write_derived_towns(directory: Path) -> dict[str, Path]:
         "elevation_towns": write_gz("elevation_towns", ["KEY_CODE", "点の数", "標高の合計", "最低", "最高"], elevation),
         "slope_towns": write_gz("slope_towns", ["KEY_CODE", "点の数", "傾斜の合計",
                                                 *(f"{th}度以上" for th in SLOPE_THRESHOLDS)], slope),
+        "slope_land_use_towns": write_gz("slope_land_use_towns", ["KEY_CODE", "区分", "点の数", "傾斜の合計",
+                                                                  *(f"{th:g}度以上" for th in SLOPE_LAND_USE_THRESHOLDS)],
+                                         slope_land_use),
         "land_use_tiles": _write_land_use_tiles(directory, towns),
     }
 

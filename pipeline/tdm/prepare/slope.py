@@ -88,14 +88,17 @@ def slope_degrees(grid: np.ndarray, zoom: int, ty: int) -> np.ndarray:
     return np.degrees(np.arctan(np.hypot(sx, sy)))
 
 
-def summarize(towns: Towns, url_template: str, zoom: int, thresholds: list[float], work: Path,
-              downloader=download, workers: int = 32) -> list[list]:
-    """1つの都道府県の町丁・字等ごとの（点の数、傾斜の合計、○度以上の点の数…）。"""
+def count_points(towns: Towns, url_template: str, zoom: int, thresholds: list[float], work: Path,
+                 downloader=download, workers: int = 32, classify=None, classes: int = 1):
+    """1つの都道府県の町丁・字等ごと（classify があれば、さらに区分ごと）の点の数・傾斜の合計・○度以上の点の数。
+    classify: 点の経度・緯度 → 区分の番号（1〜classes。0 は数えない点）。土地利用別の傾斜（#181）で、点が入る
+    土地利用のマスの区分を返す。戻り値は (点の数, 傾斜の合計, ○度以上の点の数) の配列で、形は
+    （町丁・字等の数, classes）と（町丁・字等の数, classes, 境目の数）。"""
     n = len(towns.keys)
     bins = np.asarray(thresholds, dtype=float)
-    count = np.zeros(n, dtype=np.int64)
-    total = np.zeros(n)
-    at_least = np.zeros((n, len(bins)), dtype=np.int64)
+    count = np.zeros(n * classes, dtype=np.int64)
+    total = np.zeros(n * classes)
+    at_least = np.zeros((n * classes, len(bins)), dtype=np.int64)
     tiles = tiles_for(towns, zoom)
     needed = sorted({(tx + dx, ty + dy) for tx, ty in tiles for dx in (-1, 0, 1) for dy in (-1, 0, 1)
                      if 0 <= ty + dy < 2 ** zoom})
@@ -115,9 +118,14 @@ def summarize(towns: Towns, url_template: str, zoom: int, thresholds: list[float
         near = {(dx, dy): border.get((tx + dx, ty + dy)) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy}
         s = slope_degrees(padded(dem, near), zoom, ty).ravel()
         lon, lat = pixel_centers(zoom, tx, ty)
-        idx = towns.locate_in_box(lon.ravel(), lat.ravel(), tile_box(zoom, tx, ty))
+        lon, lat = lon.ravel(), lat.ravel()
+        idx = towns.locate_in_box(lon, lat, tile_box(zoom, tx, ty))
         ok = (idx >= 0) & ~np.isnan(s)
         idx, s = idx[ok], s[ok]
+        if classify is not None and len(idx):
+            cls = classify(lon[ok], lat[ok])
+            keep = cls > 0
+            idx, s = idx[keep] * classes + cls[keep] - 1, s[keep]
         if not len(idx):
             return None
         ids, inv = np.unique(idx, return_inverse=True)
@@ -134,12 +142,19 @@ def summarize(towns: Towns, url_template: str, zoom: int, thresholds: list[float
         count[ids] += c
         total[ids] += s
         at_least[ids] += h
+    return count.reshape(n, classes), total.reshape(n, classes), at_least.reshape(n, classes, len(bins))
+
+
+def summarize(towns: Towns, url_template: str, zoom: int, thresholds: list[float], work: Path,
+              downloader=download, workers: int = 32) -> list[list]:
+    """1つの都道府県の町丁・字等ごとの（点の数、傾斜の合計、○度以上の点の数…）。"""
+    count, total, at_least = count_points(towns, url_template, zoom, thresholds, work, downloader, workers)
     rows = []
     for i, key in enumerate(towns.keys):
-        if count[i]:
-            rows.append([key, int(count[i]), round(float(total[i]), 1), *(int(v) for v in at_least[i])])
+        if count[i, 0]:
+            rows.append([key, int(count[i, 0]), round(float(total[i, 0]), 1), *(int(v) for v in at_least[i, 0])])
         else:
-            rows.append([key, 0, "", *([""] * len(bins))])
+            rows.append([key, 0, "", *([""] * len(thresholds))])
     return rows
 
 

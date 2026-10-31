@@ -39,6 +39,22 @@ zoom = 14
 thresholds = [3, 4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40]
 workers = 32
 
+# 土地利用別の傾斜（#181）。slope と同じズーム14の画素ごとの傾斜に、画素の中心が入る土地利用細分メッシュ（令和3年度、
+# 100m四方のマス。land_use の2021年度と同じ）の区分をつけ、町丁・字等と区分ごとに数える。land_uses: 数える区分
+# （land_use.py の LAND_USE の名前）。thresholds: 「○度以上」の点の数を数える境目（背景「傾斜」の区分の境目と、
+# 田の傾斜地の目安の 2.86度（勾配およそ1/20。中山間地域等直接支払制度の急傾斜の田の基準）。畑は15度が同じ制度の基準）。
+[slope_land_use]
+method = "slope_land_use"
+outputs = { towns = "slope_land_use_towns" }
+tiles = "https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png"
+zoom = 14
+thresholds = [1, 2, 2.86, 3, 4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40]
+workers = 32
+mesh_list = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L03-b-2021.html"
+land_use_url = "https://nlftp.mlit.go.jp/ksj/gml/data/L03-b/L03-b-21/L03-b-21_{mesh}-jgd2011_GML.zip"
+codes = "09"
+land_uses = ["建物用地", "田", "畑など"]
+
 # 農林水産省「筆ポリゴン」（2026年度公開、農地の区画。#124）。筆ポリゴン公開サイトの地図が使っている ArcGIS Online の
 # 地物サービスから、区画ごとの耕地の種類（田・畑）・重心点・面積を読む（区画の形は読まない）。
 # サービスの名前は公開年度ごとに変わる（FudePolygonTemp_2026）。年度を変えるときは sources.toml の版も上げる。
