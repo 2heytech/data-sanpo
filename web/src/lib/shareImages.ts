@@ -29,7 +29,7 @@ function latestMunicipalPeriod(ind: Indicator) {
   return null;
 }
 
-/** 都道府県の値があるいちばん新しい時点（市区町村の値がない指標の寄り道の画像に使う。#184） */
+/** 都道府県の値があるいちばん新しい時点（市区町村の値がない指標の寄り道の画像に使う。#185） */
 function latestPrefecturePeriod(ind: Indicator) {
   for (const period of [...prefecturePeriods(ind)].sort().reverse()) {
     const rows = loadValues(ind.id, period, "prefectures")?.rows;
@@ -93,7 +93,7 @@ export function prefectureImage(pref: Prefecture): ShareImage | null {
 /**
  * 寄り道の画像: 記事の主な指標の、全国の市区町村別の地図（区切りは全国で1つ）。
  * 1つの都道府県だけの指標（東京都の街路樹など）は、全国の図では小さすぎるので、その都道府県の形に合わせた図にする（#168）。
- * 都道府県の値しかない指標（外国人宿泊者の割合など）は、全国の都道府県別の地図にする（#184）
+ * 都道府県の値しかない指標（外国人宿泊者の割合など）は、全国の都道府県別の地図にする（#185）
  */
 export function articleImage(article: Article): ShareImage | null {
   const id = article.mapIndicator ?? article.indicators[0];

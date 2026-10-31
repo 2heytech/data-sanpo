@@ -33,7 +33,7 @@ export const ARTICLES: Article[] = [
     title: "宿泊者の半分以上が外国人の都道府県はどこ？：延べ宿泊者に占める外国人の割合",
     description: "観光庁の宿泊旅行統計調査（2025年）で、ホテル・旅館の延べ宿泊者に占める外国人の割合を都道府県で比べます。半分を超えたのはどこか、コロナ禍の前からの移り変わり、日本人の宿泊者の増減も見ます。",
     published: "2026-11-11",
-    // 都道府県の値だけの指標なので、記事の地図の画像は都道府県別の図になる（#184）
+    // 都道府県の値だけの指標なので、記事の地図の画像は都道府県別の図になる（#185）
     indicators: ["inbound_guest_share", "inbound_guest_nights", "guest_nights_japanese"],
     mapHref: "/map/?i=inbound_guest_share&p=2025-01-01&a=pref-13&l=prefecture",
   },
