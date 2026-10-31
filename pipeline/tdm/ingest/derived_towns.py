@@ -275,8 +275,8 @@ def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, 
     if land_points is not None:
         for r in iter_rows(land_points):
             entity_id = small_area_entity_id(r["KEY_CODE"])
-            if entity_id in areas:
-                totals[entity_id] = float(r["点の数"] or 0)
+            if entity_id in areas:   # 同じ地域に入る行が複数あっても足す
+                totals[entity_id] = totals.get(entity_id, 0.0) + float(r["点の数"] or 0)
     result: dict = {"unmatched": unmatched}
     for indicator_id, d in targets.items():
         land = d["land_use"]
