@@ -263,7 +263,9 @@ def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, 
                           keys: dict[str, str] | None = None) -> dict:
     """land_points: 町丁・字等ごとの、区分によらずすべての点の数（town_slope の CSV）。指標の min_land_share が
     あれば、その区分の点が地域のすべての点の min_land_share % 未満の町丁・字等は値を出さない（#182。森林が大半の
-    地域では、境目にかかる田などのマスのうち斜面に入ったわずかな部分だけを測ることになるため）。"""
+    地域では、境目にかかる田などのマスのうち斜面に入ったわずかな部分だけを測ることになるため）。
+    指標の min_population があれば、cfg の population（取込済みの国勢調査の人口の指標と時点）が min_population 人
+    未満か値のない町丁・字等も値を出さない（#186。人の住んでいない地域が上位に来ないように）。"""
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "town_slope_land_use"}
     needed = {c for d in targets.values() for c in [*d["numerator_columns"], *d["denominator_columns"]]}
     areas = _areas(conn, prefs)
@@ -294,11 +296,20 @@ def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, 
             entity_id = _entity(r, keys)
             if entity_id in areas:   # 同じ地域に入る行が複数あっても足す
                 totals[entity_id] = totals.get(entity_id, 0.0) + float(r["点の数"] or 0)
+    population: dict[str, float | None] = {}
+    pop = cfg.get("population") or {}
+    if any(d.get("min_population") is not None for d in targets.values()):
+        if not pop:
+            raise ValueError("min_population の指標には sources.toml の population（人口の指標と時点）が要ります")
+        population = dict(conn.execute(
+            """SELECT entity_id, value FROM observations WHERE indicator_id = ? AND period_start = ?
+               AND dimension_key = 'all' AND entity_id LIKE 'area-%'""", (pop["indicator"], pop["period"])))
     result: dict = {"unmatched": unmatched}
     for indicator_id, d in targets.items():
         land = d["land_use"]
         share = d.get("min_land_share")
-        n = withheld = 0
+        min_pop = d.get("min_population")
+        n = withheld = few_people = 0
         # その区分の点がない地域も行を作る（not_applicable。都道府県の合計で値のない市区町村と区別するため）
         for entity_id, c, min_den, town in [
                 *((e, by_area.get((e, land), {}), None, True) for e in towns),
@@ -312,10 +323,20 @@ def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, 
                 elif denominator < float(share) / 100 * totals.get(entity_id, 0) or not totals.get(entity_id):
                     note = f"{land}が地域の面積の{float(share):g}%未満のため非表示"
                     withheld += 1
+            if note is None and min_pop is not None and town and denominator > 0:
+                p = population.get(entity_id)
+                if p is None:
+                    note = f"{pop.get('label', '')}の人口が値なしのため非表示"
+                    few_people += 1
+                elif p < float(min_pop):
+                    note = f"{pop.get('label', '')}の人口が{float(min_pop):g}人未満のため非表示"
+                    few_people += 1
             _insert_ratio(conn, entity_id, indicator_id, d, period, source_id, numerator, denominator, 0, cfg,
                           min_den=min_den, withhold_note=note)
             n += 1
         result[indicator_id] = n
         if share is not None:
             result[f"{indicator_id}_under_share"] = withheld
+        if min_pop is not None:
+            result[f"{indicator_id}_few_people"] = few_people
     return result
