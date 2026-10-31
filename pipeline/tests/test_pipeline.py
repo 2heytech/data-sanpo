@@ -1817,10 +1817,19 @@ def test_slope_land_use(built):
     assert munis["muni-13199"]["status"] == "not_applicable" and munis["muni-13199"]["value"] is None
     city = [v["田"] for k, v in stats.items() if k.startswith("13499") and "田" in v]
     assert munis["muni-13499"]["value"] == pytest.approx(sum(v[1] for v in city) / sum(v[0] for v in city), abs=1e-3)
-    # 畑などは町丁・字等には出るが、市区町村の合計が1,500点未満なので市区町村は出さない
+    # 町丁・字等は、その区分が地域のすべての点の5%未満なら出さない（森の多い地域の境目のマスの一部だけを測らない、#182）
+    th3 = "area-13499001004"
+    assert stats[th3[5:]]["田"][0] >= 150 and stats[th3[5:]]["田"][0] < 0.05 * fixture.slope_stats(th3[5:], 3)[0]
+    for ind in ("slope_paddy_mean", "slope_paddy_slope_share"):
+        row = values(ind, "13")[th3]
+        assert row["status"] == "withheld" and row["value"] is None and "5%未満" in row["note"]
+    assert values("slope_building_mean", "13")[th3]["status"] == "derived"   # 建物用地は地域の5%以上
+    assert values("slope_paddy_mean", "13")["area-13499001003"]["status"] == "derived"
+    # 畑などは町丁・字等では地域の5%未満、市区町村では合計が1,500点未満なので、どちらも出さない
     field = values("slope_field_mean", "municipalities")
     assert field["muni-13299"]["status"] == "withheld"
-    assert values("slope_field_mean", "13")["area-13299001001"]["status"] == "derived"
+    assert values("slope_field_mean", "13")["area-13299001001"]["status"] == "withheld"
+    assert values("slope_field_mean", "14")["area-14199001001"]["status"] == "derived"
     # 都道府県は市区町村の点の合計（田のない市区町村・点の少ない市区町村の点も入る）
     pref = [v["畑など"] for k, v in stats.items() if k.startswith("13") and "畑など" in v]
     assert values("slope_field_mean", "prefectures")["pref-13"]["value"] == pytest.approx(

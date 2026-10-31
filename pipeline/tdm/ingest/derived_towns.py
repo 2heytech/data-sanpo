@@ -111,10 +111,11 @@ def ingest_cells(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
 
 def _insert_ratio(conn, entity_id: str, indicator_id: str, d: dict, period: tuple, source_id: str,
                   numerator: float, denominator: float, gap: float, cfg: dict, over: bool = False,
-                  min_den: float | None = None) -> None:
+                  min_den: float | None = None, withhold_note: str | None = None) -> None:
     """over: 分母を超える内訳がある（筆ポリゴンの区画は重心の入る地域に数えるので、小さな地域では田・畑の区画の
     面積の合計が地域の面積を超えることがある。そのような地域は田・畑どちらの割合も出さない）。
-    min_den: 指標の min_denominator の代わりに使う値（市区町村だけ別の値にする指標）。"""
+    min_den: 指標の min_denominator の代わりに使う値（市区町村だけ別の値にする指標）。
+    withhold_note: 分母は足りていても値を出さないときの理由（分子・分母は都道府県などの合計に入れる）。"""
     obs = dict(entity_id=entity_id, indicator_id=indicator_id, definition_version=d["definition_version"],
                period_start=period[0], period_end=period[1], period_kind=period[2],
                source_id=source_id, denominator_source_id=source_id)
@@ -131,6 +132,8 @@ def _insert_ratio(conn, entity_id: str, indicator_id: str, d: dict, period: tupl
             obs.update(value=None, status="withheld", method_note=min_note)
         elif over:
             obs.update(value=None, status="withheld", method_note=d.get("over_note", "割合が100%を超えるため非表示"))
+        elif withhold_note:
+            obs.update(value=None, status="withheld", method_note=withhold_note)
         else:
             obs.update(value=numerator / denominator * float(d.get("scale", 1)), status="derived")
     insert_observation(conn, **obs)
@@ -240,7 +243,10 @@ def _slope_columns(r: dict[str, str]) -> dict[str, float]:
 
 
 def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, cfg: dict,
-                          prefs: list[str]) -> dict:
+                          prefs: list[str], land_points: Path | None = None) -> dict:
+    """land_points: 町丁・字等ごとの、区分によらずすべての点の数（town_slope の CSV）。指標の min_land_share が
+    あれば、その区分の点が地域のすべての点の min_land_share % 未満の町丁・字等は値を出さない（#182。森林が大半の
+    地域では、境目にかかる田などのマスのうち斜面に入ったわずかな部分だけを測ることになるため）。"""
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "town_slope_land_use"}
     needed = {c for d in targets.values() for c in [*d["numerator_columns"], *d["denominator_columns"]]}
     areas = _areas(conn, prefs)
@@ -265,17 +271,34 @@ def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, 
     for (entity_id, land), c in by_area.items():
         for k, v in c.items():
             muni_counts[(areas[entity_id], land)][k] += v
+    totals: dict[str, float] = {}
+    if land_points is not None:
+        for r in iter_rows(land_points):
+            entity_id = small_area_entity_id(r["KEY_CODE"])
+            if entity_id in areas:
+                totals[entity_id] = float(r["点の数"] or 0)
     result: dict = {"unmatched": unmatched}
     for indicator_id, d in targets.items():
         land = d["land_use"]
-        n = 0
+        share = d.get("min_land_share")
+        n = withheld = 0
         # その区分の点がない地域も行を作る（not_applicable。都道府県の合計で値のない市区町村と区別するため）
-        for entity_id, c, min_den in [*((e, by_area.get((e, land), {}), None) for e in towns),
-                                      *((m, muni_counts.get((m, land), {}), d.get("min_denominator_municipality"))
-                                        for m in munis)]:
-            _insert_ratio(conn, entity_id, indicator_id, d, period, source_id,
-                          sum(c.get(k, 0) for k in d["numerator_columns"]),
-                          sum(c.get(k, 0) for k in d["denominator_columns"]), 0, cfg, min_den=min_den)
+        for entity_id, c, min_den, town in [
+                *((e, by_area.get((e, land), {}), None, True) for e in towns),
+                *((m, muni_counts.get((m, land), {}), d.get("min_denominator_municipality"), False) for m in munis)]:
+            numerator = sum(c.get(k, 0) for k in d["numerator_columns"])
+            denominator = sum(c.get(k, 0) for k in d["denominator_columns"])
+            note = None
+            if share is not None and town and denominator > 0:   # 割合で値を出さないのは町丁・字等だけ
+                if land_points is None:
+                    note = "地域のすべての点の数がないため非表示"
+                elif denominator < float(share) / 100 * totals.get(entity_id, 0) or not totals.get(entity_id):
+                    note = f"{land}が地域の面積の{float(share):g}%未満のため非表示"
+                    withheld += 1
+            _insert_ratio(conn, entity_id, indicator_id, d, period, source_id, numerator, denominator, 0, cfg,
+                          min_den=min_den, withhold_note=note)
             n += 1
         result[indicator_id] = n
+        if share is not None:
+            result[f"{indicator_id}_under_share"] = withheld
     return result

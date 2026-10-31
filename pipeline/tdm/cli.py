@@ -413,7 +413,11 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "town_slope":
             result[key] = derived_towns.ingest_slope(conn, files[0], src, catalog, cfg, prefs)
         elif kind == "town_slope_land_use":
-            result[key] = derived_towns.ingest_slope_land_use(conn, files[0], src, catalog, cfg, prefs)
+            # 町丁・字等のすべての点の数は傾斜の出典（land_points）から読む（その区分が地域の何%かを見る。#182）
+            lkey = cfg.get("land_points", "")
+            lfiles = find_files(paths.raw / lkey, sources[lkey]["files"]) if lkey in sources else []
+            result[key] = derived_towns.ingest_slope_land_use(conn, files[0], src, catalog, cfg, prefs,
+                                                              lfiles[0] if lfiles else None)
         elif kind == "land_use_tiles":
             result[key] = f"{len(files)} ファイル（公開版の land_use/ に書き出す）"
         elif kind == "gsi_area":
