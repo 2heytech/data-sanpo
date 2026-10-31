@@ -300,7 +300,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
             "neighbors": sorted(neighbors.get(r["entity_id"], [])),
             "small_area_count": len(by_muni.get(r["entity_id"], [])),
         } for r in muni_rows]})
-    # 検索索引: 区市町村は全国を1ファイル、町丁・字等は都道府県ごと（全国で約22万あるため）
+    # 検索索引: 区市町村は全国を1ファイル、町丁・字等は都道府県ごと（全国で約21万あるため）
     def muni_context(r):
         pref = pref_names.get(prefecture_entity_id(prefecture_of(r["entity_id"])), "")
         return pref if not r["region"] or r["region"] in pref else f"{pref} {r['region']}"
