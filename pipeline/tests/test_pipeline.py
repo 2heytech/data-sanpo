@@ -1946,7 +1946,8 @@ def test_slope_tiles_and_summary(tmp_path):
 
 def test_slope_land_use(built):
     """土地利用別の傾斜（#181）。区分の行だけを使い、平均は合計 ÷ 点の数、割合は点の数から。
-    その区分のない地域は値なし、市区町村は min_denominator_municipality で点の少ない値を出さない。"""
+    その区分のない地域は値なし、市区町村は min_denominator_municipality で点の少ない値を出さない。
+    町丁・字等は区分が地域の5%未満（#182）、建物用地は人口100人未満（#186）でも出さない。"""
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
     ids = ["slope_building_mean", "slope_building_steep_share", "slope_paddy_mean", "slope_paddy_slope_share",
            "slope_field_mean", "slope_field_steep_share"]
@@ -1968,8 +1969,8 @@ def test_slope_land_use(built):
     assert "numerator" not in values("slope_paddy_mean", "13")[f"area-{key}"]
     assert values("slope_paddy_slope_share", "13")[f"area-{key}"]["value"] == pytest.approx(
         at_least[th.index(2.86)] / n * 100, abs=1e-3)
-    n, _, at_least = stats[key]["建物用地"]
-    assert values("slope_building_steep_share", "13")[f"area-{key}"]["value"] == pytest.approx(
+    n, _, at_least = stats["13499002003"]["建物用地"]
+    assert values("slope_building_steep_share", "13")["area-13499002003"]["value"] == pytest.approx(
         at_least[th.index(15)] / n * 100, abs=1e-3)
     building = values("slope_building_mean", "13")
     assert building["area-13499001001"]["status"] == "not_applicable"   # 海だけ（点がない）
@@ -1994,6 +1995,21 @@ def test_slope_land_use(built):
     assert field["muni-13299"]["status"] == "withheld"
     assert values("slope_field_mean", "13")["area-13299001001"]["status"] == "withheld"
     assert values("slope_field_mean", "14")["area-14199001001"]["status"] == "derived"
+    # 建物用地の2指標は、2020年国勢調査の人口が100人未満か値のない町丁・字等も出さない（人の住んでいない地域、#186）。
+    # 田・畑などは人口によらない。市区町村の値には出さない町丁・字等の点も入る
+    pop = {r["entity_id"]: r["value"] for r in load(built, "values/population_total/2020-10-01/13.json")["rows"]}
+    few, unknown = "area-13499003002", "area-13499002002"
+    assert pop[few] < 100 and pop[unknown] is None and stats[few[5:]]["建物用地"][0] >= 150
+    for ind in ("slope_building_mean", "slope_building_steep_share"):
+        rows = values(ind, "13")
+        assert rows[few]["status"] == "withheld" and rows[few]["value"] is None and "100人未満" in rows[few]["note"]
+        assert rows[unknown]["status"] == "withheld" and "人口が値なし" in rows[unknown]["note"]
+        assert all(r["status"] != "derived" or (pop.get(e) or 0) >= 100 for e, r in rows.items())
+    assert values("slope_paddy_mean", "13")[unknown]["status"] == "derived"
+    built_munis = values("slope_building_mean", "municipalities")
+    city = [v["建物用地"] for k, v in stats.items() if k.startswith("13499") and "建物用地" in v]
+    assert built_munis["muni-13499"]["value"] == pytest.approx(
+        sum(v[1] for v in city) / sum(v[0] for v in city), abs=1e-3)
     # 都道府県は市区町村の点の合計（田のない市区町村・点の少ない市区町村の点も入る）
     pref = [v["畑など"] for k, v in stats.items() if k.startswith("13") and "畑など" in v]
     assert values("slope_field_mean", "prefectures")["pref-13"]["value"] == pytest.approx(
