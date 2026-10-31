@@ -77,10 +77,12 @@ def ingest_all(paths: Paths, overrides: dict | None = None, prefs: list[str] | N
     result: dict = {}
     with conn:
         # 古い時点から取り込み、地域名は最新の境界の名称で上書きされるようにする
+        # 同じ名前でまとめる町丁・字等は、最新の境界で決めて過去の時点にも当てる（#183）
+        aliases = _SameNameAliases(paths, sources, censuses[-1])
         for census in censuses:
             latest = census is censuses[-1]
             try:
-                result.update(_ingest_census(conn, paths, census, sources, catalog, overrides, prefs))
+                result.update(_ingest_census(conn, paths, census, sources, catalog, overrides, prefs, aliases))
             except FileNotFoundError as e:
                 if latest:
                     raise
@@ -236,6 +238,14 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
     kokode: tuple | None = None        # ここdeサーチの保育所など（位置参照情報をそろえてから取り込む）
     cultural: tuple | None = None      # 国指定文化財（位置参照情報をそろえてから取り込む）
     block_points: tuple | None = None  # 全国の位置参照情報（街区レベル、都道府県ごと）
+    keys_cache: dict[str, dict[str, str]] = {}
+
+    def town_keys(version: str) -> dict[str, str]:
+        """町丁・字等ごとの集計の KEY_CODE → 地域ID（同じ名前でまとめた地域は1つに。#183）。"""
+        if version not in keys_cache:
+            keys_cache[version] = estat_boundary.area_keys(conn, version)
+        return keys_cache[version]
+
     for key, cfg in sources.items():
         kind = cfg.get("kind")
         if kind not in ("keishicho_crime", "mlit_stations", "tokyo_schools",
@@ -407,17 +417,21 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             else:
                 result[key] = soumu_finance.ingest_tax_collection(conn, files[0], src, catalog, period, prefs)
         elif kind in ("land_use_cells", "urban_land_use_cells", "farmland_areas", "vegetation_areas"):
-            result[key] = derived_towns.ingest_cells(conn, files[0], src, catalog, cfg, prefs)
+            result[key] = derived_towns.ingest_cells(conn, files[0], src, catalog, cfg, prefs,
+                                                     town_keys(boundary_version))
         elif kind == "town_elevation":
-            result[key] = derived_towns.ingest_elevation(conn, files[0], src, catalog, cfg, prefs)
+            result[key] = derived_towns.ingest_elevation(conn, files[0], src, catalog, cfg, prefs,
+                                                         town_keys(boundary_version))
         elif kind == "town_slope":
-            result[key] = derived_towns.ingest_slope(conn, files[0], src, catalog, cfg, prefs)
+            result[key] = derived_towns.ingest_slope(conn, files[0], src, catalog, cfg, prefs,
+                                                     town_keys(boundary_version))
         elif kind == "town_slope_land_use":
             # 町丁・字等のすべての点の数は傾斜の出典（land_points）から読む（その区分が地域の何%かを見る。#182）
             lkey = cfg.get("land_points", "")
             lfiles = find_files(paths.raw / lkey, sources[lkey]["files"]) if lkey in sources else []
             result[key] = derived_towns.ingest_slope_land_use(conn, files[0], src, catalog, cfg, prefs,
-                                                              lfiles[0] if lfiles else None)
+                                                              lfiles[0] if lfiles else None,
+                                                              town_keys(boundary_version))
         elif kind == "land_use_tiles":
             result[key] = f"{len(files)} ファイル（公開版の land_use/ に書き出す）"
         elif kind == "gsi_area":
@@ -530,9 +544,30 @@ def _prefecture_files(paths: Paths, key: str, cfg: dict, prefs: list[str]) -> di
     return out
 
 
+class _SameNameAliases:
+    """都道府県 → 同じ名前でまとめる町丁・字等（estat_boundary.same_name_alias）。最新の国勢調査の境界から作り、
+    過去の時点の境界にも同じ KEY_CODE のまとめ方を当てる（過去の値を最新の地図の地域に重ねられるように。#183）。"""
+
+    def __init__(self, paths: Paths, sources: dict, latest: dict):
+        self.paths, self.key = paths, latest["boundary"]
+        self.cfg = sources[self.key]
+        self.cache: dict[str, dict[str, str]] = {}
+
+    def __call__(self, pref: str) -> dict[str, str]:
+        if pref not in self.cache:
+            files = _prefecture_files(self.paths, self.key, self.cfg, [pref]).get(pref)
+            if not files:
+                raise FileNotFoundError(f"{self.key}: 境界の元ファイルがない都道府県 {pref}")
+            shp = next(f for f in files if f.suffix.lower() == ".shp")
+            self.cache[pref] = estat_boundary.same_name_alias(shp, pref, self.cfg.get("encoding", "cp932"))
+        return self.cache[pref]
+
+
 def _ingest_census(conn, paths: Paths, census: dict, sources: dict, catalog: dict,
-                   overrides: dict | None, prefs: list[str] | None = None) -> dict:
-    """国勢調査の1時点を、都道府県ごとに境界 → 表の順で取り込む（design-changes #52）。"""
+                   overrides: dict | None, prefs: list[str] | None = None,
+                   aliases: _SameNameAliases | None = None) -> dict:
+    """国勢調査の1時点を、都道府県ごとに境界 → 表の順で取り込む（design-changes #52）。
+    aliases: 同じ名前でまとめる町丁・字等（省くと、その時点の境界の名前でまとめる）。"""
     prefs = prefs or selected_prefectures()
     result: dict = {}
     label = census["label"]
@@ -561,8 +596,11 @@ def _ingest_census(conn, paths: Paths, census: dict, sources: dict, catalog: dic
         progress(f"国勢調査 {label}: {pref}")
         shp = next(f for f in bfiles[pref] if f.suffix.lower() == ".shp")
         r = estat_boundary.ingest(conn, shp, bsrc, census["boundary_version"], census["period"],
-                                  bcfg.get("encoding", "cp932"), pref_code=pref)
+                                  bcfg.get("encoding", "cp932"), pref_code=pref,
+                                  alias=aliases(pref) if aliases else None)
         _add_counts(result, f"{label} 境界", r)
+        # 表の行はこの時点の境界の KEY_CODE で町丁・字等に対応付ける（同じ名前でまとめた地域は1つに。#183）
+        keys = estat_boundary.area_keys(conn, census["boundary_version"], pref)
         for table_name, (src, files) in tables.items():
             if pref not in files:
                 continue  # 東京都だけで取得している表（e-Stat「ファイル」の表など）
@@ -574,7 +612,7 @@ def _ingest_census(conn, paths: Paths, census: dict, sources: dict, catalog: dic
                     continue
                 fn = (estat_small_area.ingest_ratio if d["kind"] == "ratio"
                       else estat_small_area.ingest_counts)
-                _add_counts(result, f"{label} {indicator_id}", fn(conn, table, src, indicator_id, d, period))
+                _add_counts(result, f"{label} {indicator_id}", fn(conn, table, src, indicator_id, d, period, keys))
     for indicator_id, d in catalog.items():
         if d["kind"] == "density":
             n = derive_density(conn, indicator_id, d, catalog[d["numerator"]],

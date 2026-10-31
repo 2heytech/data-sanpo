@@ -119,6 +119,12 @@ YEARS = {
 }
 CHANGED_CELL = 2   # 過去の時点は面積が異なる（比較不可）
 NEW_CELL = 3       # 過去の時点には存在しない
+# 同じ名前の町丁目が別の KEY_CODE に分かれている例（長崎市の大手二丁目など。#183）。14199 の最初の町丁目
+# （14199001001「標本町1丁目」）の南に接する人口0の小さな区域で、町のコードが違う。取込で最初の町丁目にまとめる。
+# 人口の表は「-」、年齢の表は最初の町丁目に合算された秘匿地域にする（まとめた地域の中の合算は印を外す）
+SPLIT_KEY = "14199001101"
+# 名前も町丁・字等のコードもない地物（KEY_CODE が都道府県コードだけ）の例。14199 の東に接する。市区町村界にだけ使う
+LOOSE_KEY = "14"
 
 
 def write(directory: Path, seed: int = 42) -> dict[str, Path]:
@@ -2820,6 +2826,16 @@ def _write_year(directory: Path, year: str, keys: dict, base: dict,
         w.record(city5 + "999999", pref, city5[2:], "999999", pref_name, shp_city_name, "（水面）",
                  8154, 1000.0, designated)
         w.poly([[(x0, y0), (x0, y0 + CELL), (x0 + CELL / 2, y0 + CELL), (x0, y0)]])
+        split = SPLIT_KEY.startswith(city5)
+        if split:
+            main_key, main_name, _ = cells[0]
+            w.record(SPLIT_KEY, pref, city5[2:], SPLIT_KEY[5:], pref_name, shp_city_name, main_name, 8101,
+                     CELL * 91_000 * CELL / 3 * 111_000, designated)
+            w.poly([[(west, south - CELL / 3), (west, south), (west + CELL, south), (west + CELL, south - CELL / 3),
+                     (west, south - CELL / 3)]])
+            x0 = west + GRID * CELL
+            w.record(LOOSE_KEY, pref, city5[2:], "000000", pref_name, shp_city_name, "", 8101, 1000.0, designated)
+            w.poly([[(x0, south), (x0, south + CELL / 3), (x0 + CELL / 3, south), (x0, south)]])
 
         for key, (pv, av) in values.items():
             totals = [a + b for a, b in zip(totals, pv)]
@@ -2848,6 +2864,13 @@ def _write_year(directory: Path, year: str, keys: dict, base: dict,
                 av = [v if v else "-" for v in av]
                 pop_rows.append(head(code, hyosyo, name) + pv)
                 age_rows.append(head(code, hyosyo, name) + av)
+        if split:
+            pop_rows.append(head(SPLIT_KEY[:9], "3", main_name.split("1丁目")[0]) + ["-"] * 4)
+            pop_rows.append(head(SPLIT_KEY, "4", main_name) + ["-"] * 4)
+            age_rows.append(head(SPLIT_KEY[:9], "3", main_name.split("1丁目")[0], "2", main_key[5:]) + ["X"] * 4)
+            age_rows.append(head(SPLIT_KEY, "4", main_name, "2", main_key[5:]) + ["X"] * 4)
+            row = next(r for r in age_rows if r[0] == main_key)
+            row[4], row[6] = "1", SPLIT_KEY[5:]
     w.close()
     (dirs["boundary"] / "fixture.prj").write_text(
         'GEOGCS["JGD2011",DATUM["D_JGD_2011",SPHEROID["GRS_1980",6378137,298.257222101]],'

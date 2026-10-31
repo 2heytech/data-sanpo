@@ -19,6 +19,8 @@ town_slope_land_use（#181）: 列は「KEY_CODE, 区分, 点の数, 傾斜の�
   地域は値なし（not_applicable）。市区町村は min_denominator_municipality があれば、その点の数未満を出さない。
 
 集計に含まれない都道府県（集計を全国で作り直す前の都道府県など）は取り込まない（値なしの行も作らない）。
+KEY_CODE は keys（estat_boundary.area_keys）で地域に引く。同じ名前でまとめた地域（#183）は、まとめた KEY_CODE の行を
+足し合わせる（マスの数・点の数・標高の合計は足し、最低・最高は全体の最低・最高）。
 """
 from __future__ import annotations
 
@@ -58,12 +60,23 @@ def _areas(conn: sqlite3.Connection, prefs: list[str]) -> dict[str, str]:
         if prefecture_of(r[0]) in prefs}
 
 
+def _entity(r: dict[str, str], keys: dict[str, str] | None) -> str | None:
+    """集計の行の地域ID。keys（KEY_CODE → 地域ID）を省くと KEY_CODE の地域ID。keys にない KEY_CODE は None。"""
+    key = r["KEY_CODE"]
+    return small_area_entity_id(key) if keys is None else keys.get(key)
+
+
+def _add(target: dict[str, float], values: dict[str, float]) -> None:
+    for k, v in values.items():
+        target[k] = target.get(k, 0.0) + v
+
+
 def _columns(spec, all_columns: list[str]) -> list[str]:
     return list(all_columns) if spec == "*" else list(spec)
 
 
 def ingest_cells(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, cfg: dict,
-                 prefs: list[str]) -> dict:
+                 prefs: list[str], keys: dict[str, str] | None = None) -> dict:
     rows = read_rows(path)
     if not rows:
         return {"rows": 0}
@@ -76,14 +89,15 @@ def ingest_cells(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
     covered: set[str] = set()   # 集計に含まれる都道府県
     unmatched = []
     for r in rows:
-        entity_id = small_area_entity_id(r["KEY_CODE"])
-        if prefecture_of(entity_id) not in prefs:
+        entity_id = _entity(r, keys)
+        if r["KEY_CODE"][:2] not in prefs:
             continue
-        covered.add(prefecture_of(entity_id))
+        covered.add(r["KEY_CODE"][:2])
         if entity_id not in areas:
             unmatched.append(r["KEY_CODE"])
             continue
-        counts[int(r["年度"])][entity_id] = {c: float(r[c]) for c in [*categories, *([gap] if gap else [])]}
+        _add(counts[int(r["年度"])].setdefault(entity_id, {}),
+             {c: float(r[c]) for c in [*categories, *([gap] if gap else [])]})
     result: dict = {"unmatched": unmatched}
     for year, by_area in sorted(counts.items()):
         period = (f"{year}-04-01", f"{year + 1}-03-31", "fiscal_year")
@@ -140,7 +154,7 @@ def _insert_ratio(conn, entity_id: str, indicator_id: str, d: dict, period: tupl
 
 
 def ingest_elevation(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, cfg: dict,
-                     prefs: list[str]) -> dict:
+                     prefs: list[str], keys: dict[str, str] | None = None) -> dict:
     rows = read_rows(path)
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "town_elevation"}
     areas = _areas(conn, prefs)
@@ -148,17 +162,19 @@ def ingest_elevation(conn: sqlite3.Connection, path: Path, source_id: str, catal
     stats: dict[str, tuple[float, float, float, float]] = {}   # 地域ID → (点の数, 合計, 最低, 最高)
     covered: set[str] = set()
     unmatched = []
+    empty = (0.0, 0.0, float("inf"), float("-inf"))
     for r in rows:
-        entity_id = small_area_entity_id(r["KEY_CODE"])
-        if prefecture_of(entity_id) not in prefs:
+        entity_id = _entity(r, keys)
+        if r["KEY_CODE"][:2] not in prefs:
             continue
-        covered.add(prefecture_of(entity_id))
+        covered.add(r["KEY_CODE"][:2])
         if entity_id not in areas:
             unmatched.append(r["KEY_CODE"])
             continue
         n = float(r["点の数"])
-        stats[entity_id] = ((n, float(r["標高の合計"]), float(r["最低"]), float(r["最高"])) if n
-                            else (0.0, 0.0, float("inf"), float("-inf")))
+        got = (n, float(r["標高の合計"]), float(r["最低"]), float(r["最高"])) if n else empty
+        before = stats.get(entity_id, empty)
+        stats[entity_id] = (before[0] + got[0], before[1] + got[1], min(before[2], got[2]), max(before[3], got[3]))
     groups: dict[str, list[str]] = defaultdict(list)   # 市区町村・都道府県 → 町丁・字等
     for entity_id, muni in areas.items():
         if prefecture_of(entity_id) in covered:
@@ -200,7 +216,7 @@ def ingest_elevation(conn: sqlite3.Connection, path: Path, source_id: str, catal
 
 
 def ingest_slope(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, cfg: dict,
-                 prefs: list[str]) -> dict:
+                 prefs: list[str], keys: dict[str, str] | None = None) -> dict:
     rows = read_rows(path)
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "town_slope"}
     areas = _areas(conn, prefs)
@@ -209,14 +225,14 @@ def ingest_slope(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
     covered: set[str] = set()
     unmatched = []
     for r in rows:
-        entity_id = small_area_entity_id(r["KEY_CODE"])
-        if prefecture_of(entity_id) not in prefs:
+        entity_id = _entity(r, keys)
+        if r["KEY_CODE"][:2] not in prefs:
             continue
-        covered.add(prefecture_of(entity_id))
+        covered.add(r["KEY_CODE"][:2])
         if entity_id not in areas:
             unmatched.append(r["KEY_CODE"])
             continue
-        by_area[entity_id] = _slope_columns(r)
+        _add(by_area.setdefault(entity_id, {}), _slope_columns(r))
     munis: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for entity_id, muni in areas.items():
         for k, v in by_area.get(entity_id, {}).items():   # 画素の中心が1つも入らない小さな地域は点が0
@@ -243,7 +259,8 @@ def _slope_columns(r: dict[str, str]) -> dict[str, float]:
 
 
 def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, cfg: dict,
-                          prefs: list[str], land_points: Path | None = None) -> dict:
+                          prefs: list[str], land_points: Path | None = None,
+                          keys: dict[str, str] | None = None) -> dict:
     """land_points: 町丁・字等ごとの、区分によらずすべての点の数（town_slope の CSV）。指標の min_land_share が
     あれば、その区分の点が地域のすべての点の min_land_share % 未満の町丁・字等は値を出さない（#182。森林が大半の
     地域では、境目にかかる田などのマスのうち斜面に入ったわずかな部分だけを測ることになるため）。"""
@@ -256,15 +273,15 @@ def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, 
     covered: set[str] = set()
     unmatched = []
     for r in iter_rows(path):   # 全国で百万行近くあるので、使う列だけを残す
-        entity_id = small_area_entity_id(r["KEY_CODE"])
-        if prefecture_of(entity_id) not in prefs:
+        entity_id = _entity(r, keys)
+        if r["KEY_CODE"][:2] not in prefs:
             continue
-        covered.add(prefecture_of(entity_id))
+        covered.add(r["KEY_CODE"][:2])
         if entity_id not in areas:
             unmatched.append(r["KEY_CODE"])
             continue
         c = _slope_columns(r)
-        by_area[(entity_id, r["区分"])] = {k: c[k] for k in needed}
+        _add(by_area.setdefault((entity_id, r["区分"]), {}), {k: c[k] for k in needed})
     towns = [e for e in areas if prefecture_of(e) in covered]
     munis = sorted({areas[e] for e in towns})
     muni_counts: dict[tuple[str, str], dict[str, float]] = defaultdict(lambda: defaultdict(float))
@@ -274,7 +291,7 @@ def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, 
     totals: dict[str, float] = {}
     if land_points is not None:
         for r in iter_rows(land_points):
-            entity_id = small_area_entity_id(r["KEY_CODE"])
+            entity_id = _entity(r, keys)
             if entity_id in areas:   # 同じ地域に入る行が複数あっても足す
                 totals[entity_id] = totals.get(entity_id, 0.0) + float(r["点の数"] or 0)
     result: dict = {"unmatched": unmatched}
