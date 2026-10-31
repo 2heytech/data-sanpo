@@ -1780,6 +1780,119 @@ def test_slope_tiles_and_summary(tmp_path):
     assert rows["E"][2:] == [half, half - 256, 0, 0] and rows["W"][2:] == [half, half, 0, 0]
 
 
+def test_slope_land_use(built):
+    """土地利用別の傾斜（#181）。区分の行だけを使い、平均は合計 ÷ 点の数、割合は点の数から。
+    その区分のない地域は値なし、市区町村は min_denominator_municipality で点の少ない値を出さない。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    ids = ["slope_building_mean", "slope_building_steep_share", "slope_paddy_mean", "slope_paddy_slope_share",
+           "slope_field_mean", "slope_field_steep_share"]
+    assert all(by[i]["category"] == "土地" for i in ids)
+    assert [p["period"] for p in by["slope_paddy_mean"]["periods"]] == ["2021-04-01"]
+    th = fixture.SLOPE_LAND_USE_THRESHOLDS
+    from tdm.prepare import load_jobs
+    job = load_jobs()["slope_land_use"]
+    assert job["thresholds"] == th and job["land_uses"] == fixture.SLOPE_LAND_USES
+    towns = {key: t for key, t, _, _ in fixture._fixture_towns()}
+    stats = {k: {land: (n, total, at_least) for land, n, total, at_least in fixture.slope_land_use_stats(k, t)}
+             for k, t in towns.items()}
+
+    def values(indicator, level):
+        return {r["entity_id"]: r for r in load(built, f"values/{indicator}/2021-04-01/{level}.json")["rows"]}
+    key = "13499002002"
+    n, total, at_least = stats[key]["田"]
+    assert values("slope_paddy_mean", "13")[f"area-{key}"]["value"] == pytest.approx(total / n, abs=1e-3)
+    assert "numerator" not in values("slope_paddy_mean", "13")[f"area-{key}"]
+    assert values("slope_paddy_slope_share", "13")[f"area-{key}"]["value"] == pytest.approx(
+        at_least[th.index(2.86)] / n * 100, abs=1e-3)
+    n, _, at_least = stats[key]["建物用地"]
+    assert values("slope_building_steep_share", "13")[f"area-{key}"]["value"] == pytest.approx(
+        at_least[th.index(15)] / n * 100, abs=1e-3)
+    building = values("slope_building_mean", "13")
+    assert building["area-13499001001"]["status"] == "not_applicable"   # 海だけ（点がない）
+    assert building["area-13499001002"]["status"] == "withheld"         # 建物用地の点が150未満
+    paddy = values("slope_paddy_mean", "13")
+    assert paddy["area-13199001001"]["status"] == "not_applicable"      # 田のない市街地（0 にしない）
+    assert paddy["area-13199001001"]["value"] is None
+    munis = values("slope_paddy_mean", "municipalities")
+    assert munis["muni-13199"]["status"] == "not_applicable" and munis["muni-13199"]["value"] is None
+    city = [v["田"] for k, v in stats.items() if k.startswith("13499") and "田" in v]
+    assert munis["muni-13499"]["value"] == pytest.approx(sum(v[1] for v in city) / sum(v[0] for v in city), abs=1e-3)
+    # 畑などは町丁・字等には出るが、市区町村の合計が1,500点未満なので市区町村は出さない
+    field = values("slope_field_mean", "municipalities")
+    assert field["muni-13299"]["status"] == "withheld"
+    assert values("slope_field_mean", "13")["area-13299001001"]["status"] == "derived"
+    # 都道府県は市区町村の点の合計（田のない市区町村・点の少ない市区町村の点も入る）
+    pref = [v["畑など"] for k, v in stats.items() if k.startswith("13") and "畑など" in v]
+    assert values("slope_field_mean", "prefectures")["pref-13"]["value"] == pytest.approx(
+        sum(v[1] for v in pref) / sum(v[0] for v in pref), abs=1e-3)
+    pref = [v["田"] for k, v in stats.items() if k.startswith("13") and "田" in v]
+    assert values("slope_paddy_slope_share", "prefectures")["pref-13"]["value"] == pytest.approx(
+        sum(v[2][th.index(2.86)] for v in pref) / sum(v[0] for v in pref) * 100, abs=1e-3)
+    # 斜面の島の田は平らな郊外の田より急
+    assert munis["muni-13499"]["value"] > munis["muni-13299"]["value"]
+
+
+def test_slope_land_use_classify_and_summary(tmp_path):
+    """画素の中心が入る100mのマスの土地利用で傾斜の点を分ける（#181）。マスの外・海・ほかの区分の点は数えない。"""
+    import io
+    import math
+    import urllib.error
+    import numpy as np
+    import shapely
+    pil = pytest.importorskip("PIL.Image")
+    from tdm.prepare import land_use as lu
+    from tdm.prepare import slope as sl
+    from tdm.prepare import slope_land_use as slu
+    from tdm.prepare.elevation import pixel_centers, tile_box
+    from tdm.prepare.mesh import CELLS, first_mesh_origin
+    from tdm.prepare.towns import Towns
+
+    # 区分の判定: 1次メッシュ 5339 の南西の角から数えたマス
+    grid = np.zeros((CELLS, CELLS), dtype=np.uint8)
+    grid[10, 20] = lu.LAND_USE.index("田") + 1
+    grid[10, 21] = lu.LAND_USE.index("森林") + 1
+    grid[11, 20] = lu.SEA
+    classify = slu.classifier({"5339": grid}, ["建物用地", "田"])
+    row0, col0 = first_mesh_origin("5339")
+    lat = np.array([(row0 + 10.5) / 1200, (row0 + 10.5) / 1200, (row0 + 11.5) / 1200, (row0 + 10.5) / 1200,
+                    (row0 + 10.5) / 1200])
+    lon = 100 + np.array([col0 + 20.5, col0 + 21.5, col0 + 20.5, col0 + 900.5, col0 + 20.99]) / 800
+    assert classify(lon, lat).tolist() == [2, 0, 0, 0, 2]   # 田・森林（数えない）・海・メッシュなし・田
+
+    # 集計: 東へ11度で上がる斜面のタイルの西半分を建物用地、東半分を田とする
+    zoom, tx, ty = 14, 14550, 6451
+    rise = math.tan(math.radians(11)) * float(sl.pixel_meters(zoom, ty).mean())
+
+    def png(dx: int) -> bytes:
+        _, c = np.mgrid[0:256, 0:256]
+        x = np.round((100 + (dx * 256 + c) * rise) * 100).astype(np.int64)
+        rgb = np.stack([x >> 16, (x >> 8) & 255, x & 255], axis=-1).astype(np.uint8)
+        buf = io.BytesIO()
+        pil.fromarray(rgb, "RGB").save(buf, "PNG")
+        return buf.getvalue()
+    pngs = {(tx + dx, ty + dy): png(dx) for dx in (-1, 0, 1) for dy in (-1, 0, 1)}
+
+    def get(u):
+        x, y = (int(v) for v in u.removesuffix(".png").split("/")[-2:])
+        if (x, y) in pngs:
+            return pngs[(x, y)]
+        raise urllib.error.HTTPError(u, 404, "Not Found", None, None)
+    west, south, east, north = tile_box(zoom, tx, ty)
+    mid = (west + east) / 2
+    lons, _ = pixel_centers(zoom, tx, ty)
+
+    def by_half(lon, lat):
+        return np.where(lon < mid, 1, 2)
+    geoms = [shapely.box(west, south, east, north), shapely.box(east + 1, south, east + 2, north)]
+    towns = Towns("13", ["A", "S"], geoms, shapely.STRtree(geoms))
+    rows = slu.summarize(towns, "https://example.invalid/{z}/{x}/{y}.png", zoom, [3, 12], tmp_path, by_half,
+                         ["建物用地", "田"], get, workers=4)
+    half = 128 * 256
+    assert [r[:3] for r in rows] == [["A", "建物用地", half], ["A", "田", half]]   # 点のない地域（S）は書かない
+    assert rows[1][3] == pytest.approx(11 * half, rel=1e-3) and rows[1][4:] == [half, 0]
+    assert int((lons < mid).sum()) == half
+
+
 def test_fetch_skips_optional_source_not_yet_released(tmp_path):
     """まだ Release に置いていない集計（optional = true）は 404 なら飛ばす。ほかのエラーや、optional でない出典は止める。"""
     import urllib.error

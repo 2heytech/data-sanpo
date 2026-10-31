@@ -252,7 +252,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
                         "gsi_airports", "gsi_ports", "soumu_election", "soumu_fiscal_indicators",
                         "soumu_settlement", "soumu_tax_collection", "gsi_area", "land_use_cells", "urban_land_use_cells",
-                        "town_elevation", "town_slope", "land_use_tiles", "farmland_areas", "vegetation_areas",
+                        "town_elevation", "town_slope", "town_slope_land_use", "land_use_tiles", "farmland_areas",
+                        "vegetation_areas",
                         "school_counts", "kokode_nurseries", "cfa_childcare", "isj_block_points",
                         "mlit_michi_no_eki", "gsi_michi_no_eki", "wikidata_michi_no_eki",
                         "kunishitei_cultural_properties", "mlit_road_census"):
@@ -411,6 +412,8 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = derived_towns.ingest_elevation(conn, files[0], src, catalog, cfg, prefs)
         elif kind == "town_slope":
             result[key] = derived_towns.ingest_slope(conn, files[0], src, catalog, cfg, prefs)
+        elif kind == "town_slope_land_use":
+            result[key] = derived_towns.ingest_slope_land_use(conn, files[0], src, catalog, cfg, prefs)
         elif kind == "land_use_tiles":
             result[key] = f"{len(files)} ファイル（公開版の land_use/ に書き出す）"
         elif kind == "gsi_area":

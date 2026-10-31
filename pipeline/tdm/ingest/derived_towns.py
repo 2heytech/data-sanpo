@@ -14,6 +14,9 @@ town_elevation: 列は「KEY_CODE, 点の数, 標高の合計, 最低, 最高」
 town_slope（#179）: 列は「KEY_CODE, 点の数, 傾斜の合計, 3度以上, 4度以上, …」（標高タイルの画素ごとの傾斜の点の数・度の合計・
   その傾斜以上の点の数）。「○度以上」の列ごとに「○度未満」（点の数 − ○度以上）も作り、指標の値は
   numerator_columns の合計 ÷ denominator_columns の合計 × scale。市区町村の値は町丁・字等の合計から計算する。
+town_slope_land_use（#181）: 列は「KEY_CODE, 区分, 点の数, 傾斜の合計, 1度以上, …」（town_slope を土地利用の区分ごとに
+  分けたもの。点のない組は行がない）。指標の land_use の区分の行を town_slope と同じように使う。その区分の点がない
+  地域は値なし（not_applicable）。市区町村は min_denominator_municipality があれば、その点の数未満を出さない。
 
 集計に含まれない都道府県（集計を全国で作り直す前の都道府県など）は取り込まない（値なしの行も作らない）。
 """
@@ -30,6 +33,15 @@ from ..db import insert_observation
 from ..regions import prefecture_entity_id, prefecture_of, small_area_entity_id
 
 MAX_GAP_SHARE = 0.05
+
+
+def iter_rows(path: Path):
+    """read_rows と同じ行を1行ずつ（大きな集計を、すべての行を一度に持たずに読む）。"""
+    with path.open("rb") as f:
+        packed = f.read(2) == b"\x1f\x8b"
+    with (gzip.open(path, "rt", encoding="utf-8", newline="") if packed
+          else path.open(encoding="utf-8", newline="")) as f:
+        yield from csv.DictReader(f)
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
@@ -98,14 +110,16 @@ def ingest_cells(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
 
 
 def _insert_ratio(conn, entity_id: str, indicator_id: str, d: dict, period: tuple, source_id: str,
-                  numerator: float, denominator: float, gap: float, cfg: dict, over: bool = False) -> None:
+                  numerator: float, denominator: float, gap: float, cfg: dict, over: bool = False,
+                  min_den: float | None = None) -> None:
     """over: 分母を超える内訳がある（筆ポリゴンの区画は重心の入る地域に数えるので、小さな地域では田・畑の区画の
-    面積の合計が地域の面積を超えることがある。そのような地域は田・畑どちらの割合も出さない）。"""
+    面積の合計が地域の面積を超えることがある。そのような地域は田・畑どちらの割合も出さない）。
+    min_den: 指標の min_denominator の代わりに使う値（市区町村だけ別の値にする指標）。"""
     obs = dict(entity_id=entity_id, indicator_id=indicator_id, definition_version=d["definition_version"],
                period_start=period[0], period_end=period[1], period_kind=period[2],
                source_id=source_id, denominator_source_id=source_id)
     unit = d.get("denominator_label", "マス")
-    min_den = float(d.get("min_denominator", 0))
+    min_den = float(d.get("min_denominator", 0)) if min_den is None else float(min_den)
     min_note = f"{unit}が{min_den:g}{d.get('min_denominator_unit', '')}未満のため非表示"
     if gap > MAX_GAP_SHARE * (denominator + gap):
         obs.update(value=None, status="missing", method_note=cfg.get("gap_note", "データのない範囲を含むため値なし"))
@@ -199,10 +213,7 @@ def ingest_slope(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
         if entity_id not in areas:
             unmatched.append(r["KEY_CODE"])
             continue
-        c = {k: float(v or 0) for k, v in r.items() if k != "KEY_CODE"}
-        for k in [k for k in c if k.endswith("度以上")]:
-            c[k.removesuffix("以上") + "未満"] = c["点の数"] - c[k]
-        by_area[entity_id] = c
+        by_area[entity_id] = _slope_columns(r)
     munis: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for entity_id, muni in areas.items():
         for k, v in by_area.get(entity_id, {}).items():   # 画素の中心が1つも入らない小さな地域は点が0
@@ -215,6 +226,56 @@ def ingest_slope(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
             _insert_ratio(conn, entity_id, indicator_id, d, period, source_id,
                           sum(c.get(k, 0) for k in d["numerator_columns"]),
                           sum(c.get(k, 0) for k in d["denominator_columns"]), 0, cfg)
+            n += 1
+        result[indicator_id] = n
+    return result
+
+
+def _slope_columns(r: dict[str, str]) -> dict[str, float]:
+    """傾斜の集計の行 → 列ごとの数。「○度以上」の列ごとに「○度未満」（点の数 − ○度以上）も作る。"""
+    c = {k: float(v or 0) for k, v in r.items() if k not in ("KEY_CODE", "区分")}
+    for k in [k for k in c if k.endswith("度以上")]:
+        c[k.removesuffix("以上") + "未満"] = c["点の数"] - c[k]
+    return c
+
+
+def ingest_slope_land_use(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, cfg: dict,
+                          prefs: list[str]) -> dict:
+    targets = {k: d for k, d in catalog.items() if d.get("source_kind") == "town_slope_land_use"}
+    needed = {c for d in targets.values() for c in [*d["numerator_columns"], *d["denominator_columns"]]}
+    areas = _areas(conn, prefs)
+    y = int(cfg["fiscal_year"])
+    period = (f"{y}-04-01", f"{y + 1}-03-31", "fiscal_year")
+    by_area: dict[tuple[str, str], dict[str, float]] = {}   # (地域ID, 区分) → 列ごとの数
+    covered: set[str] = set()
+    unmatched = []
+    for r in iter_rows(path):   # 全国で百万行近くあるので、使う列だけを残す
+        entity_id = small_area_entity_id(r["KEY_CODE"])
+        if prefecture_of(entity_id) not in prefs:
+            continue
+        covered.add(prefecture_of(entity_id))
+        if entity_id not in areas:
+            unmatched.append(r["KEY_CODE"])
+            continue
+        c = _slope_columns(r)
+        by_area[(entity_id, r["区分"])] = {k: c[k] for k in needed}
+    towns = [e for e in areas if prefecture_of(e) in covered]
+    munis = sorted({areas[e] for e in towns})
+    muni_counts: dict[tuple[str, str], dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for (entity_id, land), c in by_area.items():
+        for k, v in c.items():
+            muni_counts[(areas[entity_id], land)][k] += v
+    result: dict = {"unmatched": unmatched}
+    for indicator_id, d in targets.items():
+        land = d["land_use"]
+        n = 0
+        # その区分の点がない地域も行を作る（not_applicable。都道府県の合計で値のない市区町村と区別するため）
+        for entity_id, c, min_den in [*((e, by_area.get((e, land), {}), None) for e in towns),
+                                      *((m, muni_counts.get((m, land), {}), d.get("min_denominator_municipality"))
+                                        for m in munis)]:
+            _insert_ratio(conn, entity_id, indicator_id, d, period, source_id,
+                          sum(c.get(k, 0) for k in d["numerator_columns"]),
+                          sum(c.get(k, 0) for k in d["denominator_columns"]), 0, cfg, min_den=min_den)
             n += 1
         result[indicator_id] = n
     return result
