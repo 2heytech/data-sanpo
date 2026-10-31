@@ -177,9 +177,10 @@ function mapSvg(spec: ChoroplethSpec, colors: string[]): string {
     const ox = MAP.x + (MAP.w - f.width) / 2, oy = MAP.y + (MAP.h - f.height) / 2;
     return clipped("map", ox, oy, f.width, f.height, mapLayer(spec, spec.features, f, colors, 1));
   }
-  // 日本全体: 北海道から奄美まで。沖縄県は左上の別枠に描く
-  const okinawa = spec.features.filter((x) => x.id.startsWith("muni-47"));
-  const main = spec.features.filter((x) => !x.id.startsWith("muni-47"));
+  // 日本全体: 北海道から奄美まで。沖縄県は左上の別枠に描く（市区町村別の図も都道府県別の図も。#184）
+  const inOkinawa = (id: string) => id.startsWith("muni-47") || id === "pref-47";
+  const okinawa = spec.features.filter((x) => inOkinawa(x.id));
+  const main = spec.features.filter((x) => !inOkinawa(x.id));
   const f = boxFrame(128.2, 146.0, 27.0, 45.6, MAP.w, MAP.h);
   const ox = MAP.x + (MAP.w - f.width) / 2, oy = MAP.y + (MAP.h - f.height) / 2;
   let inset = "";
