@@ -7661,6 +7661,9 @@ redistributable = true
 [slope_land_use_towns]
 kind = "town_slope_land_use"
 fiscal_year = 2021
+land_points = "slope_towns"   # 町丁・字等のすべての点の数を読む出典（指標の min_land_share に使う。#182）
+# 指標の min_population に使う人口（取込済みの国勢調査の指標と時点。#186）
+population = { indicator = "population_total", period = "2020-10-01", label = "2020年国勢調査" }
 title = "国土数値情報 土地利用細分メッシュ（令和3年度）と地理院タイル 標高タイルから計算した土地利用別の傾斜"
 provider = "国土交通省・国土地理院"
 url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L03-b-2021.html"
