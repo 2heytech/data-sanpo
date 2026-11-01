@@ -1,0 +1,1 @@
+{"indicator_id":"inbound_guest_share","period":"2019-01-01","method":"nice","scheme":"oranges","zero_blank":false,"pooled_periods":11,"levels":{"prefecture":{"breaks":[1.0,1.5,2.0,3.0,4.0,5.0,7.0,10.0,12.0,15.0,20.0],"min":1.696,"max":39.106,"count":47}}}
