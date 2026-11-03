@@ -107,6 +107,17 @@ def muni_names() -> dict[str, str]:
             for mid, name in re.findall(r'href="/areas/(muni-\d{5})/"[^>]*>([^<]+)</a>', html)}
 
 
+def rows_by_day(token: str, query: str, account: str, day0s: list[datetime]) -> list[dict]:
+    """1日ずつ問い合わせて行をつなぐ。期間が長いと抜き取りが粗く（10単位に）なるため。"""
+    rows: list[dict] = []
+    for d0 in day0s:
+        data = graphql(token, query, {"account": account,
+                                      "start": d0.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                      "end": (d0 + timedelta(days=1)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")})
+        rows += data["viewer"]["accounts"][0]["rows"]
+    return rows
+
+
 def is_search(ref: str) -> bool:
     labels = ref.split(".")
     return any(key in labels for key in SEARCH_ENGINES)
@@ -138,8 +149,7 @@ def main() -> None:
     today0 = datetime.now(JST).replace(hour=0, minute=0, second=0, microsecond=0)
     days = [(today0 - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(8, 0, -1)]  # 古い順、最後が前日
     target, prev = days[-1], days[:-1]
-    start = (today0 - timedelta(days=8)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    end = today0.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    day0s = [today0 - timedelta(days=i) for i in range(8, 0, -1)]
 
     visits: dict[str, float] = defaultdict(float)
     views: dict[str, float] = defaultdict(float)
@@ -147,8 +157,7 @@ def main() -> None:
     search: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     country: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     referer: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-    data = graphql(token, RUM_QUERY, {"account": account, "start": start, "end": end})
-    for r in data["viewer"]["accounts"][0]["rows"]:
+    for r in rows_by_day(token, RUM_QUERY, account, day0s):
         d = jst_day(r["dimensions"]["datetimeHour"])
         v = r["sum"]["visits"]
         visits[d] += v
@@ -168,7 +177,7 @@ def main() -> None:
     page_views: dict[str, float] = defaultdict(float)
     page_views_target: dict[str, float] = defaultdict(float)
     page_search: dict[str, float] = defaultdict(float)
-    for r in graphql(token, PAGE_QUERY, {"account": account, "start": start, "end": end})["viewer"]["accounts"][0]["rows"]:
+    for r in rows_by_day(token, PAGE_QUERY, account, day0s):
         path = r["dimensions"]["requestPath"] or "/"
         page_views[path] += r["count"]
         if jst_day(r["dimensions"]["datetimeHour"]) == target:
