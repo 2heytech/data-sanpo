@@ -22,6 +22,7 @@ import { initLandUse, NARROW_MAP_PX } from "./landuse";
 import { initTransport } from "./transport";
 import { initFacilities } from "./facilities";
 import { initShare, safeFileName, type BaseLegend, type LegendModel } from "./share";
+import { initExternalMaps } from "./external";
 import { RELIEF_STOPS, reliefAt } from "./relief";
 import { registerSlopeProtocol, SLOPE_CLASSES, SLOPE_MAXZOOM, SLOPE_MINZOOM, SLOPE_TILES } from "./slope";
 import { PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare } from "./photoEras";
@@ -1789,6 +1790,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
                fileName: safeFileName(`データさんぽ_${[title, when, area].filter(Boolean).join("_")}.png`) };
     },
   });
+  // 地図の中心を Google マップ・ストリートビューで開くリンク（#187）。右下のズームのボタンの下（狭い地図では左）に置く
+  initExternalMaps({ map, base: () => baseMode });
 
   // --- 初期表示 -------------------------------------------------------------------
   // 共有URLの背景（?b=photo1945・relief・slope・landuse2021 など。#175）。?show=landuse で開いたときも土地利用図を出す
