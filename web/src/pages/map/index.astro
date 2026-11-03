@@ -418,6 +418,20 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   /* 画像の保存・共有（#153） */
   .map-wrap .share-ctrl button { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 8px; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--fg); }
   .map-wrap .share-ctrl svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  /* 地図の中心を Google マップ・ストリートビューで開くリンク（#187）。ズームのボタンと同じ大きさのアイコンを縦に2つ並べ、
+     ズームのボタンの下に置く（狭い地図では左。下の @container） */
+  .map-wrap .external-ctrl a { display: grid; place-items: center; width: 29px; height: 29px; color: var(--fg); }
+  .map-wrap .external-ctrl a + a { border-top: 1px solid #ddd; }
+  .map-wrap .external-ctrl a:hover { background: rgb(0 0 0 / 5%); }
+  .map-wrap .external-ctrl a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .map-wrap .external-ctrl svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  /* 上のリンクで開く地点（地図の中心）の印。アイコンにマウスを載せている間だけ出す */
+  .center-mark {
+    position: absolute; left: 50%; top: 50%; z-index: 2; width: 30px; height: 30px; margin: -15px 0 0 -15px; pointer-events: none;
+    background: linear-gradient(var(--accent), var(--accent)) center / 2px 100% no-repeat, linear-gradient(var(--accent), var(--accent)) center / 100% 2px no-repeat;
+    filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
+  }
+  .center-mark[hidden] { display: none; }
   .share-dialog {
     width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0;
     border: 0; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25); color: var(--fg); background: var(--surface);
@@ -520,9 +534,10 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .icon-toggle:has(:checked) svg { color: #fff; }
   .icon-toggle:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
   /* 地図に重ねているものの凡例（地図の右上、#139）。オンにしたもの（説明が出ているもの）だけ見せ、何もなければ枠ごと隠す。
-     地図の幅が狭いと左上の背景の切替と横に並ばないので、切替の下に置く（下の @container） */
+     地図の幅が狭いと左上の背景の切替と横に並ばないので、切替の下に置く（下の @container）。
+     高さは、右下の操作の列（共有・現在地・ズーム・Google マップ）の上で止める（#187） */
   .overlay-notes {
-    position: absolute; top: 56px; right: 32px; z-index: 3; width: 290px; max-height: calc(100% - 190px);
+    position: absolute; top: 56px; right: 32px; z-index: 3; width: 290px; max-height: calc(100% - 300px);
     display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px;
     background: rgba(255,255,255,.95); box-shadow: 0 1px 4px rgba(0,0,0,.15);
   }
@@ -555,7 +570,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--fg);
   }
   @container (min-width: 780px) {
-    .overlay-notes { top: 10px; max-height: calc(100% - 150px); }
+    .overlay-notes { top: 10px; max-height: calc(100% - 254px); }
   }
   /* 地点の情報のポップアップ（#139）。地図の上の切替・凡例より手前に出し、長い推移の表などはポップアップの中でスクロールする
      （高さの上限は地図の処理が地図の高さから決める） */
@@ -679,6 +694,9 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     .base-panel-head output, .base-panel-title { font-size: 1rem; }
     /* 凡例は左下（縮尺の上）に置き、上に向かって開く。右下のズームのボタンには重ねない */
     .overlay-notes { top: auto; bottom: 34px; right: auto; left: 10px; width: min(290px, calc(100% - 64px)); max-height: calc(100% - 110px); }
+    /* Google マップ・ストリートビューのアイコンはズームのボタンの左に並べ、右下の操作の列を高くしない
+       （上から開く土地利用のパネルに隠れないように。#187） */
+    .map-wrap .maplibregl-ctrl-bottom-right .external-ctrl { clear: none; }
   }
   /* さらに狭いとき（幅 320〜400px のスマホ）は、背景の5つのボタンが1行に収まるよう詰める */
   @container (max-width: 400px) {
