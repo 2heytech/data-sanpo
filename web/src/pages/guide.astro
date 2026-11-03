@@ -1,7 +1,6 @@
 ---
 // データさんぽの使い方（地図の画面の見方、地域・指標のページ）。画面写真は public/guide/ に置く（設計変更記録 #126）
 import Base from "../layouts/Base.astro";
-import AdSlot from "../components/AdSlot.astro";
 import { loadIndicators } from "../lib/data";
 
 const indicatorCount = loadIndicators().length;
@@ -113,5 +112,4 @@ const SHOTS = {
       追加してほしいデータや、誤りに気づいたときは、各ページの「ご要望はこちら」からお知らせください。
     </p>
   </section>
-  <AdSlot name="page" />
 </Base>

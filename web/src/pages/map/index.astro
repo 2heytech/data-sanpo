@@ -1,6 +1,5 @@
 ---
 import Base from "../../layouts/Base.astro";
-import AdSlot from "../../components/AdSlot.astro";
 import FeedbackLink from "../../components/FeedbackLink.astro";
 import CategoryIcon from "../../components/CategoryIcon.astro";
 import { readFileSync } from "node:fs";
@@ -254,7 +253,6 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         背景地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>。
         <a href="/sources/">統計の出典</a>・<a href="/about/#terms">利用規約</a>・<FeedbackLink />
       </p>
-      <AdSlot name="map" />
     </aside>
     {/* 指標の選択画面（地図の上に重ねて開く。スマホでは全画面） */}
     <dialog id="indicator-picker" class="picker" aria-labelledby="picker-title">

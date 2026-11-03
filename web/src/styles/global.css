@@ -161,9 +161,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .sources-table td:nth-child(3) { min-width: 10em; }
 .sources-table th { white-space: nowrap; }
 
-/* 広告枠（AdSense のコードが設定されたときだけ出る。docs/design-changes.md #51） */
-.ad-slot { display: block; margin: 24px auto; text-align: center; min-height: 100px; }
-.ad-slot::before { content: "広告"; display: block; font-size: 0.7rem; color: var(--muted); letter-spacing: .1em; margin-bottom: 2px; }
+/* 広告（楽天アフィリエイト）のリンクと、ページの冒頭の「広告を含みます」（設計変更記録 #189） */
+.pr-notice { flex-basis: 100%; margin: 0; font-size: 0.8rem; }
+.ad-mark { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--muted); border-radius: 3px; font-size: 0.7rem; color: var(--muted); vertical-align: middle; }
 
 /* --- フッター --- */
 .site-footer { background: var(--ink); color: #d7e2ef; margin-top: 40px; }

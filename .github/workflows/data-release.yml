@@ -265,11 +265,8 @@ jobs:
           ALLOW_INDEXING: ${{ vars.ALLOW_INDEXING }}
           # 変数（Variables）でも Secrets でも受け付ける。トークンはページに載る公開値。
           CF_WEB_ANALYTICS_TOKEN: ${{ vars.CF_WEB_ANALYTICS_TOKEN || secrets.CF_WEB_ANALYTICS_TOKEN }}
-          # 広告（AdSense）。未設定なら広告枠は出ない（docs/design-changes.md #51）
-          ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
-          ADSENSE_SLOT_TOP: ${{ vars.ADSENSE_SLOT_TOP }}
-          ADSENSE_SLOT_PAGE: ${{ vars.ADSENSE_SLOT_PAGE }}
-          ADSENSE_SLOT_MAP: ${{ vars.ADSENSE_SLOT_MAP }}
+          # 楽天アフィリエイトの ID（公開値。未設定なら楽天のリンクと「広告」の表示は出ない。docs/design-changes.md #189）
+          RAKUTEN_AFFILIATE_ID: ${{ vars.RAKUTEN_AFFILIATE_ID }}
         run: |
           npm ci
           npm run prepare-data

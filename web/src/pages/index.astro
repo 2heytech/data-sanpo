@@ -2,7 +2,6 @@
 // トップページ: ロゴと「地図をひらく」を大きく置き、その下に指標の一覧（ジャンルごとのカードに指標名を並べる）をまとめる
 // （指標の一覧ページはここに集約した。docs/design-changes.md #47・#173）。
 import Base from "../layouts/Base.astro";
-import AdSlot from "../components/AdSlot.astro";
 import CategoryIcon from "../components/CategoryIcon.astro";
 import { loadAreas, loadIndicators, loadPlace } from "../lib/data";
 import type { WeatherElement } from "../lib/types";
@@ -130,7 +129,6 @@ const tagKinds = new Set(allTags.map((t) => t.kind));
     </div>
   </section>
 
-  <AdSlot name="top" />
 
   <section class="sheet">
     <h2>使い方</h2>
