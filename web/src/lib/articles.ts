@@ -17,6 +17,8 @@ export interface Article {
   mapIndicator?: string;
   /** 「データを地図で見る」の行き先（ないときは地図の画像と同じ。画像と違う指標・時点を見せたいとき。設計変更記録 #157） */
   mapHref?: string;
+  /** 広告（楽天アフィリエイト）のリンクを置く記事。冒頭に「広告を含みます」を出す（設計変更記録 #189） */
+  affiliate?: boolean;
 }
 
 export const ARTICLES: Article[] = [
@@ -189,6 +191,7 @@ export const ARTICLES: Article[] = [
     description: "ふるさと納税の受入額の上位の自治体と、住民1人あたりにした額の上位。金額の大きさだけでなく、自治体の規模とあわせて見ると違う顔ぶれになります。",
     published: "2026-10-16",
     indicators: ["furusato_amount", "furusato_amount_per_capita"],
+    affiliate: true,
   },
   {
     slug: "vacant-houses",

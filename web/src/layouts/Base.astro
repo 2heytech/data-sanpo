@@ -1,6 +1,5 @@
 ---
 import FeedbackLink from "../components/FeedbackLink.astro";
-import { ADSENSE_CLIENT } from "../lib/ads";
 import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
 import { RELEASE, loadAreas } from "../lib/data";
 import { ALLOW_INDEXING } from "../lib/indexing";
@@ -126,10 +125,6 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     {CF_WEB_ANALYTICS_TOKEN && (
       <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js"
         data-cf-beacon={JSON.stringify({ token: CF_WEB_ANALYTICS_TOKEN })}></script>
-    )}
-    {ADSENSE_CLIENT && (
-      <script is:inline async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-        crossorigin="anonymous"></script>
     )}
   </head>
   <body class={wide ? "wide" : ""}>

@@ -1,0 +1,25 @@
+---
+// 地域ページの「ふるさと納税の返礼品」の欄（楽天ふるさと納税へのリンク、設計変更記録 #189）。
+// 政令指定都市の区は区ごとの寄附先がないので、市の返礼品を探すリンクにする。ID がなければ何も出さない
+import { rakutenAffiliateUrl, rakutenFurusatoSearchUrl } from "../lib/rakuten";
+import { isDesignatedWard } from "../lib/prefecturePage";
+import type { Municipality } from "../lib/types";
+
+interface Props { muni: Municipality; pref: string }
+const { muni, pref } = Astro.props;
+const ward = isDesignatedWard(muni);
+const target = ward ? muni.region! : muni.name;
+const href = pref ? rakutenAffiliateUrl(rakutenFurusatoSearchUrl(pref, target)) : null;
+---
+{href && (
+  <section class="sheet furusato-link">
+    <h2>ふるさと納税の返礼品</h2>
+    <p>
+      {ward ? `${muni.name}を含む${target}` : target}へのふるさと納税の返礼品は、楽天ふるさと納税で探せます。
+    </p>
+    <p>
+      <a class="button secondary" href={href} target="_blank" rel="sponsored noopener">楽天ふるさと納税で{target}の返礼品を探す</a>
+      <span class="ad-mark">広告</span>
+    </p>
+  </section>
+)}

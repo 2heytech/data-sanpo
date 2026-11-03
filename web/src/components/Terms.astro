@@ -1,6 +1,6 @@
 ---
 // 利用規約とプライバシー。「このサイトについて」のページの中に表示する（docs/design-changes.md #47）。
-import { ADSENSE_CLIENT } from "../lib/ads";
+import { RAKUTEN_AFFILIATE_ID } from "../lib/rakuten";
 import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
 ---
   <p>この規約は、データさんぽ（以下「本サイト」）の利用について定めるものです。本サイトを利用した時点で、この規約に同意したものとみなします。</p>
@@ -46,57 +46,46 @@ import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
     開いたときか切り替えたときかの区別だけを当サイトに送り、回数として集計しています。地域・時点・位置情報は送らず、
     IP アドレスなど利用者を識別できる情報は記録しません。
   </p>
-  {ADSENSE_CLIENT ? (
+  <h4 id="ads">広告</h4>
+  {RAKUTEN_AFFILIATE_ID ? (
     <>
-      <h4 id="ads">広告とCookie</h4>
       <p>
-        本サイトは、運営費をまかなうため、第三者配信の広告サービス「Google AdSense」を利用しています。
-        Google などの第三者配信事業者は、Cookie を使って、利用者が本サイトや他のサイトに過去にアクセスした情報に基づき広告を配信します。
-        Google は広告 Cookie を使うことで、利用者が本サイトや他のサイトにアクセスした際の情報に基づいて、Google やそのパートナーが適切な広告を表示できるようにしています。
+        本サイトは、運営費をまかなうため、楽天グループ株式会社の「楽天アフィリエイト」に参加しています。
+        地域のページなどにある楽天ふるさと納税へのリンクから楽天のサイトで寄附や購入をすると、運営者に紹介料が支払われます。
+        こうしたリンクのあるページには、ページの冒頭とリンクの横に「広告」と表示しています。
       </p>
-      <ul>
-        <li>パーソナライズ広告（興味・関心に合わせた広告）は、<a href="https://adssettings.google.com/">Google の広告設定</a>で無効にできます。</li>
-        <li>第三者配信事業者の Cookie によるパーソナライズ広告は、<a href="https://optout.aboutads.info/">aboutads.info</a> で無効にできます。</li>
-        <li>Google による情報の使い方は、<a href="https://policies.google.com/technologies/partner-sites">Google のサービスを使用するサイトやアプリから収集した情報の Google による使用</a>をご覧ください。</li>
-        <li>欧州経済領域・英国・スイスからの閲覧では、広告の Cookie を使う前に同意を求める画面を表示します。</li>
-      </ul>
-      <p>本サイト自体は、Cookie を使った利用者の識別や追跡はしていません。広告の位置には「広告」と表示しています。</p>
-
-      <h4 id="external">利用者の情報の外部送信</h4>
-      <p>電気通信事業法の外部送信規律に基づき、本サイトのページを開いたときに、利用者のブラウザから次の事業者へ送られる情報を公表します。</p>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>送信先</th><th>送る情報</th><th>目的</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>Google LLC（Google AdSense）</td>
-              <td>閲覧したページの URL、参照元、IP アドレス、ブラウザの種類、Cookie などの識別子、閲覧日時</td>
-              <td>広告の配信・表示回数の計測・不正な広告操作の防止（<a href="https://policies.google.com/privacy">プライバシーポリシー</a>）</td>
-            </tr>
-            <tr>
-              <td>国土交通省 国土地理院（地理院タイル）</td>
-              <td>表示した地図の範囲・縮尺（地図画像の URL）、IP アドレス、ブラウザの種類、参照元</td>
-              <td>地図ページの背景地図の配信（<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイルについて</a>）</td>
-            </tr>
-            {CF_WEB_ANALYTICS_TOKEN && (
-              <tr>
-                <td>Cloudflare, Inc.（Cloudflare Web Analytics）</td>
-                <td>閲覧したページの URL、参照元、ブラウザの種類、表示速度（Cookie は使いません）</td>
-                <td>サイトの利用状況の集計（<a href="https://www.cloudflare.com/privacypolicy/">プライバシーポリシー</a>）</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <p>
+        リンクを押して楽天のサイトへ移ると、楽天が Cookie などを使って、どのサイトからの紹介かを記録します（<a href="https://privacy.rakuten.co.jp/">楽天グループの個人情報保護方針</a>）。
+        リンクを押さない限り、本サイトのページを開いただけで楽天へ情報が送られることはありません。本サイト自体は、Cookie を使った利用者の識別や追跡はしていません。
+      </p>
     </>
   ) : (
-    <>
-      <h4>Cookieと広告</h4>
-      <p>Cookie と広告は使用していません。</p>
-    </>
+    <p>広告は掲載していません。本サイト自体は、Cookie を使った利用者の識別や追跡はしていません。</p>
   )}
+
+  <h4 id="external">利用者の情報の外部送信</h4>
+  <p>電気通信事業法の外部送信規律に基づき、本サイトのページを開いたときに、利用者のブラウザから次の事業者へ送られる情報を公表します。</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>送信先</th><th>送る情報</th><th>目的</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>国土交通省 国土地理院（地理院タイル）</td>
+          <td>表示した地図の範囲・縮尺（地図画像の URL）、IP アドレス、ブラウザの種類、参照元</td>
+          <td>地図ページの背景地図の配信（<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイルについて</a>）</td>
+        </tr>
+        {CF_WEB_ANALYTICS_TOKEN && (
+          <tr>
+            <td>Cloudflare, Inc.（Cloudflare Web Analytics）</td>
+            <td>閲覧したページの URL、参照元、ブラウザの種類、表示速度（Cookie は使いません）</td>
+            <td>サイトの利用状況の集計（<a href="https://www.cloudflare.com/privacypolicy/">プライバシーポリシー</a>）</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
 
   <h3 id="changes">4. 規約の変更</h3>
   <p>この規約は、必要に応じて変更することがあります。変更後の規約は、このページに掲載した時点から適用します。</p>
 
-  <p class="muted">2026年10月3日 制定{ADSENSE_CLIENT && "（同日 広告の項目を追加）"}</p>
+  <p class="muted">2026年10月3日 制定・2026年11月4日 改定（広告の項目）</p>

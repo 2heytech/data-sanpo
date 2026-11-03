@@ -1,11 +1,12 @@
 ---
 // 地域ページ。初期は市区町村のみ生成し、町丁目は内容が整ったものから追加する（設計書 第12章）。
 import Base from "../../layouts/Base.astro";
-import AdSlot from "../../components/AdSlot.astro";
 import ShareButtons from "../../components/ShareButtons.astro";
 import AreaShape from "../../components/AreaShape.astro";
 import NeighborCompare from "../../components/NeighborCompare.astro";
 import ProfileIntro from "../../components/ProfileIntro.astro";
+import FurusatoLink from "../../components/FurusatoLink.astro";
+import PrNotice from "../../components/PrNotice.astro";
 import SmallAreaRanking from "../../components/SmallAreaRanking.astro";
 import StatList from "../../components/StatList.astro";
 import { RELEASE, loadAreas, loadIndicators, loadValues } from "../../lib/data";
@@ -95,6 +96,7 @@ const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
       <a class="button" href={`/map/?a=${muni.id}`}>地図で{muni.name}を見る</a>
       <a class="button secondary" href={prefPath ?? "/areas/"}>{prefPath ? `${pref}の市区町村` : "市区町村の一覧"}</a>
     </div>
+    <PrNotice />
   </header>
 
   {(summary.length > 0 || insights.length > 0 || aramashi) && (
@@ -118,13 +120,14 @@ const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
 
   <SmallAreaRanking muni={muni} />
 
+  <FurusatoLink muni={muni} pref={pref} />
+
   <section class="sheet">
     <h2>データについて</h2>
     <p>各指標の意味・計算方法・注意点・出典は、指標名から開く<strong>指標のページ</strong>にまとめています。サイト全体の出典と利用条件は<a href="/sources/">出典と利用条件</a>をご覧ください。</p>
     <p>町丁目ごとの値は<a href={`/map/?a=${muni.id}`}>地図</a>で拡大すると確認できます（{muni.small_area_count.toLocaleString("ja-JP")}地域）。</p>
   </section>
   <ShareButtons title={pageTitle} />
-  <AdSlot name="page" />
 </Base>
 
 <style>
