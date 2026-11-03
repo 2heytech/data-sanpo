@@ -6,6 +6,7 @@ import CategoryIcon from "../../components/CategoryIcon.astro";
 import { readFileSync } from "node:fs";
 import { DATA_BASE, RELEASE, loadIndicators } from "../../lib/data";
 import { RELIEF_GRADIENT, RELIEF_STOPS, reliefAt } from "../../map/relief";
+import { SLOPE_CLASSES } from "../../map/slope";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl-${version}/maplibre-gl.mjs`;
 // 右の欄の「〇〇の公式サイト」の URL 一覧（pages/official-sites.json.ts）。架空の地名を使う開発用データでは出さない
@@ -26,10 +27,11 @@ const ICON: Record<string, string> = {
   michi: '<path d="M3 11 12 4.5 21 11"/><path d="M5.5 9.5V16h13V9.5M10 16v-4h4v4"/><path d="M8 21l1-3M16 21l-1-3M12 19.5v1.5"/>',
   weather: '<circle cx="9" cy="9" r="3.5"/><path d="M9 2.5v1.5M2.5 9H4M4.4 4.4l1.1 1.1M13.6 4.4l-1.1 1.1"/><path d="M8 20h10a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.5A2.8 2.8 0 0 0 8 20z"/>',
   landuse: '<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M12 3.5v17M3.5 12h17M5.5 9.5l4-4M5.5 7l1.5-1.5M14 20.5l6.5-6.5M16.5 20.5l4-4"/>',
-  // 背景の切替（地図の左上）のアイコン: 地図・航空写真・標高
+  // 背景の切替（地図の左上）のアイコン: 地図・航空写真・標高・傾斜
   pale: '<path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2-6-2z"/><path d="M9 4.5v13M15 6.5v13"/>',
   photo: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m3.5 17 5-4.5 3.5 3 3-2.5 5.5 4.5"/>',
   relief: '<path d="M2 20 9 7.5l3.5 5.5 2.5-3.5L22 20z"/><path d="M7.2 10.7 9 12l1.8-1.3"/>',
+  slope: '<path d="M3 19.5 21 7v12.5z"/><path d="M8.5 19.5a5.5 5.5 0 0 0-1-3.1"/>',
 };
 const VIEW_TOGGLES = [
   { id: "colors-toggle", name: "色分け", title: "色分けを表示", icon: ICON.colors },
@@ -47,11 +49,12 @@ const OVERLAYS = [
   { id: "bunka-toggle", note: "bunka-legend", name: "文化財", title: "国指定文化財", icon: ICON.bunka },
   { id: "weather-toggle", note: "weather-legend", name: "天気", title: "天気（気象庁の観測所の平年値）", icon: ICON.weather },
 ];
-// 背景（地図の左上で、どれか1つを選ぶ。#128）。標高・土地利用は左の欄の「地図に重ねる」から移した
+// 背景（地図の左上で、どれか1つを選ぶ。#128）。標高・土地利用は左の欄の「地図に重ねる」から移した。傾斜は #177
 const BASES = [
   { id: "pale", name: "地図", title: "地図（淡色地図）", icon: ICON.pale },
   { id: "photo", name: "航空写真", title: "航空写真（昔の写真も）", icon: ICON.photo },
   { id: "relief", name: "標高", title: "標高（色別標高図）", icon: ICON.relief },
+  { id: "slope", name: "傾斜", title: "傾斜（標高から計算）", icon: ICON.slope },
   { id: "landuse", name: "土地利用", title: "土地利用（100m四方のマス）", icon: ICON.landuse },
 ];
 const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "観光", "天気"])];
@@ -140,8 +143,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     </aside>
     <div class="map-wrap">
       <div id="map" role="region" aria-label="地図"></div>
-      {/* 背景: 地図・航空写真（昔の写真も）・標高・土地利用のどれか1つを地図の左上で選ぶ。航空写真の撮影年代・土地利用の年度・
-           標高の色の見本は、選んだものだけ地図の上のパネルに出す（ふだんは地図の下側、地図の幅が狭いときは切替のすぐ下。#128） */}
+      {/* 背景: 地図・航空写真（昔の写真も）・標高・傾斜・土地利用のどれか1つを地図の左上で選ぶ。航空写真の撮影年代・土地利用の年度・
+           標高と傾斜の色の見本は、選んだものだけ地図の上のパネルに出す（ふだんは地図の下側、地図の幅が狭いときは切替のすぐ下。#128） */}
       <div class="base-switch" role="group" aria-label="背景">
         {BASES.map((b) => (
           <button type="button" data-basemap={b.id} aria-pressed={b.id === "pale" ? "true" : "false"} title={b.title}>
@@ -171,6 +174,24 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
           {RELIEF_STOPS.map((s, i) => s.tick && <span style={`left: ${reliefAt(i) * 100}%`}>{s.tick}</span>)}
         </div>
         <p id="relief-note" class="muted small" hidden></p>
+      </section>
+      {/* 傾斜の区分（#177・#178・#180）。区分を同じ幅で並べた帯の下に境目の度を書く。1度未満は色を塗らない */}
+      <section id="slope-panel" class="base-panel" aria-label="傾斜の色" hidden>
+        <div class="base-panel-head">
+          <span class="base-panel-title">傾斜（標高から計算）</span>
+          <button type="button" class="base-close" aria-label="傾斜を閉じる" title="傾斜を閉じる">×</button>
+        </div>
+        <div class="slope-bar" aria-hidden="true">
+          {SLOPE_CLASSES.map((c) => <span class:list={{ none: !c.color }} style={c.color ? `background: ${c.color}` : undefined}></span>)}
+        </div>
+        <div class="slope-ticks muted small" aria-hidden="true">
+          {SLOPE_CLASSES.map((c, i) => <span style={`left: ${(i / SLOPE_CLASSES.length) * 100}%`}>{c.min}{i === SLOPE_CLASSES.length - 1 && <span class="unit">度</span>}</span>)}
+        </div>
+        <ul class="visually-hidden">
+          {SLOPE_CLASSES.map((c) => <li>{c.label}{c.color ? "" : "（色なし）"}</li>)}
+        </ul>
+        <p class="muted small base-caption">建物や木を除いた地面の傾き。約10m間隔の標高から計算しています。</p>
+        <p id="slope-note" class="muted small" hidden></p>
       </section>
       <section id="landuse-panel" class="base-panel" aria-label="土地利用図の年度" hidden>
         <div class="base-panel-head">
@@ -397,6 +418,20 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   /* 画像の保存・共有（#153） */
   .map-wrap .share-ctrl button { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 8px; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--fg); }
   .map-wrap .share-ctrl svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  /* 地図の中心を Google マップ・ストリートビューで開くリンク（#187）。ズームのボタンと同じ大きさのアイコンを縦に2つ並べ、
+     ズームのボタンの下に置く（狭い地図では左。下の @container） */
+  .map-wrap .external-ctrl a { display: grid; place-items: center; width: 29px; height: 29px; color: var(--fg); }
+  .map-wrap .external-ctrl a + a { border-top: 1px solid #ddd; }
+  .map-wrap .external-ctrl a:hover { background: rgb(0 0 0 / 5%); }
+  .map-wrap .external-ctrl a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .map-wrap .external-ctrl svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  /* 上のリンクで開く地点（地図の中心）の印。アイコンにマウスを載せている間だけ出す */
+  .center-mark {
+    position: absolute; left: 50%; top: 50%; z-index: 2; width: 30px; height: 30px; margin: -15px 0 0 -15px; pointer-events: none;
+    background: linear-gradient(var(--accent), var(--accent)) center / 2px 100% no-repeat, linear-gradient(var(--accent), var(--accent)) center / 100% 2px no-repeat;
+    filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
+  }
+  .center-mark[hidden] { display: none; }
   .share-dialog {
     width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0;
     border: 0; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25); color: var(--fg); background: var(--surface);
@@ -499,9 +534,10 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .icon-toggle:has(:checked) svg { color: #fff; }
   .icon-toggle:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
   /* 地図に重ねているものの凡例（地図の右上、#139）。オンにしたもの（説明が出ているもの）だけ見せ、何もなければ枠ごと隠す。
-     地図の幅が狭いと左上の背景の切替と横に並ばないので、切替の下に置く（下の @container） */
+     地図の幅が狭いと左上の背景の切替と横に並ばないので、切替の下に置く（下の @container）。
+     高さは、右下の操作の列（共有・現在地・ズーム・Google マップ）の上で止める（#187） */
   .overlay-notes {
-    position: absolute; top: 56px; right: 32px; z-index: 3; width: 290px; max-height: calc(100% - 190px);
+    position: absolute; top: 56px; right: 32px; z-index: 3; width: 290px; max-height: calc(100% - 300px);
     display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px;
     background: rgba(255,255,255,.95); box-shadow: 0 1px 4px rgba(0,0,0,.15);
   }
@@ -534,7 +570,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--fg);
   }
   @container (min-width: 780px) {
-    .overlay-notes { top: 10px; max-height: calc(100% - 150px); }
+    .overlay-notes { top: 10px; max-height: calc(100% - 254px); }
   }
   /* 地点の情報のポップアップ（#139）。地図の上の切替・凡例より手前に出し、長い推移の表などはポップアップの中でスクロールする
      （高さの上限は地図の処理が地図の高さから決める） */
@@ -604,7 +640,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .base-switch button[aria-pressed="true"] svg { color: #fff; }
   .base-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .base-switch button[hidden] { display: none; }
-  /* 背景ごとのパネル（航空写真の撮影年代・標高の色・土地利用の年度と凡例）。下の地図が透けて見えるよう半透明にし、
+  /* 背景ごとのパネル（航空写真の撮影年代・標高と傾斜の色・土地利用の年度と凡例）。下の地図が透けて見えるよう半透明にし、
      文字が読みにくくならないよう少しぼかす */
   .base-panel {
     position: absolute; left: 50%; bottom: 40px; z-index: 3; transform: translateX(-50%);
@@ -640,16 +676,33 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .relief-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
   .relief-ticks span:first-child { transform: none; margin-left: -6px; }
   .relief-ticks span:last-child { transform: translateX(-100%); margin-left: 6px; }
+  /* 傾斜の区分の帯（色なしの区分は白）と、境目の度 */
+  .slope-bar { display: flex; height: 12px; margin-top: 6px; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+  .slope-bar span { flex: 1; }
+  .slope-bar span.none { background: #fff; }
+  .slope-ticks { position: relative; height: 1.4em; margin-top: 2px; }
+  .slope-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+  .slope-ticks span:first-child { transform: none; }
   /* 地図の幅が狭いとき（スマホ・狭い窓）は、背景の切替を左端に寄せ、パネルはそのすぐ下に置く
      （地図の下側は縮尺・出典・ズームのボタンで混むため）。幅は landuse.ts の NARROW_MAP_PX と同じ */
   @container (max-width: 560px) {
-    .base-switch { left: 10px; }
+    .base-switch { left: 10px; max-width: calc(100% - 20px); }
     .base-switch button { gap: 3px; padding: 5px 7px; font-size: 0.8rem; }
     .base-switch svg { width: 15px; height: 15px; }
+    .base-caption { display: none; }
     .base-panel { top: 52px; bottom: auto; left: 10px; right: 10px; width: auto; transform: none; padding: 6px 10px 4px; }
     .base-panel-head output, .base-panel-title { font-size: 1rem; }
     /* 凡例は左下（縮尺の上）に置き、上に向かって開く。右下のズームのボタンには重ねない */
     .overlay-notes { top: auto; bottom: 34px; right: auto; left: 10px; width: min(290px, calc(100% - 64px)); max-height: calc(100% - 110px); }
+    /* Google マップ・ストリートビューのアイコンはズームのボタンの左に並べ、右下の操作の列を高くしない
+       （上から開く土地利用のパネルに隠れないように。#187） */
+    .map-wrap .maplibregl-ctrl-bottom-right .external-ctrl { clear: none; }
+  }
+  /* さらに狭いとき（幅 320〜400px のスマホ）は、背景の5つのボタンが1行に収まるよう詰める */
+  @container (max-width: 400px) {
+    .base-switch button { gap: 2px; padding: 5px 4px; font-size: 0.76rem; }
+    .base-switch svg { width: 14px; height: 14px; }
+    .slope-ticks .unit { display: none; }
   }
   /* 出典が長いとき（標高の「海域部は…」など）は右下で折り返し、左下の縮尺に重ねない */
   .map-wrap .maplibregl-ctrl-bottom-right { max-width: calc(100% - 120px); }
