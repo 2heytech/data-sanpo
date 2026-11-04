@@ -154,6 +154,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 }
 .toc a:hover { background: #d6e5f6; }
 
+/* 指標名の横の範囲の札（東京都だけ・都道府県別だけ・地図の点）。名前と見分けられるよう、余白を空けた枠つきの角丸にする（設計変更記録 #197） */
+.tag {
+  display: inline-block; margin-left: 4px; padding: 0 7px; border: 1px solid; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 700; line-height: 1.45; white-space: nowrap;
+}
+.tag-area { background: #fff4dc; border-color: #ecd29a; color: #7a4d00; }
+.tag-point { background: #e9f6ed; border-color: #b9dcc4; color: #1f6b3a; }
+.tag-pref { background: #f1f3f6; border-color: #d3d9e0; color: #46525f; }
+.tag-keys { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); margin: 0 0 12px; }
+.tag-keys > span { display: inline-flex; align-items: center; gap: 2px; }
+.tag-keys .tag { margin: 0 4px 0 0; }
+
 /* 出典の表 */
 .sources-table td { line-height: 1.55; }
 .sources-table td:nth-child(1) { width: 55%; min-width: 16em; overflow-wrap: anywhere; }
