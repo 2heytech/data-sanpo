@@ -1,5 +1,5 @@
 // 指標の一覧（ジャンル → カテゴリ → 指標名のボタン）を組み立てる。指標の一覧のページ（/indicators/）と、
-// トップページの「指標から探す」（ジャンルごとに代表の指標だけ）で使う（設計変更記録 #47・#173・#196）
+// トップページの「指標から探す」（ジャンルごとに代表の指標だけ）で使う（設計変更記録 #47・#173・#197）
 import { loadAreas, loadIndicators, loadPlace } from "./data";
 import { GENRES } from "./genres";
 import { listItems, listTags, type ListItem, type ListTag } from "./indicatorList";

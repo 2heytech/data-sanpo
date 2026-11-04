@@ -154,7 +154,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 }
 .toc a:hover { background: #d6e5f6; }
 
-/* 指標名の横の範囲の札（東京都だけ・都道府県別だけ・地図の点）。名前と見分けられるよう、余白を空けた枠つきの角丸にする（設計変更記録 #196） */
+/* 指標名の横の範囲の札（東京都だけ・都道府県別だけ・地図の点）。名前と見分けられるよう、余白を空けた枠つきの角丸にする（設計変更記録 #197） */
 .tag {
   display: inline-block; margin-left: 4px; padding: 0 7px; border: 1px solid; border-radius: 999px;
   font-size: 0.68rem; font-weight: 700; line-height: 1.45; white-space: nowrap;
