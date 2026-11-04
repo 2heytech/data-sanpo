@@ -6,6 +6,8 @@ import { readFileSync } from "node:fs";
 import { DATA_BASE, RELEASE, loadIndicators } from "../../lib/data";
 import { RELIEF_GRADIENT, RELIEF_STOPS, reliefAt } from "../../map/relief";
 import { SLOPE_CLASSES } from "../../map/slope";
+import { fallbackView } from "../../lib/mapFallback";
+import { mapFallbackData } from "../../lib/mapFallbackData";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl-${version}/maplibre-gl.mjs`;
 // 右の欄の「〇〇の公式サイト」の URL 一覧（pages/official-sites.json.ts）。架空の地名を使う開発用データでは出さない
@@ -58,6 +60,16 @@ const BASES = [
 ];
 const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "観光", "天気"])];
 const indicatorCount = loadIndicators().length;
+// 地図を表示できないときの案内（設計変更記録 #196）。既定の指標のリンクと静止画の地図はここで書いておき、
+// ほかの指標・地域を選んだ URL のときは地図の処理（map/fallback.ts）が差し替える
+const fallbackData = mapFallbackData();
+const fallback = fallbackView({}, fallbackData);
+const ICON_NEXT = '<path d="m6 3.5 4.5 4.5L6 12.5"/>';
+const FALLBACK_LINKS = [
+  { href: "/#indicators", text: "指標の一覧", note: `人口・所得・子育てなど${indicatorCount}の指標から選ぶ` },
+  { href: "/prefectures/", text: "都道府県の一覧", note: "都道府県ごとの特徴と、市区町村の人口ランキング" },
+  { href: "/areas/", text: "市区町村の一覧", note: "名前で探して、まちごとのデータを見る" },
+];
 ---
 <Base menu="地図" preload={maplibreUrl} description="全国の市区町村・町丁目を、人口・高齢化・年収・地価などで色分けした地図。地名で探して拡大すれば、となりのまちとの違いや年ごとの移り変わりがひと目で分かります。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl} data-official-sites={officialSitesUrl}>
@@ -163,7 +175,7 @@ const indicatorCount = loadIndicators().length;
         <div class="map-intro">
           <h1>データさんぽの地図</h1>
           <p>全国の都道府県・市区町村・町丁目を、人口・所得・子育て・地価など{indicatorCount}の公開統計で色分けした地図です。「指標」で見たいデータと時点を選び、地図の地域をクリックすると、値・全国での順位・年ごとの移り変わりを見られます。</p>
-          <p class="muted">地図をクリックするか、地域名で検索してください。</p>
+          <p class="muted mi-howto">地図をクリックするか、地域名で検索してください。</p>
           <p class="small"><a href="/#indicators">指標の一覧</a>・<a href="/guide/">地図の使い方</a>・<a href="/articles/">寄り道・分析記事</a></p>
         </div>
       </section>
@@ -277,6 +289,45 @@ const indicatorCount = loadIndicators().length;
       {/* 左右の欄の表示・非表示（地図を広く見る） */}
       <button type="button" class="panel-toggle left" data-panel="left" aria-pressed="false" aria-label="条件の欄を隠す" title="条件の欄を隠す">‹</button>
       <button type="button" class="panel-toggle right" data-panel="right" aria-pressed="false" aria-label="情報の欄を隠す" title="情報の欄を隠す">›</button>
+      {/* 地図を表示できないとき（WebGL2 が使えない・地図の部品を読み込めない）の案内（設計変更記録 #196）。地図の処理が理由に合う文だけ出す */}
+      <section id="map-fallback" class="map-fallback" aria-labelledby="map-fallback-title" data-default={fallbackData.default} hidden>
+        <div class="mf-body">
+          <div class="mf-notice">
+            <svg class="mf-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2-6-2z"/><path d="M9 4.5v13M15 6.5v13M3 3l18 18"/></svg>
+            <div>
+              <h2 id="map-fallback-title">
+                <span data-reason="webgl">この環境では地図を表示できません</span>
+                <span data-reason="load" hidden>地図を読み込めませんでした</span>
+              </h2>
+              <div data-reason="webgl">
+                <p>お使いのブラウザでは、地図を描くのに使う機能（WebGL2）が使えないため、地図を表示できませんでした。次のどれかで表示できることがあります。</p>
+                <ul>
+                  <li>ブラウザを最新の版にする</li>
+                  <li>ブラウザの設定で「ハードウェアアクセラレーション」（グラフィックの機能）をオンにする</li>
+                  <li>別のブラウザや端末で開く</li>
+                </ul>
+              </div>
+              <p data-reason="load" hidden>地図を表示するためのファイルを読み込めませんでした。ページを読み込み直すか、ブラウザを最新の版にしてお試しください。</p>
+            </div>
+          </div>
+          <p class="mf-lead">地図の代わりに、静止画の地図と、同じデータを表で見られるページをご案内します。</p>
+          {fallback.image && (
+            <figure class="mf-figure" hidden>
+              <a href={fallback.image.href}><img data-src={fallback.image.path} alt={fallback.image.alt} width="1200" height="630" decoding="async" /></a>
+              <figcaption class="muted small">{fallback.image.alt}</figcaption>
+            </figure>
+          )}
+          <h3>表とページで見る</h3>
+          <ul class="detail-links mf-links">
+            {fallback.links.map((l) => (
+              <li data-dynamic><a href={l.href}><span>{l.text}<small>{l.note}</small></span><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" set:html={ICON_NEXT} /></a></li>
+            ))}
+            {FALLBACK_LINKS.map((l) => (
+              <li><a href={l.href}><span>{l.text}<small>{l.note}</small></span><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" set:html={ICON_NEXT} /></a></li>
+            ))}
+          </ul>
+        </div>
+      </section>
     </div>
     {/* 指標の選択画面（地図の上に重ねて開く。スマホでは全画面） */}
     <dialog id="indicator-picker" class="picker" aria-labelledby="picker-title">
@@ -905,5 +956,40 @@ const indicatorCount = loadIndicators().length;
     .map-sheet .panel { display: none; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px 18px; border: 0; background: var(--surface); }
     .map-sheet.open[data-tab="conditions"] .panel-conditions { display: flex; }
     .map-sheet.open[data-tab="info"] .panel-info { display: block; }
+  }
+  /* 地図を表示できないとき（設計変更記録 #196）。地図の場所に案内を出し、地図の上の操作と条件の欄を隠す。
+     パソコンでは右の欄（地図の説明）を残す。スマホでは地域の検索と下端のパネルも隠し、案内だけにする */
+  .map-app.no-map { grid-template-columns: 0 minmax(0, 1fr) 360px; }
+  .map-app.no-map .panel-conditions, .map-app.no-map .mi-howto, .map-app.no-map .map-wrap > :not(.map-fallback) { display: none; }
+  .map-fallback { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); }
+  .map-fallback[hidden], .map-fallback [hidden] { display: none; }
+  .mf-body { max-width: 760px; margin: 0 auto; padding: 28px 24px 40px; }
+  .mf-notice {
+    display: flex; gap: 14px; padding: 16px 18px; border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 10px; background: var(--surface); line-height: 1.75;
+  }
+  .mf-icon { flex: none; width: 32px; height: 32px; margin-top: 2px; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .mf-notice h2 { margin: 0 0 6px; font-size: 1.2rem; line-height: 1.5; color: var(--ink); }
+  .mf-notice p { margin: 0; }
+  .mf-notice ul { margin: 4px 0 0; padding-left: 1.3em; }
+  .mf-lead { margin: 20px 0 0; line-height: 1.75; }
+  .mf-figure { margin: 12px 0 0; }
+  .mf-figure a { display: block; }
+  .mf-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  .mf-figure figcaption { margin-top: 4px; }
+  .mf-body h3 { margin: 24px 0 0; font-size: 1rem; color: var(--ink); }
+  .mf-links { margin-top: 8px; background: var(--surface); }
+  .mf-links .icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  @media (max-width: 1100px) {
+    .map-app.no-map { grid-template-columns: 0 minmax(0, 1fr) 300px; }
+  }
+  @media (max-width: 860px) {
+    .map-app.no-map { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+    .map-app.no-map .map-search, .map-app.no-map .map-sheet { display: none; }
+    .map-app.no-map .map-wrap { grid-row: 1; }
+    .mf-body { padding: 16px 14px 28px; }
+    .mf-notice { gap: 10px; padding: 12px 14px; font-size: 0.92rem; }
+    .mf-icon { width: 26px; height: 26px; }
+    .mf-notice h2 { font-size: 1.08rem; }
   }
 </style>

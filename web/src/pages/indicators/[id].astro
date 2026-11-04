@@ -7,9 +7,9 @@ import { DATA_BASE, loadAreas, loadIndicators, loadSmallAreaRows, loadSmallAreas
 import { formatValue, ranked, splitRanking, STATUS_LABEL } from "../../lib/format";
 import { breadcrumbList, indicatorDataset } from "../../lib/structured";
 import { indicatorPageText } from "../../lib/indicatorPage";
-import { indicatorSummary, shortPeriodLabel, summaryPolicy, type SummaryArea } from "../../lib/indicatorSummary";
+import { indicatorSummary, shortPeriodLabel, type SummaryArea } from "../../lib/indicatorSummary";
 import { cityValues, designatedCities } from "../../lib/designatedCities";
-import { indicatorImage } from "../../lib/shareImages";
+import { indicatorPageImage } from "../../lib/shareImages";
 import { formerWard } from "../../lib/areaSummary";
 import { publishedArticles } from "../../lib/articles";
 import { latestPeriod } from "../../lib/periods";
@@ -122,7 +122,7 @@ const summary = indicatorSummary({
   cities: (cityRows ?? []).map((c) => ({ id: c.city.name, label: c.city.name, prefecture: prefNames.get(c.city.prefecture) ?? "", value: c.value })),
   coverage: !partial ? null : coverage.length <= 2 ? coverage.map((c) => prefNames.get(c) ?? c).join("・") : `値のある${coverage.length}都道府県`,
 });
-const image = summaryPolicy(ind) === "none" ? null : indicatorImage(ind);
+const image = indicatorPageImage(ind);
 const related = publishedArticles().filter((a) => a.indicators.includes(ind.id));
 const cityValueText = (v: number | null) => formatValue({ value: v, status: v === null ? "missing" : "derived" }, ind);
 ---
