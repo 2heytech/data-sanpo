@@ -2,10 +2,17 @@
 import Base from "../../layouts/Base.astro";
 import ShareButtons from "../../components/ShareButtons.astro";
 import RankingTable, { type RankingRow } from "../../components/RankingTable.astro";
+import MapFigure from "../../components/MapFigure.astro";
 import { DATA_BASE, loadAreas, loadIndicators, loadSmallAreaRows, loadSmallAreas, loadSources, loadValues } from "../../lib/data";
 import { formatValue, ranked, splitRanking, STATUS_LABEL } from "../../lib/format";
 import { breadcrumbList, indicatorDataset } from "../../lib/structured";
 import { indicatorPageText } from "../../lib/indicatorPage";
+import { indicatorSummary, shortPeriodLabel, summaryPolicy, type SummaryArea } from "../../lib/indicatorSummary";
+import { cityValues, designatedCities } from "../../lib/designatedCities";
+import { indicatorImage } from "../../lib/shareImages";
+import { formerWard } from "../../lib/areaSummary";
+import { publishedArticles } from "../../lib/articles";
+import { latestPeriod } from "../../lib/periods";
 import type { Indicator } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -13,7 +20,10 @@ export function getStaticPaths() {
 }
 const { ind } = Astro.props as { ind: Indicator };
 const sources = new Map(loadSources().map((s) => [s.source_id, s]));
-const period = ind.periods.find((p) => p.period === ind.default_period)!;
+// 都道府県・市区町村の表は新しい国勢調査の回（2025年など）があればそれ、町丁・字等は値のある既定の時点（2020年など）（#191）
+const defaultPeriod = ind.periods.find((p) => p.period === ind.default_period)!;
+const period = ind.periods.find((p) => p.period === latestPeriod(ind)) ?? defaultPeriod;
+const smallPeriod = [period, defaultPeriod].find((p) => p.levels.includes("small_area")) ?? null;
 const areas = loadAreas();
 const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
 const prefNames = new Map(areas.prefectures.map((p) => [p.code, p.name]));
@@ -33,8 +43,8 @@ const muniCount = muniValues.length - muniMissing.length;
 
 // 町丁・字等のランキング（値のある都道府県のファイルをすべて読む）。値が0の地域が100を超えるときは、
 // 下位はほとんど0が並ぶだけなので出さない
-const smallAreaRanked = period.levels.includes("small_area")
-  ? ranked(loadSmallAreaRows(ind.id, period.period, coverage.length ? coverage : areas.prefectures.map((p) => p.code)))
+const smallAreaRanked = smallPeriod
+  ? ranked(loadSmallAreaRows(ind.id, smallPeriod.period, coverage.length ? coverage : areas.prefectures.map((p) => p.code)))
   : [];
 const zeroCount = smallAreaRanked.filter((r) => r.value === 0).length;
 const smallAreaName = (id: string) => {
@@ -44,7 +54,7 @@ const smallAreaName = (id: string) => {
 const smallAreaRow = (r: typeof smallAreaRanked[number]): RankingRow => {
   const m = munis.get(`muni-${r.entity_id.slice(5, 10)}`);
   return {
-    ...r, name: smallAreaName(r.entity_id), href: `/map/?i=${ind.id}&p=${period.period}&a=${r.entity_id}`,
+    ...r, name: smallAreaName(r.entity_id), href: `/map/?i=${ind.id}&p=${smallPeriod!.period}&a=${r.entity_id}`,
     extra: [...(nationwide ? [prefNames.get(r.entity_id.slice(5, 7)) ?? ""] : []), m?.name ?? ""],
   };
 };
@@ -74,8 +84,49 @@ const structured = [
   breadcrumbList(Astro.site, [{ name: "データさんぽ", path: "/" }, { name: ind.name }]),
   indicatorDataset(Astro.site, ind, `/indicators/${ind.id}/`, sourceList, dataUrl, levels),
 ];
+
+// 政令指定都市: 区ごとに並べていることを表の前に書き、市全体の値（区の分子・分母の合計）の表を添える（#191）
+const cities = nationwide ? designatedCities(areas.municipalities) : [];
+const allMuniRows = loadValues(ind.id, period.period, "municipalities")?.rows ?? [];
+const cityRows = muniValues.length && cities.length ? cityValues(ind, cities, allMuniRows) : null;
+const cityTable = cityRows?.some((c) => c.value !== null)
+  ? [...cityRows].sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
+  : null;
+// 区を再編してこの時点の値がない区（2025年の浜松市の旧区）
+const formerMissing = muniValues.length
+  ? areas.municipalities.filter((m) => formerWard(m.id) && !allMuniRows.some((r) => r.entity_id === m.id))
+  : [];
+
+// 冒頭の「データから分かること」と全国の地図の画像（#190）
+const singlePref = coverage.length === 1;
+const areaLabel = (id: string) => {
+  const m = munis.get(id)!;
+  return nationwide && !singlePref ? `${prefNames.get(m.prefecture) ?? ""}${m.name}` : m.name;
+};
+const summaryMunis: SummaryArea[] = muniValues.map((r) => ({
+  id: r.entity_id, label: areaLabel(r.entity_id), prefecture: prefNames.get(munis.get(r.entity_id)!.prefecture) ?? "", value: r.value,
+}));
+const summaryPrefs: SummaryArea[] = prefRows.map((r) => {
+  const name = prefNames.get(r.entity_id.slice(5)) ?? "";
+  return { id: r.entity_id, label: name, prefecture: name, value: r.value };
+});
+// 前の時点（市区町村の値があれば市区町村、なければ都道府県で比べる）
+const compareLevel = summaryMunis.some((a) => a.value !== null) ? "municipality" : "prefecture";
+const annual = ind.periods.filter((p) => !p.aggregate);
+const at = annual.findIndex((p) => p.period === period.period);
+const prev = at > 0 ? annual.slice(0, at).reverse().find((p) => p.levels.includes(compareLevel)) : undefined;
+const prevRows = prev && loadValues(ind.id, prev.period, compareLevel === "municipality" ? "municipalities" : "prefectures")?.rows;
+const summary = indicatorSummary({
+  ind, municipalities: summaryMunis, prefectures: summaryPrefs,
+  previous: prev && prevRows ? { label: shortPeriodLabel(prev.label), values: new Map(prevRows.map((r) => [r.entity_id, r.value])) } : null,
+  cities: (cityRows ?? []).map((c) => ({ id: c.city.name, label: c.city.name, prefecture: prefNames.get(c.city.prefecture) ?? "", value: c.value })),
+  coverage: !partial ? null : coverage.length <= 2 ? coverage.map((c) => prefNames.get(c) ?? c).join("・") : `値のある${coverage.length}都道府県`,
+});
+const image = summaryPolicy(ind) === "none" ? null : indicatorImage(ind);
+const related = publishedArticles().filter((a) => a.indicators.includes(ind.id));
+const cityValueText = (v: number | null) => formatValue({ value: v, status: v === null ? "missing" : "derived" }, ind);
 ---
-<Base title={pageText.title} description={pageText.description} structuredData={structured}>
+<Base title={pageText.title} description={pageText.description} structuredData={structured} image={image ?? undefined}>
   <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/#indicators">指標の一覧</a></nav>
   <header class="page-head">
     <p class="eyebrow">{ind.category}</p>
@@ -86,6 +137,18 @@ const structured = [
       <a class="button secondary" href="/#indicators">指標の一覧</a>
     </div>
   </header>
+
+  {(summary.length > 0 || image) && (
+    <section class="sheet findings">
+      <h2>データから分かること（{shortPeriodLabel(period.label)}）</h2>
+      {summary.length > 0 && <ul class="findings-list">{summary.map((line) => <li>{line}</li>)}</ul>}
+      {image && <MapFigure image={image} eager />}
+      {related.length > 0 && (
+        <p class="related">この指標を使った記事: {related.map((a, i) => <>{i > 0 && "・"}<a href={`/articles/${a.slug}/`}>{a.title}</a></>)}</p>
+      )}
+      <p class="muted small">下の表と同じ公開データから数えた事実です。値の大きい順の順位で、大きいほど良い・悪いという意味ではありません。</p>
+    </section>
+  )}
 
   <section class="sheet">
   <h2>計算方法</h2>
@@ -142,6 +205,10 @@ const structured = [
   <h2>市区町村のランキング（{period.label}）</h2>
   <p class="muted">値の大きい順です（同じ値は同じ順位）。大きいほど良い・悪いという意味ではありません。
     {muniCount > RANKING_SIZE * 2 && `${muniCount.toLocaleString("ja-JP")}市区町村のうち、上位と下位の${RANKING_SIZE}位までを出し、その間は畳んでいます。`}</p>
+  {cities.length > 0 && (
+    <p class="note">政令指定都市（{cities.length}市）は、市全体ではなく区ごとに並べています。{cityTable && <>市全体の値は、この表の下の<a href="#cities">政令指定都市（市全体）</a>にあります。</>}
+      {formerMissing.length > 0 && `浜松市は2024年1月に区を再編したため、この時点の区の値はありません。`}</p>
+  )}
   <RankingTable ind={ind} rows={muniRanking.top} areaLabel="市区町村" extraLabels={nationwide ? ["都道府県"] : []}
     caption={muniRanking.middle.length ? `上位${RANKING_SIZE}位` : undefined} />
   {muniRanking.middle.length > 0 && (
@@ -160,12 +227,36 @@ const structured = [
       <RankingTable ind={ind} rows={muniMissing} areaLabel="市区町村" extraLabels={nationwide ? ["都道府県"] : []} />
     </details>
   )}
+  {cityTable && (
+    <>
+      <h3 id="cities">政令指定都市（市全体、{period.label}）</h3>
+      <p class="muted small">区の{ind.kind === "count" ? "値" : "分子・分母"}を合計して計算しています。値のない区がある市は値なしです。</p>
+      <div class="table-scroll">
+        <table class="pref-table">
+          <thead><tr><th>市</th><th>都道府県</th><th class="num">{ind.name}</th><th>備考</th></tr></thead>
+          <tbody>
+            {cityTable.map((c) => (
+              <tr>
+                <td>{c.city.name}</td>
+                <td><a href={`/prefectures/${c.city.prefecture}/`}>{prefNames.get(c.city.prefecture)}</a></td>
+                <td class="num">{cityValueText(c.value)}</td>
+                <td class="muted">{c.value === null ? c.note ?? "" : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )}
   </>
   )}
 
   {smallAreaTop.length > 0 && (
     <>
-      <h2>町丁・字等のランキング（{period.label}）</h2>
+      <h2>町丁・字等のランキング（{smallPeriod!.label}）</h2>
+      {smallPeriod!.period !== period.period && (
+        <p class="note">町丁・字等の値は{shortPeriodLabel(smallPeriod!.label)}が最新です（{shortPeriodLabel(period.label)}は都道府県・市区町村の値だけが公表されています）。</p>
+      )}
       <p class="muted">{`${smallAreaRanked.length.toLocaleString("ja-JP")}地域のうち、`}
         {smallAreaBottom.length ? `上位と下位の${RANKING_SIZE}位まで` : smallAreaRanked.length > RANKING_SIZE ? `上位${RANKING_SIZE}位まで` : "すべて"}を出しています。
         {smallAreaRanked.length > RANKING_SIZE && !smallAreaBottom.length &&
@@ -183,3 +274,10 @@ const structured = [
   </section>
   <ShareButtons title={pageText.title} />
 </Base>
+
+<style>
+  .findings h2 { margin-top: 0; }
+  .findings-list { margin: 0 0 12px; padding-left: 1.2em; line-height: 1.9; }
+  .findings-list li + li { margin-top: 4px; }
+  .findings .related { margin: 0 0 8px; }
+</style>

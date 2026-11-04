@@ -1,13 +1,15 @@
 ---
-// トップページ: ロゴと「地図をひらく」を大きく置き、その下に指標の一覧（ジャンルごとのカードに指標名を並べる）をまとめる
-// （指標の一覧ページはここに集約した。docs/design-changes.md #47・#173）。
+// トップページ（設計変更記録 #192）: 最初に何ができるか（説明の一文・実際の色分け地図・地図をひらく・地域の検索）を置き、
+// その下に、データから見つけたこと（寄り道の記事）・見方の例・テーマ・指標の一覧（ジャンルごとのカード。#47・#173）・
+// 市区町村の一覧の順に並べる。
 import Base from "../layouts/Base.astro";
 import CategoryIcon from "../components/CategoryIcon.astro";
 import { loadAreas, loadIndicators, loadPlace } from "../lib/data";
 import type { WeatherElement } from "../lib/types";
 import { GENRES as BASE_GENRES } from "../lib/genres";
 import { listItems, listTags, type ListItem, type ListTag } from "../lib/indicatorList";
-import { publishedArticles } from "../lib/articles";
+import { formatDate, publishedArticles } from "../lib/articles";
+import { articleImage, indicatorImage } from "../lib/shareImages";
 
 const indicators = loadIndicators();
 const areas = loadAreas();
@@ -66,22 +68,88 @@ function entriesOf(category: string): Entry[] {
 }
 const genreCount = (g: { categories: string[] }) => indicators.filter((i) => g.categories.includes(i.category)).length
   + POINTS.filter((p) => g.categories.includes(p.category)).length;
-const total = indicators.length + POINTS.length;
 const allTags = genres.flatMap((g) => g.categories.flatMap((c) => entriesOf(c).flatMap((e) => e.tags)));
 const areaExample = allTags.find((t) => t.kind === "area")?.text;
 const tagKinds = new Set(allTags.map((t) => t.kind));
+// 冒頭の地図: 市区町村別の人口増加率（直近の国勢調査）。指標ページの画像（#190）の地図の部分だけを見せる
+const heroIndicator = indicators.find((i) => i.id === "population_change_rate");
+const heroImage = heroIndicator ? indicatorImage(heroIndicator) : null;
+// データから見つけたこと: 新しい寄り道を4本、記事の地図の画像つきで
+const featured = articles.slice(0, 4).map((a) => ({ article: a, image: articleImage(a) }));
+// 見方の例（実際の地図・地域ページを開く）
+const examples = [
+  { title: "となりのまちと比べる", text: "市区町村のページで、人口・暮らし・産業などの値を、となりの市区町村と並べて比べられます。",
+    href: "/areas/muni-13203/#compare", link: "武蔵野市ととなりのまちを比べる" },
+  { title: "町丁目まで拡大する", text: "地図で市区町村を選んで拡大すると、町丁目ごとの色分けと値を見られます。",
+    href: "/map/?i=aged_65_plus_share&a=muni-13104", link: "新宿区の65歳以上の割合を地図で見る" },
+  { title: "年ごとの変化を追う", text: "地図の時点のスライドバーや▶で、国勢調査の回ごとの変化を順に見られます。",
+    href: "/map/?i=population_change_rate", link: "人口増加率を地図で見る" },
+].filter((e) => !e.href.includes("muni-") || areas.municipalities.some((m) => e.href.includes(`${m.id}`)));
+
 ---
 <Base title="データさんぽ | 日本を、データで歩く。" titleIsFull
   description={`気になるまちは全国で何位？ 人口・年収・地価・選挙・犯罪・子育てなど${indicators.length}の指標を、都道府県・市区町村・町丁目の色分け地図とランキングで見比べられます。`}>
   <section class="hero">
-    {/* ロゴの文字の下に一文「日本を、データで歩く。」を入れたもの（設計変更記録 #140） */}
-    <h1><img src="/logo-tagline.svg" alt="データさんぽ　日本を、データで歩く。" width="339" height="82" /></h1>
-    <a class="button big" href="/map/">地図をひらく</a>
+    <div class="hero-text">
+      {/* ロゴの文字の下に一文「日本を、データで歩く。」を入れたもの（設計変更記録 #140） */}
+      <h1><img src="/logo-tagline.svg" alt="データさんぽ　日本を、データで歩く。" width="339" height="82" /></h1>
+      <p class="hero-lead">人口・所得・子育て・地価など{indicators.length}の公開統計を、都道府県・市区町村・町丁目の色分け地図とランキングで比べられます。</p>
+      <p class="hero-actions"><a class="button big" href="/map/">地図をひらく</a></p>
+      <form class="hero-search" action="/areas/" role="search">
+        <label for="top-search">地域から探す</label>
+        <input id="top-search" name="q" type="search" placeholder="市区町村・都道府県の名前（例: 金沢、北区）" autocomplete="off" />
+        <ul id="top-search-results" class="search-results" hidden></ul>
+      </form>
+    </div>
+    {heroImage && (
+      <figure class="hero-map">
+        <a href={heroImage.mapHref}><img src={heroImage.path} alt={heroImage.alt} width="1200" height="630" fetchpriority="high" /></a>
+        <figcaption class="muted small">例: {heroImage.alt.replace(/を色分けした地図$/, "")}</figcaption>
+      </figure>
+    )}
+  </section>
+
+  {featured.length > 0 && (
+    <section class="sheet">
+      <h2 id="articles">データから見つけたこと</h2>
+      <p class="muted">地図と順位の数字から、地域の特徴を読み解く分析記事「寄り道」です。</p>
+      <ul class="article-cards">
+        {featured.map(({ article: a, image }) => (
+          <li>
+            <a href={`/articles/${a.slug}/`}>
+              {image && <img src={image.path} alt="" width="1200" height="630" loading="lazy" decoding="async" />}
+              <span class="card-title">{a.title}</span>
+            </a>
+            <p class="muted small">{formatDate(a.published)}</p>
+          </li>
+        ))}
+      </ul>
+      <p><a href="/articles/">分析記事をすべて見る（{articles.length}本）</a></p>
+    </section>
+  )}
+
+  <section class="sheet">
+    <h2>こんな見方ができます</h2>
+    <ul class="examples">
+      {examples.map((e) => (
+        <li><strong>{e.title}</strong><span>{e.text}</span><a href={e.href}>{e.link} ›</a></li>
+      ))}
+    </ul>
+    <p><a href="/guide/">画面の見方と使い方をくわしく見る</a></p>
   </section>
 
   <section class="sheet">
-    <h2 id="indicators">掲載している指標 <span class="total">{total}</span></h2>
-    <p class="muted small">名前を選ぶと、ランキングと意味・計算方法のページを開きます。数字の付いた名前は、選ぶと種類ごとの指標が開きます。</p>
+    <h2>テーマから選ぶ</h2>
+    <ul class="theme-tiles">
+      {genres.map((g, k) => (
+        <li><a href={`#genre-${k}`}><strong>{g.title}</strong><span class="muted small">{genreCount(g)}の指標</span></a></li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="sheet">
+    <h2 id="indicators">掲載している指標 <span class="total">{indicators.length}</span></h2>
+    <p class="muted small">名前を選ぶと、ランキングと意味・計算方法のページを開きます。数字の付いた名前は、選ぶと種類ごとの指標が開きます。{POINTS.length > 0 && `ほかに、駅・学校など地図の点で見るデータが${POINTS.length}あります。`}</p>
     {tagKinds.size > 0 && (
       <p class="small tag-keys">
         {areaExample && <span><span class="tag tag-area">{areaExample}</span>その地域の分だけ</span>}
@@ -129,31 +197,8 @@ const tagKinds = new Set(allTags.map((t) => t.kind));
     </div>
   </section>
 
-
-  <section class="sheet">
-    <h2>使い方</h2>
-    <ol class="steps">
-      <li><strong>地域を選ぶ</strong>検索欄に市区町村名や町名を入れるか、地図をクリックします。</li>
-      <li><strong>指標を切り替える</strong>同じ時点・同じ定義の値で地図の色が変わります。</li>
-      <li><strong>時点を動かす</strong>スライドバー（▶で再生）で、時点ごとの変化を追えます。</li>
-      <li><strong>拡大して比べる</strong>町丁目ごとの値を、色だけでなく数値と一覧でも確認できます。</li>
-    </ol>
-    <p><a href="/guide/">画面の見方と使い方をくわしく見る</a></p>
-  </section>
-
-  <section class="sheet">
-    <h2 id="articles">寄り道：データで読む記事</h2>
-    <p class="muted">地図と順位の数字から、地域の特徴を読み解く記事です。</p>
-    <ul class="article-list">
-      {articles.slice(0, 4).map((a) => (
-        <li><a href={`/articles/${a.slug}/`}>{a.title}</a><p class="muted">{a.description}</p></li>
-      ))}
-    </ul>
-    <p><a href="/articles/">寄り道の記事をすべて見る（{articles.length}本）</a></p>
-  </section>
-
-  <section class="sheet">
-    <h2 id="areas">地域から探す</h2>
+  <section class="sheet" id="area-list">
+    <h2 id="areas">市区町村の一覧</h2>
     <p class="area-buttons"><a class="button secondary" href="/prefectures/">都道府県の一覧</a>
       <a class="button secondary" href="/areas/">市区町村の一覧（名前で探す）</a></p>
     {areas.prefectures.map((pref) => {
@@ -163,11 +208,11 @@ const tagKinds = new Set(allTags.map((t) => t.kind));
         ? regions.map((r) => ({ title: r, list: inPref.filter((m) => m.region === r) }))
         : [{ title: "", list: inPref }];
       const body = [
-        <p class="pref-page"><a href={`/prefectures/${pref.code}/`}>{pref.name}の市区町村を人口の順に、特徴と見る ›</a></p>,
+        <p class="pref-page"><a href={`/prefectures/${pref.code}/`} data-pref={pref.name}>{pref.name}の市区町村を人口の順に、特徴と見る ›</a></p>,
         ...groups.filter((g) => g.list.length > 0).map((g) => (
           <section>
             {g.title && <h4>{g.title}</h4>}
-            <ul class="area-links">{g.list.map((m) => <li><a href={`/areas/${m.id}/`}>{m.name}</a></li>)}</ul>
+            <ul class="area-links">{g.list.map((m) => <li><a href={`/areas/${m.id}/`} data-pref={pref.name}>{m.name}</a></li>)}</ul>
           </section>
         )),
       ];
@@ -178,14 +223,106 @@ const tagKinds = new Set(allTags.map((t) => t.kind));
   </section>
 </Base>
 
+<script>
+  // 冒頭の「地域から探す」: 名前の一部で、下の一覧の市区町村と都道府県から8件まで出す（ひらがな・カタカナの区別なし）。
+  // Enter は最初の候補へ。スクリプトが動かないときは市区町村の一覧ページで探す（?q=）
+  const input = document.querySelector<HTMLInputElement>("#top-search");
+  const list = document.querySelector<HTMLUListElement>("#top-search-results");
+  if (input && list) {
+    const norm = (s: string) => s.trim().replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+    const entries = [
+      ...[...document.querySelectorAll<HTMLAnchorElement>("#area-list .pref-page a")].map((a) => ({
+        name: a.dataset.pref ?? "", where: "都道府県", href: a.getAttribute("href")! })),
+      ...[...document.querySelectorAll<HTMLAnchorElement>("#area-list .area-links a")].map((a) => ({
+        name: a.textContent ?? "", where: a.dataset.pref ?? "", href: a.getAttribute("href")! })),
+    ].filter((e) => e.name);
+    let hits: typeof entries = [];
+    const render = () => {
+      const q = norm(input.value);
+      hits = q ? entries.filter((e) => norm(e.name).includes(q)).slice(0, 8) : [];
+      list.replaceChildren(...hits.map((e) => {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = e.href;
+        a.textContent = e.name;
+        const where = document.createElement("span");
+        where.className = "muted small";
+        where.textContent = e.where;
+        a.append(" ", where);
+        li.append(a);
+        return li;
+      }));
+      if (q && !hits.length) {
+        const li = document.createElement("li");
+        li.className = "muted small";
+        li.textContent = "見つかりませんでした。名前の一部（「府中」など）で探してみてください。";
+        list.append(li);
+      }
+      list.hidden = !q;
+    };
+    input.addEventListener("input", render);
+    input.form?.addEventListener("submit", (e) => {
+      if (!hits.length) return;
+      e.preventDefault();
+      location.href = hits[0].href;
+    });
+  }
+</script>
+
 <style>
   .hero {
-    text-align: center; padding: 44px 20px 32px; margin: 0 0 24px; border-radius: var(--radius);
+    display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px 28px; align-items: center;
+    text-align: center; padding: 34px 28px 26px; margin: 0 0 24px; border-radius: var(--radius);
     background: radial-gradient(120% 90% at 50% 0%, #ffffff 0%, #eef4fb 60%, #e3edf8 100%);
     border: 1px solid var(--line); box-shadow: var(--shadow);
   }
-  .hero h1 { margin: 0 0 26px; }
-  .hero h1 img { width: min(520px, 92%); height: auto; }
+  .hero-text { min-width: 0; }
+  .hero h1 { margin: 0 0 18px; }
+  .hero h1 img { width: min(460px, 92%); height: auto; }
+  .hero-lead { margin: 0 auto 22px; max-width: 30em; color: var(--ink); line-height: 1.8; }
+  .hero-actions { margin: 0 0 22px; }
+  .hero-search { position: relative; display: grid; gap: 4px; max-width: 420px; margin: 0 auto; text-align: left; }
+  .hero-search label { font-weight: 700; color: var(--ink); font-size: 0.92rem; }
+  .hero-search input {
+    font: inherit; padding: 10px 16px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface);
+  }
+  .search-results {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 5; list-style: none; margin: 4px 0 0; padding: 6px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow);
+  }
+  .search-results a { display: block; padding: 6px 10px; border-radius: 8px; text-decoration: none; }
+  .search-results a:hover, .search-results a:focus { background: var(--accent-soft); }
+  .search-results > li.muted { padding: 6px 10px; }
+  .hero-map { margin: 0 auto; width: 100%; max-width: 440px; }
+  .hero-map img {
+    display: block; width: 100%; height: auto; aspect-ratio: 600 / 630; object-fit: cover; object-position: 100% 50%;
+    border-radius: 12px; border: 1px solid var(--line); background: #ffffff;
+  }
+  .hero-map figcaption { margin-top: 6px; }
+  .article-cards {
+    list-style: none; padding: 0; margin: 0 0 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px;
+  }
+  .article-cards a {
+    display: block; height: 100%; text-decoration: none; color: var(--fg); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  }
+  .article-cards li { display: flex; flex-direction: column; }
+  .article-cards li > a { flex: 1; }
+  .article-cards img { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; border-bottom: 1px solid var(--line); }
+  .article-cards .card-title { display: block; padding: 10px 12px; font-weight: 700; line-height: 1.55; color: var(--ink); }
+  .article-cards a:hover { border-color: #b9d0ea; }
+  .article-cards a:hover .card-title { color: var(--accent-ink); text-decoration: underline; }
+  .article-cards p { margin: 4px 2px 0; }
+  .examples { list-style: none; padding: 0; margin: 0 0 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .examples li { display: grid; gap: 6px; align-content: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; }
+  .examples strong { color: var(--ink); }
+  .examples span { font-size: 0.9rem; }
+  .theme-tiles { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .theme-tiles a {
+    display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px;
+    text-decoration: none; color: var(--ink); background: var(--surface);
+  }
+  .theme-tiles a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
   .area-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
   .button.big { font-size: 1.3rem; padding: 16px 52px; box-shadow: 0 6px 18px rgba(11, 92, 173, .35); }
   #indicators { scroll-margin-top: 100px; }
@@ -243,13 +380,6 @@ const tagKinds = new Set(allTags.map((t) => t.kind));
     background: var(--panel); border-radius: 10px; font-size: 0.86rem; line-height: 1.7;
   }
   .more-links .extras { font-size: 0.8rem; }
-  .steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  .steps li { counter-increment: step; position: relative; padding: 12px 12px 12px 52px; border: 1px solid var(--line); border-radius: 10px; }
-  .steps li::before {
-    content: counter(step); position: absolute; left: 12px; top: 12px; width: 28px; height: 28px; border-radius: 50%;
-    background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 0.9rem;
-  }
-  .steps strong { display: block; color: var(--ink); }
   .pref-page { margin: 0.2em 0 0.6em; font-size: 0.9rem; }
   .area-links { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .area-links a {
@@ -257,9 +387,13 @@ const tagKinds = new Set(allTags.map((t) => t.kind));
     text-decoration: none; font-size: 0.92rem; background: var(--surface);
   }
   .area-links a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; }
+  }
   @media (max-width: 720px) {
-    .hero { padding: 28px 14px 22px; }
-    .steps { grid-template-columns: 1fr; }
+    .hero { padding: 26px 14px 20px; }
+    .hero-map { max-width: 320px; }
+    .examples { grid-template-columns: 1fr; }
     .genre-cards { columns: 1; }
     .genre-card { padding: 12px 12px 8px; }
   }

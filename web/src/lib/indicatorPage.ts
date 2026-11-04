@@ -1,4 +1,5 @@
 import { fitDescription } from "./areaSummary";
+import { latestPeriod } from "./periods";
 import type { Indicator } from "./types";
 
 // 指標ページの題名と説明文（検索結果に出る文）。設計変更記録 #142
@@ -26,7 +27,8 @@ function voteShareParty(ind: Indicator): { full: string; short: string } | null 
   return { full: m[1], short: PARTY_SHORT_NAMES[m[1]] ?? m[1] };
 }
 
-const rankingPeriod = (ind: Indicator) => ind.periods.find((p) => p.period === ind.default_period);
+// 題名・説明文の時点は、都道府県・市区町村のランキングの時点（新しい国勢調査の回があればそれ。#191）
+const rankingPeriod = (ind: Indicator) => ind.periods.find((p) => p.period === latestPeriod(ind));
 
 /**
  * 題名に入れる、ランキングの時点の年（「2020年」「2023年度」「2019〜2023年」「2026年衆院選」）。

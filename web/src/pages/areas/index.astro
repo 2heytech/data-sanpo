@@ -85,6 +85,12 @@ const description = `全国${total.toLocaleString("ja-JP")}の市区町村を都
     none.hidden = hits > 0;
     status.textContent = q ? `${hits.toLocaleString("ja-JP")}件` : "";
   });
+  // トップページの「地域から探す」から来たとき（?q=）は、その名前で絞り込んでおく
+  const initial = new URLSearchParams(location.search).get("q");
+  if (initial) {
+    input.value = initial;
+    input.dispatchEvent(new Event("input"));
+  }
 </script>
 
 <style>
