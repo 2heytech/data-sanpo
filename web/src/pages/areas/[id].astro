@@ -8,6 +8,7 @@ import ProfileIntro from "../../components/ProfileIntro.astro";
 import FurusatoLink from "../../components/FurusatoLink.astro";
 import PrNotice from "../../components/PrNotice.astro";
 import SmallAreaRanking from "../../components/SmallAreaRanking.astro";
+import { smallAreaTables } from "../../lib/smallAreaTables";
 import StatList from "../../components/StatList.astro";
 import { RELEASE, loadAreas, loadIndicators, loadValues } from "../../lib/data";
 import { aramashiOf } from "../../lib/aramashi";
@@ -83,6 +84,14 @@ const pageTitle = pref || former
 const groups = statGroups(stats);
 // 公式サイトなどで確かめた事実の短いまとめ（設計変更記録 #164）。「データで見る〇〇」の中に出す（#166）。開発用の架空データでは地名が実在しないので出さない
 const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
+const hasIntro = summary.length > 0 || insights.length > 0 || !!aramashi;
+// 冒頭の目次（設計変更記録 #193）。スマホでは表やとなりのまちとの比べがずっと下にあるので、最初にそこへ移れるようにする
+const toc = [
+  ...(hasIntro ? [{ id: "profile", label: `データで見る${muni.name}` }] : []),
+  { id: "stats", label: `主な指標（${statCount}）` },
+  ...(neighbors.length ? [{ id: "compare", label: "となりの市区町村と比べる", main: true }] : []),
+  ...(smallAreaTables(muni).tables.length ? [{ id: "small-areas", label: "町丁目別ランキング" }] : []),
+];
 ---
 <Base title={pageTitle} description={description} prefecture={pref || undefined} structuredData={structured}>
   <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/areas/">市区町村の一覧</a>{prefPath && <> › <a href={prefPath}>{pref}</a></>}</nav>
@@ -99,8 +108,25 @@ const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
     <PrNotice />
   </header>
 
-  {(summary.length > 0 || insights.length > 0 || aramashi) && (
-    <section class="sheet area-intro">
+  {/* 冒頭の特徴3つ（考察のうち全国で目立つ事実）と目次（設計変更記録 #193） */}
+  <section class="sheet area-points" aria-label={profile.points.length ? `${muni.name}の特徴` : "このページの内容"}>
+    {profile.points.length > 0 && (
+      <>
+        <h2>{muni.name}の特徴</h2>
+        <ol class="points">
+          {profile.points.map((p) => <li><span class="point-theme">{p.theme}</span><span>{p.text}</span></li>)}
+        </ol>
+      </>
+    )}
+    <nav aria-label="このページの目次">
+      <ul class="page-toc">
+        {toc.map((t) => <li><a class:list={{ main: t.main }} href={`#${t.id}`}>{t.label}</a></li>)}
+      </ul>
+    </nav>
+  </section>
+
+  {hasIntro && (
+    <section class="sheet area-intro" id="profile">
       <AreaShape muni={muni} variant="locator" prefName={pref} />
       <div>
         <ProfileIntro name={muni.name} profile={profile} summary={summary} aramashi={aramashi} />
@@ -134,6 +160,25 @@ const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
   .area-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
   .area-head h1 { margin: 0; }
   .area-head .actions { flex-basis: 100%; }
+  :global(.sheet[id]) { scroll-margin-top: 100px; }
+  .area-points h2 { margin-top: 0; }
+  .points { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+  .points li {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: baseline;
+    padding: 8px 12px; border-radius: 10px; background: var(--panel); line-height: 1.7;
+  }
+  .point-theme {
+    padding: 1px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink);
+    font-size: 0.78rem; font-weight: 700; white-space: nowrap;
+  }
+  .page-toc { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; }
+  .page-toc a {
+    display: inline-block; padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px;
+    font-size: 0.9rem; text-decoration: none; background: var(--surface);
+  }
+  .page-toc a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  .page-toc a.main { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 700; }
+  .page-toc a.main:hover { background: var(--accent-ink); }
   .area-intro:has(> figure) { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 8px 28px; }
   .area-intro > :global(figure) { grid-column: 2; grid-row: 1; align-self: start; }
   .area-intro:has(> figure) > div { grid-column: 1; grid-row: 1; }
@@ -142,5 +187,7 @@ const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
     .area-intro > :global(figure) { grid-column: 1; grid-row: 1; }
     .area-intro > :global(figure) :global(svg) { max-width: 120px; max-height: 120px; }
     .area-intro:has(> figure) > div { grid-row: 2; }
+    .points li { display: block; padding: 8px 10px; font-size: 0.95rem; line-height: 1.65; }
+    .point-theme { margin-right: 6px; }
   }
 </style>
