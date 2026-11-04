@@ -3,6 +3,7 @@
 import type { Article } from "./articles";
 import { loadAreas, loadBoundaries, loadIndicators, loadLegend, loadSources, loadValues } from "./data";
 import { compactNumber, formatNumber } from "./format";
+import { summaryPolicy } from "./indicatorSummary";
 import type { ChoroplethSpec, MapFeature } from "./mapImage";
 import { municipalityPeriods, prefecturePeriods } from "./periods";
 import type { Indicator, Prefecture } from "./types";
@@ -110,6 +111,11 @@ export function articleImage(article: Article): ShareImage | null {
  */
 export function indicatorImage(ind: Indicator): ShareImage | null {
   return nationalMapImage(ind, ind.name, `/images/indicators/${ind.id}.png`);
+}
+
+/** 指標ページに置く画像（画像を作る処理・指標ページ・地図を表示できないときの案内 #196 で同じ条件にする） */
+export function indicatorPageImage(ind: Indicator): ShareImage | null {
+  return summaryPolicy(ind) === "none" ? null : indicatorImage(ind);
 }
 
 /** 指標の全国の地図の画像（寄り道・指標ページで共通） */
