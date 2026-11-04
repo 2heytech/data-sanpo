@@ -21,3 +21,14 @@ export function rakutenAffiliateUrl(url: string): string | null {
   if (!RAKUTEN_AFFILIATE_ID) return null;
   return `https://hb.afl.rakuten.co.jp/hgc/${RAKUTEN_AFFILIATE_ID}/?pc=${encodeURIComponent(url)}&link_type=text`;
 }
+
+// 返礼品の画像（楽天市場商品検索 API、設計変更記録 #194）。アプリは「Webアプリケーション」として登録し、
+// 許可するサイト（data-sanpo.com）からのブラウザの呼び出しだけが通る。アプリIDとアクセスキーはページに載る公開値。
+// どちらかが未設定・形式違いなら画像は出さない（リンクのボタンだけになる）
+const appRaw = (process.env.RAKUTEN_APP_ID ?? "").trim();
+const keyRaw = (process.env.RAKUTEN_ACCESS_KEY ?? "").trim();
+const appOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(appRaw);
+const keyOk = /^pk_[0-9A-Za-z_-]{10,}$/.test(keyRaw);
+if ((appRaw || keyRaw) && !(appOk && keyOk)) console.warn("RAKUTEN_APP_ID・RAKUTEN_ACCESS_KEY の形式が違うため返礼品の画像を出しません");
+export const RAKUTEN_API = appOk && keyOk && RAKUTEN_AFFILIATE_ID
+  ? { appId: appRaw, accessKey: keyRaw, affiliateId: RAKUTEN_AFFILIATE_ID } : null;
