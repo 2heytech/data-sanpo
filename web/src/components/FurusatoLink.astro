@@ -40,6 +40,8 @@ const href = pref ? rakutenAffiliateUrl(rakutenFurusatoSearchUrl(pref, target)) 
   // 楽天ウェブサービスのクレジット表示（楽天の指定のテキスト版のリンク。前後の目印の HTML コメントはサイトの決まりで付けない。API を使って表示したときだけ出す）
   const CREDIT = '<a href="https://developers.rakuten.com/" target="_blank">Supported by Rakuten Developers</a>';
 
+  const NO_GIFT = /返礼品(は|が)?(ありません|なし|無し)/;
+  const TRAVEL = /楽天トラベル.?クーポン/;
   interface Item { itemName: string; itemPrice: number; affiliateUrl?: string; itemUrl: string; shopName: string; mediumImageUrls: (string | { imageUrl: string })[] }
 
   async function load(box: HTMLElement) {
@@ -54,6 +56,10 @@ const href = pref ? rakutenAffiliateUrl(rakutenFurusatoSearchUrl(pref, target)) 
     // 別の自治体の品を出さないよう、ショップ名にその自治体の名前（都道府県名つき、なければ市区町村名）がある品だけにする
     const items = ((data.Items ?? data.items ?? []) as Item[])
       .filter((it) => it.shopName?.includes(`${pref}${name}`) || it.shopName?.includes(name))
+      // 返礼品のない寄附（災害の応援など）は「返礼品の例」にならないので除く
+      .filter((it) => !NO_GIFT.test(it.itemName ?? ""))
+      // 楽天トラベルクーポンは金額違いが並びやすいので1つだけにする
+      .filter((it, i, all) => !TRAVEL.test(it.itemName ?? "") || all.findIndex((x) => TRAVEL.test(x.itemName ?? "")) === i)
       .slice(0, 4);
     if (items.length === 0) return;
     const ul = box.querySelector("ul")!;
