@@ -81,7 +81,7 @@ const levels = levelOrder.filter((l) => ind.periods.some((p) => p.levels.include
 const dataUrl = muniValues.length ? `${DATA_BASE}/values/${ind.id}/${period.period}/municipalities.json`
   : prefRows.length ? `${DATA_BASE}/values/${ind.id}/${period.period}/prefectures.json` : null;
 const structured = [
-  breadcrumbList(Astro.site, [{ name: "データさんぽ", path: "/" }, { name: ind.name }]),
+  breadcrumbList(Astro.site, [{ name: "データさんぽ", path: "/" }, { name: "指標の一覧", path: "/indicators/" }, { name: ind.name }]),
   indicatorDataset(Astro.site, ind, `/indicators/${ind.id}/`, sourceList, dataUrl, levels),
 ];
 
@@ -127,14 +127,14 @@ const related = publishedArticles().filter((a) => a.indicators.includes(ind.id))
 const cityValueText = (v: number | null) => formatValue({ value: v, status: v === null ? "missing" : "derived" }, ind);
 ---
 <Base title={pageText.title} description={pageText.description} structuredData={structured} image={image ?? undefined}>
-  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/#indicators">指標の一覧</a></nav>
+  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/indicators/">指標の一覧</a></nav>
   <header class="page-head">
     <p class="eyebrow">{ind.category}</p>
     <h1>{ind.name}</h1>
     <p class="lead">{ind.description}</p>
     <div class="actions">
       <a class="button" href={`/map/?i=${ind.id}`}>地図で見る</a>
-      <a class="button secondary" href="/#indicators">指標の一覧</a>
+      <a class="button secondary" href="/indicators/">指標の一覧</a>
     </div>
   </header>
 

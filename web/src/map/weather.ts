@@ -193,7 +193,7 @@ export function initWeather(o: Options): PointLayer {
     if ((ev.target as HTMLElement).closest("[data-close]")) showStation(null);
   });
 
-  // ?show=weather（&wx=<指標>）で開いたときは表示をオンにする（トップページの指標の一覧から）。
+  // ?show=weather（&wx=<指標>）で開いたときは表示をオンにする（指標の一覧から）。
   // ?ws=<観測所ID> ならその観測所を選ぶ
   const params = new URLSearchParams(location.search);
   current = params.get("wx") ?? "";

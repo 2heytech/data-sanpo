@@ -1,0 +1,67 @@
+---
+// 指標名のボタンを並べる（指標の一覧のページと、トップページの「指標から探す」で使う。設計変更記録 #173・#196）。
+// 種類が2つ以上ある項目は、押すと種類ごとのリンクが開く。基準だけが違う指標（割合・住民100人当たりなど）は同じボタンの右に小さく並べる
+import type { Entry } from "../lib/indicatorCatalog";
+
+interface Props { entries: Entry[] }
+const { entries } = Astro.props;
+---
+<ul class="chips">
+  {entries.map(({ item, tags }) => {
+    const tagEls = tags.map((t) => <span class={`tag tag-${t.kind}`}>{t.text}</span>);
+    if (item.members.length > 1) return (
+      <li class="chip-more">
+        <details>
+          <summary class="chip" title={item.description}>{item.title}<span class="count">{item.members.length}</span>{tagEls}</summary>
+          <p class="more-links">
+            {item.members.map((m) => (
+              <span><a href={m.href}>{m.label}</a>{m.extras.length > 0 && (
+                <span class="extras">（{m.extras.map((x, j) => (<>{j > 0 && "・"}<a href={x.href}>{x.label}</a></>))}）</span>
+              )}</span>
+            ))}
+          </p>
+        </details>
+      </li>
+    );
+    const m = item.members[0];
+    if (m.extras.length) return (
+      <li><span class="chip chip-split" title={item.description}>
+        <a href={m.href}>{item.title}</a>{m.extras.map((x) => <a class="chip-sub" href={x.href}>{x.label}</a>)}{tagEls}
+      </span></li>
+    );
+    return <li><a class="chip" href={item.href} title={item.description}>{item.title}{tagEls}</a></li>;
+  })}
+</ul>
+
+<style>
+  .chips { list-style: none; padding: 0; margin: 0 0 4px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 11px; border: 1px solid var(--line); border-radius: 999px;
+    font-size: 0.86rem; line-height: 1.5; text-decoration: none; color: var(--fg); background: var(--surface);
+  }
+  a.chip:hover, summary.chip:hover { border-color: #b9d0ea; background: var(--accent-soft); color: var(--accent-ink); }
+  .chip-split { gap: 0; padding: 0; }
+  .chip-split a { padding: 3px 4px 3px 11px; color: var(--fg); text-decoration: none; }
+  .chip-split a:hover { color: var(--accent-ink); text-decoration: underline; }
+  .chip-split .chip-sub { padding: 3px 8px; border-left: 1px solid var(--line); font-size: 0.78rem; color: var(--accent); }
+  .chip-split .chip-sub:last-of-type { padding-right: 11px; }
+  .chip-split .tag { margin-right: 8px; }
+  .chip-more summary { cursor: pointer; list-style: none; }
+  .chip-more summary::-webkit-details-marker { display: none; }
+  .chip-more .count {
+    margin-left: 2px; font-size: 0.72rem; font-weight: 700; color: var(--accent-ink); background: var(--accent-soft);
+    border: 1px solid #c9dcf0; border-radius: 999px; padding: 0 7px; line-height: 1.45;
+  }
+  .chip-more summary::after {
+    content: ""; width: 6px; height: 6px; margin: 0 0 3px 2px;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg);
+  }
+  .chip-more details[open] summary { background: var(--accent-soft); border-color: #b9d0ea; color: var(--accent-ink); }
+  .chip-more details[open] summary::after { transform: rotate(-135deg); margin: 3px 0 0 2px; }
+  .chip-more:has(details[open]) { flex-basis: 100%; }
+  .more-links {
+    display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 4px; padding: 8px 12px;
+    background: var(--panel); border-radius: 10px; font-size: 0.86rem; line-height: 1.7;
+  }
+  .more-links .extras { font-size: 0.8rem; }
+</style>

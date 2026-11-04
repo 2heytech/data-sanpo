@@ -179,7 +179,7 @@ export function initNurseries(o: Options): PointLayer {
     if ((e.target as HTMLElement).closest("[data-close]")) showPoint(null);
   });
 
-  // ?show=nurseries で開いたときは表示をオンにする（トップページの指標の一覧から）。
+  // ?show=nurseries で開いたときは表示をオンにする（指標の一覧から）。
   // ?nu=<施設ID> ならその施設を選ぶ（共有URL、#175）
   const params = new URLSearchParams(location.search);
   const initial = params.get("nu");
