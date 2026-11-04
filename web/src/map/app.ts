@@ -23,6 +23,7 @@ import { initTransport } from "./transport";
 import { initFacilities } from "./facilities";
 import { initShare, safeFileName, type BaseLegend, type LegendModel } from "./share";
 import { initExternalMaps } from "./external";
+import { initMapSheet } from "./sheet";
 import { RELIEF_STOPS, reliefAt } from "./relief";
 import { registerSlopeProtocol, SLOPE_CLASSES, SLOPE_MAXZOOM, SLOPE_MINZOOM, SLOPE_TILES } from "./slope";
 import { PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare } from "./photoEras";
@@ -139,6 +140,8 @@ const MUNI_TEXT: [number, number, number][] = [[8, 9, 11], [9, 10, 12], [12, 12,
 const AREA_TEXT: [number, number, number][] = [[10, 9, 10], [13, 9, 11], [16, 11, 14], [18, 12, 15]];
 
 export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: string): Promise<void> {
+  // スマホでは検索を地図の上に、条件と地域の情報を地図の下端のパネルに置く（#194）。地図を読む前に並べ替えて、画面がずれないようにする
+  const sheet = initMapSheet(root);
   // MapLibre は public/vendor から読み込む（Worker を同じ場所から読み込ませるため）
   const maplibregl = (await import(/* @vite-ignore */ maplibreUrl)) as typeof MapLibre;
   const cache = new Map<string, Promise<unknown>>();
@@ -643,16 +646,18 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     map.setFilter("munis-selected", ["==", ["get", "id"], id && munis.has(id) ? id : ""]);
     map.setFilter("areas-selected", ["==", ["get", "id"], id && !munis.has(id) && !isPref(id) ? id : ""]);
     if (id && fly) {
+      // スマホで下のパネルを開いているときは、パネルに隠れない所に地域が収まるようにする
+      const pad = (n: number) => ({ top: n, left: n, right: n, bottom: n + sheet.coveredHeight() });
       const m = munis.get(id);
       const pref = isPref(id) ? prefectures.get(prefectureCodeOf(id)!) : undefined;
       if (pref) {
         // 東京都は離島まで入れると本土が小さくなるので、区部・多摩に寄せる
-        map.fitBounds(pref.code === "13" ? PRESETS.mainland : pref.bbox, { padding: 20 });
+        map.fitBounds(pref.code === "13" ? PRESETS.mainland : pref.bbox, { padding: pad(20) });
       } else if (m) {
-        map.fitBounds(m.bbox, { padding: 40, maxZoom: AREA_ZOOM - 0.5 });
+        map.fitBounds(m.bbox, { padding: pad(40), maxZoom: AREA_ZOOM - 0.5 });
       } else {
         const a = smallAreas.get(id);
-        if (a) map.fitBounds(a.bbox, { padding: 60, maxZoom: 15, minZoom: AREA_ZOOM });
+        if (a) map.fitBounds(a.bbox, { padding: pad(60), maxZoom: 15, minZoom: AREA_ZOOM });
       }
     }
     updateUrl();
@@ -788,7 +793,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     // 点のない所を押したら、地点の情報（ポップアップ）を閉じる
     if (popup.isOpen()) showPoint(null, null);
     const f = map.queryRenderedFeatures(e.point, { layers: ["pref-fill", "muni-fill", "area-fill"] })[0];
-    if (f) void select(String(f.properties.id));
+    if (!f) return;
+    void select(String(f.properties.id));
+    // スマホでは下のパネルを開いて地域の情報を見せる。押した所がパネルに隠れるときは、見えている部分の真ん中へ地図を動かす
+    sheet.showDetail();
+    const visible = map.getContainer().clientHeight - sheet.coveredHeight();
+    if (e.point.y > visible - 24) map.panBy([0, e.point.y - visible / 2], { duration: 300 });
   });
   for (const layer of ["pref-fill", "muni-fill", "area-fill"]) {
     map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
@@ -1756,6 +1766,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     searchInput.value = h.name;
     hits = [];
     showHits();
+    // スマホでは画面のキーボードを閉じて、地図とパネルを見せる
+    if (sheet.isPhone()) searchInput.blur();
+    sheet.showDetail();
     void select(h.id, true);
   }
   searchInput.addEventListener("input", async () => {
