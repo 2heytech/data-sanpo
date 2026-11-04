@@ -1,8 +1,8 @@
 ---
-// 寄り道のページの枠。題名・日付・本文・関連する指標とほかの寄り道・広告枠（本文の後）を並べる。
+// 寄り道のページの枠。題名・日付・本文・関連する指標とほかの寄り道を並べる。
 import Base from "./Base.astro";
-import AdSlot from "../components/AdSlot.astro";
 import ShareButtons from "../components/ShareButtons.astro";
+import PrNotice from "../components/PrNotice.astro";
 import MapFigure from "../components/MapFigure.astro";
 import { articleBySlug, formatDate, publishedArticles } from "../lib/articles";
 import { loadIndicators } from "../lib/data";
@@ -55,6 +55,7 @@ const structuredData = {
       <time datetime={article.published}>{formatDate(article.published)}</time>公開
       {article.updated && <>・<time datetime={article.updated}>{formatDate(article.updated)}</time>更新</>}
     </p>
+    {article.affiliate && <PrNotice />}
   </header>
   <article class="sheet article-body">
     {image && <MapFigure image={image} eager mapButton buttonHref={article.mapHref} />}
@@ -78,5 +79,4 @@ const structuredData = {
       {others.map((a) => <li><a href={`/articles/${a.slug}/`}>{a.title}</a></li>)}
     </ul>
   </section>
-  <AdSlot name="page" />
 </Base>

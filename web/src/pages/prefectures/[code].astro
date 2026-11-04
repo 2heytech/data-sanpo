@@ -3,7 +3,6 @@
 // 隣の都道府県との比較を載せ（設計変更記録 #140）、県内の市区町村を人口の順にデータから見た特徴の一言と並べ、主な指標の県内の上位をまとめる。
 // 「〇〇県 市町村 人口 ランキング」などで探す人の入口と、地域ページへの道にする（設計変更記録 #130）
 import Base from "../../layouts/Base.astro";
-import AdSlot from "../../components/AdSlot.astro";
 import ShareButtons from "../../components/ShareButtons.astro";
 import MapFigure from "../../components/MapFigure.astro";
 import NeighborCompare from "../../components/NeighborCompare.astro";
@@ -216,7 +215,6 @@ const structured = breadcrumbList(Astro.site, [
   )}
 
   <ShareButtons title={title} />
-  <AdSlot name="page" />
 
   <section class="sheet" id="others">
     <h2>ほかの都道府県</h2>

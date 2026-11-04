@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 const webDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pkgDir = join(webDir, "node_modules/maplibre-gl");
 const { version } = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
-const dest = join(webDir, "public/vendor", `maplibre-gl@${version}`);
+// フォルダ名に「@」を使わない。Cloudflare の配信が「@」を「%40」に直す転送（307）を毎回返し、地図を開くたびに余分な往復が3回入るため（設計変更記録 #174）
+const dest = join(webDir, "public/vendor", `maplibre-gl-${version}`);
 rmSync(join(webDir, "public/vendor"), { recursive: true, force: true });
 mkdirSync(dest, { recursive: true });
 // 末尾の sourceMappingURL の行は外す。.map は配らないので、ブラウザの開発ツールがないファイルを取りに行くだけになる（設計変更記録 #147）。

@@ -18,7 +18,22 @@ export interface PointLayer {
   coord(): [number, number] | null;
   /** 読み込んだ地点の出典（保存する画像に書く。#153） */
   sourceIds(): string[];
+  /** 共有URLに入れる状態（#175）: 表示がオンなら ?show= の名前、地点を選んでいればその引数（?s=<駅ID> など） */
+  urlState(): PointUrlState;
 }
+
+export interface PointUrlState {
+  show: string | null;
+  params: Record<string, string>;
+}
+
+/** 点レイヤーの共有URLの状態。表示がオフなら何も入れず、地点の情報を閉じていれば地点は入れない */
+export function pointUrlState(on: boolean, show: string, key: string, id: string | null | undefined, open: boolean): PointUrlState {
+  return { show: on ? show : null, params: on && open && id ? { [key]: id } : {} };
+}
+
+/** 共有URLの地点を開いたときに、地図をその地点へ動かす（URL に地図の位置が入っているときは動かさない。#175） */
+export type FocusPoint = (center: [number, number], minZoom: number) => void;
 
 /** 地点の情報の出典の行（出典表記を重複なく「／」で並べる） */
 export function sourcesHtml(ids: string[], sources: Map<string, Source>): string {

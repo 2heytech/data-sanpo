@@ -7,7 +7,7 @@
 // 地域の平均ではなく選ばれた1地点の価格であることを凡例と詳細に明記する。
 // 価格は住宅地の数万円から都心の商業地の数千万円まで桁が違うので、切りのよい桁ごとの区切りで色を分ける。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml } from "./points";
+import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml, type FocusPoint, pointUrlState } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, LandPriceFile, LandPoint } from "../lib/types";
 import { esc } from "../lib/html";
@@ -41,6 +41,8 @@ interface Options {
   labelFont: string[];
   /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
+  /** 共有URLの地点へ地図を動かす */
+  focus: FocusPoint;
 }
 
 export type LandPriceLayer = PointLayer;
@@ -346,11 +348,14 @@ export function initLandPrices(o: Options): LandPriceLayer {
 
   /** 情報を出している地点の位置 */
   let at: [number, number] | null = null;
+  // 選んでいる地点の URL の引数（地価公示は lp、地価調査は ls）と ID
+  let picked: [string, string] | null = null;
   function showPoint(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, selectedFilter(id));
     const s = id ? byId.get(id) : undefined;
     const kinds = s ? KINDS.filter((kind) => s[kind] && files[kind]) : [];
     at = s && kinds.length ? s[kinds[0]]!.coord : null;
+    picked = s && kinds.length ? [LAND_KINDS[kinds[0]].param, s[kinds[0]]!.id] : null;
     if (!s || !kinds.length) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -409,7 +414,7 @@ export function initLandPrices(o: Options): LandPriceLayer {
       const pref = k.idPattern.exec(initial)?.[1];
       const p = await loaders[initialKind].find((x) => x.id === initial, pref);
       if (!p) return;
-      o.map.jumpTo({ center: p.coord, zoom: Math.max(o.map.getZoom(), 14.5, PLACES_MIN_ZOOM) });
+      o.focus(p.coord, Math.max(14.5, PLACES_MIN_ZOOM));
       // 共通地点の相手も同じ都道府県にあるので、先に読んでから選ぶ
       const other = KINDS.find((kind) => kind !== initialKind)!;
       if (files[other] && pref) await loaders[other].loadPrefecture(pref);
@@ -429,6 +434,7 @@ export function initLandPrices(o: Options): LandPriceLayer {
     kind: "地価",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     sourceIds: () => [...new Set(Object.values(files).flatMap((f) => f?.source_ids ?? []))],
+    urlState: () => pointUrlState(o.toggle.checked, LAND_KINDS.land_price.show, picked?.[0] ?? "", picked?.[1], !o.panel.hidden),
     show: showPoint,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : at),

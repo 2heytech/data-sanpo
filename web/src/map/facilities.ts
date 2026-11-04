@@ -3,7 +3,7 @@
 // 文化財は全国で約2万件あるので、地図に映っている都道府県のファイル（places/cultural_properties/<都道府県>.json）だけを読む。
 // 2つの市区町村にまたがる道の駅は、点は1つで、情報には両方の市区町村を出す（docs/design-changes.md #149）。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { createPrefLoader, sourcesHtml, type PointLayer } from "./points";
+import { createPrefLoader, sourcesHtml, type PointLayer, type FocusPoint, pointUrlState } from "./points";
 import { formatNumber } from "../lib/format";
 import type { FacilityFile, FacilityPoint, Source } from "../lib/types";
 import { esc } from "../lib/html";
@@ -46,6 +46,8 @@ interface Options {
   labelFont: string[];
   /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
+  /** 共有URLの地点へ地図を動かす */
+  focus: FocusPoint;
 }
 
 /** 地図・ポップアップに出す名前。道の駅の一覧の駅名には「道の駅」が付かないので付ける */
@@ -197,10 +199,12 @@ export function initFacilities(o: Options): PointLayer {
 
   /** 情報を出している施設の位置 */
   let at: [number, number] | null = null;
+  let picked: string | null = null;
   function showPoint(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, ["==", ["get", "id"], id ?? ""]);
     const p = id ? byId.get(id) : undefined;
     at = p && data ? p.coord : null;
+    picked = p && data ? p.id : null;
     if (!p || !data) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -233,7 +237,7 @@ export function initFacilities(o: Options): PointLayer {
     void setVisible(true).then(async () => {
       const p = !initial ? undefined : loader ? await loader.find((x) => x.id === initial) : byId.get(initial);
       if (!p) return;
-      if (p.coord) o.map.jumpTo({ center: p.coord, zoom: Math.max(o.map.getZoom(), k.split ? 13 : 10) });
+      if (p.coord) o.focus(p.coord, k.split ? 13 : 10);
       showPoint(p.id);
     });
   }
@@ -243,6 +247,7 @@ export function initFacilities(o: Options): PointLayer {
     kind: k.label,
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     sourceIds: () => data?.source_ids ?? [],
+    urlState: () => pointUrlState(o.toggle.checked, k.show, k.param, picked, !o.panel.hidden),
     show: showPoint,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : at),

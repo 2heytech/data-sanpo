@@ -5,7 +5,7 @@
 // 都道府県の分だけ読む（createPrefLoader）。人数の公開データがない学校は、国土数値情報の位置だけを小さな点で出す。
 // 学校に通う子どもの数で、周辺に住む子どもの数ではないことを凡例と詳細に明記する。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml } from "./points";
+import { createPrefLoader, PLACES_MIN_ZOOM, type PointLayer, sourcesHtml, type FocusPoint, pointUrlState } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, SchoolsFile, School } from "../lib/types";
 import { esc } from "../lib/html";
@@ -30,6 +30,8 @@ interface Options {
   labelFont: string[];
   /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
+  /** 共有URLの地点へ地図を動かす */
+  focus: FocusPoint;
 }
 
 export type SchoolLayer = PointLayer;
@@ -160,10 +162,12 @@ export function initSchools(o: Options): SchoolLayer {
 
   /** 情報を出している学校の位置（位置を求められなかった学校は null） */
   let at: [number, number] | null = null;
+  let picked: string | null = null;
   function showSchool(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, ["==", ["get", "id"], id ?? ""]);
     const s = id ? byId.get(id) : undefined;
     at = s && data ? s.coord : null;
+    picked = s && data ? s.id : null;
     if (!s || !data) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -250,7 +254,7 @@ export function initSchools(o: Options): SchoolLayer {
       const m = /^school-(?:[A-Z]\d(\d\d)|(\d\d)-)/.exec(initial);
       const s = await loader.find((x) => x.id === initial, m?.[1] ?? m?.[2] ?? "13");
       if (!s) return;
-      if (s.coord) o.map.jumpTo({ center: s.coord, zoom: Math.max(o.map.getZoom(), 14.5, PLACES_MIN_ZOOM) });
+      if (s.coord) o.focus(s.coord, Math.max(14.5, PLACES_MIN_ZOOM));
       showSchool(initial);
     });
   }
@@ -266,6 +270,7 @@ export function initSchools(o: Options): SchoolLayer {
     kind: "学校",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     sourceIds: () => data?.source_ids ?? [],
+    urlState: () => pointUrlState(o.toggle.checked, "schools", "sc", picked, !o.panel.hidden),
     show: showSchool,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : at),

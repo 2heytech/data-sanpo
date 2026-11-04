@@ -4,7 +4,7 @@
 // 都道府県の分だけ読む（createPrefLoader）。時点は出典ごとに違うので、施設ごとに値のある時点を出す。
 // 定員は受け入れの上限で、通っている子どもの数ではないことを凡例と詳細に明記する。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { createPrefLoader, type PointLayer, sourcesHtml } from "./points";
+import { createPrefLoader, type PointLayer, sourcesHtml, type FocusPoint, pointUrlState } from "./points";
 import { formatNumber } from "../lib/format";
 import type { Source, NurseryFile, NurseryPoint } from "../lib/types";
 import { esc } from "../lib/html";
@@ -27,6 +27,8 @@ interface Options {
   labelFont: string[];
   /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
+  /** 共有URLの地点へ地図を動かす */
+  focus: FocusPoint;
 }
 
 export function initNurseries(o: Options): PointLayer {
@@ -133,10 +135,12 @@ export function initNurseries(o: Options): PointLayer {
 
   /** 情報を出している施設の位置（位置を求められなかった施設は null） */
   let at: [number, number] | null = null;
+  let picked: string | null = null;
   function showPoint(id: string | null) {
     if (o.map.getLayer(SELECTED)) o.map.setFilter(SELECTED, ["==", ["get", "id"], id ?? ""]);
     const p = id ? byId.get(id) : undefined;
     at = p && data ? p.coord : null;
+    picked = p && data ? p.id : null;
     if (!p || !data) {
       o.panel.hidden = true;
       o.panel.innerHTML = "";
@@ -175,10 +179,20 @@ export function initNurseries(o: Options): PointLayer {
     if ((e.target as HTMLElement).closest("[data-close]")) showPoint(null);
   });
 
-  // ?show=nurseries で開いたときは表示をオンにする（トップページの指標の一覧から）
-  if (new URLSearchParams(location.search).get("show")?.split(",").includes("nurseries")) {
+  // ?show=nurseries で開いたときは表示をオンにする（トップページの指標の一覧から）。
+  // ?nu=<施設ID> ならその施設を選ぶ（共有URL、#175）
+  const params = new URLSearchParams(location.search);
+  const initial = params.get("nu");
+  if (initial || params.get("show")?.split(",").includes("nurseries")) {
     o.toggle.checked = true;
-    void setVisible(true);
+    void setVisible(true).then(async () => {
+      if (!initial || !data) return;
+      // 施設の ID は nursery-<市区町村コード>-… のものが多く、都道府県が分かる
+      const p = await loader.find((x) => x.id === initial, /^nursery-(\d\d)\d{3}-/.exec(initial)?.[1]);
+      if (!p) return;
+      if (p.coord) o.focus(p.coord, 14.5);
+      showPoint(p.id);
+    });
   }
 
   return {
@@ -186,6 +200,7 @@ export function initNurseries(o: Options): PointLayer {
     kind: "保育所",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     sourceIds: () => data?.source_ids ?? [],
+    urlState: () => pointUrlState(o.toggle.checked, "nurseries", "nu", picked, !o.panel.hidden),
     show: showPoint,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden ? null : at),

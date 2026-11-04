@@ -4,7 +4,7 @@ import { compactNumber, formatBasis, formatFraction, formatValue, rankIfVaried, 
 import { municipalityPeriods } from "../src/lib/periods";
 import { AreaSearch, normalize } from "../src/lib/search";
 import type { Indicator, SearchIndex } from "../src/lib/types";
-import { mapHref, municipalityCodeOf, parseState, serializeState } from "../src/lib/urlstate";
+import { formatView, mapHref, municipalityCodeOf, parseState, serializeState } from "../src/lib/urlstate";
 
 const pct = { unit: "%", digits: 1, kind: "ratio" } as Indicator;
 const people = { unit: "人", digits: 0, kind: "count" } as Indicator;
@@ -176,8 +176,31 @@ describe("urlstate", () => {
     expect(parseState(serializeState(s))).toEqual(s);
     expect(mapHref(s)).toBe("/map/?i=fiscal_strength_index&p=2023&l=municipality");
   });
-  it("座標や不正な値を受け付けない", () => {
+  it("座標の別の書き方や不正な値を受け付けない", () => {
     expect(parseState("?i=<script>&lat=35.6&lng=139.7")).toEqual({});
+    expect(parseState("?m=30/35.6/139.7&show=<b>,stations&s=a%20b")).toEqual({ show: ["stations"] });
+    expect(parseState("?m=12/91/139.7")).toEqual({});
+  });
+  it("背景・重ねた点・選んだ地点・表示の切替・地図の位置も往復でき、「,」「/」はそのまま書く（#175）", () => {
+    const s = {
+      indicator: "population_total", period: "2025-10-01", area: "muni-13101", base: "photo1945",
+      show: ["stations", "colors"], hide: ["labels"], points: { s: "station-005422-9745e8", wx: "sunshine_normal" },
+      view: { zoom: 15.25, lat: 35.68123, lng: 139.76712 },
+    };
+    const qs = serializeState(s);
+    expect(qs).toBe("?i=population_total&p=2025-10-01&a=muni-13101&b=photo1945&show=stations,colors&hide=labels" +
+      "&s=station-005422-9745e8&wx=sunshine_normal&m=15.25/35.68123/139.76712");
+    expect(parseState(qs)).toEqual(s);
+    // 「,」「/」を %2C・%2F で書いたリンクも読める
+    expect(parseState("?show=stations%2Cschools&m=10%2F35.7%2F139.7")).toEqual(
+      { show: ["stations", "schools"], view: { zoom: 10, lat: 35.7, lng: 139.7 } });
+  });
+  it("地図の位置は縮尺に合わせた桁で書き、回転・傾きは0でなければ書く", () => {
+    expect(formatView({ zoom: 5.123, lat: 35.123456, lng: 139.123456 })).toBe("5.12/35.12/139.12");
+    expect(formatView({ zoom: 17, lat: 35.123456, lng: 139.123456 })).toBe("17/35.12346/139.12346");
+    expect(formatView({ zoom: 12, lat: 35, lng: 139, bearing: -30.4, pitch: 0 })).toBe("12/35/139/-30");
+    expect(formatView({ zoom: 12, lat: 35, lng: 139, bearing: 0, pitch: 45 })).toBe("12/35/139/0/45");
+    expect(parseState("?m=12/35/139/-30/45").view).toEqual({ zoom: 12, lat: 35, lng: 139, bearing: -30, pitch: 45 });
   });
   it("地域IDから団体コードを得る", () => {
     expect(municipalityCodeOf("area-13101001001")).toBe("13101");

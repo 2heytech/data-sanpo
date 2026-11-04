@@ -6,6 +6,10 @@
 /_astro/*
   Cache-Control: public, max-age=31536000, immutable
 
+# MapLibre は版付きのフォルダ（/vendor/maplibre-gl-{版}/）なので、中身は変わらない（設計変更記録 #13・#174）
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin

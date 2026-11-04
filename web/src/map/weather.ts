@@ -3,7 +3,7 @@
 // places/weather_normals.json の1ファイルに全地点をまとめ、全国を見ているときから表示する（docs/design-changes.md #94）。
 // 地域の平均ではなく観測所1地点の値であることを凡例と詳細に明記し、地域には割り振らない。
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import { sourcesHtml, type PointLayer } from "./points";
+import { sourcesHtml, type PointLayer, type FocusPoint } from "./points";
 import { colorsFor } from "../lib/classify";
 import { formatNumber } from "../lib/format";
 import type { Source, WeatherElement, WeatherFile, WeatherStation } from "../lib/types";
@@ -33,6 +33,8 @@ interface Options {
   labelFont: string[];
   /** 地点の情報の表示が変わったとき（開いた・閉じた・別の地点にした） */
   onPanel: () => void;
+  /** 共有URLの地点へ地図を動かす */
+  focus: FocusPoint;
 }
 
 /** 凡例の各区分の文言（例: 「1,000mm未満」「1,000〜1,200mm」「3,000mm以上」） */
@@ -201,7 +203,7 @@ export function initWeather(o: Options): PointLayer {
     void setVisible(true).then(() => {
       const s = station ? byId.get(station) : undefined;
       if (!s) return;
-      o.map.jumpTo({ center: s.coord, zoom: Math.max(o.map.getZoom(), 10) });
+      o.focus(s.coord, 10);
       showStation(s.id);
     });
   }
@@ -211,6 +213,13 @@ export function initWeather(o: Options): PointLayer {
     kind: "気象庁の観測所",
     visible: () => !!o.map.getLayer(LAYER) && o.toggle.checked,
     sourceIds: () => data?.source_ids ?? [],
+    // 天気の指標（日照時間・降水量など）も入れる
+    urlState: () => {
+      if (!o.toggle.checked) return { show: null, params: {} };
+      const wx = element()?.id ?? current;
+      const ws = selectedId();
+      return { show: "weather", params: { ...(wx ? { wx } : {}), ...(ws ? { ws } : {}) } };
+    },
     show: showStation,
     isOpen: () => !o.panel.hidden,
     coord: () => (o.panel.hidden || !selected ? null : byId.get(selected)?.coord ?? null),

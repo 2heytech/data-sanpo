@@ -1,6 +1,7 @@
 // 地図の画像の保存・コピーと、リンクのコピー（設計変更記録 #153・#156）。地図の右下のボタンで画面を開く。
 // 画像は表示中の地図（WebGL の canvas）に、題名・凡例・出典・サイト名を書き足してブラウザの中で作る（どこにも送らない）。
-// リンクは URL の状態（指標・時点・選んだ地域・色分けの単位）だけで、地図の位置は入れない（設計書 3章「共有」）。
+// リンクは URL の状態（指標・時点・選んだ地域・色分けの単位・背景・重ねた点・表示の切替）に、地図の位置と縮尺を足したもの。
+// 位置と縮尺は「地図の位置と縮尺も入れる」を外すと入れない（#175。アドレス欄の URL には入れない）。
 // SNS などへ送るボタンは置かない（#156）。
 import type { IControl, Map as MapLibreMap } from "maplibre-gl";
 import { tickStep } from "../lib/classify";
@@ -21,12 +22,22 @@ export interface LegendModel {
   noDataColor: string;
 }
 
+/** 背景の凡例（色分けを消して土地利用・標高を見ているとき、画像に書く。#175） */
+export interface BaseLegend {
+  title: string;
+  /** 区分の色と名前（土地利用） */
+  items?: { color: string; label: string }[];
+  /** 色の帯（標高）。位置は 0〜1 */
+  gradient?: { stops: { at: number; color: string }[]; ticks: { at: number; text: string }[] };
+}
+
 export interface ShareView {
   /** 画像の題名（指標名。色分けを消しているときは「地図」） */
   title: string;
-  /** 題名の下の行（時点・単位・選んだ地域） */
+  /** 題名の下の行（時点・単位・選んだ地域・背景） */
   subtitle: string;
   legend: LegendModel | null;
+  base?: BaseLegend | null;
   /** 画像の下に書く出典（「統計: …」「地図: …」の行） */
   credits: string[];
   /** 保存する画像のファイル名 */
@@ -37,6 +48,8 @@ interface ShareOptions {
   map: MapLibreMap;
   root: HTMLElement;
   view: () => ShareView;
+  /** 共有用のリンク。withView のときは地図の位置と縮尺も入れる */
+  link: (withView: boolean) => string;
   font: string;
 }
 
@@ -57,6 +70,7 @@ export function initShare(o: ShareOptions): void {
   const imageCopyButton = $<HTMLButtonElement>("#share-image-copy");
   const urlInput = $<HTMLInputElement>("#share-url");
   const copyButton = $<HTMLButtonElement>("#share-copy");
+  const viewCheck = $<HTMLInputElement>("#share-view");
   // 画像をクリップボードに入れられるブラウザだけ「画像をコピー」を出す
   const canCopyImage = typeof ClipboardItem !== "undefined" && !!navigator.clipboard?.write
     && (ClipboardItem.supports?.("image/png") ?? true);
@@ -79,8 +93,7 @@ export function initShare(o: ShareOptions): void {
   async function open() {
     const t = ++token;
     const view = o.view();
-    urlInput.value = location.href;
-    copyButton.textContent = "コピー";
+    setLink();
     blob = null;
     imageCopyButton.hidden = !canCopyImage;
     imageCopyButton.textContent = "画像をコピー";
@@ -113,6 +126,11 @@ export function initShare(o: ShareOptions): void {
     }
   }
 
+  function setLink() {
+    urlInput.value = o.link(viewCheck.checked);
+    copyButton.textContent = "コピー";
+  }
+  viewCheck.addEventListener("change", setLink);
   $(".share-close").addEventListener("click", () => dialog.close());
   // 画面の外側（背景）を押したら閉じる
   dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
@@ -250,7 +268,23 @@ function compose(shot: Snapshot, view: ShareView, font: string, logoImg: HTMLIma
   const creditLines = view.credits.flatMap((c) => wrapText(c, W - pad * 2, measure));
   const creditLH = px(15);
   const legendH = lg ? px(18) + barH + px(4) + rows * tickLH + px(4) + px(16) + px(8) : 0;
-  const footH = px(12) + legendH + creditLines.length * creditLH + px(12);
+  // 背景の凡例: 土地利用の区分は色の見本と名前を、幅に収まるだけ1行に並べて折り返す
+  const bl = view.base;
+  const sw = px(14), sh = px(10), itemLH = px(18);
+  setFont(11);
+  const itemRows: { color: string; label: string; x: number }[][] = [];
+  let row: { color: string; label: string; x: number }[] = [];
+  let rowX = pad;
+  for (const it of bl?.items ?? []) {
+    const w = sw + px(4) + measure(it.label);
+    if (row.length && rowX + w > W - pad) { itemRows.push(row); row = []; rowX = pad; }
+    row.push({ ...it, x: rowX });
+    rowX += w + px(14);
+  }
+  if (row.length) itemRows.push(row);
+  const baseH = bl
+    ? px(18) + (bl.gradient ? barH + px(4) + tickLH + px(4) : 0) + itemRows.length * itemLH + px(8) : 0;
+  const footH = px(12) + legendH + baseH + creditLines.length * creditLH + px(12);
 
   out.width = W;
   out.height = Math.round(headH + mapH + footH);
@@ -332,8 +366,6 @@ function compose(shot: Snapshot, view: ShareView, font: string, logoImg: HTMLIma
     // 値なし・0（色なし）の見本
     let x = pad;
     const swatch = (fill: string | null, label: string) => {
-      const sw = px(14);
-      const sh = px(10);
       if (fill) { ctx.fillStyle = fill; ctx.fillRect(x, y + px(2), sw, sh); }
       ctx.strokeStyle = "rgba(0,0,0,.3)";
       ctx.setLineDash(fill ? [] : [px(2), px(2)]);
@@ -347,6 +379,46 @@ function compose(shot: Snapshot, view: ShareView, font: string, logoImg: HTMLIma
     if (lg.zeroBlank) swatch(null, "0（色なし）");
     swatch(lg.noDataColor, "値なし");
     y += px(16) + px(8);
+  }
+  if (bl) {
+    ctx.fillStyle = INK;
+    setFont(12.5, 700);
+    ctx.fillText(bl.title, pad, y + px(13));
+    y += px(18);
+    if (bl.gradient) {
+      const g = ctx.createLinearGradient(pad, 0, pad + barW, 0);
+      for (const st of bl.gradient.stops) g.addColorStop(st.at, st.color);
+      ctx.fillStyle = g;
+      ctx.fillRect(pad, y, barW, barH);
+      ctx.strokeStyle = "rgba(0,0,0,.25)";
+      ctx.lineWidth = Math.max(1, px(1));
+      ctx.strokeRect(pad, y, barW, barH);
+      y += barH;
+      setFont(10.5);
+      ctx.fillStyle = SUB;
+      ctx.textAlign = "center";
+      for (const t of bl.gradient.ticks) {
+        const half = measure(t.text) / 2;
+        const cx = Math.min(Math.max(pad + t.at * barW, pad + half), pad + barW - half);
+        ctx.fillText(t.text, cx, y + px(3) + tickLH - px(2));
+      }
+      ctx.textAlign = "left";
+      y += px(4) + tickLH + px(4);
+    }
+    setFont(11);
+    for (const items of itemRows) {
+      for (const it of items) {
+        ctx.fillStyle = it.color;
+        ctx.fillRect(it.x, y + px(2), sw, sh);
+        ctx.strokeStyle = "rgba(0,0,0,.3)";
+        ctx.lineWidth = Math.max(1, px(1));
+        ctx.strokeRect(it.x, y + px(2), sw, sh);
+        ctx.fillStyle = SUB;
+        ctx.fillText(it.label, it.x + sw + px(4), y + px(11));
+      }
+      y += itemLH;
+    }
+    y += px(8);
   }
   ctx.fillStyle = SUB;
   setFont(10.5);

@@ -119,6 +119,12 @@ YEARS = {
 }
 CHANGED_CELL = 2   # 過去の時点は面積が異なる（比較不可）
 NEW_CELL = 3       # 過去の時点には存在しない
+# 同じ名前の町丁目が別の KEY_CODE に分かれている例（長崎市の大手二丁目など。#183）。14199 の最初の町丁目
+# （14199001001「標本町1丁目」）の南に接する人口0の小さな区域で、町のコードが違う。取込で最初の町丁目にまとめる。
+# 人口の表は「-」、年齢の表は最初の町丁目に合算された秘匿地域にする（まとめた地域の中の合算は印を外す）
+SPLIT_KEY = "14199001101"
+# 名前も町丁・字等のコードもない地物（KEY_CODE が都道府県コードだけ）の例。14199 の東に接する。市区町村界にだけ使う
+LOOSE_KEY = "14"
 
 
 def write(directory: Path, seed: int = 42) -> dict[str, Path]:
@@ -179,6 +185,7 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_school_aid(directory))
     out.update(_write_school_basic(directory))
     out.update(_write_school_municipal(directory))
+    out.update(_write_road_census(directory))
     out.update(_write_housing(directory))
     out.update(_write_vital(directory))
     out["census_history"] = _write_census_history(directory)
@@ -933,6 +940,67 @@ def _write_school_municipal(directory: Path) -> dict[str, Path]:
     return out
 
 
+# 道路交通センサスの箇所別基本表（#172）。列は実際の表の見出し（令和3年度は Shift_JIS、平成27年度は BOM 付き UTF-8）。
+# 似た見出しの列（車種別・非混雑時・前回の調査の速度）と、右端に繰り返される列も入れておく。
+# 区間: (市区町村コード, 道路種別, 区間種別, 分離区分, 延長, 24時間合計, 24時間大型車, 上りの速度, 下りの速度)
+ROAD_CENSUS = {
+    2021: {"13": [("13199", "3", "0", "0", 1.0, 10000, 1000, 20.0, 30.0),
+                  ("13199", "4", "1", "1", 2.0, 6000, 600, 40.0, None),      # 上下線が分かれた区間の上り線
+                  ("13199", "4", "1", "2", 2.0, 4000, 400, None, 40.0),      # 同じ区間の下り線
+                  ("13199", "6", "2", "2", 1.0, 5000, 500, None, None),      # 複断面区間の本線
+                  ("13199", "6", "2", "4", 1.0, 1000, 100, None, None),      # 同じ区間の側道（延長は数えない）
+                  ("13199", "1", "0", "0", 3.0, 80000, 9000, 60.0, 60.0),    # 高速自動車国道（含めない）
+                  ("13199", "7", "0", "0", 1.0, 30000, 3000, 10.0, 10.0),    # 指定市の一般市道（含めない）
+                  ("13199", "4", "6", "0", 0.5, None, None, None, None),     # 交通不能区間（値なし）
+                  ("13299", "6", "8", "0", 0.4, None, None, None, None)],    # 値のある区間がない市区町村
+           "14": [("14199", "5", "0", "0", 2.0, 20000, 5000, 15.0, 15.0)]},
+    2015: {"13": [("13199", "4", "0", "0", 1.0, 8000, 1200, 25.0, 25.0)],
+           "14": [("14199", "3", "0", "0", 2.0, 18000, 1800, 20.0, 20.0)]},
+}
+
+
+def _write_road_census(directory: Path) -> dict[str, Path]:
+    heads = {
+        2021: ["交通調査基本区間番号", "道路種別", "市区町村コード", "区間種別", "分離区間／分離区分",
+               "区間延長（ｋｍ）", "２４時間自動車類交通量（上下合計）／小型車（台）",
+               "２４時間自動車類交通量（上下合計）／大型車（台）", "２４時間自動車類交通量（上下合計）／合計（台）",
+               "平成２７年度／２４時間自動車類交通量（台）", "朝夕（混雑時）／上り／旅行速度／小型車（ｋｍ／ｈ）",
+               "朝夕（混雑時）／上り／旅行速度／合計（ｋｍ／ｈ）", "朝夕（混雑時）／下り／旅行速度／合計（ｋｍ／ｈ）",
+               "昼間（非混雑時）／上り／旅行速度／合計（ｋｍ／ｈ）", "平成２７年度／混雑時／上り／平均旅行速度（ｋｍ／ｈ）",
+               "交通調査基本区間番号", "道路種別"],
+        2015: ["交通調査基本区間番号", "道路種別", "市区町村コード", "区間種別", "分離区間／分離区分",
+               "区間延長（ｋｍ）", "２４時間自動車類交通量（上下合計）／小型車（台）",
+               "２４時間自動車類交通量（上下合計）／大型車（台）", "２４時間自動車類交通量（上下合計）／合計（台）",
+               "混雑時／上り／旅行速度計測・非計測の別", "混雑時／上り／旅行速度（ｋｍ／ｈ）",
+               "混雑時／下り／旅行速度（ｋｍ／ｈ）", "昼間非混雑時／上り／旅行速度（ｋｍ／ｈ）",
+               "平成２２年度／旅行速度／混雑時／上り（ｋｍ／ｈ）"],
+    }
+    def cell(v) -> str:
+        return "" if v is None else (f"{v:g}" if isinstance(v, float) else str(v))
+    out = {}
+    for year, prefs in ROAD_CENSUS.items():
+        for pref, sections in prefs.items():
+            buf = io.StringIO()
+            w = csv.writer(buf, lineterminator="\r\n")
+            w.writerow(heads[year])
+            for i, (code, road, kind, sep, length, total, large, up, down) in enumerate(sections):
+                small = None if total is None else total - large
+                no = f"{pref}{i:09d}"
+                if year == 2021:
+                    w.writerow([no, road, code, kind, sep, cell(length), cell(small), cell(large), cell(total),
+                                "", cell(None if up is None else up + 5), cell(up), cell(down), "50", "33.3", no, road])
+                else:
+                    w.writerow([no, road, code, kind, sep, cell(length), cell(small), cell(large), cell(total),
+                                "1", cell(up), cell(down), "50", "33.3"])
+            key = f"mlit_road_census_{year}"
+            path = directory / key / pref / f"kasyo{pref}.csv"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(buf.getvalue().encode("cp932") if year == 2021
+                             else buf.getvalue().encode("utf-8-sig"))
+            out[f"{key}_{pref}"] = path
+    return out
+
+
 # 認可保育所（福祉局「社会福祉施設等一覧」のシート「認可保育所」の形式）。13列目は区市町村コードの下3桁
 NURSERIES = [
     ("営利法人", "見本ほいくえん", "サンプル区見本町１－２－３", 87.0, 199.0),        # 街区
@@ -1474,6 +1542,49 @@ def elevation_stats(key: str, t: int) -> tuple[int, float, float, float]:
     return n, round(mean * n, 1), low, high
 
 
+# 傾斜の集計（#179）の「○度以上」の境目（config/prepare.toml の slope.thresholds と同じ）
+SLOPE_THRESHOLDS = [3, 4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40]
+
+
+def slope_stats(key: str, t: int) -> tuple[int, float, list[int]]:
+    """(点の数, 傾斜の合計, ○度以上の点の数…)。13199 は平ら、13299 はゆるい坂、13499 は山の多い島
+    （海だけの地域は点がなく、陸の少ない地域は点が8つ）、14199 は平ら。"""
+    city = key[:5]
+    if city == "13499" and t == 0:
+        return 0, 0.0, [0] * len(SLOPE_THRESHOLDS)
+    n = 8 if (city == "13499" and t == 1) else 36000
+    mean = {"13199": 1.5 + t / 10, "13299": 5.0 + t, "13499": 18.0 + 2 * t, "14199": 2.0 + t / 4}[city]
+    # 傾斜が指数分布に従うとして、○度以上の点の数を作る（境目が大きいほど少ない）
+    return n, round(mean * n, 1), [round(n * math.exp(-th / mean)) for th in SLOPE_THRESHOLDS]
+
+
+# 土地利用別の傾斜の集計（#181）の境目と区分（config/prepare.toml の slope_land_use と同じ）
+SLOPE_LAND_USE_THRESHOLDS = [1, 2, 2.86, 3, 4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40]
+SLOPE_LAND_USES = ["建物用地", "田", "畑など"]
+
+
+def slope_land_use_stats(key: str, t: int) -> list[tuple[str, int, float, list[int]]]:
+    """区分ごとの (区分, 点の数, 傾斜の合計, ○度以上の点の数…)。点のない区分は入れない。
+    地域のすべての点は slope_stats（多くは36,000）。13199 は田・畑のない平らな市街地、13299 はゆるい坂の住宅地と平らな田
+    （畑などは地域の5%未満で、市区町村の合計でも1,500点未満）、13499 は斜面の田・畑の多い島（海だけの地域は点がなく、
+    陸の少ない地域は建物用地の点が40だけ。t=3 は田が地域の5%未満の森の多い地域）、14199 は平らな田と畑。"""
+    city = key[:5]
+    if city == "13499" and t == 0:
+        return []
+    spec = {"13199": {"建物用地": (5000 + 100 * t, 1.0 + t / 20)},
+            "13299": {"建物用地": (3000, 4.0 + t / 2), "田": (2400, 1.5 + t / 10), "畑など": (200 if t < 5 else 0, 3.0)},
+            "13499": {"建物用地": (40, 12.0) if t == 1 else (4000, 10.0 + t),
+                      "田": (0 if t == 1 else 900 if t == 3 else 6000, 6.0 + t / 2),
+                      "畑など": (0 if t == 1 else 9000, 15.0 + t)},
+            "14199": {"建物用地": (2500, 1.5), "田": (2000, 0.8 + t / 20), "畑など": (2000, 2.0 + t / 10)}}[city]
+    out = []
+    for land in SLOPE_LAND_USES:
+        n, mean = spec.get(land, (0, 1.0))
+        if n:
+            out.append((land, n, round(mean * n, 1), [round(n * math.exp(-th / mean)) for th in SLOPE_LAND_USE_THRESHOLDS]))
+    return out
+
+
 # 農地の区画（筆ポリゴン）・植生（現存植生図2024）の集計（#124）。面積は ha、区画は数
 FARMLAND_COLUMNS = ["田", "畑", "田の区画", "畑の区画", "面積"]
 VEGETATION_COLUMNS = ["自然林", "二次林", "植林地", "竹林", "その他"]
@@ -1584,6 +1695,12 @@ def _write_derived_towns(directory: Path) -> dict[str, Path]:
     for key, t, _, _ in towns:
         n, total, low, high = elevation_stats(key, t)
         elevation.append([key, n, total, low, high] if n else [key, 0, "", "", ""])
+    slope = []
+    for key, t, _, _ in towns:
+        n, total, at_least = slope_stats(key, t)
+        slope.append([key, n, total, *at_least] if n else [key, 0, "", *([""] * len(SLOPE_THRESHOLDS))])
+    slope_land_use = [[key, land, n, total, *at_least] for key, t, _, _ in towns
+                      for land, n, total, at_least in slope_land_use_stats(key, t)]
     farmland = [[key, 2026, *farmland_areas(key, t)] for key, t, _, _ in towns]
     vegetation = [[key, 2024, *vegetation_areas(key, t)] for key, t, _, _ in towns]
     return {
@@ -1594,6 +1711,11 @@ def _write_derived_towns(directory: Path) -> dict[str, Path]:
         "urban_land_use_towns": write_gz("urban_land_use_towns", ["KEY_CODE", "年度", *URBAN_COLUMNS, "都市地域の範囲外"],
                                          urban),
         "elevation_towns": write_gz("elevation_towns", ["KEY_CODE", "点の数", "標高の合計", "最低", "最高"], elevation),
+        "slope_towns": write_gz("slope_towns", ["KEY_CODE", "点の数", "傾斜の合計",
+                                                *(f"{th}度以上" for th in SLOPE_THRESHOLDS)], slope),
+        "slope_land_use_towns": write_gz("slope_land_use_towns", ["KEY_CODE", "区分", "点の数", "傾斜の合計",
+                                                                  *(f"{th:g}度以上" for th in SLOPE_LAND_USE_THRESHOLDS)],
+                                         slope_land_use),
         "land_use_tiles": _write_land_use_tiles(directory, towns),
     }
 
@@ -2704,6 +2826,16 @@ def _write_year(directory: Path, year: str, keys: dict, base: dict,
         w.record(city5 + "999999", pref, city5[2:], "999999", pref_name, shp_city_name, "（水面）",
                  8154, 1000.0, designated)
         w.poly([[(x0, y0), (x0, y0 + CELL), (x0 + CELL / 2, y0 + CELL), (x0, y0)]])
+        split = SPLIT_KEY.startswith(city5)
+        if split:
+            main_key, main_name, _ = cells[0]
+            w.record(SPLIT_KEY, pref, city5[2:], SPLIT_KEY[5:], pref_name, shp_city_name, main_name, 8101,
+                     CELL * 91_000 * CELL / 3 * 111_000, designated)
+            w.poly([[(west, south - CELL / 3), (west, south), (west + CELL, south), (west + CELL, south - CELL / 3),
+                     (west, south - CELL / 3)]])
+            x0 = west + GRID * CELL
+            w.record(LOOSE_KEY, pref, city5[2:], "000000", pref_name, shp_city_name, "", 8101, 1000.0, designated)
+            w.poly([[(x0, south), (x0, south + CELL / 3), (x0 + CELL / 3, south), (x0, south)]])
 
         for key, (pv, av) in values.items():
             totals = [a + b for a, b in zip(totals, pv)]
@@ -2732,6 +2864,13 @@ def _write_year(directory: Path, year: str, keys: dict, base: dict,
                 av = [v if v else "-" for v in av]
                 pop_rows.append(head(code, hyosyo, name) + pv)
                 age_rows.append(head(code, hyosyo, name) + av)
+        if split:
+            pop_rows.append(head(SPLIT_KEY[:9], "3", main_name.split("1丁目")[0]) + ["-"] * 4)
+            pop_rows.append(head(SPLIT_KEY, "4", main_name) + ["-"] * 4)
+            age_rows.append(head(SPLIT_KEY[:9], "3", main_name.split("1丁目")[0], "2", main_key[5:]) + ["X"] * 4)
+            age_rows.append(head(SPLIT_KEY, "4", main_name, "2", main_key[5:]) + ["X"] * 4)
+            row = next(r for r in age_rows if r[0] == main_key)
+            row[4], row[6] = "1", SPLIT_KEY[5:]
     w.close()
     (dirs["boundary"] / "fixture.prj").write_text(
         'GEOGCS["JGD2011",DATUM["D_JGD_2011",SPHEROID["GRS_1980",6378137,298.257222101]],'

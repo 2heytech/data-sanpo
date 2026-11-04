@@ -12,7 +12,7 @@ import type {
   AreasFile, Indicator, IndicatorCatalog, Level, LegendFile, Municipality, SearchIndex,
   SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
 } from "../lib/types";
-import { municipalityCodeOf, parseState, prefectureCodeOf, serializeState } from "../lib/urlstate";
+import { type MapState, municipalityCodeOf, parseState, prefectureCodeOf, serializeState } from "../lib/urlstate";
 import { initStations } from "./stations";
 import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
@@ -21,9 +21,12 @@ import { initWeather } from "./weather";
 import { initLandUse, NARROW_MAP_PX } from "./landuse";
 import { initTransport } from "./transport";
 import { initFacilities } from "./facilities";
-import { initShare, safeFileName, type LegendModel } from "./share";
+import { initShare, safeFileName, type BaseLegend, type LegendModel } from "./share";
+import { initExternalMaps } from "./external";
+import { RELIEF_STOPS, reliefAt } from "./relief";
+import { registerSlopeProtocol, SLOPE_CLASSES, SLOPE_MAXZOOM, SLOPE_MINZOOM, SLOPE_TILES } from "./slope";
 import { PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare } from "./photoEras";
-import type { PointLayer } from "./points";
+import type { FocusPoint, PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
 import { normalize } from "../lib/search";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
@@ -59,7 +62,7 @@ const POPUP_PAD = { top: 58, bottom: 24, side: 12 };
 const GSI_ATTRIBUTION =
   '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>';
 // 背景に切り替えられる地理院タイル（淡色地図はいつも下に敷き、写真が撮られていない場所や縮小時はそれが見える）。
-// 年代別の空中写真は拡大しないと出ない（minzoom）。色別標高図は z15 まで
+// 年代別の空中写真は拡大しないと出ない（minzoom）。色別標高図は z15 まで。傾斜は標高タイルからブラウザで作る（slope.ts、#177）
 const GSI_TILE = (path: string) => `https://cyberjapandata.gsi.go.jp/xyz/${path}/{z}/{x}/{y}`;
 // 航空写真は撮影年代をスライドバーで選ぶ（古い順）。2007年度以降は年度ごとに撮影した地域の写真
 // （年度別空中写真）で、どの年度も国土の一部だけ。1979〜1990年の国土画像情報も主に都市部だけ。
@@ -84,6 +87,8 @@ export const BASEMAPS = [
   // 色別標高図は海域部に海上保安庁の資料を使っており、その旨の記載が必要
   { id: "relief", label: "標高（色別標高図）", tiles: GSI_TILE("relief") + ".png", minzoom: 5, maxzoom: 15,
     note: "（海域部は海上保安庁海洋情報部の資料を使用して作成）" },
+  { id: "slope", label: "傾斜", tiles: SLOPE_TILES, minzoom: SLOPE_MINZOOM, maxzoom: SLOPE_MAXZOOM,
+    note: "（標高タイルから傾斜を計算）" },
 ];
 // 写真の写り方を覚えておくタイルの数の上限（超えたら忘れて読み直す）
 const PHOTO_MASK_CACHE_MAX = 3000;
@@ -214,6 +219,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   let levelMode: LevelMode = LEVEL_MODES.find((m) => m !== "auto" && m === initial.level) ?? "auto";
 
   // --- 地図 ---------------------------------------------------------------------
+  registerSlopeProtocol(maplibregl);
   const map = new maplibregl.Map({
     container: $("#map"),
     localIdeographFontFamily: LOCAL_FONT,
@@ -235,8 +241,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         ...BASEMAPS.map((b) => ({ id: b.id, type: "raster" as const, source: b.id, layout: { visibility: "none" as const } })),
       ],
     },
-    // 全国のデータがあるときは日本全体、東京都だけのとき（プレビュー用の公開版など）は区部・多摩
-    bounds: areas.prefectures.length > 1 ? PRESETS.japan : PRESETS.mainland,
+    // 共有URLに地図の位置があればそこ（#175）。なければ、全国のデータがあるときは日本全体、
+    // 東京都だけのとき（プレビュー用の公開版など）は区部・多摩
+    ...(initial.view
+      ? { center: [initial.view.lng, initial.view.lat] as [number, number], zoom: initial.view.zoom,
+          bearing: initial.view.bearing ?? 0, pitch: initial.view.pitch ?? 0 }
+      : { bounds: areas.prefectures.length > 1 ? PRESETS.japan : PRESETS.mainland }),
     maxZoom: 17,
     attributionControl: { compact: false },
   });
@@ -606,6 +616,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   // 地域を選んだら、地点（駅・学校など）の情報は閉じる（点レイヤーの準備ができてから差し替える）
   let closePoints = () => {};
   async function select(id: string | null, fly = false) {
+    // 共有URLの町丁目（まだ境界を読んでいない）は、その市区町村の境界を読んでから選ぶ。見つからないとき
+    // （ない地域ID、境界の更新でなくなった町丁目）は、その市区町村か、選ばない状態にする
+    if (id && !isPref(id) && !munis.has(id) && !smallAreas.has(id)) {
+      const code = municipalityCodeOf(id);
+      const muniId = code && munis.has(`muni-${code}`) ? `muni-${code}` : null;
+      if (muniId) await ensureChunk(code!).catch(() => {});
+      if (!smallAreas.has(id)) return select(muniId, fly);
+    }
     selected = id;
     if (id) closePoints();
     map.setFilter("prefs-selected", ["==", ["get", "id"], id && isPref(id) ? id : ""]);
@@ -620,13 +638,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       } else if (m) {
         map.fitBounds(m.bbox, { padding: 40, maxZoom: AREA_ZOOM - 0.5 });
       } else {
-        const code = municipalityCodeOf(id);
-        const muniId = code && munis.has(`muni-${code}`) ? `muni-${code}` : null;
-        if (muniId) await ensureChunk(code!).catch(() => {});
         const a = smallAreas.get(id);
         if (a) map.fitBounds(a.bbox, { padding: 60, maxZoom: 15, minZoom: AREA_ZOOM });
-        // 共有URLの地域が見つからないとき（ない地域ID、境界の更新でなくなった町丁目）は、その市区町村か、選ばない状態にする
-        else return select(muniId, fly);
       }
     }
     updateUrl();
@@ -648,7 +661,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     toggle: $<HTMLInputElement>(toggle), legend: $(legendSel), panel: $(panel),
     municipalityName: (id: string) => munis.get(id)?.name ?? "",
     onPanel: () => syncPanels(),
+    focus,
   });
+  // 共有URLの地点（?s=<駅ID> など）を開いたときは、その地点へ動かす。URL に地図の位置が入っていれば、その位置のままにする
+  const focus: FocusPoint = (center, minZoom) => {
+    if (!initial.view) map.jumpTo({ center, zoom: Math.max(map.getZoom(), minZoom) });
+  };
   const pointLayers: PointLayer[] = [
     initStations(pointOptions("#stations-toggle", "#stations-legend", "#station-detail")),
     initTransport({ kind: "airport", ...pointOptions("#airports-toggle", "#airports-legend", "#airport-detail") }),
@@ -669,6 +687,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   // 地点の情報を開いた・閉じた・別の地点にしたときに、ポップアップを開く・動かす・閉じる。
   // 位置が分からない地点（住所から位置を求められなかった学校など）は地図の真ん中に出す
   function syncPanels() {
+    updateUrl();
     const open = pointLayers.find((p) => p.isOpen());
     const at = open ? open.coord() ?? map.getCenter().toArray() : !pickEl.hidden ? pickAt : null;
     if (!at) {
@@ -1068,10 +1087,29 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     return `<p class="detail-crumbs">${items.join('<span class="sep" aria-hidden="true">›</span>')}</p>`;
   }
 
+  // URL に入れる状態（#175）: 指標・時点・選んだ地域・色分けの単位に加えて、背景（航空写真の年代・土地利用の年度）、
+  // 重ねた点と選んだ地点、既定から変えた表示（色分け・地名・数値）。地図の位置はアドレス欄には入れず
+  // （ご要望フォームにも送られるため）、共有の画面のリンクにだけ入れる
+  function urlState(): MapState {
+    const show: string[] = [];
+    const hide: string[] = [];
+    const points: Record<string, string> = {};
+    for (const layer of pointLayers) {
+      const u = layer.urlState();
+      if (u.show) show.push(u.show);
+      Object.assign(points, u.params);
+    }
+    // 色分けは、背景が地図のときは表示、航空写真・標高・傾斜・土地利用のときは消すのが既定
+    if (colorsToggle.checked !== (baseMode === "pale")) (colorsToggle.checked ? show : hide).push("colors");
+    for (const t of ["labels", "values"]) if (!$<HTMLInputElement>(`#${t}-toggle`).checked) hide.push(t);
+    const year = baseMode === "landuse" ? landUse.year() : null;
+    const base = baseMode === "photo" ? photoEraId : baseMode === "landuse" ? `landuse${year ?? ""}`
+      : baseMode === "relief" || baseMode === "slope" ? baseMode : undefined;
+    return { indicator: indicator.id, period, area: selected ?? undefined,
+             level: levelMode === "auto" ? undefined : levelMode, base, show, hide, points };
+  }
   function updateUrl() {
-    const qs = serializeState({ indicator: indicator.id, period, area: selected ?? undefined,
-                               level: levelMode === "auto" ? undefined : levelMode });
-    history.replaceState(null, "", `${location.pathname}${qs}`);
+    history.replaceState(null, "", `${location.pathname}${serializeState(urlState())}`);
   }
 
   // --- 指標・時点の選択 ---------------------------------------------------------------
@@ -1420,8 +1458,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   // --- 背景・範囲・現在地 -------------------------------------------------------------
-  // 背景（地図・航空写真・標高・土地利用）は地図の左上の切替でどれか1つを選ぶ（#128）。航空写真の撮影年代・土地利用の年度の
-  // スライドバーと標高の色の見本は地図の上のパネルに置き、見ている年代・年度が地図と一緒に分かるようにする
+  // 背景（地図・航空写真・標高・傾斜・土地利用）は地図の左上の切替でどれか1つを選ぶ（#128・#177）。航空写真の撮影年代・土地利用の年度の
+  // スライドバーと標高・傾斜の色の見本は地図の上のパネルに置き、見ている年代・年度が地図と一緒に分かるようにする
   const baseButtons = [...root.querySelectorAll<HTMLButtonElement>(".base-switch button")];
   const photoPanel = $<HTMLElement>("#photo-panel");
   const photoRange = $<HTMLInputElement>("#photo-era-range");
@@ -1431,6 +1469,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const photoNote = $<HTMLElement>("#photo-note");
   const reliefPanel = $<HTMLElement>("#relief-panel");
   const reliefNote = $<HTMLElement>("#relief-note");
+  const slopePanel = $<HTMLElement>("#slope-panel");
+  const slopeNote = $<HTMLElement>("#slope-note");
   // 土地利用図（#123）。土地利用図のない公開版では切替を出さない
   const landUseSource = sourcesFile.sources.find((s) => s.dataset_key === "land_use_tiles");
   baseButtons.find((b) => b.dataset.basemap === "landuse")!.hidden = !landUseSource;
@@ -1440,11 +1480,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     ticks: $("#landuse-year-ticks"), play: $<HTMLButtonElement>("#landuse-play"),
     legend: $("#landuse-legend"), legendToggle: $<HTMLButtonElement>("#landuse-legend-toggle"),
     note: $("#landuse-note"),
+    onYear: () => updateUrl(),
     // 背景の地図のすぐ上（境界の塗り・線・地名より下）
     beforeLayer: () => map.getStyle().layers.find((l) => l.id !== "pale" && !BASEMAPS.some((b) => b.id === l.id))?.id,
   });
-  let baseMode: "pale" | "photo" | "relief" | "landuse" = "pale";
-  // 写真・標高・土地利用図を出すときは色分けを消して背景を見やすくし、閉じたら元に戻す
+  let baseMode: "pale" | "photo" | "relief" | "slope" | "landuse" = "pale";
+  // 写真・標高・傾斜・土地利用図を出すときは色分けを消して背景を見やすくし、閉じたら元に戻す
   let colorsBeforeBase: boolean | null = null;
   function setBaseMode(next: typeof baseMode) {
     if (next === baseMode) return;
@@ -1524,20 +1565,24 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
   function chosenBasemap() {
     return baseMode === "photo" ? PHOTO_ERAS.find((e) => e.id === photoEraId)
-      : baseMode === "relief" ? BASEMAPS.find((b) => b.id === "relief") : undefined;
+      : baseMode === "relief" || baseMode === "slope" ? BASEMAPS.find((b) => b.id === baseMode) : undefined;
   }
   function syncBasemap() {
+    updateUrl();
     const chosen = chosenBasemap();
     for (const b of BASEMAPS) map.setLayoutProperty(b.id, "visibility", b === chosen ? "visible" : "none");
     const photo = baseMode === "photo";
     for (const b of baseButtons) b.setAttribute("aria-pressed", String(b.dataset.basemap === baseMode));
     photoPanel.hidden = !photo;
     reliefPanel.hidden = baseMode !== "relief";
+    slopePanel.hidden = baseMode !== "slope";
     void landUse.setVisible(baseMode === "landuse");
     // 256px のタイルは「地図の縮尺 + 1」を丸めたズームのタイルで描かれ（MapLibre の raster）、それが minzoom 未満だと何も出ない
     const zoomIn = chosen && Math.round(map.getZoom() + 1) < chosen.minzoom;
-    reliefNote.hidden = !zoomIn;
-    reliefNote.textContent = zoomIn ? "拡大すると表示されます。" : "";
+    for (const note of [reliefNote, slopeNote]) {
+      note.hidden = !zoomIn;
+      note.textContent = zoomIn ? "拡大すると表示されます。" : "";
+    }
     if (!photo || !chosen) return;
     photoRange.max = String(photoEras.length - 1);
     photoRange.value = String(Math.max(0, photoEras.findIndex((e) => e.id === photoEraId)));
@@ -1603,6 +1648,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const labelsToggle = $<HTMLInputElement>("#labels-toggle");
   labelsToggle.addEventListener("change", syncLabels);
   valuesToggle.addEventListener("change", syncLabels);
+  // 表示・重ねる点の切替や天気の指標を変えたら、URL も変える（それぞれの処理のあとに動くよう、地図の画面全体で受ける）
+  root.addEventListener("change", (e) => {
+    if ((e.target as HTMLElement).matches("input[type=checkbox], select")) updateUrl();
+  });
   // 範囲: 全国・都道府県（都道府県コードの順。東京都は島しょも、沖縄県の次に南西諸島）。
   // 都道府県の範囲は離島を含むので、県庁所在地側に寄らないこともある
   const regionJump = $<HTMLSelectElement>("#region-jump");
@@ -1687,13 +1736,31 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
 
   // --- 画像の保存・共有（#153） -------------------------------------------------------
   // 画像の題名・凡例・出典は、いま地図に出しているもの（色分けを消しているときは背景の名前）にする
-  const BASE_TITLE = { pale: "地図", photo: "航空写真", relief: "標高（色別標高図）", landuse: "土地利用（100m四方のマス）" };
+  const BASE_TITLE = { pale: "地図", photo: "航空写真", relief: "標高（色別標高図）", slope: "傾斜（標高から計算）",
+                       landuse: "土地利用（100m四方のマス）" };
   const attributionEl = root.querySelector<HTMLElement>(".maplibregl-ctrl-attrib-inner");
   // 出典の表記は「出典：」で始まるものが多いので、行の見出し（「統計の出典:」など）と重ならないように外す
   const attributions = (ids: string[]) =>
     [...new Set(ids.map((id) => (sources.get(id)?.attribution ?? id).replace(/^出典[：:]\s*/, "")))].join("／");
+  // 背景の凡例（色分けを消して土地利用・標高・傾斜を見ているとき）
+  const baseLegend = (): BaseLegend | null =>
+    baseMode === "landuse" && landUse.legend().length
+      ? { title: "土地利用の区分", items: landUse.legend().map((c) => ({ color: c.color, label: c.name })) }
+      : baseMode === "relief"
+        ? { title: "標高", gradient: { stops: RELIEF_STOPS.map((st, i) => ({ at: reliefAt(i), color: st.color })),
+                                     ticks: RELIEF_STOPS.flatMap((st, i) => (st.tick ? [{ at: reliefAt(i), text: st.tick }] : [])) } }
+        : baseMode === "slope"
+          ? { title: "傾斜（1度未満は色なし）",
+              items: SLOPE_CLASSES.flatMap((c) => (c.color ? [{ color: c.color, label: c.label }] : [])) }
+          : null;
   initShare({
     map, root, font: LOCAL_FONT,
+    // 共有用のリンクは、アドレス欄と同じ状態に地図の位置と縮尺を足したもの（#175）
+    link: (withView) => {
+      const c = map.getCenter();
+      const view = withView ? { zoom: map.getZoom(), lat: c.lat, lng: c.lng, bearing: map.getBearing(), pitch: map.getPitch() } : undefined;
+      return `${location.origin}${location.pathname}${serializeState({ ...urlState(), view })}`;
+    },
     view: () => {
       const colorsOn = colorsToggle.checked;
       // 色分けを消していても、地名の下に数値を出しているときは、何の数値かと出典を書く
@@ -1705,28 +1772,53 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
         : baseMode === "landuse" ? $<HTMLOutputElement>("#landuse-year-label").textContent ?? "" : "";
       const title = colorsOn ? indicator.name : BASE_TITLE[baseMode];
       const when = colorsOn ? p.label : baseLabel;
+      // 色分けの下に航空写真などを出しているときは、背景が何かも書く
+      const era = baseMode === "photo" ? chosenBasemap() : undefined;
+      const underneath = !colorsOn || baseMode === "pale" ? ""
+        : baseMode === "photo" ? `背景は${era?.id === "photo" ? "最新" : era?.label ?? ""}の航空写真`
+        : baseMode === "landuse" ? `背景は${baseLabel}` : baseMode === "slope" ? "背景は傾斜" : "背景は色別標高図";
       const subtitle = [when, lm ? `${lm.levelLabel}別` : "",
-        !colorsOn && valuesShown ? `数値は${indicator.name}（${p.label}）` : "", area ? `赤い枠は${area}` : ""].filter(Boolean).join("・");
+        !colorsOn && valuesShown ? `数値は${indicator.name}（${p.label}）` : "", area ? `赤い枠は${area}` : "", underneath]
+        .filter(Boolean).join("・");
       const pointIds = pointLayers.filter((l) => l.visible()).flatMap((l) => l.sourceIds());
       const credits = [
         (colorsOn || valuesShown) && p.source_ids.length ? `統計の出典: ${attributions(p.source_ids)}` : "",
         pointIds.length ? `地点の出典: ${attributions(pointIds)}` : "",
         `背景地図: ${attributionEl?.textContent?.trim() || "地理院タイル"}`,
       ].filter(Boolean);
-      return { title, subtitle, legend: lm, credits,
+      return { title, subtitle, legend: lm, base: colorsOn ? null : baseLegend(), credits,
                fileName: safeFileName(`データさんぽ_${[title, when, area].filter(Boolean).join("_")}.png`) };
     },
   });
+  // 地図の中心を Google マップ・ストリートビューで開くリンク（#187）。右下のズームのボタンの下（狭い地図では左）に置く
+  initExternalMaps({ map, base: () => baseMode });
 
   // --- 初期表示 -------------------------------------------------------------------
-  // ?show=landuse で開いたときは土地利用図を出す（ほかの重ねる層の ?show= と同じ）
-  if (landUseSource && new URLSearchParams(location.search).get("show")?.split(",").includes("landuse")) {
+  // 共有URLの背景（?b=photo1945・relief・slope・landuse2021 など。#175）。?show=landuse で開いたときも土地利用図を出す
+  // （トップページの指標の一覧から。ほかの重ねる層の ?show= と同じ）
+  const initialBase = initial.base ?? (initial.show?.includes("landuse") ? "landuse" : undefined);
+  if (initialBase && PHOTO_ERAS.some((e) => e.id === initialBase)) {
+    photoEraId = initialBase;
+    setBaseMode("photo");
+  } else if (initialBase === "relief" || initialBase === "slope") {
+    setBaseMode(initialBase);
+  } else if (landUseSource && initialBase && /^landuse(\d{4})?$/.test(initialBase)) {
+    if (initialBase.length > 7) landUse.chooseYear(Number(initialBase.slice(7)));
     setBaseMode("landuse");
   }
+  // 既定から変えた表示（?show=colors・?hide=colors,labels,values）。色分けは背景に合わせた既定（setBaseMode）から変える
+  const colorsWanted = initial.show?.includes("colors") ? true : initial.hide?.includes("colors") ? false : colorsToggle.checked;
+  if (colorsToggle.checked !== colorsWanted) {
+    colorsToggle.checked = colorsWanted;
+    colorsToggle.dispatchEvent(new Event("change"));
+  }
+  if (initial.hide?.includes("labels")) labelsToggle.checked = false;
+  if (initial.hide?.includes("values")) valuesToggle.checked = false;
   await refreshColors();
   if (initial.area && (munis.has(initial.area) || municipalityCodeOf(initial.area) ||
       (isPref(initial.area) && prefectures.has(prefectureCodeOf(initial.area)!)))) {
-    await select(initial.area, true);
+    // 地図の位置が URL にあるときは、地域を選ぶだけで地図は動かさない
+    await select(initial.area, !initial.view);
   } else {
     updateUrl();
   }
