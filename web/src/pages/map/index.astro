@@ -61,10 +61,26 @@ const indicatorCount = loadIndicators().length;
 ---
 <Base menu="地図" preload={maplibreUrl} description="全国の市区町村・町丁目を、人口・高齢化・年収・地価などで色分けした地図。地名で探して拡大すれば、となりのまちとの違いや年ごとの移り変わりがひと目で分かります。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl} data-official-sites={officialSitesUrl}>
-    <aside class="panel panel-conditions" aria-label="表示する条件">
+    {/* スマホ（幅 860px 以下）では、地域の検索を地図の上に常に出し（地図の処理が左の欄の検索欄をここへ移す）、
+         条件の欄と情報の欄を地図の下端のパネルにまとめる（設計変更記録 #194）。パソコンでは .map-sheet は枠を持たず、今までどおり左右の欄になる */}
+    <div class="map-search" role="search" aria-label="地域を検索"></div>
+    <div class="map-sheet" data-tab="conditions">
+      <button type="button" class="sheet-head" aria-expanded="false" aria-controls="panel-conditions panel-info">
+        <span class="sh-row">
+          <span class="sh-icon" aria-hidden="true"></span><span class="sh-name"></span><span class="sh-period"></span>
+          <span class="sh-chevron" aria-hidden="true"><svg viewBox="0 0 12 8" width="12" height="8"><path d="M1.5 6.5 6 2l4.5 4.5" /></svg></span>
+        </span>
+        <span class="sh-legend" aria-hidden="true"><span class="sh-low"></span><span class="sh-bar"></span><span class="sh-high"></span></span>
+        <span class="visually-hidden">（指標・時点・凡例と地域の情報のパネル）</span>
+      </button>
+      <div class="sheet-tabs" role="group" aria-label="パネルに出すもの">
+        <button type="button" data-tab="conditions" aria-pressed="true">指標と表示</button>
+        <button type="button" data-tab="info" aria-pressed="false">この地図について</button>
+      </div>
+    <aside class="panel panel-conditions" id="panel-conditions" aria-label="表示する条件">
       {/* 範囲と地域の検索はあまり使わないので、最初は畳んでおく（開いた状態は覚えない、#103） */}
       <details class="move-tools">
-        <summary>範囲・地域を検索</summary>
+        <summary><span class="mt-wide">範囲・地域を検索</span><span class="mt-phone">範囲・現在地</span></summary>
         <div class="move-tools-body">
           <div class="field region">
             <label for="region-jump">範囲</label>
@@ -141,6 +157,22 @@ const indicatorCount = loadIndicators().length;
         </div>
       </fieldset>
     </aside>
+    <aside class="panel panel-info" id="panel-info" aria-label="地域の情報">
+      {/* 何も選んでいないときの案内（設計変更記録 #192）。地域を選ぶと地域の情報に替わり、選択を外すと地図の処理がこの中身に戻す */}
+      <section id="detail" class="detail" aria-live="polite">
+        <div class="map-intro">
+          <h1>データさんぽの地図</h1>
+          <p>全国の都道府県・市区町村・町丁目を、人口・所得・子育て・地価など{indicatorCount}の公開統計で色分けした地図です。「指標」で見たいデータと時点を選び、地図の地域をクリックすると、値・全国での順位・年ごとの移り変わりを見られます。</p>
+          <p class="muted">地図をクリックするか、地域名で検索してください。</p>
+          <p class="small"><a href="/#indicators">指標の一覧</a>・<a href="/guide/">地図の使い方</a>・<a href="/articles/">寄り道・分析記事</a></p>
+        </div>
+      </section>
+      <p class="muted small panel-foot">
+        背景地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>。
+        <a href="/sources/">統計の出典</a>・<a href="/about/#terms">利用規約</a>・<FeedbackLink />
+      </p>
+    </aside>
+    </div>
     <div class="map-wrap">
       <div id="map" role="region" aria-label="地図"></div>
       {/* 背景: 地図・航空写真（昔の写真も）・標高・傾斜・土地利用のどれか1つを地図の左上で選ぶ。航空写真の撮影年代・土地利用の年度・
@@ -246,21 +278,6 @@ const indicatorCount = loadIndicators().length;
       <button type="button" class="panel-toggle left" data-panel="left" aria-pressed="false" aria-label="条件の欄を隠す" title="条件の欄を隠す">‹</button>
       <button type="button" class="panel-toggle right" data-panel="right" aria-pressed="false" aria-label="情報の欄を隠す" title="情報の欄を隠す">›</button>
     </div>
-    <aside class="panel panel-info" aria-label="地域の情報">
-      {/* 何も選んでいないときの案内（設計変更記録 #192）。地域を選ぶと地域の情報に替わり、選択を外すと地図の処理がこの中身に戻す */}
-      <section id="detail" class="detail" aria-live="polite">
-        <div class="map-intro">
-          <h1>データさんぽの地図</h1>
-          <p>全国の都道府県・市区町村・町丁目を、人口・所得・子育て・地価など{indicatorCount}の公開統計で色分けした地図です。左の「指標」で見たいデータと時点を選び、地図の地域をクリックすると、値・全国での順位・年ごとの移り変わりを見られます。</p>
-          <p class="muted">地図をクリックするか、地域名で検索してください。</p>
-          <p class="small"><a href="/#indicators">指標の一覧</a>・<a href="/guide/">地図の使い方</a>・<a href="/articles/">寄り道・分析記事</a></p>
-        </div>
-      </section>
-      <p class="muted small panel-foot">
-        背景地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>。
-        <a href="/sources/">統計の出典</a>・<a href="/about/#terms">利用規約</a>・<FeedbackLink />
-      </p>
-    </aside>
     {/* 指標の選択画面（地図の上に重ねて開く。スマホでは全画面） */}
     <dialog id="indicator-picker" class="picker" aria-labelledby="picker-title">
       <div class="picker-head">
@@ -817,13 +834,76 @@ const indicatorCount = loadIndicators().length;
     .map-app.hide-left { grid-template-columns: 0 minmax(0, 1fr) 300px; }
     .map-app.hide-right { grid-template-columns: 260px minmax(0, 1fr) 0; }
   }
+  /* スマホの地図の画面（設計変更記録 #194）。パソコンでは検索の帯・パネルの見出しを出さず、.map-sheet は枠を持たない（中の左右の欄が格子に並ぶ） */
+  .map-search, .sheet-head, .sheet-tabs, .mt-phone { display: none; }
+  .map-sheet { display: contents; }
   @media (max-width: 860px) {
-    .map-app, .map-app.hide-left, .map-app.hide-right, .map-app.hide-left.hide-right { grid-template-columns: 1fr; height: auto; }
+    /* 画面の高さいっぱいに地図を出し、ページは送らない。ヘッダーの高さは画面の幅で変わるので、縦に並べた残りを地図の画面にする */
+    body.wide { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+    body.wide > main { flex: 1; min-height: 0; }
+    /* 上から、地域の検索・地図・パネルの見出しの高さの余白（パネルは地図の画面の下端に重ねる） */
+    .map-app, .map-app.hide-left, .map-app.hide-right, .map-app.hide-left.hide-right {
+      --sheet-head-h: 64px;
+      position: relative; height: 100%;
+      grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) var(--sheet-head-h);
+    }
     .panel-toggle { display: none; }
-    .panel-conditions, .map-wrap, .panel-info { grid-column: auto; grid-row: auto; }
-    /* スマートフォンでは地図を先に出し、条件と情報はその下に置く */
-    .map-wrap { height: 68dvh; order: 1; }
-    .panel-conditions { order: 2; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
-    .panel-info { order: 3; border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+    .map-wrap { grid-column: 1; grid-row: 2; min-height: 0; }
+    /* 地域の検索（地図の上に常に出す）。文字は16px にして、iPhone で入力欄を押したときに画面が拡大しないようにする */
+    .map-search { display: block; grid-column: 1; grid-row: 1; position: relative; z-index: 6; padding: 6px 10px; background: var(--surface); border-bottom: 1px solid var(--line); }
+    .map-search label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .map-search input[type="search"] {
+      width: 100%; margin: 0; padding: 8px 12px 8px 34px; font: inherit; font-size: 16px;
+      border: 1px solid var(--line-strong); border-radius: 999px; color: var(--fg);
+      background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b5cad' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='m15.5 15.5 5 5'/%3E%3C/svg%3E") no-repeat 11px 50% / 17px 17px;
+    }
+    .map-search input[type="search"]:focus { border-color: var(--accent); outline: 2px solid rgba(11,92,173,.2); }
+    .map-search #search-results { margin-top: 4px; }
+    .mt-wide { display: none; }
+    .mt-phone { display: inline; }
+    /* 下端のパネル。閉じているときは見出し（指標・時点・凡例の帯）だけ、開くと切替のボタンと、条件か地域の情報の欄 */
+    .map-sheet {
+      display: flex; flex-direction: column; position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+      max-height: 55%; /* map/sheet.ts の SHEET_MAX と同じ */
+      background: var(--surface); border-radius: 14px 14px 0 0; box-shadow: 0 -2px 12px rgba(0,0,0,.18);
+    }
+    .sheet-head {
+      position: relative; flex: none; display: flex; flex-direction: column; justify-content: center; gap: 5px;
+      width: 100%; height: var(--sheet-head-h); padding: 12px 14px 8px; border: 0; border-radius: 14px 14px 0 0;
+      background: none; font: inherit; color: var(--fg); text-align: left; cursor: pointer;
+    }
+    /* つまみ */
+    .sheet-head::before {
+      content: ""; position: absolute; top: 5px; left: 50%; width: 36px; height: 4px; margin-left: -18px;
+      border-radius: 2px; background: var(--line-strong);
+    }
+    .sheet-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .sh-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .sh-icon { flex: none; display: inline-flex; color: var(--accent); }
+    .sh-icon svg { width: 20px; height: 20px; }
+    .sh-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.95rem; font-weight: 700; }
+    .sh-period { flex: none; font-size: 0.85rem; font-weight: 700; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+    .sh-chevron { flex: none; display: grid; place-items: center; width: 24px; height: 20px; color: var(--accent); }
+    .sh-chevron svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
+    .map-sheet.open .sh-chevron svg { transform: rotate(180deg); }
+    .sh-legend { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 0.72rem; line-height: 1.2; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .sh-legend > span:not(.sh-bar) { flex: none; white-space: nowrap; }
+    .sh-legend.none > .sh-low { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .sh-legend.dimmed { opacity: .45; }
+    .sh-bar { flex: 1; display: flex; height: 10px; border: 1px solid rgba(0,0,0,.2); border-radius: 3px; overflow: hidden; }
+    .sh-bar[hidden] { display: none; }
+    .sh-bar span { flex: 1; }
+    .sheet-tabs { flex: none; gap: 6px; padding: 0 12px 8px; border-bottom: 1px solid var(--line); }
+    .map-sheet.open .sheet-tabs { display: flex; }
+    .sheet-tabs button {
+      flex: 1; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface);
+      font: inherit; font-size: 0.85rem; font-weight: 700; color: #3a4757; cursor: pointer;
+    }
+    .sheet-tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .sheet-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    /* 欄は、パネルを開いて選んでいる方だけ出し、パネルの中で送る */
+    .map-sheet .panel { display: none; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px 18px; border: 0; background: var(--surface); }
+    .map-sheet.open[data-tab="conditions"] .panel-conditions { display: flex; }
+    .map-sheet.open[data-tab="info"] .panel-info { display: block; }
   }
 </style>
