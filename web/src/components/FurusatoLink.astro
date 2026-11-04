@@ -1,7 +1,9 @@
 ---
 // 地域ページの「ふるさと納税の返礼品」の欄（楽天ふるさと納税へのリンク、設計変更記録 #189）。
-// 政令指定都市の区は区ごとの寄附先がないので、市の返礼品を探すリンクにする。ID がなければ何も出さない
-import { rakutenAffiliateUrl, rakutenFurusatoSearchUrl } from "../lib/rakuten";
+// 政令指定都市の区は区ごとの寄附先がないので、市の返礼品を探すリンクにする。ID がなければ何も出さない。
+// 楽天の API のキーがあれば、欄が画面に入ったときに返礼品を4件まで画像付きで並べる（#195）。
+// 取れなかったとき・その自治体の品が見つからないときは何も足さず、リンクのボタンだけにする
+import { RAKUTEN_API, rakutenAffiliateUrl, rakutenFurusatoSearchUrl } from "../lib/rakuten";
 import { isDesignatedWard } from "../lib/prefecturePage";
 import type { Municipality } from "../lib/types";
 
@@ -17,9 +19,77 @@ const href = pref ? rakutenAffiliateUrl(rakutenFurusatoSearchUrl(pref, target)) 
     <p>
       {ward ? `${muni.name}を含む${target}` : target}へのふるさと納税の返礼品は、楽天ふるさと納税で探せます。
     </p>
+    {RAKUTEN_API && (
+      <div class="furusato-items" hidden data-pref={pref} data-name={target}
+        data-app={RAKUTEN_API.appId} data-key={RAKUTEN_API.accessKey} data-aff={RAKUTEN_API.affiliateId}>
+        <p class="muted small">楽天ふるさと納税にある{target}の返礼品の例です（楽天の検索結果から。押すと楽天のページを開きます）。<span class="ad-mark">広告</span></p>
+        <ul></ul>
+        <p class="muted small credit"></p>
+      </div>
+    )}
     <p>
       <a class="button secondary" href={href} target="_blank" rel="sponsored noopener">楽天ふるさと納税で{target}の返礼品を探す</a>
       <span class="ad-mark">広告</span>
     </p>
   </section>
 )}
+
+<script>
+  // 欄が画面に近づいたときだけ楽天の API を呼ぶ（ページを開いただけでは楽天へ送らない）
+  const ENDPOINT = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701";
+  // 楽天ウェブサービスのクレジット表示（楽天の指定のテキスト版のリンク。前後の目印の HTML コメントはサイトの決まりで付けない。API を使って表示したときだけ出す）
+  const CREDIT = '<a href="https://developers.rakuten.com/" target="_blank">Supported by Rakuten Developers</a>';
+
+  interface Item { itemName: string; itemPrice: number; affiliateUrl?: string; itemUrl: string; shopName: string; mediumImageUrls: (string | { imageUrl: string })[] }
+
+  async function load(box: HTMLElement) {
+    const { pref = "", name = "", app = "", key = "", aff = "" } = box.dataset;
+    const q = new URLSearchParams({
+      applicationId: app, accessKey: key, affiliateId: aff, format: "json", formatVersion: "2",
+      keyword: `ふるさと納税 ${pref}${name}`, hits: "30", imageFlag: "1",
+    });
+    const res = await fetch(`${ENDPOINT}?${q}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    // 別の自治体の品を出さないよう、ショップ名にその自治体の名前（都道府県名つき、なければ市区町村名）がある品だけにする
+    const items = ((data.Items ?? data.items ?? []) as Item[])
+      .filter((it) => it.shopName?.includes(`${pref}${name}`) || it.shopName?.includes(name))
+      .slice(0, 4);
+    if (items.length === 0) return;
+    const ul = box.querySelector("ul")!;
+    for (const it of items) {
+      const img = it.mediumImageUrls?.[0];
+      const src = (typeof img === "string" ? img : img?.imageUrl ?? "").replace(/_ex=\d+x\d+/, "_ex=240x240");
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = it.affiliateUrl || it.itemUrl;
+      a.target = "_blank";
+      a.rel = "sponsored noopener";
+      if (src) {
+        const im = document.createElement("img");
+        im.src = src; im.alt = ""; im.loading = "lazy"; im.width = 240; im.height = 240;
+        a.append(im);
+      }
+      const t = document.createElement("span");
+      t.className = "item-name";
+      t.textContent = it.itemName;
+      const p = document.createElement("span");
+      p.className = "item-price";
+      p.textContent = `寄附額 ${Number(it.itemPrice).toLocaleString("ja-JP")}円`;
+      a.append(t, p);
+      li.append(a);
+      ul.append(li);
+    }
+    box.querySelector(".credit")!.innerHTML = CREDIT;
+    box.hidden = false;
+  }
+
+  for (const box of document.querySelectorAll<HTMLElement>(".furusato-items")) {
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      load(box).catch(() => {});
+    }, { rootMargin: "300px" });
+    io.observe(box.closest("section") ?? box);
+  }
+</script>

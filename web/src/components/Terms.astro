@@ -1,6 +1,6 @@
 ---
 // 利用規約とプライバシー。「このサイトについて」のページの中に表示する（docs/design-changes.md #47）。
-import { RAKUTEN_AFFILIATE_ID } from "../lib/rakuten";
+import { RAKUTEN_AFFILIATE_ID, RAKUTEN_API } from "../lib/rakuten";
 import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
 ---
   <p>この規約は、データさんぽ（以下「本サイト」）の利用について定めるものです。本サイトを利用した時点で、この規約に同意したものとみなします。</p>
@@ -56,7 +56,10 @@ import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
       </p>
       <p>
         リンクを押して楽天のサイトへ移ると、楽天が Cookie などを使って、どのサイトからの紹介かを記録します（<a href="https://privacy.rakuten.co.jp/">楽天グループの個人情報保護方針</a>）。
-        リンクを押さない限り、本サイトのページを開いただけで楽天へ情報が送られることはありません。本サイト自体は、Cookie を使った利用者の識別や追跡はしていません。
+        {RAKUTEN_API
+          ? "地域のページで「ふるさと納税の返礼品」の欄まで画面を送ると、返礼品の例を表示するため、楽天の商品検索の仕組み（楽天ウェブサービス）に問い合わせ、商品の画像を楽天から読み込みます（下の外部送信の表）。それ以外は、リンクを押さない限り楽天へ情報は送られません。"
+          : "リンクを押さない限り、本サイトのページを開いただけで楽天へ情報が送られることはありません。"}
+        本サイト自体は、Cookie を使った利用者の識別や追跡はしていません。
       </p>
     </>
   ) : (
@@ -74,6 +77,13 @@ import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
           <td>表示した地図の範囲・縮尺（地図画像の URL）、IP アドレス、ブラウザの種類、参照元</td>
           <td>地図ページの背景地図の配信（<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイルについて</a>）</td>
         </tr>
+        {RAKUTEN_API && (
+          <tr>
+            <td>楽天グループ株式会社（楽天ウェブサービス・楽天市場の商品画像）</td>
+            <td>表示している市区町村の名前（検索語）、IP アドレス、ブラウザの種類、参照元</td>
+            <td>地域のページの「ふるさと納税の返礼品」の欄に返礼品の例を表示する（欄まで画面を送ったときだけ。<a href="https://privacy.rakuten.co.jp/">楽天グループの個人情報保護方針</a>）</td>
+          </tr>
+        )}
         {CF_WEB_ANALYTICS_TOKEN && (
           <tr>
             <td>Cloudflare, Inc.（Cloudflare Web Analytics）</td>
@@ -88,4 +98,4 @@ import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
   <h3 id="changes">4. 規約の変更</h3>
   <p>この規約は、必要に応じて変更することがあります。変更後の規約は、このページに掲載した時点から適用します。</p>
 
-  <p class="muted">2026年10月3日 制定・2026年11月4日 改定（広告の項目）</p>
+  <p class="muted">2026年10月3日 制定・2026年11月4日 改定（広告と外部送信の項目）</p>
