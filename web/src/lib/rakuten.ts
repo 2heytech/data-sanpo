@@ -22,7 +22,7 @@ export function rakutenAffiliateUrl(url: string): string | null {
   return `https://hb.afl.rakuten.co.jp/hgc/${RAKUTEN_AFFILIATE_ID}/?pc=${encodeURIComponent(url)}&link_type=text`;
 }
 
-// 返礼品の画像（楽天市場商品検索 API、設計変更記録 #194）。アプリは「Webアプリケーション」として登録し、
+// 返礼品の画像（楽天市場商品検索 API、設計変更記録 #195）。アプリは「Webアプリケーション」として登録し、
 // 許可するサイト（data-sanpo.com）からのブラウザの呼び出しだけが通る。アプリIDとアクセスキーはページに載る公開値。
 // どちらかが未設定・形式違いなら画像は出さない（リンクのボタンだけになる）
 const appRaw = (process.env.RAKUTEN_APP_ID ?? "").trim();

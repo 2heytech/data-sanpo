@@ -164,7 +164,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 /* 広告（楽天アフィリエイト）のリンクと、ページの冒頭の「広告を含みます」（設計変更記録 #189） */
 .pr-notice { flex-basis: 100%; margin: 0; font-size: 0.8rem; }
 .ad-mark { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--muted); border-radius: 3px; font-size: 0.7rem; color: var(--muted); vertical-align: middle; }
-/* 地域ページの返礼品の例（楽天の API から。設計変更記録 #194） */
+/* 地域ページの返礼品の例（楽天の API から。設計変更記録 #195） */
 .furusato-items ul { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .furusato-items li a { display: flex; flex-direction: column; gap: 4px; color: inherit; text-decoration: none; }
 .furusato-items li a:hover .item-name { text-decoration: underline; }
