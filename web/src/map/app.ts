@@ -24,6 +24,7 @@ import { initFacilities } from "./facilities";
 import { initShare, safeFileName, type BaseLegend, type LegendModel } from "./share";
 import { initExternalMaps } from "./external";
 import { initMapSheet } from "./sheet";
+import { showMapFallback, supportsWebGL2 } from "./fallback";
 import { RELIEF_STOPS, reliefAt } from "./relief";
 import { registerSlopeProtocol, SLOPE_CLASSES, SLOPE_MAXZOOM, SLOPE_MINZOOM, SLOPE_TILES } from "./slope";
 import { PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare } from "./photoEras";
@@ -140,10 +141,13 @@ const MUNI_TEXT: [number, number, number][] = [[8, 9, 11], [9, 10, 12], [12, 12,
 const AREA_TEXT: [number, number, number][] = [[10, 9, 10], [13, 9, 11], [16, 11, 14], [18, 12, 15]];
 
 export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: string): Promise<void> {
+  // WebGL2 が使えない環境では地図を描けないので、MapLibre を読み込まずに、地図の場所に案内を出す（設計変更記録 #196）
+  if (!supportsWebGL2()) return showMapFallback(root, "webgl");
   // スマホでは検索を地図の上に、条件と地域の情報を地図の下端のパネルに置く（#194）。地図を読む前に並べ替えて、画面がずれないようにする
   const sheet = initMapSheet(root);
-  // MapLibre は public/vendor から読み込む（Worker を同じ場所から読み込ませるため）
-  const maplibregl = (await import(/* @vite-ignore */ maplibreUrl)) as typeof MapLibre;
+  // MapLibre は public/vendor から読み込む（Worker を同じ場所から読み込ませるため）。読み込めない（古いブラウザ・通信の途切れ）ときも案内を出す
+  const maplibregl = (await import(/* @vite-ignore */ maplibreUrl).catch(() => null)) as typeof MapLibre | null;
+  if (!maplibregl) return showMapFallback(root, "load");
   const cache = new Map<string, Promise<unknown>>();
   const fetchJSON = <T>(rel: string): Promise<T> => {
     if (!cache.has(rel)) {
@@ -190,11 +194,13 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   // 何も選んでいないときの案内（ページに書いた見出しと説明。#192）
   const detailIntro = detailEl.innerHTML;
 
-  const [catalog, areas, sourcesFile] = await Promise.all([
+  const loaded = await Promise.all([
     fetchJSON<IndicatorCatalog>("indicators.json"),
     fetchJSON<AreasFile>("areas.json"),
     fetchJSON<{ sources: Source[] }>("sources.json"),
-  ]);
+  ]).catch(() => null);
+  if (!loaded) return showMapFallback(root, "load");
+  const [catalog, areas, sourcesFile] = loaded;
   const indicators = catalog.indicators;
   const sources = new Map(sourcesFile.sources.map((s) => [s.source_id, s]));
   const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
@@ -235,36 +241,42 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
 
   // --- 地図 ---------------------------------------------------------------------
   registerSlopeProtocol(maplibregl);
-  const map = new maplibregl.Map({
-    container: $("#map"),
-    localIdeographFontFamily: LOCAL_FONT,
-    style: {
-      version: 8,
-      glyphs: GLYPHS_URL,
-      sources: {
-        pale: {
-          type: "raster", tileSize: 256, maxzoom: 18, attribution: GSI_ATTRIBUTION,
-          tiles: ["https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"],
+  let map: MapLibre.Map;
+  // 先に確かめても、地図を作るときに WebGL2 の準備ができないことがある（端末の負荷・設定など）。そのときも案内を出す（#196）
+  try {
+    map = new maplibregl.Map({
+      container: $("#map"),
+      localIdeographFontFamily: LOCAL_FONT,
+      style: {
+        version: 8,
+        glyphs: GLYPHS_URL,
+        sources: {
+          pale: {
+            type: "raster", tileSize: 256, maxzoom: 18, attribution: GSI_ATTRIBUTION,
+            tiles: ["https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"],
+          },
+          ...Object.fromEntries(BASEMAPS.map((b) => [b.id, {
+            type: "raster" as const, tileSize: 256, minzoom: b.minzoom, maxzoom: b.maxzoom,
+            attribution: GSI_ATTRIBUTION + ("note" in b ? b.note : ""), tiles: [b.tiles],
+          }])),
         },
-        ...Object.fromEntries(BASEMAPS.map((b) => [b.id, {
-          type: "raster" as const, tileSize: 256, minzoom: b.minzoom, maxzoom: b.maxzoom,
-          attribution: GSI_ATTRIBUTION + ("note" in b ? b.note : ""), tiles: [b.tiles],
-        }])),
+        layers: [
+          { id: "pale", type: "raster", source: "pale" },
+          ...BASEMAPS.map((b) => ({ id: b.id, type: "raster" as const, source: b.id, layout: { visibility: "none" as const } })),
+        ],
       },
-      layers: [
-        { id: "pale", type: "raster", source: "pale" },
-        ...BASEMAPS.map((b) => ({ id: b.id, type: "raster" as const, source: b.id, layout: { visibility: "none" as const } })),
-      ],
-    },
-    // 共有URLに地図の位置があればそこ（#175）。なければ、全国のデータがあるときは日本全体、
-    // 東京都だけのとき（プレビュー用の公開版など）は区部・多摩
-    ...(initial.view
-      ? { center: [initial.view.lng, initial.view.lat] as [number, number], zoom: initial.view.zoom,
-          bearing: initial.view.bearing ?? 0, pitch: initial.view.pitch ?? 0 }
-      : { bounds: areas.prefectures.length > 1 ? PRESETS.japan : PRESETS.mainland }),
-    maxZoom: 17,
-    attributionControl: { compact: false },
-  });
+      // 共有URLに地図の位置があればそこ（#175）。なければ、全国のデータがあるときは日本全体、
+      // 東京都だけのとき（プレビュー用の公開版など）は区部・多摩
+      ...(initial.view
+        ? { center: [initial.view.lng, initial.view.lat] as [number, number], zoom: initial.view.zoom,
+            bearing: initial.view.bearing ?? 0, pitch: initial.view.pitch ?? 0 }
+        : { bounds: areas.prefectures.length > 1 ? PRESETS.japan : PRESETS.mainland }),
+      maxZoom: 17,
+      attributionControl: { compact: false },
+    });
+  } catch {
+    return showMapFallback(root, "webgl");
+  }
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
   // 現在地: ボタンを押したときだけ位置情報の許可を求め、現在地のマークと誤差の円を出す。
   // 歩くとマークが動き、地図を動かすと追従をやめる（マークは更新し続ける）。位置はブラウザ内だけで使う。
