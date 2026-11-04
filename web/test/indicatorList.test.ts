@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { listItems, listTags } from "../src/lib/indicatorList";
-import { pickRepresentatives } from "../src/lib/indicatorCatalog";
 import type { Indicator } from "../src/lib/types";
 
 const period = (levels: string[]) => ({ period: "2020", label: "2020年", levels }) as unknown as Indicator["periods"][number];
@@ -77,16 +76,5 @@ describe("listTags", () => {
   it("項目の一部だけが当てはまるときと、1つの都道府県だけの公開版では付けない", () => {
     expect(listTags(item(["a", "b"]), byId, 47, name)).toEqual([]);
     expect(listTags(item(["a"]), byId, 1, name)).toEqual([]);
-  });
-});
-
-describe("pickRepresentatives（トップページのジャンルごとの代表の指標）", () => {
-  it("カテゴリを順に1つずつ回って先頭から選び、上限で止める", () => {
-    expect(pickRepresentatives([["a1", "a2", "a3"], ["b1"], ["c1", "c2"]], 5)).toEqual(["a1", "b1", "c1", "a2", "c2"]);
-    expect(pickRepresentatives([["a1", "a2"], ["b1", "b2"]], 3)).toEqual(["a1", "b1", "a2"]);
-  });
-  it("全部で上限より少なければ全部、空のカテゴリは飛ばす", () => {
-    expect(pickRepresentatives([["a1"], [], ["c1"]], 5)).toEqual(["a1", "c1"]);
-    expect(pickRepresentatives<string>([], 5)).toEqual([]);
   });
 });

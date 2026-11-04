@@ -1,73 +1,17 @@
 ---
-// 指標の一覧のページ（設計変更記録 #197）。ジャンル → カテゴリ（ピクトグラム付き）→ 指標名のボタンで、全部の指標を並べる（#47・#173 の一覧）。
-// トップページにはジャンルごとの代表の指標だけを出し、ここへ案内する
-import Base from "../../layouts/Base.astro";
-import CategoryIcon from "../../components/CategoryIcon.astro";
-import IndicatorChips from "../../components/IndicatorChips.astro";
-import { indicatorCatalog } from "../../lib/indicatorCatalog";
-import { breadcrumbList } from "../../lib/structured";
-
-const { total, pointCount, genres, entriesOf, areaExample, tagKinds } = indicatorCatalog();
-const description = `人口・世帯、年齢構成、所得と税、地価、犯罪、子育て、選挙など、全国の${total}の指標の一覧。名前を選ぶと、都道府県別・市区町村別のランキングと、指標の意味・計算方法・出典のページを開きます。`;
-const structured = breadcrumbList(Astro.site, [{ name: "データさんぽ", path: "/" }, { name: "指標の一覧" }]);
+// 指標の一覧はトップページに集約した（docs/design-changes.md #47）。古いURLは移動先へ案内する。
 ---
-<Base menu="指標" description={description} structuredData={structured}>
-  <header class="page-head">
-    <p class="eyebrow">指標から探す</p>
-    <h1>指標の一覧 <span class="total">{total}</span></h1>
-    <p class="lead">名前を選ぶと、ランキングと意味・計算方法のページを開きます。数字の付いた名前は、選ぶと種類ごとの指標が開きます。{pointCount > 0 && `ほかに、駅・学校など地図の点で見るデータが${pointCount}あります。`}</p>
-  </header>
-
-  <section class="sheet">
-    <nav class="toc" aria-label="テーマ">
-      {genres.map((g) => <a href={`#${g.anchor}`}>{g.title}<span class="toc-count">{g.count}</span></a>)}
-    </nav>
-    {tagKinds.size > 0 && (
-      <p class="small tag-keys">
-        {areaExample && <span><span class="tag tag-area">{areaExample}</span>その地域の分だけ</span>}
-        {tagKinds.has("pref") && <span><span class="tag tag-pref">県別</span>都道府県ごとの値だけ</span>}
-        {tagKinds.has("point") && <span><span class="tag tag-point">点</span>地図の点（駅・学校など）</span>}
-      </p>
-    )}
-    <div class="genre-cards">
-      {genres.map((g) => (
-        <section class="genre-card" id={g.anchor}>
-          <header><h2>{g.title}</h2><span class="genre-count">{g.count}の指標</span></header>
-          {g.categories.map((c) => (
-            <div class="category">
-              <h3><CategoryIcon category={c} />{c}</h3>
-              <IndicatorChips entries={entriesOf(c)} />
-            </div>
-          ))}
-        </section>
-      ))}
-    </div>
-  </section>
-</Base>
-
-<style>
-  h1 .total {
-    font-size: 0.5em; font-weight: 700; color: var(--accent-ink); background: var(--accent-soft);
-    border-radius: 999px; padding: 2px 10px; vertical-align: 0.3em;
-  }
-  .toc { margin-bottom: 12px; }
-  .toc-count { margin-left: 6px; font-size: 0.78rem; font-weight: 600; opacity: 0.75; }
-  .genre-cards { columns: 2; column-gap: 16px; }
-  .genre-card {
-    break-inside: avoid; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 10px;
-    margin: 0 0 16px; background: var(--surface); scroll-margin-top: 100px;
-  }
-  .genre-card header {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-    border-bottom: 2px solid var(--accent); padding-bottom: 6px; margin-bottom: 4px;
-  }
-  .genre-card h2 { margin: 0; font-size: 1.08rem; }
-  .genre-count { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
-  .category h3 { display: flex; align-items: center; gap: 6px; margin: 10px 0 6px; font-size: 0.88rem; }
-  .category h3 :global(.category-icon) { width: 26px; height: 26px; }
-  .category h3 :global(.category-icon svg) { width: 16px; height: 16px; }
-  @media (max-width: 720px) {
-    .genre-cards { columns: 1; }
-    .genre-card { padding: 12px 12px 8px; }
-  }
-</style>
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta http-equiv="refresh" content="0; url=/#indicators" />
+    <link rel="canonical" href="/#indicators" />
+    <title>指標の一覧はトップページへ移動しました | データさんぽ</title>
+  </head>
+  <body>
+    <p>この内容は<a href="/#indicators">移動先のページ</a>に移りました。</p>
+  </body>
+</html>

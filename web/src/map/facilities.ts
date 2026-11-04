@@ -228,7 +228,7 @@ export function initFacilities(o: Options): PointLayer {
     if ((ev.target as HTMLElement).closest("[data-close]")) showPoint(null);
   });
 
-  // ?show=michi（文化財は bunka）で開いたときは表示をオンにする（指標の一覧から）。
+  // ?show=michi（文化財は bunka）で開いたときは表示をオンにする（トップページの指標の一覧から）。
   // ?me=<ID>（文化財は ?cp=）ならその施設を選ぶ
   const params = new URLSearchParams(location.search);
   const initial = params.get(k.param);

@@ -1,9 +1,10 @@
 ---
 // トップページ（設計変更記録 #192・#197）: 最初に何ができるか（説明の一文・実際の色分け地図・地図をひらく・地域の検索）を置き、
-// その下に、データから見つけたこと（寄り道の記事）・見方の例・指標から探す（ジャンルごとの代表の指標と、指標の一覧のページへの案内）・
+// その下に、データから見つけたこと（寄り道の記事）・見方の例・テーマ・指標の一覧（ジャンルごとのカードに全部の指標。#47・#173）・
 // 地域から探す（47都道府県と、市区町村の一覧のページへの案内）の順に並べる。
-// 全部の指標と全部の市区町村へのリンクは、それぞれの一覧のページに置き、トップページには並べない（#197）
+// 全部の市区町村へのリンクは市区町村の一覧のページに置き、トップページには並べない（#197）
 import Base from "../layouts/Base.astro";
+import CategoryIcon from "../components/CategoryIcon.astro";
 import IndicatorChips from "../components/IndicatorChips.astro";
 import { DATA_BASE, loadAreas, loadIndicators } from "../lib/data";
 import { indicatorCatalog } from "../lib/indicatorCatalog";
@@ -13,10 +14,8 @@ import { articleImage, indicatorImage } from "../lib/shareImages";
 const indicators = loadIndicators();
 const areas = loadAreas();
 const catalog = indicatorCatalog();
-const { pointCount, genres, areaExample, tagKinds } = catalog;
+const { pointCount, genres, entriesOf, areaExample, tagKinds } = catalog;
 const articles = publishedArticles();  // 公開日が来た記事だけ（設計変更記録 #157）
-// 指標から探す: ジャンルごとに、カテゴリを順に回って代表の指標を5つまで（全部は指標の一覧のページで）
-const REPRESENTATIVES = 5;
 // 地域から探す: 地方ごとに都道府県のページへのリンク（都道府県の一覧ページと同じ区分）
 const REGIONS: [string, number, number][] = [
   ["北海道", 1, 1], ["東北", 2, 7], ["関東", 8, 14], ["中部", 15, 23], ["近畿", 24, 30], ["中国", 31, 35], ["四国", 36, 39], ["九州・沖縄", 40, 47],
@@ -91,8 +90,17 @@ const examples = [
   </section>
 
   <section class="sheet">
-    <h2 id="indicators">指標から探す <span class="total">{indicators.length}</span></h2>
-    <p class="muted small">テーマごとの主な指標です。名前を選ぶと、ランキングと意味・計算方法のページを開きます。全部の指標は<a href="/indicators/">指標の一覧</a>にあります。{pointCount > 0 && `ほかに、駅・学校など地図の点で見るデータが${pointCount}あります。`}</p>
+    <h2>テーマから選ぶ</h2>
+    <ul class="theme-tiles">
+      {genres.map((g) => (
+        <li><a href={`#${g.anchor}`}><strong>{g.title}</strong><span class="muted small">{g.count}の指標</span></a></li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="sheet">
+    <h2 id="indicators">掲載している指標 <span class="total">{indicators.length}</span></h2>
+    <p class="muted small">名前を選ぶと、ランキングと意味・計算方法のページを開きます。数字の付いた名前は、選ぶと種類ごとの指標が開きます。{pointCount > 0 && `ほかに、駅・学校など地図の点で見るデータが${pointCount}あります。`}</p>
     {tagKinds.size > 0 && (
       <p class="small tag-keys">
         {areaExample && <span><span class="tag tag-area">{areaExample}</span>その地域の分だけ</span>}
@@ -100,16 +108,19 @@ const examples = [
         {tagKinds.has("point") && <span><span class="tag tag-point">点</span>地図の点（駅・学校など）</span>}
       </p>
     )}
-    <ul class="genre-tiles">
+    <div class="genre-cards">
       {genres.map((g) => (
-        <li>
-          <h3>{g.title}</h3>
-          <IndicatorChips entries={catalog.representatives(g, REPRESENTATIVES)} />
-          <a class="genre-all" href={`/indicators/#${g.anchor}`}>{g.title}の指標をすべて見る（{g.count}）›</a>
-        </li>
+        <section class="genre-card" id={g.anchor}>
+          <header><h3>{g.title}</h3><span class="genre-count">{g.count}の指標</span></header>
+          {g.categories.map((c) => (
+            <div class="category">
+              <h4><CategoryIcon category={c} />{c}</h4>
+              <IndicatorChips entries={entriesOf(c)} />
+            </div>
+          ))}
+        </section>
       ))}
-    </ul>
-    <p class="more-button"><a class="button secondary" href="/indicators/">指標の一覧（{indicators.length}）を見る</a></p>
+    </div>
   </section>
 
   <section class="sheet">
@@ -235,16 +246,26 @@ const examples = [
     font-size: 0.85rem; font-weight: 700; color: var(--accent-ink); background: var(--accent-soft);
     border-radius: 999px; padding: 2px 10px; vertical-align: 0.15em;
   }
-  .genre-tiles {
-    list-style: none; padding: 0; margin: 0 0 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+  .theme-tiles { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .theme-tiles a {
+    display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px;
+    text-decoration: none; color: var(--ink); background: var(--surface);
   }
-  .genre-tiles > li {
-    display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 10px;
-    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+  .theme-tiles a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  .genre-cards { columns: 2; column-gap: 16px; }
+  .genre-card {
+    break-inside: avoid; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 10px;
+    margin: 0 0 16px; background: var(--surface); scroll-margin-top: 100px;
   }
-  .genre-tiles h3 { margin: 0; padding-bottom: 6px; border-bottom: 2px solid var(--accent); font-size: 1.02rem; }
-  .genre-all { margin-top: auto; font-size: 0.86rem; }
-  .more-button { margin: 0; text-align: center; }
+  .genre-card header {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    border-bottom: 2px solid var(--accent); padding-bottom: 6px; margin-bottom: 4px;
+  }
+  .genre-card h3 { margin: 0; font-size: 1.08rem; }
+  .genre-count { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+  .category h4 { display: flex; align-items: center; gap: 6px; margin: 10px 0 6px; font-size: 0.88rem; }
+  .category h4 :global(.category-icon) { width: 26px; height: 26px; }
+  .category h4 :global(.category-icon svg) { width: 16px; height: 16px; }
   .pref-regions { margin: 0 0 14px; display: grid; gap: 6px; }
   .pref-regions > div { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 8px; align-items: baseline; }
   .pref-regions dt { font-weight: 700; color: var(--ink); font-size: 0.9rem; }
@@ -260,7 +281,8 @@ const examples = [
     .examples { grid-template-columns: 1fr; }
     .article-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .article-cards .card-title { padding: 8px 10px; font-size: 0.88rem; }
-    .genre-tiles { grid-template-columns: 1fr; }
+    .genre-cards { columns: 1; }
+    .genre-card { padding: 12px 12px 8px; }
     .pref-regions > div { grid-template-columns: 1fr; gap: 2px; }
   }
 </style>

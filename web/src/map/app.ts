@@ -1868,7 +1868,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
 
   // --- 初期表示 -------------------------------------------------------------------
   // 共有URLの背景（?b=photo1945・relief・slope・landuse2021 など。#175）。?show=landuse で開いたときも土地利用図を出す
-  // （指標の一覧から。ほかの重ねる層の ?show= と同じ）
+  // （トップページの指標の一覧から。ほかの重ねる層の ?show= と同じ）
   const initialBase = initial.base ?? (initial.show?.includes("landuse") ? "landuse" : undefined);
   if (initialBase && PHOTO_ERAS.some((e) => e.id === initialBase)) {
     photoEraId = initialBase;

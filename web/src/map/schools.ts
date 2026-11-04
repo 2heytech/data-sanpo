@@ -259,7 +259,7 @@ export function initSchools(o: Options): SchoolLayer {
     });
   }
 
-  // ?show=schools で開いたときは表示をオンにする（指標の一覧から）
+  // ?show=schools で開いたときは表示をオンにする（トップページの指標の一覧から）
   if (!initial && new URLSearchParams(location.search).get("show")?.split(",").includes("schools")) {
     o.toggle.checked = true;
     void setVisible(true);

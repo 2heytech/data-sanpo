@@ -250,7 +250,7 @@ export function initStations(o: Options): StationLayer {
     });
   }
 
-  // ?show=stations で開いたときは表示をオンにする（指標の一覧から）
+  // ?show=stations で開いたときは表示をオンにする（トップページの指標の一覧から）
   if (!initial && new URLSearchParams(location.search).get("show")?.split(",").includes("stations")) {
     o.toggle.checked = true;
     void setVisible(true);

@@ -189,7 +189,7 @@ export function initTransport(o: Options): PointLayer {
     if ((ev.target as HTMLElement).closest("[data-close]")) showPoint(null);
   });
 
-  // ?show=airports（港は ports）で開いたときは表示をオンにする（指標の一覧から）。
+  // ?show=airports（港は ports）で開いたときは表示をオンにする（トップページの指標の一覧から）。
   // ?ap=<空港ID>（港は ?pt=）ならその地点を選ぶ
   const params = new URLSearchParams(location.search);
   const initial = params.get(k.param);

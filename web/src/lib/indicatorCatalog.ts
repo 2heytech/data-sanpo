@@ -1,5 +1,4 @@
-// 指標の一覧（ジャンル → カテゴリ → 指標名のボタン）を組み立てる。指標の一覧のページ（/indicators/）と、
-// トップページの「指標から探す」（ジャンルごとに代表の指標だけ）で使う（設計変更記録 #47・#173・#197）
+// トップページの指標の一覧（ジャンル → カテゴリ → 指標名のボタン）を組み立てる（設計変更記録 #47・#173・#197）
 import { loadAreas, loadIndicators, loadPlace } from "./data";
 import { GENRES } from "./genres";
 import { listItems, listTags, type ListItem, type ListTag } from "./indicatorList";
@@ -22,17 +21,6 @@ const POINT_ROWS: PointRow[] = [
   { files: ["michi_no_eki"], category: "観光", show: "michi" },
   { files: ["cultural_properties"], category: "観光", show: "bunka" },
 ];
-
-/** ジャンルごとに、カテゴリを順に1つずつ回って先頭の項目から選ぶ（どのカテゴリからも代表が出るように）。max 個まで */
-export function pickRepresentatives<T>(lists: T[][], max: number): T[] {
-  const out: T[] = [];
-  for (let k = 0; out.length < max && lists.some((l) => l.length > k); k++) {
-    for (const l of lists) {
-      if (k < l.length && out.length < max) out.push(l[k]);
-    }
-  }
-  return out;
-}
 
 export function indicatorCatalog() {
   const indicators = loadIndicators();
@@ -82,8 +70,6 @@ export function indicatorCatalog() {
     pointCount: points.length,
     genres,
     entriesOf,
-    /** トップページに出す代表の指標（ジャンルごとに max 個まで） */
-    representatives: (g: Genre, max: number) => pickRepresentatives(g.categories.map(entriesOf), max),
     areaExample: allTags.find((t) => t.kind === "area")?.text,
     tagKinds: new Set(allTags.map((t) => t.kind)),
   };

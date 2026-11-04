@@ -422,7 +422,7 @@ export function initLandPrices(o: Options): LandPriceLayer {
     });
   }
 
-  // ?show=land（以前の地価調査の land survey も）で開いたときは表示をオンにする（指標の一覧から）
+  // ?show=land（以前の地価調査の land survey も）で開いたときは表示をオンにする（トップページの指標の一覧から）
   const shown = params.get("show")?.split(",") ?? [];
   if (!initialKind && KINDS.some((kind) => shown.includes(LAND_KINDS[kind].show))) {
     o.toggle.checked = true;

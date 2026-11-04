@@ -66,7 +66,7 @@ const fallbackData = mapFallbackData();
 const fallback = fallbackView({}, fallbackData);
 const ICON_NEXT = '<path d="m6 3.5 4.5 4.5L6 12.5"/>';
 const FALLBACK_LINKS = [
-  { href: "/indicators/", text: "指標の一覧", note: `人口・所得・子育てなど${indicatorCount}の指標から選ぶ` },
+  { href: "/#indicators", text: "指標の一覧", note: `人口・所得・子育てなど${indicatorCount}の指標から選ぶ` },
   { href: "/prefectures/", text: "都道府県の一覧", note: "都道府県ごとの特徴と、市区町村の人口ランキング" },
   { href: "/areas/", text: "市区町村の一覧", note: "名前で探して、まちごとのデータを見る" },
 ];
@@ -176,7 +176,7 @@ const FALLBACK_LINKS = [
           <h1>データさんぽの地図</h1>
           <p>全国の都道府県・市区町村・町丁目を、人口・所得・子育て・地価など{indicatorCount}の公開統計で色分けした地図です。「指標」で見たいデータと時点を選び、地図の地域をクリックすると、値・全国での順位・年ごとの移り変わりを見られます。</p>
           <p class="muted mi-howto">地図をクリックするか、地域名で検索してください。</p>
-          <p class="small"><a href="/indicators/">指標の一覧</a>・<a href="/guide/">地図の使い方</a>・<a href="/articles/">寄り道・分析記事</a></p>
+          <p class="small"><a href="/#indicators">指標の一覧</a>・<a href="/guide/">地図の使い方</a>・<a href="/articles/">寄り道・分析記事</a></p>
         </div>
       </section>
       <p class="muted small panel-foot">
