@@ -39,7 +39,7 @@ const structuredData = {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "データさんぽ", ...(Astro.site ? { item: new URL("/", Astro.site).href } : {}) },
-        { "@type": "ListItem", position: 2, name: "寄り道", ...(Astro.site ? { item: new URL("/articles/", Astro.site).href } : {}) },
+        { "@type": "ListItem", position: 2, name: "寄り道・分析記事", ...(Astro.site ? { item: new URL("/articles/", Astro.site).href } : {}) },
         { "@type": "ListItem", position: 3, name: article.title },
       ],
     },
@@ -47,7 +47,7 @@ const structuredData = {
 };
 ---
 <Base title={article.title} description={article.description} structuredData={structuredData} image={image ?? undefined} ogType="article">
-  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/articles/">寄り道</a></nav>
+  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/articles/">寄り道・分析記事</a></nav>
   <header class="page-head">
     <p class="eyebrow">寄り道</p>
     <h1>{article.title}</h1>

@@ -51,6 +51,9 @@ function providersOf(ind: Indicator, period: string): string[] {
   return [...new Set(ids.flatMap((id) => sources.get(id)?.provider?.split("・") ?? []).filter((p) => !!p))];
 }
 
+/** 画像のフォント（M PLUS Rounded 1c）にない「㎡」を「m²」に書き換える（地価・農地の区画の面積の単位） */
+const imageText = (s: string) => s.replace(/㎡/g, "m²");
+
 /** 増減率の区切り（増加に「+」を付ける） */
 const signedPercent = (v: number) => `${v > 0 ? "+" : ""}${formatNumber(v, Number.isInteger(v) ? 0 : 1).replace("-", "−")}%`;
 
@@ -98,7 +101,19 @@ export function prefectureImage(pref: Prefecture): ShareImage | null {
 export function articleImage(article: Article): ShareImage | null {
   const id = article.mapIndicator ?? article.indicators[0];
   const ind = id ? loadIndicators().find((i) => i.id === id) : undefined;
-  if (!ind) return null;
+  return ind ? nationalMapImage(ind, article.title, `/images/articles/${article.slug}.png`) : null;
+}
+
+/**
+ * 指標ページの画像: その指標の全国の市区町村別（なければ都道府県別）の地図。寄り道の画像と同じ作り方で、題名は指標の名前。
+ * 冒頭の「データから分かること」を出す指標だけ作る（設計変更記録 #190）
+ */
+export function indicatorImage(ind: Indicator): ShareImage | null {
+  return nationalMapImage(ind, ind.name, `/images/indicators/${ind.id}.png`);
+}
+
+/** 指標の全国の地図の画像（寄り道・指標ページで共通） */
+function nationalMapImage(ind: Indicator, title: string, path: string): ShareImage | null {
   const muni = latestMunicipalPeriod(ind);
   const latest = muni ?? latestPrefecturePeriod(ind);
   if (!latest) return null;
@@ -110,13 +125,13 @@ export function articleImage(article: Article): ShareImage | null {
   const only = !byPref && ind.prefectures?.length === 1 ? prefs.find((p) => p.code === ind.prefectures![0]) : undefined;
   const what = `${only ? only.name : "全国"}の${byPref ? "都道府県" : "市区町村"}別の${ind.name}（${latest.period.label}）`;
   return {
-    path: `/images/articles/${article.slug}.png`,
+    path,
     alt: `${what}を色分けした地図`,
     // 地図も画像と同じ単位の色分けで開く（縮尺に任せると都道府県別になるため。#146）
     mapHref: mapHref({ indicator: ind.id, period: latest.period.period, level: byPref ? "prefecture" : "municipality", ...(only ? { area: `pref-${only.code}` } : {}) }),
     spec: () => ({
-      title: article.title,
-      subtitle: what,
+      title: imageText(title),
+      subtitle: imageText(what),
       features: byPref
         ? (loadBoundaries("prefectures")?.features ?? []).map((f) => ({ id: f.properties.id, geometry: f.geometry }))
         : municipalityFeatures(only ? [only.code] : prefs.map((p) => p.code)),
@@ -130,7 +145,7 @@ export function articleImage(article: Article): ShareImage | null {
       zeroBlank: legend.zero_blank,
       formatBreak: change ? signedPercent
         : (v) => `${compactNumber(v, Number.isInteger(v) ? 0 : ind.digits)}${ind.unit === "%" ? "%" : ""}`,
-      unitLabel: unit ? `単位：${unit}` : undefined,
+      unitLabel: unit ? `単位：${imageText(unit)}` : undefined,
       // 地図の境界は総務省統計局（国勢調査の境界データ）
       source: `出典：${[...new Set([...providersOf(ind, latest.period.period), "総務省統計局"])].join("・")}の公開データ（統計・境界）をもとにデータさんぽが作成（data-sanpo.com）`,
       frame: only ? "fit" : "japan",

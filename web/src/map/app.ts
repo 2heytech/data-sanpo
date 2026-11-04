@@ -28,6 +28,7 @@ import { registerSlopeProtocol, SLOPE_CLASSES, SLOPE_MAXZOOM, SLOPE_MINZOOM, SLO
 import { PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare } from "./photoEras";
 import type { FocusPoint, PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
+import { newerPeriod } from "../lib/periods";
 import { normalize } from "../lib/search";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 import { esc } from "../lib/html";
@@ -183,6 +184,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const colorsToggle = $<HTMLInputElement>("#colors-toggle");
   const scopeEl = $("#indicator-scope");
   const detailEl = $("#detail");
+  // 何も選んでいないときの案内（ページに書いた見出しと説明。#192）
+  const detailIntro = detailEl.innerHTML;
 
   const [catalog, areas, sourcesFile] = await Promise.all([
     fetchJSON<IndicatorCatalog>("indicators.json"),
@@ -211,7 +214,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
 
   const initial = parseState(location.search);
   let indicator: Indicator = indicators.find((i) => i.id === initial.indicator) ?? indicators[0];
-  let period = indicator.periods.find((p) => p.period === initial.period)?.period ?? indicator.default_period;
+  // 時点: URL にあればその時点。なければ縮尺に合わせて選ぶ。新しい国勢調査の回（2025年など）は市区町村までの値なので、
+  // ふだんはその回で開き、拡大して町丁目で塗るときは町丁目の値がある既定の時点（2020年など）にする（設計変更記録 #191）。
+  // スライドバー・再生・合計の切替で時点を選んだら、縮尺では切り替えない
+  let periodFollowsZoom = !indicator.periods.some((p) => p.period === initial.period);
+  const autoPeriodFor = (ind: Indicator, fine: boolean) => (fine ? ind.default_period : newerPeriod(ind) ?? ind.default_period);
+  const startsFine = !!(initial.level === "small_area" || (initial.view && initial.view.zoom >= AREA_ZOOM)
+    || (initial.area && !initial.area.startsWith("pref-") && !munis.has(initial.area)));
+  let period = periodFollowsZoom ? autoPeriodFor(indicator, startsFine) : initial.period!;
+  // 時点の再生（▶）のタイマー
+  let playTimer: number | undefined;
   let selected: string | null = null;
   // 色分けの単位: auto は縮尺に合わせて切り替え、ほかは手で選んだ単位（#146）
   type LevelMode = "auto" | Level;
@@ -595,6 +607,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       .forEach((m) => void ensureChunk(m.id.slice(5)));
   }
   map.on("moveend", () => {
+    followZoomPeriod();
     if (map.getZoom() >= FINE_MUNI_ZOOM) {
       visiblePrefectures().slice(0, MAX_PREFS_PER_MOVE).forEach((p) => void ensureFineMunis(p.code));
     }
@@ -846,7 +859,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       legendEl.innerHTML = `<p class="muted small">この時点の${levelLabel}別の値はありません。</p>` + later;
       return;
     }
-    const head = `<p class="legend-head">${esc(m.unit)}<span class="muted">（${esc(m.levelLabel)}別）</span></p>`;
+    // 何年の値かを地図の近くでも分かるように、凡例の見出しに時点の年を入れる（#191）
+    const head = `<p class="legend-head">${esc(m.unit)}<span class="muted">（${esc(m.levelLabel)}別・${esc(trendLabel(periodInfo().label))}）</span></p>`;
     const noData = `<span><i class="swatch" style="background:${m.noDataColor}"></i>値なし</span>`;
     const blank = `<span><i class="swatch blank"></i>0（色なし）</span>`;
     const cells = m.colors.map((c, i) => `<span style="background:${c}" title="${esc(m.labels[i])}"></span>`).join("");
@@ -1020,7 +1034,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   async function renderDetail() {
     const token = ++detailToken;
     if (!selected) {
-      detailEl.innerHTML = `<p class="muted">地図をクリックするか、地域名で検索してください。</p>`;
+      detailEl.innerHTML = detailIntro;
       return;
     }
     // 都道府県だけの指標では、市区町村・町丁目を選んでもその都道府県の値を出す
@@ -1105,7 +1119,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const year = baseMode === "landuse" ? landUse.year() : null;
     const base = baseMode === "photo" ? photoEraId : baseMode === "landuse" ? `landuse${year ?? ""}`
       : baseMode === "relief" || baseMode === "slope" ? baseMode : undefined;
-    return { indicator: indicator.id, period, area: selected ?? undefined,
+    // 縮尺に合わせて時点を選んでいるときは時点を入れない（開いた人の縮尺に合わせる。#191）
+    return { indicator: indicator.id, period: periodFollowsZoom ? undefined : period, area: selected ?? undefined,
              level: levelMode === "auto" ? undefined : levelMode, base, show, hide, points };
   }
   function updateUrl() {
@@ -1271,10 +1286,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
   // 町丁目は、町丁目で塗れる縮尺（MANUAL_AREA_ZOOM）まで拡大したときだけ押せる（#148）
   const zoomedForAreas = () => map.getZoom() >= MANUAL_AREA_ZOOM;
-  const selectable = (l: Level) => available(l) && (l !== "small_area" || zoomedForAreas());
+  // 縮尺に合わせて時点を選んでいるときは、いまの時点（2025年など）に町丁目の値がなくても、町丁目を選べば町丁目の値がある時点にする（#191）
+  const fineLater = (l: Level) => l === "small_area" && periodFollowsZoom && !periodInfo().levels.includes(l)
+    && hasLevel(indicator, indicator.default_period, l);
+  const selectable = (l: Level) => (available(l) || fineLater(l)) && (l !== "small_area" || zoomedForAreas());
   // 単位のボタンの説明（この時点に値のない単位と、縮小しているときの町丁目は押せない）
   const levelTitle = (l: Level) =>
-    !periodInfo().levels.includes(l) ? `${LEVEL_LABEL[l]}別は、ほかの時点で見られます（この時点は値なし）`
+    fineLater(l) ? (zoomedForAreas() ? "町丁目で色分けします（町丁目の値がある時点にします）" : "地図を拡大すると選べます")
+      : !periodInfo().levels.includes(l) ? `${LEVEL_LABEL[l]}別は、ほかの時点で見られます（この時点は値なし）`
       : !available(l) ? `この時点の${LEVEL_LABEL[l]}別の値はありません`
       : l !== "small_area" ? `どの縮尺でも${LEVEL_LABEL[l]}で色分けします`
       : zoomedForAreas() ? "町丁目で色分けします（縮小すると市区町村）"
@@ -1302,6 +1321,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   });
   function setLevelMode(mode: LevelMode) {
     levelMode = mode;
+    followZoomPeriod();
     syncLayers();
     loadVisibleChunks();
     renderLegend();
@@ -1328,7 +1348,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     stopPlay();
     indicator = next;
     if (how) countIndicatorUse(indicator.id, how);
-    if (!indicator.periods.some((p) => p.period === period)) period = indicator.default_period;
+    if (periodFollowsZoom) period = autoPeriodFor(indicator, wantsFine());
+    else if (!indicator.periods.some((p) => p.period === period)) period = indicator.default_period;
     syncIndicatorControls();
     fillPeriods();
     updateUrl();
@@ -1356,8 +1377,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       })
       .join("");
     periodLabel.value = periodInfo().label;
-    periodNote.hidden = ps.length > 1;
-    periodNote.textContent = ps.length > 1 ? "" : "この指標は1時点のみです。";
+    const note = ps.length > 1 ? fineNote() : "この指標は1時点のみです。";
+    periodNote.hidden = !note;
+    periodNote.textContent = note;
     periodField.classList.toggle("aggregate", onAggregate);
     aggregateWrap.hidden = !agg;
     aggregateToggle.checked = onAggregate;
@@ -1367,15 +1389,40 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       aggregateLabel.textContent = `直近${to - from + 1}年の合計で見る（${from}〜${to}年）`;
     }
   }
+  // 新しい国勢調査の回（市区町村まで）と町丁目の値がある時点の違いを、時点の下に書く（#191）
+  function fineNote(): string {
+    const fine = indicator.periods.find((p) => p.period === indicator.default_period);
+    const newer = newerPeriod(indicator);
+    if (!fine?.levels.includes("small_area") || !newer) return "";
+    const [f, n] = [shortLabel(fine.label), shortLabel(indicator.periods.find((p) => p.period === newer)!.label)];
+    if (period === newer) {
+      return periodFollowsZoom ? `${n}は市区町村までの値です。拡大すると、町丁目の値がある${f}で色分けします。`
+        : `${n}は市区町村までの値です。町丁目は${f}で見られます。`;
+    }
+    return period === fine.period && periodFollowsZoom ? `町丁目の値は${f}が最新のため、${f}で表示しています（市区町村は${n}まであります）。` : "";
+  }
+  // 縮尺に合わせた時点にする（時点を選んだあとや、再生中は何もしない。#191）
+  function wantsFine() {
+    return levelMode === "small_area" || (levelMode === "auto" && map.getZoom() >= AREA_ZOOM);
+  }
+  function followZoomPeriod() {
+    if (!periodFollowsZoom || playTimer !== undefined) return;
+    const next = autoPeriodFor(indicator, wantsFine());
+    if (next === period) return;
+    period = next;
+    fillPeriods();
+    updateUrl();
+    void refreshColors();
+  }
   function setPeriod(i: number) {
     const p = annualPeriods()[i];
     if (!p || p.period === period) return;
+    periodFollowsZoom = false;
     period = p.period;
     fillPeriods();
     updateUrl();
     void refreshColors();
   }
-  let playTimer: number | undefined;
   function stopPlay() {
     clearInterval(playTimer);
     playTimer = undefined;
@@ -1400,6 +1447,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     // 合計を最初に出す指標（町丁目の値が合計にだけある指標）では、外したときに最新の年へ
     const annual = annualPeriods();
     const latestAnnual = annual[annual.length - 1]?.period;
+    periodFollowsZoom = false;
     period = aggregateToggle.checked && agg ? agg.period
       : indicator.default_period === agg?.period && latestAnnual ? latestAnnual : indicator.default_period;
     fillPeriods();
