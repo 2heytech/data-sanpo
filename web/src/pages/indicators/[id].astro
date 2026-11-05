@@ -34,7 +34,7 @@ const nationwide = areas.prefectures.length > 1;
 // ランキングは上位・下位それぞれ100位まで出す。市区町村はその間を畳んで出し、町丁・字等は出さない
 const RANKING_SIZE = 100;
 const muniValues = (loadValues(ind.id, period.period, "municipalities")?.rows ?? []).filter((r) => munis.has(r.entity_id));
-// 地域名の横の「地図」は、この指標の色分けでその地域を選んだ地図。時点は入れず、地図を開いたときの時点（表と同じ回）にする（#199）
+// 地域名の横の「地図」は、この指標の色分けでその地域を選んだ地図。時点は入れず、地図を開いたときの時点（表と同じ回）にする（#200）
 const toMap = (entityId: string) => mapHref({ indicator: ind.id, area: entityId });
 const muniRow = (r: typeof muniValues[number] & { rank: number | null }): RankingRow => {
   const m = munis.get(r.entity_id)!;

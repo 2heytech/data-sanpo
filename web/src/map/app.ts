@@ -1892,7 +1892,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       (isPref(initial.area) && prefectures.has(prefectureCodeOf(initial.area)!)))) {
     // 地図の位置が URL にあるときは、地域を選ぶだけで地図は動かさない。
     // 位置がないとき（ランキングの「地図」や地域のページから開いたときなど）は、スマホでは下のパネルを開いて地域の情報を見せ、
-    // パネルに隠れない所に地域が収まるようにする（#199）
+    // パネルに隠れない所に地域が収まるようにする（#200）
     if (!initial.view) sheet.showDetail();
     await select(initial.area, !initial.view);
   } else {

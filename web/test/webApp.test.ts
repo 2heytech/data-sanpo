@@ -42,3 +42,73 @@ describe("ホーム画面に追加", () => {
     expect(base).toContain(`<meta name="theme-color" content="${manifest.theme_color}" />`);
   });
 });
+
+// ホーム画面から開いたときの「戻る」（設計変更記録 #199）。head の is:inline のスクリプトを取り出し、
+// 置き換えた navigator・matchMedia・Navigation API・referrer の組み合わせで、html に印が付くかを確かめる
+describe("ホーム画面から開いたときの「戻る」", () => {
+  const base = readFileSync(join(__dirname, "../src/layouts/Base.astro"), "utf-8");
+  const css = readFileSync(join(__dirname, "../src/styles/global.css"), "utf-8");
+  const inline = [...base.matchAll(/<script is:inline>([\s\S]*?)<\/script>/g)].map((m) => m[1]).find((s) => s.includes("app-back-on"));
+
+  interface Env {
+    standalone?: boolean;
+    displayMode?: string;
+    canGoBack?: boolean;
+    referrer?: string;
+  }
+  function run(env: Env) {
+    const classes = new Set<string>();
+    const listeners: Record<string, () => void> = {};
+    const navigation = env.canGoBack === undefined ? undefined : {
+      canGoBack: env.canGoBack,
+      addEventListener: (type: string, fn: () => void) => { listeners[`navigation:${type}`] = fn; },
+    };
+    const document = {
+      documentElement: { classList: { toggle: (c: string, on: boolean) => (on ? classes.add(c) : classes.delete(c)) } },
+      referrer: env.referrer ?? "",
+    };
+    const navigator = { standalone: env.standalone };
+    const matchMedia = (q: string) => ({ matches: env.displayMode !== undefined && q === `(display-mode: ${env.displayMode})` });
+    const addEventListener = (type: string, fn: () => void) => { listeners[type] = fn; };
+    new Function("document", "navigator", "matchMedia", "window", "location", "addEventListener", inline!)(
+      document, navigator, matchMedia, { navigation }, { origin: "https://data-sanpo.com" }, addEventListener,
+    );
+    return { on: () => classes.has("app-back-on"), navigation, listeners };
+  }
+
+  it("ヘッダーにボタンがあり、印がないときは出さない", () => {
+    expect(inline).toBeDefined();
+    expect(base).toContain('id="app-back"');
+    expect(base).toContain('getElementById("app-back")?.addEventListener("click", () => history.back())');
+    expect(css).toContain(".app-back { display: none; }");
+    expect(css).toContain(".app-back-on .app-back {");
+  });
+
+  it("ブラウザで開いたときは出さない（前のページがあっても）", () => {
+    expect(run({ canGoBack: true }).on()).toBe(false);
+    expect(run({ referrer: "https://data-sanpo.com/areas/" }).on()).toBe(false);
+  });
+
+  it("ホーム画面から開き、前のページがあるときだけ出す（Navigation API）", () => {
+    expect(run({ displayMode: "standalone", canGoBack: true }).on()).toBe(true);
+    expect(run({ displayMode: "standalone", canGoBack: false }).on()).toBe(false);
+    expect(run({ displayMode: "fullscreen", canGoBack: true }).on()).toBe(true);
+  });
+
+  it("同じページの中で移った（目次など）あとも、出す・出さないを直す", () => {
+    const r = run({ displayMode: "standalone", canGoBack: false });
+    r.navigation!.canGoBack = true;
+    r.listeners["navigation:currententrychange"]();
+    expect(r.on()).toBe(true);
+    r.navigation!.canGoBack = false;
+    r.listeners["pageshow"]();
+    expect(r.on()).toBe(false);
+  });
+
+  it("Navigation API がない iPhone では、このサイトから来たときだけ出す", () => {
+    expect(run({ standalone: true, referrer: "https://data-sanpo.com/areas/" }).on()).toBe(true);
+    expect(run({ standalone: true, referrer: "" }).on()).toBe(false);
+    expect(run({ standalone: true, referrer: "https://www.google.com/" }).on()).toBe(false);
+    expect(run({ standalone: true, referrer: "not a url" }).on()).toBe(false);
+  });
+});

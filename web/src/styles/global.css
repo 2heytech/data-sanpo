@@ -42,6 +42,17 @@ a:hover { color: var(--accent-ink); }
   border-bottom: 1px solid var(--line); box-shadow: 0 1px 0 rgba(15, 42, 74, .03);
 }
 body.wide .site-header { position: static; }
+/* ホーム画面から開いたときの「戻る」（設計変更記録 #199）。前のページがあるときだけ、head の印（html.app-back-on）で出す */
+.app-back { display: none; }
+.app-back-on .app-back {
+  display: inline-flex; align-items: center; gap: 1px; flex: none;
+  height: 34px; padding: 0 9px 0 2px; margin-right: -4px;
+  border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface);
+  color: var(--accent-ink); font: inherit; font-size: 0.85rem; font-weight: 700; line-height: 1; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-back svg { width: 20px; height: 20px; }
+.app-back:hover, .app-back:active { background: var(--accent-soft); }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; }
 .brand img { display: block; height: 34px; width: auto; }
 /* 表示中の地域（今は東京都のみ。全国版では都道府県の切り替えになる） */
@@ -68,6 +79,10 @@ body.wide .site-header { position: static; }
   .site-header nav a { flex-direction: column; gap: 1px; padding: 3px 8px; border-radius: 10px; font-size: 0.78rem; line-height: 1.25; }
   .site-header .nav-icon { width: 20px; height: 20px; }
   .site-header nav .nav-wide { display: none; }
+  /* 「戻る」を出したときは、ロゴを左端の足あとマーク（ロゴの画像の左の正方形）だけにして、
+     都道府県名・メニュー・「地図をひらく」の並びを「戻る」がないときと同じ行数に保つ（#199。幅はロゴの高さと同じ） */
+  .app-back-on .brand { width: 34px; overflow: hidden; }
+  .app-back-on .brand img { flex: none; max-width: none; }
 }
 .fixture-banner { margin: 0; padding: 6px 20px; background: var(--warn-bg); font-size: 0.9rem; }
 
@@ -123,7 +138,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   .ranking .col-extra, .ranking .col-note { display: none; }
   .ranking .ranking-place { display: block; }
 }
-/* 表の地域名の横の「地図」: その指標の色分けで、その地域を選んだ地図へのリンク（#199）。地域名のリンク（地域のページ）とは別に置く */
+/* 表の地域名の横の「地図」: その指標の色分けで、その地域を選んだ地図へのリンク（#200）。地域名のリンク（地域のページ）とは別に置く */
 .to-map {
   float: right; display: inline-flex; align-items: center; gap: 3px; margin: 0 0 2px 8px; padding: 0 8px 0 6px;
   border: 1px solid #c9d8ea; border-radius: 999px; background: var(--surface); color: var(--accent);
@@ -226,6 +241,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   .site-header nav { order: 2; width: 100%; gap: 0; overflow-x: auto; flex-wrap: nowrap; justify-content: space-between; }
   .site-header nav a { padding: 3px 5px; font-size: 0.75rem; white-space: nowrap; }
   .site-header .nav-icon { width: 18px; height: 18px; }
+  .app-back-on .brand { width: 30px; }
+  .app-back-on .app-back { height: 32px; }
   main { padding: 16px 12px 32px; }
   .sheet { padding: 20px 16px; border-radius: 10px; }
   h1 { font-size: 1.45rem; }
@@ -236,6 +253,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 @media (max-width: 380px) {
   .site-header { gap: 6px 8px; }
   .brand img { height: 26px; }
+  .app-back-on .brand { width: 26px; }
   .site-header nav a { padding: 3px 3px; }
 }
 h2[id], h3[id] { scroll-margin-top: 100px; }

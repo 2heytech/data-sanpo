@@ -120,7 +120,7 @@ const compareNote = (neighborPrefs.some((n) => !n.sea) ? "境界が接する都�
   (seaNames ? `${seaNames}とは境界が接していませんが、海をへだてて向かい合う隣の都道府県として並べています。` : "") +
   "値は「主な指標」と同じ時点です。";
 
-// 各指標の「地図で見る」は、その指標の色分けでこの都道府県を選んだ地図（#199）。地図を開いたときと違う時点で並べたときは、その時点にする
+// 各指標の「地図で見る」は、その指標の色分けでこの都道府県を選んだ地図（#200）。地図を開いたときと違う時点で並べたときは、その時点にする
 const rankings = PREF_RANKING_IDS.map((id) => indicators.get(id)).filter((i) => !!i)
   .flatMap((ind) => {
     const r = prefRanking(ind!, pref.code, munis, rows);
