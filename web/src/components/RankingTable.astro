@@ -1,5 +1,6 @@
 ---
 // 指標ページのランキングの表（順位・地域・値）。地域の列は呼び出し側で決める。
+// mapHref があれば、地域名の横に、その地域を選んだ地図へのリンク「地図」を置く（設計変更記録 #200）
 import { formatValue, STATUS_LABEL } from "../lib/format";
 import type { Indicator, ValueRow } from "../lib/types";
 
@@ -7,6 +8,8 @@ export interface RankingRow extends ValueRow {
   rank: number | null;
   name: string;
   href: string;
+  /** その指標の色分けで、その地域を選んだ地図（地域名のリンクとは別に置く） */
+  mapHref?: string;
   /** 地域名のあとの列（都道府県・市区町村など） */
   extra: string[];
 }
@@ -31,7 +34,7 @@ const { ind, rows, areaLabel, extraLabels, note = true, caption } = Astro.props;
       {rows.map((r) => (
         <tr>
           <td class="num">{r.rank === null ? "—" : `${r.rank.toLocaleString("ja-JP")}位`}</td>
-          <td><a href={r.href}>{r.name}</a>
+          <td><a href={r.href}>{r.name}</a>{r.mapHref && <a class="to-map" href={r.mapHref}>地図</a>}
             {r.extra.length > 0 && <div class="muted ranking-place">{r.extra.filter(Boolean).join("・")}</div>}</td>
           {r.extra.map((e) => <td class="col-extra">{e}</td>)}
           <td class="num">{formatValue(r, ind)}</td>

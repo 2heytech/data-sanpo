@@ -13,6 +13,7 @@ import { indicatorPageImage } from "../../lib/shareImages";
 import { formerWard } from "../../lib/areaSummary";
 import { publishedArticles } from "../../lib/articles";
 import { latestPeriod } from "../../lib/periods";
+import { mapHref } from "../../lib/urlstate";
 import type { Indicator } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -33,9 +34,14 @@ const nationwide = areas.prefectures.length > 1;
 // ランキングは上位・下位それぞれ100位まで出す。市区町村はその間を畳んで出し、町丁・字等は出さない
 const RANKING_SIZE = 100;
 const muniValues = (loadValues(ind.id, period.period, "municipalities")?.rows ?? []).filter((r) => munis.has(r.entity_id));
+// 地域名の横の「地図」は、この指標の色分けでその地域を選んだ地図。時点は入れず、地図を開いたときの時点（表と同じ回）にする（#200）
+const toMap = (entityId: string) => mapHref({ indicator: ind.id, area: entityId });
 const muniRow = (r: typeof muniValues[number] & { rank: number | null }): RankingRow => {
   const m = munis.get(r.entity_id)!;
-  return { ...r, name: m.name, href: `/areas/${r.entity_id}/`, extra: nationwide ? [prefNames.get(m.prefecture) ?? ""] : [] };
+  return {
+    ...r, name: m.name, href: `/areas/${r.entity_id}/`, mapHref: r.value === null ? undefined : toMap(r.entity_id),
+    extra: nationwide ? [prefNames.get(m.prefecture) ?? ""] : [],
+  };
 };
 const muniRanking = splitRanking(ranked(muniValues).map(muniRow), RANKING_SIZE);
 const muniMissing = muniValues.filter((r) => r.value === null).map((r) => muniRow({ ...r, rank: null }));
@@ -184,13 +190,16 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
   {prefRows.length > 0 && (
     <>
       <h2>都道府県別の値（{period.label}）</h2>
+      <p class="muted">都道府県名から、その都道府県のページを開きます。「地図」を押すと、その都道府県を選んだ地図を開きます。
+        <a href={mapHref({ indicator: ind.id, level: "prefecture" })}>都道府県別の色分けで地図を見る</a></p>
       <div class="table-scroll">
         <table class="pref-table">
           <thead><tr><th>都道府県</th><th class="num">{ind.name}</th><th>備考</th></tr></thead>
           <tbody>
             {prefRows.map((r) => (
               <tr>
-                <td><a href={`/prefectures/${r.entity_id.slice(5)}/`}>{prefNames.get(r.entity_id.slice(5))}</a></td>
+                <td><a href={`/prefectures/${r.entity_id.slice(5)}/`}>{prefNames.get(r.entity_id.slice(5))}</a>
+                  {r.value !== null && <a class="to-map" href={toMap(r.entity_id)}>地図</a>}</td>
                 <td class="num">{formatValue(r, ind)}</td>
                 <td class="muted">{r.note ?? (r.value === null ? "" : STATUS_LABEL[r.status])}</td>
               </tr>
@@ -204,7 +213,9 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
   <>
   <h2>市区町村のランキング（{period.label}）</h2>
   <p class="muted">値の大きい順です（同じ値は同じ順位）。大きいほど良い・悪いという意味ではありません。
-    {muniCount > RANKING_SIZE * 2 && `${muniCount.toLocaleString("ja-JP")}市区町村のうち、上位と下位の${RANKING_SIZE}位までを出し、その間は畳んでいます。`}</p>
+    {muniCount > RANKING_SIZE * 2 && `${muniCount.toLocaleString("ja-JP")}市区町村のうち、上位と下位の${RANKING_SIZE}位までを出し、その間は畳んでいます。`}
+    市区町村名から、その市区町村のページを開きます。「地図」を押すと、その市区町村を選んだ地図を開きます。
+    <a href={mapHref({ indicator: ind.id, level: "municipality" })}>市区町村別の色分けで地図を見る</a></p>
   {cities.length > 0 && (
     <p class="note">政令指定都市（{cities.length}市）は、市全体ではなく区ごとに並べています。{cityTable && <>市全体の値は、この表の下の<a href="#cities">政令指定都市（市全体）</a>にあります。</>}
       {formerMissing.length > 0 && `浜松市は2024年1月に区を再編したため、この時点の区の値はありません。`}</p>
