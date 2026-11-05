@@ -4,6 +4,8 @@ import type { Indicator } from "./types";
 
 export interface ItemLink {
   label: string;
+  /** 指標の名前そのもの（指標の検索で使う。#201） */
+  name: string;
   href: string;
   /** 同じ種類の、基準だけが違う指標（割合・住民100人当たりなど） */
   extras: { label: string; href: string }[];
@@ -172,13 +174,13 @@ function rowItem(r: Row): ListItem {
     return {
       title: groupName(r.main), href: href(r.variants[0]),
       description: FAMILY_DESCRIPTIONS[r.main.family!] ?? (total ?? r.main).description,
-      members: r.variants.map((v) => ({ label: v.facets!.type, href: href(v), extras: [] })),
+      members: r.variants.map((v) => ({ label: v.facets!.type, name: v.name, href: href(v), extras: [] })),
       ids: r.variants.map((v) => v.id),
     };
   }
   return {
     title: r.main.name, href: href(r.main), description: r.main.description,
-    members: [{ label: r.main.name, href: href(r.main), extras: extrasOf(r) }], ids: idsOf(r),
+    members: [{ label: r.main.name, name: r.main.name, href: href(r.main), extras: extrasOf(r) }], ids: idsOf(r),
   };
 }
 
@@ -205,7 +207,7 @@ export function listItems(indicators: Indicator[], category: string): ListItem[]
     items.push({
       title: g.title, href: href(members[0].main), description: g.description,
       members: members.map((m) => ({
-        label: g.ids ? g.labels![g.ids.indexOf(m.main.id)] : m.main.facets!.type, href: href(m.main), extras: extrasOf(m),
+        label: g.ids ? g.labels![g.ids.indexOf(m.main.id)] : m.main.facets!.type, name: m.main.name, href: href(m.main), extras: extrasOf(m),
       })),
       ids: members.flatMap(idsOf),
     });

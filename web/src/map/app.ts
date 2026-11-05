@@ -17,7 +17,7 @@ import { initStations } from "./stations";
 import { initSchools } from "./schools";
 import { initLandPrices } from "./landprices";
 import { initNurseries } from "./nurseries";
-import { initWeather } from "./weather";
+import { initWeather, SHORT as WEATHER_SHORT } from "./weather";
 import { initLandUse, NARROW_MAP_PX } from "./landuse";
 import { initTransport } from "./transport";
 import { initFacilities } from "./facilities";
@@ -31,7 +31,7 @@ import { PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare }
 import type { FocusPoint, PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
 import { newerPeriod } from "../lib/periods";
-import { normalize } from "../lib/search";
+import { IndicatorSearch, type SearchDoc } from "../lib/indicatorSearch";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 import { esc } from "../lib/html";
 
@@ -1215,7 +1215,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const prefs = nationwide ? prefsOf(members) : null;
     const levels = LEVELS.filter((l) => lv.has(l)).map((l) => `<span title="${LEVEL_LABEL[l]}別">${LEVEL_ICON[l]}</span>`).join("");
     const finest = lv.has("small_area") ? "町丁目まで" : lv.has("municipality") ? "市区町村まで" : "都道府県のみ";
-    return `<button type="button" class="picker-item" data-value="${esc(optionValue(i))}" data-key="${esc(normalize(optionLabel(i) + members.map((m) => m.name).join(" ")))}">
+    return `<button type="button" class="picker-item" data-value="${esc(optionValue(i))}">
       <span class="pi-name">${esc(optionLabel(i))}</span>
       <span class="pi-meta">${levels}<span>${finest}</span>${prefs ? `<span class="limited">${esc(coverageLabel(prefs))}</span>` : ""}</span></button>`;
   };
@@ -1232,7 +1232,30 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       return `<div class="picker-cat"><h4>${catIcon(c)}${esc(c)}</h4>` +
         (items ? `<div class="picker-grid">${items}</div>` : "") +
         (points ? `<div class="picker-points"><span class="muted">地図に点で重ねる:</span>${points}</div>` : "") + `</div>`;
-    }).join("") + `</section>`).join("") + `<p class="picker-empty" hidden>見つかりませんでした。</p>`;
+    }).join("") + `</section>`).join("") +
+    `<section class="picker-results" hidden></section><p class="picker-empty" hidden>見つかりませんでした。ほかの言葉（「人口」「子ども」「地価」など）でも探してみてください。</p>`;
+  // 指標の検索（#201）: 書き方の違い・読み・近い意味の言葉でも探し、当たる順に並べる。点の表示切替（駅など）も探す
+  const genreOfCat = new Map(pickerGenres.flatMap((g) => g.categories.map((c) => [c, g.title] as const)));
+  interface PickerDoc extends SearchDoc { value?: string; toggle?: string }
+  const pickerDocs: PickerDoc[] = [
+    ...[...new Set(indicators.map(optionValue))].map((value) => {
+      // 組の指標は、種別（罪種・国籍など）を名前に近い重さで、基準（住民100人当たりなど）を軽く見る
+      const members = indicators.filter((o) => optionValue(o) === value);
+      const first = members[0];
+      return {
+        value, name: optionLabel(first), alt: [...new Set(members.flatMap((m) => (m.facets?.type ? [m.facets.type] : [])))],
+        keywords: [...new Set(members.flatMap((m) => (m.facets?.basis ? [m.facets.basis] : [])))],
+        category: first.category, genre: genreOfCat.get(first.category), description: first.description,
+      };
+    }),
+    ...POINT_LAYERS.map((p) => ({
+      toggle: p.toggle, name: pointLabel(p.toggle), category: p.category, genre: genreOfCat.get(p.category),
+      alt: [root.querySelector(p.toggle)?.closest("label")?.textContent?.trim() ?? "",
+        ...(p.toggle === "#weather-toggle" ? Object.values(WEATHER_SHORT) : [])].filter(Boolean),
+    })),
+  ];
+  const pickerSearcher = new IndicatorSearch(pickerDocs);
+  const pickerResults = pickerList.querySelector<HTMLElement>(".picker-results")!;
   function syncPicker() {
     const v = optionValue(indicator);
     for (const b of pickerList.querySelectorAll<HTMLElement>(".picker-item")) b.setAttribute("aria-current", String(b.dataset.value === v));
@@ -1241,19 +1264,26 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     openButton.querySelector(".io-name")!.textContent = optionLabel(indicator);
     openButton.title = `指標を変える（今は「${optionLabel(indicator)}」）`;
   }
+  let pickerHits: PickerDoc[] = [];
   function filterPicker() {
-    const q = normalize(pickerSearch.value.trim());
-    let any = false;
-    for (const b of pickerList.querySelectorAll<HTMLElement>(".picker-item")) {
-      const hit = !q || b.dataset.key!.includes(q);
-      b.hidden = !hit;
-      any ||= hit;
-    }
-    // 探しているときは、点の切替と、当てはまる指標のないカテゴリ・ジャンルを隠す
-    for (const p of pickerList.querySelectorAll<HTMLElement>(".picker-points")) p.hidden = !!q;
-    for (const c of pickerList.querySelectorAll<HTMLElement>(".picker-cat")) c.hidden = !!q && !c.querySelector(".picker-item:not([hidden])");
-    for (const g of pickerList.querySelectorAll<HTMLElement>(".picker-genre")) g.hidden = !!q && !g.querySelector(".picker-cat:not([hidden])");
-    pickerList.querySelector<HTMLElement>(".picker-empty")!.hidden = any;
+    const q = pickerSearch.value.trim();
+    pickerHits = q ? pickerSearcher.search(q).map((r) => r.doc) : [];
+    // 探しているときは、分類ごとの並びを隠し、当たる指標を当たる順に並べる（ボタンは分類の並びのものの写し）
+    for (const g of pickerList.querySelectorAll<HTMLElement>(".picker-genre")) g.hidden = !!q;
+    const items = pickerHits.flatMap((d) => {
+      const b = d.value ? pickerList.querySelector<HTMLElement>(`.picker-genre .picker-item[data-value="${CSS.escape(d.value)}"]`) : null;
+      return b ? [b.outerHTML] : [];
+    });
+    const points = pickerHits.filter((d) => d.toggle).map((d) =>
+      `<label><input type="checkbox" data-toggle="${esc(d.toggle!)}"${$<HTMLInputElement>(d.toggle!).checked ? " checked" : ""} /> ${esc(d.name)}</label>`);
+    pickerResults.innerHTML = q && pickerHits.length
+      ? `<h3>${esc(`「${q}」で見つかった指標（${pickerHits.length}）`)}</h3>` +
+        (items.length ? `<div class="picker-grid">${items.join("")}</div>` : "") +
+        (points.length ? `<div class="picker-points"><span class="muted">地図に点で重ねる:</span>${points.join("")}</div>` : "")
+      : "";
+    pickerResults.hidden = !q || !pickerHits.length;
+    pickerList.querySelector<HTMLElement>(".picker-empty")!.hidden = !q || pickerHits.length > 0;
+    if (q) pickerList.scrollTop = 0;
   }
   openButton.addEventListener("click", () => {
     syncPicker();
@@ -1268,15 +1298,39 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   // 選択画面の外（暗いところ）を押すと閉じる
   pickerEl.addEventListener("click", (e) => { if (e.target === pickerEl) pickerEl.close(); });
   pickerSearch.addEventListener("input", filterPicker);
+  // Enter で、いちばん上に出ている指標を選ぶ
+  pickerSearch.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.isComposing) return;
+    const first = pickerResults.querySelector<HTMLElement>(".picker-item");
+    if (!first) return;
+    e.preventDefault();
+    first.click();
+  });
   pickerNav.addEventListener("click", (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>("button[data-genre]");
+    // 探しているときに分類を選んだら、探すのをやめて分類ごとの並びに戻す
+    if (b && pickerSearch.value) {
+      pickerSearch.value = "";
+      filterPicker();
+    }
     if (b) pickerList.querySelector(`#picker-genre-${b.dataset.genre}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
   });
+  // 探して選んだ組の指標は、入力に当たる種別（「ベトナム」「凶悪犯」など）で開く
+  const typedMember = (value: string, query: string): Indicator | null => {
+    if (!value.startsWith("family:") || !query.trim()) return null;
+    const members = familyMembers(value.slice(7));
+    const types = [...new Set(members.flatMap((m) => (m.facets?.type ? [m.facets.type] : [])))];
+    const hit = types.length > 1 ? new IndicatorSearch(types.map((name) => ({ name }))).search(query)[0] : undefined;
+    return hit ? members.find((m) => m.facets!.type === hit.doc.name) ?? null : null;
+  };
   pickerList.addEventListener("click", (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>(".picker-item");
     if (!b) return;
     pickerEl.close();
-    if (b.dataset.value !== indicatorSelect.value) {
+    const typed = b.closest(".picker-results") ? typedMember(b.dataset.value!, pickerSearch.value) : null;
+    if (typed) {
+      if (typed !== indicator) setIndicator(typed, "switch");
+    } else if (b.dataset.value !== indicatorSelect.value) {
       indicatorSelect.value = b.dataset.value!;
       indicatorSelect.dispatchEvent(new Event("change"));
     }

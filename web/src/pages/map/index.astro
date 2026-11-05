@@ -333,7 +333,7 @@ const FALLBACK_LINKS = [
     <dialog id="indicator-picker" class="picker" aria-labelledby="picker-title">
       <div class="picker-head">
         <h2 id="picker-title">指標をえらぶ</h2>
-        <input id="picker-search" type="search" placeholder="指標名で探す（例: 人口、犯罪）" autocomplete="off" aria-label="指標名で探す" />
+        <input id="picker-search" type="search" placeholder="指標を探す（例: 子ども、家賃、坂）" autocomplete="off" enterkeyhint="search" aria-label="指標を探す" />
         <button type="button" class="picker-close" aria-label="閉じる">×</button>
       </div>
       <div class="picker-body">
@@ -475,8 +475,6 @@ const FALLBACK_LINKS = [
     display: grid; gap: 2px; padding: 8px 10px; text-align: left; font: inherit; cursor: pointer; color: var(--fg);
     border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
   }
-  /* 名前で探したときに当てはまらない指標を隠す（display: grid が hidden より強いので明示する） */
-  .picker-item[hidden] { display: none; }
   .picker-item:hover { border-color: var(--accent); background: #f6f9fd; }
   .picker-item[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft, #e6effa); box-shadow: inset 3px 0 0 var(--accent); }
   .pi-name { font-weight: 600; font-size: 0.92rem; }
@@ -488,6 +486,8 @@ const FALLBACK_LINKS = [
   .picker-points label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   .picker-points .muted { font-size: 0.75rem; }
   .picker-empty { margin: 24px 0; color: var(--muted); }
+  /* 指標の検索（#201）: 当たる指標を当たる順に並べる */
+  .picker-results > h3 { margin: 14px 0 8px; font-size: 0.85rem; color: var(--muted); }
   /* 画像の保存・共有（#153） */
   .map-wrap .share-ctrl button { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 8px; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--fg); }
   .map-wrap .share-ctrl svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

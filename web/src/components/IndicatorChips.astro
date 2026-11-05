@@ -1,6 +1,7 @@
 ---
 // トップページの指標の一覧で、カテゴリごとに指標名のボタンを並べる（設計変更記録 #173・#197）。
-// 種類が2つ以上ある項目は、押すと種類ごとのリンクが開く。基準だけが違う指標（割合・住民100人当たりなど）は同じボタンの右に小さく並べる
+// 種類が2つ以上ある項目は、押すと種類ごとのリンクが開く。基準だけが違う指標（割合・住民100人当たりなど）は同じボタンの右に小さく並べる。
+// 指標の検索（#201）は、指標ごとのリンクの data-name（指標の名前）と、まとめた項目の data-title から探す
 import type { Entry } from "../lib/indicatorCatalog";
 
 interface Props { entries: Entry[] }
@@ -10,12 +11,12 @@ const { entries } = Astro.props;
   {entries.map(({ item, tags }) => {
     const tagEls = tags.map((t) => <span class={`tag tag-${t.kind}`}>{t.text}</span>);
     if (item.members.length > 1) return (
-      <li class="chip-more">
+      <li class="chip-more" data-title={item.title}>
         <details>
           <summary class="chip" title={item.description}>{item.title}<span class="count">{item.members.length}</span>{tagEls}</summary>
           <p class="more-links">
             {item.members.map((m) => (
-              <span><a href={m.href}>{m.label}</a>{m.extras.length > 0 && (
+              <span><a href={m.href} data-name={m.name}>{m.label}</a>{m.extras.length > 0 && (
                 <span class="extras">（{m.extras.map((x, j) => (<>{j > 0 && "・"}<a href={x.href}>{x.label}</a></>))}）</span>
               )}</span>
             ))}
@@ -26,10 +27,10 @@ const { entries } = Astro.props;
     const m = item.members[0];
     if (m.extras.length) return (
       <li><span class="chip chip-split" title={item.description}>
-        <a href={m.href}>{item.title}</a>{m.extras.map((x) => <a class="chip-sub" href={x.href}>{x.label}</a>)}{tagEls}
+        <a href={m.href} data-name={m.name}>{item.title}</a>{m.extras.map((x) => <a class="chip-sub" href={x.href}>{x.label}</a>)}{tagEls}
       </span></li>
     );
-    return <li><a class="chip" href={item.href} title={item.description}>{item.title}{tagEls}</a></li>;
+    return <li><a class="chip" href={item.href} title={item.description} data-name={m.name}>{item.title}{tagEls}</a></li>;
   })}
 </ul>
 

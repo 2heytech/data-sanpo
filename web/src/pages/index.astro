@@ -2,6 +2,7 @@
 // トップページ（設計変更記録 #192・#197）: 最初に何ができるか（説明の一文・実際の色分け地図・地図をひらく・地域の検索）を置き、
 // その下に、データから見つけたこと（寄り道の記事）・見方の例・テーマ・指標の一覧（ジャンルごとのカードに全部の指標。#47・#173）・
 // 地域から探す（47都道府県と、市区町村の一覧のページへの案内）の順に並べる。
+// 指標の一覧の上には、指標を名前・読み・近い意味の言葉で探す欄を置く（#201）
 // 全部の市区町村へのリンクは市区町村の一覧のページに置き、トップページには並べない（#197）
 import Base from "../layouts/Base.astro";
 import CategoryIcon from "../components/CategoryIcon.astro";
@@ -108,6 +109,15 @@ const examples = [
         {tagKinds.has("point") && <span><span class="tag tag-point">点</span>地図の点（駅・学校など）</span>}
       </p>
     )}
+    {/* 指標の検索（#201）。書き方の違い・読み・近い意味の言葉でも探せる。スクリプトが動くときだけ出す */}
+    <div class="indicator-search" role="search" hidden>
+      <label for="indicator-search-input">指標を探す</label>
+      <input id="indicator-search-input" type="search" placeholder="例: 子ども、お年寄り、家賃、坂、温泉" autocomplete="off"
+        enterkeyhint="search" aria-controls="indicator-search-results" aria-describedby="indicator-search-status" />
+      <p id="indicator-search-status" class="muted small" aria-live="polite" hidden></p>
+      <ol id="indicator-search-results" class="indicator-results" hidden></ol>
+      <button type="button" id="indicator-search-more" class="more-results" hidden></button>
+    </div>
     <div class="genre-cards">
       {genres.map((g) => (
         <section class="genre-card" id={g.anchor}>
@@ -191,7 +201,135 @@ const examples = [
   }
 </script>
 
+<script>
+  // 指標の検索（#201）: 下の一覧のリンク（data-name に指標の名前）から探す。名前に当たるものを先に、10件まで出して残りはボタンで開く。
+  // Enter は最初の候補へ、Esc は入力を消す。探す処理（辞書を含む）は、入力欄を初めて使うときに読む
+  import type { IndicatorSearch, SearchDoc } from "../lib/indicatorSearch";
+
+  interface Doc extends SearchDoc { href: string; extras: { label: string; href: string }[]; tags: HTMLElement[] }
+  const box = document.querySelector<HTMLElement>(".indicator-search");
+  const input = document.querySelector<HTMLInputElement>("#indicator-search-input");
+  const list = document.querySelector<HTMLOListElement>("#indicator-search-results");
+  const status = document.querySelector<HTMLElement>("#indicator-search-status");
+  const more = document.querySelector<HTMLButtonElement>("#indicator-search-more");
+  const FIRST = 10;
+  if (box && input && list && status && more) {
+    box.hidden = false;
+    let searcher: Promise<IndicatorSearch<Doc>> | null = null;
+    const docsOf = () => {
+      const docs: Doc[] = [];
+      for (const card of document.querySelectorAll<HTMLElement>(".genre-cards > .genre-card")) {
+        const genre = card.querySelector("h3")?.textContent?.trim() ?? "";
+        for (const cat of card.querySelectorAll<HTMLElement>(".category")) {
+          const category = cat.querySelector("h4")?.textContent?.trim() ?? "";
+          for (const li of cat.querySelectorAll<HTMLElement>(".chips > li")) {
+            const description = li.querySelector("[title]")?.getAttribute("title") ?? "";
+            const tags = [...li.querySelectorAll<HTMLElement>(".tag")];
+            for (const a of li.querySelectorAll<HTMLAnchorElement>("a[data-name]")) {
+              const extras = [...a.parentElement!.querySelectorAll<HTMLAnchorElement>(":scope > a.chip-sub, :scope > .extras > a")]
+                .map((x) => ({ label: x.textContent ?? "", href: x.getAttribute("href") ?? "" }));
+              docs.push({
+                name: a.dataset.name!, alt: li.dataset.title ? [li.dataset.title] : [], keywords: extras.map((x) => x.label),
+                category, genre, description, href: a.getAttribute("href")!, extras, tags,
+              });
+            }
+          }
+        }
+      }
+      return docs;
+    };
+    const load = () => searcher ??= import("../lib/indicatorSearch").then((m) => new m.IndicatorSearch(docsOf()));
+    let hits: Doc[] = [];
+    let shown = FIRST;
+    const item = (d: Doc) => {
+      const li = document.createElement("li");
+      const head = document.createElement("div");
+      head.className = "ir-head";
+      const a = document.createElement("a");
+      a.href = d.href;
+      a.textContent = d.name;
+      head.append(a, ...d.tags.map((t) => t.cloneNode(true)));
+      if (d.extras.length) {
+        const ex = document.createElement("span");
+        ex.className = "small";
+        ex.append("（");
+        d.extras.forEach((x, k) => {
+          const xa = document.createElement("a");
+          xa.href = x.href;
+          xa.textContent = x.label;
+          ex.append(...(k ? ["・"] : []), xa);
+        });
+        ex.append("）");
+        head.append(ex);
+      }
+      const p = document.createElement("p");
+      p.className = "ir-desc muted small";
+      const where = document.createElement("span");
+      where.className = "ir-where";
+      where.textContent = d.category ?? "";
+      p.append(where, d.description ?? "");
+      li.append(head, p);
+      return li;
+    };
+    const render = async () => {
+      const q = input.value.trim();
+      const s = await load();
+      if (q !== input.value.trim()) return;
+      hits = q ? s.search(q).map((r) => r.doc) : [];
+      list.replaceChildren(...hits.slice(0, shown).map(item));
+      list.hidden = !hits.length;
+      status.hidden = !q;
+      status.textContent = hits.length
+        ? `${hits.length}件の指標が見つかりました。`
+        : "見つかりませんでした。ほかの言葉（「人口」「子ども」「地価」など）でも探してみてください。";
+      more.hidden = hits.length <= shown;
+      more.textContent = `ほかの${hits.length - shown}件も表示`;
+    };
+    input.addEventListener("focus", () => void load(), { once: true });
+    input.addEventListener("input", () => {
+      shown = FIRST;
+      void render();
+    });
+    more.addEventListener("click", () => {
+      shown = hits.length;
+      void render();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.isComposing && hits.length) {
+        e.preventDefault();
+        location.href = hits[0].href;
+      } else if (e.key === "Escape" && input.value) {
+        input.value = "";
+        void render();
+      }
+    });
+  }
+</script>
+
 <style>
+  .indicator-search { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 4px 0 18px; max-width: 760px; }
+  .indicator-search[hidden], .indicator-results[hidden] { display: none; }
+  .indicator-search label { font-weight: 700; color: var(--ink); font-size: 0.92rem; }
+  .indicator-search input {
+    font: inherit; width: 100%; max-width: 420px; padding: 9px 16px; border: 1px solid var(--line-strong); border-radius: 999px;
+    background: var(--surface);
+  }
+  .indicator-search p { margin: 0; }
+  .indicator-results { list-style: none; padding: 0; margin: 2px 0 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .indicator-results :global(li) { padding: 7px 10px; border-radius: 8px; border-bottom: 1px solid var(--line); }
+  .indicator-results :global(li:hover) { background: var(--accent-soft); }
+  .indicator-results :global(.ir-head) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+  .indicator-results :global(.ir-head > a) { font-weight: 700; }
+  .indicator-results :global(.tag) { margin: 0; }
+  .indicator-results :global(.ir-where) {
+    margin-right: 6px; padding: 0 6px; border-radius: 4px; background: var(--panel); color: var(--ink); font-size: 0.72rem;
+  }
+  .indicator-results :global(.ir-desc) { margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .more-results {
+    justify-self: start; font: inherit; font-size: 0.9rem; padding: 4px 14px; border: 1px solid var(--line-strong);
+    border-radius: 999px; background: var(--surface); color: var(--accent-ink); cursor: pointer;
+  }
+  .more-results[hidden] { display: none; }
   .hero {
     display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px 28px; align-items: center;
     text-align: center; padding: 34px 28px 26px; margin: 0 0 24px; border-radius: var(--radius);

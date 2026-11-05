@@ -56,7 +56,7 @@ export function indicatorCatalog() {
     }));
     const pts = points.filter((p) => p.category === category).map((p) => {
       const href = `/map/?show=${p.show}`;
-      return { item: { title: p.name, href, description: p.description, members: [{ label: p.name, href, extras: [] }], ids: [] },
+      return { item: { title: p.name, href, description: p.description, members: [{ label: p.name, name: p.name, href, extras: [] }], ids: [] },
         tags: [{ kind: "point", text: "点" } as ListTag] };
     });
     const list = [...items, ...pts];
