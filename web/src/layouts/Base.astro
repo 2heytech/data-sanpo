@@ -107,9 +107,34 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-title" content={SITE_NAME} />
     <meta name="theme-color" content="#ffffff" />
+    {/* ホーム画面から開いたとき（standalone）はブラウザの戻るボタンがないので、ヘッダーの左端に「戻る」を出す（設計変更記録 #199）。
+        前のページがこのサイトの中にあるときだけ出す。Navigation API があれば canGoBack、なければ referrer がこのサイトかで見る。
+        読み込みの後にヘッダーの並びがずれないよう、head で html に印（app-back-on）を付ける。ボタンを押したときの動きは下の script */}
+    <script is:inline>
+      (function () {
+        var root = document.documentElement;
+        var standalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches;
+        if (!standalone) return;
+        var nav = window.navigation;
+        function update() {
+          var can = false;
+          if (nav && typeof nav.canGoBack === "boolean") {
+            can = nav.canGoBack;
+          } else {
+            try { can = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) { can = false; }
+          }
+          root.classList.toggle("app-back-on", can);
+        }
+        update();
+        if (nav && nav.addEventListener) nav.addEventListener("currententrychange", update);
+        addEventListener("pageshow", update);
+      })();
+    </script>
     <link rel="sitemap" href="/sitemap-index.xml" />
     {preload && <link rel="modulepreload" href={preload} />}
     <script>
+      // ホーム画面から開いたときの「戻る」（設計変更記録 #199。出すかどうかは上の is:inline のスクリプトが決める）
+      document.getElementById("app-back")?.addEventListener("click", () => history.back());
       // 外部サイトへのリンクは別タブで開く（地図の情報欄など、後から差し込まれるリンクも含む）
       document.addEventListener("click", (e) => {
         // ご要望フォームには、開いていたページの URL（地図の表示状態を含む）を入れて開く
@@ -130,6 +155,12 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
   <body class={wide ? "wide" : ""}>
     <a class="skip" href="#main">本文へ移動</a>
     <header class="site-header">
+      {/* ホーム画面から開いたときだけ出す（head の印 app-back-on。設計変更記録 #199） */}
+      <button type="button" class="app-back" id="app-back" title="前のページに戻る">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" /></svg>
+        <span>戻る</span>
+      </button>
       <a class="brand" href="/"><img src="/logo.svg" alt={SITE_NAME} width="164" height="34" /></a>
       {/* 見ている都道府県。地図では地図の動きに合わせて書き換える（map/app.ts） */}
       <span class="area-chip" id="area-chip" title="見ている都道府県" hidden={!areaLabel}>{areaLabel}</span>
