@@ -123,6 +123,19 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   .ranking .col-extra, .ranking .col-note { display: none; }
   .ranking .ranking-place { display: block; }
 }
+/* 表の地域名の横の「地図」: その指標の色分けで、その地域を選んだ地図へのリンク（#199）。地域名のリンク（地域のページ）とは別に置く */
+.to-map {
+  float: right; display: inline-flex; align-items: center; gap: 3px; margin: 0 0 2px 8px; padding: 0 8px 0 6px;
+  border: 1px solid #c9d8ea; border-radius: 999px; background: var(--surface); color: var(--accent);
+  font-size: 0.76rem; font-weight: 600; line-height: 1.6; text-decoration: none; white-space: nowrap;
+}
+.to-map::before {
+  content: ""; width: 12px; height: 12px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linejoin='round'%3E%3Cpath d='M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z'/%3E%3Cpath d='M9 4v13.5M15 6.5V20'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linejoin='round'%3E%3Cpath d='M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z'/%3E%3Cpath d='M9 4v13.5M15 6.5V20'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.to-map:hover { background: var(--accent-soft); border-color: #b9d0ea; text-decoration: none; }
+@media (max-width: 640px) { .to-map { padding: 2px 9px 2px 7px; } }
 .ranking caption { text-align: left; font-weight: 700; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .ranking-more > summary { cursor: pointer; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: 10px;
   color: var(--accent); font-weight: 600; }

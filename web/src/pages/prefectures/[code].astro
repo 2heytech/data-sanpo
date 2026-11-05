@@ -11,7 +11,7 @@ import StatList from "../../components/StatList.astro";
 import { RELEASE, loadAreas, loadIndicators, loadValues } from "../../lib/data";
 import { aramashiOf } from "../../lib/aramashi";
 import { formatValue, rankIfVaried, ranked } from "../../lib/format";
-import { municipalityPeriods, prefecturePeriods } from "../../lib/periods";
+import { latestPeriod, municipalityPeriods, prefecturePeriods } from "../../lib/periods";
 import {
   PREF_RANKING_IDS, PREF_TOP, prefRanking, prefectureDescription, prefectureFocus, prefectureGrowth, prefectureHistory, prefectureLead,
   prefectureNeighbors, wardCitiesOf,
@@ -20,6 +20,7 @@ import { loadAreaProfile, loadPrefectureProfile } from "../../lib/profiles";
 import { prefectureImage } from "../../lib/shareImages";
 import { statGroups, type StatItem } from "../../lib/statList";
 import { breadcrumbList } from "../../lib/structured";
+import { mapHref } from "../../lib/urlstate";
 import type { Prefecture } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -119,8 +120,14 @@ const compareNote = (neighborPrefs.some((n) => !n.sea) ? "境界が接する都�
   (seaNames ? `${seaNames}とは境界が接していませんが、海をへだてて向かい合う隣の都道府県として並べています。` : "") +
   "値は「主な指標」と同じ時点です。";
 
+// 各指標の「地図で見る」は、その指標の色分けでこの都道府県を選んだ地図（#199）。地図を開いたときと違う時点で並べたときは、その時点にする
 const rankings = PREF_RANKING_IDS.map((id) => indicators.get(id)).filter((i) => !!i)
-  .map((ind) => prefRanking(ind!, pref.code, munis, rows)).filter((r) => !!r);
+  .flatMap((ind) => {
+    const r = prefRanking(ind!, pref.code, munis, rows);
+    if (!r) return [];
+    const period = r.period.period === latestPeriod(r.ind) ? undefined : r.period.period;
+    return [{ ...r, mapHref: mapHref({ indicator: r.ind.id, area: `pref-${pref.code}`, period }) }];
+  });
 
 // 市区町村別の人口増加率の地図の画像（設計変更記録 #142）。市区町村の表の前に置き、共有画像にも使う
 const image = prefectureImage(pref);
@@ -173,7 +180,8 @@ const structured = breadcrumbList(Astro.site, [
 
   <section class="sheet" id="munis">
     <h2>{pref.name}の市区町村（人口の多い順）</h2>
-    <p>それぞれの人口と、データから見た特徴の一言を並べています。市区町村名から、くわしいデータと順位のページを開けます。</p>
+    <p>それぞれの人口と、データから見た特徴の一言を並べています。市区町村名から、くわしいデータと順位のページを開けます。
+      「地図」を押すと、人口の色分けでその市区町村を選んだ地図を開きます。</p>
     {image && <MapFigure image={image} />}
     <div class="table-scroll">
       <table class="pref-munis">
@@ -182,7 +190,9 @@ const structured = breadcrumbList(Astro.site, [
           {table.map((t) => (
             <tr>
               <td class="num">{t.rank ?? "—"}</td>
-              <td><a href={`/areas/${t.muni.id}/`}><strong>{t.muni.name}</strong></a>{t.catch && <span class="catch-line">{t.catch}</span>}</td>
+              <td><a href={`/areas/${t.muni.id}/`}><strong>{t.muni.name}</strong></a>
+                {popInd && t.rank !== null && <a class="to-map" href={mapHref({ indicator: popInd.id, area: t.muni.id })}>地図</a>}
+                {t.catch && <span class="catch-line">{t.catch}</span>}</td>
               <td class="num">{t.pop}<span class="change-sm">{t.change}</span></td>
               <td class="num col-change">{t.change}</td>
             </tr>
@@ -201,10 +211,10 @@ const structured = breadcrumbList(Astro.site, [
       <div class="pref-rankings">
         {rankings.map((r) => (
           <section class="pref-ranking">
-            <h3><a href={`/indicators/${r!.ind.id}/`}>{r!.ind.name}</a></h3>
-            <p class="muted small">{r!.period.label}{r!.prefText && `・${pref.name}全体 ${r!.prefText}`}</p>
+            <h3><a href={`/indicators/${r.ind.id}/`}>{r.ind.name}</a></h3>
+            <p class="muted small">{r.period.label}{r.prefText && `・${pref.name}全体 ${r.prefText}`}・<a href={r.mapHref}>地図で見る</a></p>
             <ol>
-              {r!.items.map((it) => (
+              {r.items.map((it) => (
                 <li value={it.rank}><a href={`/areas/${it.muni.id}/`}>{it.muni.name}</a><span class="v">{it.text}</span></li>
               ))}
             </ol>
