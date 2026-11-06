@@ -6635,15 +6635,16 @@ period = "2021-06-01"
 title = "令和3年経済センサス‐活動調査 産業横断的集計 第9-1A表 産業(小分類)別全事業所数－全国、都道府県、市区町村"
 provider = "総務省統計局・経済産業省"
 url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200553&tstat=000001145590&tclass1=000001145649&tclass2=000001145667"
-download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040067884&fileKind=0"
+# 残す列を足したとき（#204 で飲食料品小売業・飲食店）は、取得済みのファイルを使わず取り直すよう URL の引数の順を変えている
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040067884"
 download_filename = "t9-1a.csv"
-reduce_xlsx = { columns = ["75_宿泊業", "751_旅館，ホテル", "752_簡易宿所"], measures = ["事業所数"], label_columns = 2 }
+reduce_xlsx = { columns = ["58_飲食料品小売業", "75_宿泊業", "751_旅館，ホテル", "752_簡易宿所", "76_飲食店"], measures = ["事業所数"], label_columns = 2 }
 files = ["t9-1a.csv"]
 cache = true
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
 attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省・経済産業省「令和3年経済センサス‐活動調査」"
-modification_note = "市区町村・都道府県別の旅館・ホテル、簡易宿所の事業所数（全事業所）を抜き出して作成"
+modification_note = "市区町村・都道府県別の旅館・ホテル、簡易宿所、飲食料品小売業、飲食店の事業所数（全事業所）を抜き出して作成"
 redistributable = true
 
 

@@ -24,6 +24,7 @@
 指標（definition の fiscal_column / settlement_column / tax_item で選ぶ）:
   fiscal_column: 主要財政指標の列の値をそのまま入れる（都道府県の値は合計できないので出さない）
   settlement_column: 決算の列の額 ÷ 住民基本台帳登載人口（千円 → 円は scale = 1000）。都道府県は県内の団体の合計で割る
+    （exclude_special_wards = true なら東京23区と東京都は値なし。法人市民税、#205）
   tax_item: 徴収実績のその税目の収入済額の合計（千円 × scale）。都道府県は県内の市区町村（政令指定都市は市全体）の合計
 """
 from __future__ import annotations
@@ -39,7 +40,11 @@ from ..xlsx import read_sheet
 
 POPULATION = "住民基本台帳登載人口"
 # 決算の各ファイルから読む列（ファイル名の末尾の番号: 1 概況・2 歳入内訳・5 地方債現在高等）
-SETTLEMENT_COLUMNS = {"1": [POPULATION, "歳出総額"], "2": ["地方税"], "5": ["地方債現在高", "積立金現在高"]}
+CORPORATE = "うち市町村民税法人分"   # 歳入内訳の地方税の内訳（#205）
+SETTLEMENT_COLUMNS = {"1": [POPULATION, "歳出総額"], "2": ["地方税", CORPORATE], "5": ["地方債現在高", "積立金現在高"]}
+# exclude_special_wards = true の指標（法人市民税）: 特別区の法人住民税は東京都が課税する（区の決算には入らない）
+SPECIAL_WARD_NOTE = "東京23区の法人住民税は東京都が課税するため、区の値はありません"
+TOKYO_NOTE = "東京都は23区の法人住民税を都が課税していて区市町村の決算に入らないため、都の値はありません"
 DASHES = {"-", "－", "‐", "―"}
 # 徴収実績の CSV の団体区分のうち市区町村のもの（6・7 は一部事務組合・広域連合）
 MUNICIPAL_KINDS = {"1", "2", "3", "4", "5", "8", "9"}
@@ -207,7 +212,11 @@ def _insert_per_capita(conn: sqlite3.Connection, entity_id: str, values: dict, t
                    period_start=period[0], period_end=period[1], period_kind=period[2],
                    source_id=source_id, denominator_source_id=source_id, numerator=amount,
                    denominator=population, method_note=note)
-        if amount is None or not population:
+        if d.get("exclude_special_wards") and (entity_id == "pref-13" or entity_id.startswith("muni-131")):
+            obs.update(numerator=None, denominator=None,
+                       method_note=TOKYO_NOTE if entity_id == "pref-13" else SPECIAL_WARD_NOTE)
+            insert_observation(conn, value=None, status="not_applicable", **obs)
+        elif amount is None or not population:
             insert_observation(conn, value=None, status="missing", **obs)
         else:
             insert_observation(conn, value=amount / population * d.get("scale", 1), status="derived", **obs)

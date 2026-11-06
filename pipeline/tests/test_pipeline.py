@@ -1678,6 +1678,14 @@ def test_finance(built):
     ward = rows("expenditure_per_capita")["muni-14199"]
     assert ward["value"] is None and ward["status"] == "not_applicable" and "市全体の値だけ" in ward["note"]
     assert "01100" not in {e[5:] for e in rows("expenditure_per_capita")}              # 取り込まない都道府県
+    # 法人市民税（歳入内訳の「市町村民税 法人分」、#205）。23区と東京都は都が課税するので値なし（0 にしない）
+    corp = rows("corporate_tax_per_capita")
+    assert corp["muni-13299"]["value"] == pytest.approx(s["13299"][5] * 0.1 * 1000 / s["13299"][3], abs=0.01)
+    assert corp["muni-13199"]["value"] is None and corp["muni-13199"]["status"] == "not_applicable"
+    assert "東京都が課税" in corp["muni-13199"]["note"]
+    cpref = rows("corporate_tax_per_capita", "prefectures")
+    assert cpref["pref-13"]["value"] is None and cpref["pref-13"]["status"] == "not_applicable"
+    assert cpref["pref-14"]["value"] == pytest.approx(s["14190"][5] * 0.1 * 1000 / s["14190"][3], abs=0.01)
 
 
 def test_designated_city_wards():
@@ -3148,6 +3156,13 @@ def test_accommodation_industry(built):
     simple = rows("simple_lodgings", "municipalities")
     assert simple["muni-13299"]["value"] == 0 and simple["muni-13299"]["status"] == "observed"
     assert rows("ryokan_hotels", "prefectures")["pref-13"]["value"] == 400
+    # 飲食店・飲食料品小売業（#204）。住民1,000人あたりの分母は2020年の国勢調査の人口
+    eat = rows("restaurants", "municipalities")
+    assert eat["muni-13199"]["value"] == 2500 and eat["muni-14199"]["value"] == 410
+    assert eat["muni-13499"]["value"] == 0 and eat["muni-13499"]["status"] == "observed"   # 「-」は該当なし
+    assert rows("food_retail_establishments", "prefectures")["pref-13"]["value"] == 9000
+    per = rows("restaurants_per_1000", "municipalities")["muni-13199"]
+    assert per["numerator"] == 2500 and per["value"] == pytest.approx(2500 / per["denominator"] * 1000, abs=1e-2)
 
 
 def test_reduce_xlsx_keeps_named_columns(tmp_path):
