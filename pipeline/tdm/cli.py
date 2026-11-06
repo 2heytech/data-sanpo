@@ -145,48 +145,57 @@ def _ingest_municipal_census(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = "元ファイルがないため除外"
             continue
         src = register_source(conn, key, cfg, files, overrides)
-        parts = [estat_census_municipal.read_table(f, cfg["columns"], cfg.get("filters"),
-                                                   cfg.get("encoding", "cp932"), cfg.get("row_codes"))
-                 for f in files]
-        table = estat_small_area.Table(parts[0].labels, [r for t in parts for r in t.rows], True)
-        period = (cfg["period"], cfg["period"], "point")
-        for indicator_id, d in catalog.items():
-            # municipal_table: 町丁・字等の値は小地域の表（table）から、市区町村・都道府県の値はこの表からも取る（#102）
-            if cfg["table"] not in (d.get("table"), d.get("municipal_table")):
-                continue
-            missing = _missing_columns(d, table)
-            if missing:
-                # 調査の年によって国籍の区分が違う（例: 2010年の表にインドはない）。その年は値なし
-                result[f"{key} {indicator_id}"] = f"列 {missing} がないため対象外"
-                continue
-            fn = (estat_small_area.ingest_ratio if d["kind"] == "ratio"
-                  else estat_small_area.ingest_counts)
-            if cfg.get("replace_municipal_values"):
-                # 統計局の不詳補完値の表（#154）: 小地域の表から取り込んだ同じ時点の市区町村・都道府県の値を置き換える
-                delete_area_observations(conn, indicator_id, cfg["period"], keep_source=src)
-                rows = table
-            else:
-                rows = _without_ingested(conn, table, indicator_id, d, period)
-            result[f"{key} {indicator_id}"] = fn(conn, rows, src, indicator_id, d, period)
-        pseudo = {"period": cfg["period"], "label": cfg.get("label", cfg["period"][:4] + "年"),
-                  "boundary_version": last_census["boundary_version"]}
-        for indicator_id, d in catalog.items():
-            if d["kind"] == "density" and cfg.get("official_density") and d["numerator"] == "population_total":
-                # 市区町村・都道府県の人口密度は国勢調査の表の面積・人口密度から（統計局の公表値に合わせる。#154）
-                result[f"{key} {indicator_id}"] = estat_census_municipal.ingest_official_density(
+        # extra_tables: 同じファイルから別の行（例: 女の行）を別の表として読む（子ども女性比、#203）
+        for variant in [cfg] + [dict(cfg, official_density=False, **extra) for extra in cfg.get("extra_tables", [])]:
+            result.update(_ingest_municipal_census_table(conn, key, variant, files, src, catalog, last_census))
+    return result
+
+
+def _ingest_municipal_census_table(conn, key: str, cfg: dict, files: list, src: str, catalog: dict,
+                                   last_census: dict) -> dict:
+    result: dict = {}
+    parts = [estat_census_municipal.read_table(f, cfg["columns"], cfg.get("filters"),
+                                               cfg.get("encoding", "cp932"), cfg.get("row_codes"))
+             for f in files]
+    table = estat_small_area.Table(parts[0].labels, [r for t in parts for r in t.rows], True)
+    period = (cfg["period"], cfg["period"], "point")
+    for indicator_id, d in catalog.items():
+        # municipal_table: 町丁・字等の値は小地域の表（table）から、市区町村・都道府県の値はこの表からも取る（#102）
+        if cfg["table"] not in (d.get("table"), d.get("municipal_table")):
+            continue
+        missing = _missing_columns(d, table)
+        if missing:
+            # 調査の年によって国籍の区分が違う（例: 2010年の表にインドはない）。その年は値なし
+            result[f"{key} {indicator_id}"] = f"列 {missing} がないため対象外"
+            continue
+        fn = (estat_small_area.ingest_ratio if d["kind"] == "ratio"
+              else estat_small_area.ingest_counts)
+        if cfg.get("replace_municipal_values"):
+            # 統計局の不詳補完値の表（#154）: 小地域の表から取り込んだ同じ時点の市区町村・都道府県の値を置き換える
+            delete_area_observations(conn, indicator_id, cfg["period"], keep_source=src)
+            rows = table
+        else:
+            rows = _without_ingested(conn, table, indicator_id, d, period)
+        result[f"{key} {indicator_id}"] = fn(conn, rows, src, indicator_id, d, period)
+    pseudo = {"period": cfg["period"], "label": cfg.get("label", cfg["period"][:4] + "年"),
+              "boundary_version": last_census["boundary_version"]}
+    for indicator_id, d in catalog.items():
+        if d["kind"] == "density" and cfg.get("official_density") and d["numerator"] == "population_total":
+            # 市区町村・都道府県の人口密度は国勢調査の表の面積・人口密度から（統計局の公表値に合わせる。#154）
+            result[f"{key} {indicator_id}"] = estat_census_municipal.ingest_official_density(
+                conn, table, src, indicator_id, d, period)
+        elif d["kind"] == "density" and catalog[d["numerator"]].get("table") == cfg["table"]:
+            result[f"{key} {indicator_id}"] = {"rows": derive_density(
+                conn, indicator_id, d, catalog[d["numerator"]], last_census["boundary_version"],
+                cfg["period"])}
+        elif d["kind"] == "change" and catalog[d["base"]].get("table") == cfg["table"]:
+            # 前回（最新の小地域まである国勢調査）→ 今回。今回は市区町村だけなので境界の比較は要らない
+            result[f"{key} {indicator_id}"] = derive_change(
+                conn, indicator_id, d, catalog[d["base"]], [last_census, pseudo], {})
+            if "前回の人口" in table.labels and d["base"] == "population_total":
+                # 都道府県は表の都道府県の行の今回・前回の人口から（区の再編などで市区町村がそろわなくても出す）
+                result[f"{key} {indicator_id} 都道府県"] = estat_census_municipal.ingest_prefecture_change(
                     conn, table, src, indicator_id, d, period)
-            elif d["kind"] == "density" and catalog[d["numerator"]].get("table") == cfg["table"]:
-                result[f"{key} {indicator_id}"] = {"rows": derive_density(
-                    conn, indicator_id, d, catalog[d["numerator"]], last_census["boundary_version"],
-                    cfg["period"])}
-            elif d["kind"] == "change" and catalog[d["base"]].get("table") == cfg["table"]:
-                # 前回（最新の小地域まである国勢調査）→ 今回。今回は市区町村だけなので境界の比較は要らない
-                result[f"{key} {indicator_id}"] = derive_change(
-                    conn, indicator_id, d, catalog[d["base"]], [last_census, pseudo], {})
-                if "前回の人口" in table.labels and d["base"] == "population_total":
-                    # 都道府県は表の都道府県の行の今回・前回の人口から（区の再編などで市区町村がそろわなくても出す）
-                    result[f"{key} {indicator_id} 都道府県"] = estat_census_municipal.ingest_prefecture_change(
-                        conn, table, src, indicator_id, d, period)
     return result
 
 

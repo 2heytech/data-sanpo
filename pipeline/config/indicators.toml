@@ -718,6 +718,57 @@ numerator_column = ["総数15歳未満", "15歳未満"]
 denominator_sum_columns = [["総数15歳未満", "15歳未満"], ["総数15~64歳", "15~64歳"], ["総数65歳以上", "65歳以上"]]
 legend = { method = "nice", classes = 12, scheme = "greens" }
 
+# 子ども女性比（#203）。市区町村・都道府県の不詳補完値の表（第2-7表など）の0〜4歳（男女計）と、同じ表の女の行の
+# 15〜49歳を、sources.toml の extra_tables で別の表（age_young・age_female）として読む。町丁・字等は出さない。
+[children_0_4]
+name = "0〜4歳の人口"
+category = "年齢構成"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+publish = false
+description = "0〜4歳の人口（男女計）。子ども女性比の分子。"
+method = "統計局の参考表「不詳補完値」の人口等基本集計 男女、年齢（5歳階級）別人口の「0〜4歳」（国籍総数・男女総数）。"
+table = "age_young"
+column = ["総数0~4歳"]
+
+[women_15_49]
+name = "15〜49歳の女性の人口"
+category = "年齢構成"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+publish = false
+description = "15〜49歳の女性の人口。子ども女性比の分母。"
+method = "統計局の参考表「不詳補完値」の人口等基本集計 男女、年齢（5歳階級）別人口の女の「15〜19歳」〜「45〜49歳」の合計（国籍総数）。"
+table = "age_female"
+sum_columns = [["女15~19歳"], ["女20~24歳"], ["女25~29歳"], ["女30~34歳"], ["女35~39歳"], ["女40~44歳"], ["女45~49歳"]]
+
+[child_woman_ratio]
+name = "子ども女性比"
+category = "年齢構成"
+unit = "人/女性100人"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "15〜49歳の女性100人あたりの0〜4歳の子どもの数。子どもの生まれやすさや、子育て世帯の多さの目安。出生率そのものではありません。"
+method = "0〜4歳の人口（男女計）÷ 15〜49歳の女性の人口 × 100。国勢調査の統計局の参考表「不詳補完値」（年齢「不詳」の人の年齢を補完した値。2015・2020年は後の調査での遡及集計）の人口等基本集計 男女、年齢（5歳階級）別人口。"
+caveats = ["出生率（合計特殊出生率など）ではありません。生まれた子どもの数ではなく、その時点に住んでいる0〜4歳の人数から計算するので、子育て世帯の転入・転出の影響も受けます。", "国勢調査の年（2015・2020・2025年）の値です。", "市区町村・都道府県の値です（町丁・字等の値は出していません）。", "15〜49歳の女性が50人未満の地域は値を表示しません。"]
+numerator_indicator = "children_0_4"
+denominator_indicator = "women_15_49"
+denominator_period = "same"
+denominator_label = "15〜49歳の女性"
+unbounded = true
+fraction_units = ["人", "人"]
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
 [single_person_household_share]
 name = "一人暮らし世帯の割合"
 category = "暮らし方"
@@ -2128,6 +2179,99 @@ description = "住民基本台帳に記録されている人の数（日本人�
 method = "総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別人口の「人口 計」。"
 source_kind = "soumu_juki_total"
 column = "人口/計"
+
+# 転入・転出（#202）。住民基本台帳の【総計】の人口動態（前の年の1月1日〜12月31日）。juki_flow = true の列は
+# ファイルの時点（1月1日）の前の年の年計として取り込む（例: 令和8年1月1日のファイルの転入者数は2025年の値）。
+[juki_moved_in]
+name = "転入者数"
+category = "人口・世帯"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+publish = false
+description = "1年間（1月1日〜12月31日）にほかの市区町村や国外から移り住んで住民票が記載された人の数。転入率・転出入比率の分子。"
+method = "総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別人口動態の「転入者数（計）」（国内と国外の計）。"
+source_kind = "soumu_juki_total"
+column = "住民票記載数/転入者数（計）"
+juki_flow = true
+
+[juki_moved_out]
+name = "転出者数"
+category = "人口・世帯"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+publish = false
+description = "1年間（1月1日〜12月31日）にほかの市区町村や国外へ移って住民票が消除された人の数。転出率・転出入比率の分母。"
+method = "総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別人口動態の「転出者数（計）」（国内と国外の計）。"
+source_kind = "soumu_juki_total"
+column = "住民票消除数/転出者数（計）"
+juki_flow = true
+
+[in_migration_rate]
+name = "転入率"
+category = "人口・世帯"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "1年間にほかの市区町村や国外から移り住んだ人（転入者）が、年の初めの人口の何%にあたるか。人の出入りの多さの目安。"
+method = "1年間（1月1日〜12月31日）の転入者数 ÷ その年の1月1日の住民基本台帳の人口 × 100。総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別の「転入者数（計）」と「人口 計」。"
+caveats = ["2021〜2025年の各年の値です（2020年は分母の人口の表がないため出していません）。", "都道府県の値は、ほかの都道府県や国外からの転入です（同じ都道府県の中の引っ越しは含みません）。", "政令指定都市の区の値は、同じ市のほかの区からの転入を含みません。", "国外からの転入を含みます。", "住民基本台帳の人口が50人未満の地域は値を表示しません。"]
+numerator_indicator = "juki_moved_in"
+denominator_indicator = "juki_population"
+denominator_period = "same_year"
+denominator_label = "1月1日の人口"
+fraction_units = ["人", "人"]
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
+[out_migration_rate]
+name = "転出率"
+category = "人口・世帯"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "1年間にほかの市区町村や国外へ移った人（転出者）が、年の初めの人口の何%にあたるか。人の出入りの多さの目安。"
+method = "1年間（1月1日〜12月31日）の転出者数 ÷ その年の1月1日の住民基本台帳の人口 × 100。総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別の「転出者数（計）」と「人口 計」。"
+caveats = ["2021〜2025年の各年の値です（2020年は分母の人口の表がないため出していません）。", "都道府県の値は、ほかの都道府県や国外への転出です（同じ都道府県の中の引っ越しは含みません）。", "政令指定都市の区の値は、同じ市のほかの区への転出を含みません。", "国外への転出を含みます。", "住民基本台帳の人口が50人未満の地域は値を表示しません。"]
+numerator_indicator = "juki_moved_out"
+denominator_indicator = "juki_population"
+denominator_period = "same_year"
+denominator_label = "1月1日の人口"
+fraction_units = ["人", "人"]
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+[migration_in_out_ratio]
+name = "転出入人口比率"
+category = "人口・世帯"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+min_denominator = 50
+levels = ["municipality", "prefecture"]
+description = "1年間の転出者を100としたときの転入者の数。100より大きいと、出ていく人より移り住む人が多い地域。"
+method = "1年間（1月1日〜12月31日）の転入者数 ÷ 同じ年の転出者数 × 100。総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別の「転入者数（計）」と「転出者数（計）」。"
+caveats = ["2020〜2025年の各年の値です。", "都道府県の値は、ほかの都道府県や国外との出入りです（同じ都道府県の中の引っ越しは含みません）。", "国外との出入りを含みます。", "生まれた人・亡くなった人は含みません。", "転出者が50人未満の地域は値を表示しません。"]
+numerator_indicator = "juki_moved_in"
+denominator_indicator = "juki_moved_out"
+denominator_period = "same"
+denominator_label = "転出者数"
+unbounded = true
+fraction_units = ["人", "人"]
+legend = { method = "nice", classes = 12, scheme = "purples" }
 
 [foreign_residents_china]
 name = "外国人住民の数（中国）"

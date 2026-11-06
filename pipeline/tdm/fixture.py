@@ -2138,10 +2138,11 @@ def _write_census2025(directory: Path, base: dict, before: dict[str, int]) -> di
     rows.append(["9", "13_東京都", "13199", "2000", "13_東京都", "13199", "9999_旧サンプル町", 5, 3, 2, 4, 0.5, 10, 2, 2])
     save("census2025_municipal_population", "b01_01.xlsx", rows)
     # 表2-7: 国籍総数か日本人・男女の分類の列が地域の前にある
-    rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * 4,
-                    [None] * 8 + ["事項名"] + ["年齢"] * 4,
-                    [None] * 8 + ["項目名", "00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上"],
-                    [None] * 8 + ["表章単位"] + ["人"] * 4,
+    rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * 12,
+                    [None] * 8 + ["事項名"] + ["年齢"] * 12,
+                    [None] * 8 + ["項目名", "00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上",
+                                  *AGE5_ITEMS],
+                    [None] * 8 + ["表章単位"] + ["人"] * 12,
                     ["国籍総数か日本人", "男女", "地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域",
                      "2025年_都道府県", "2025年_地域コード", "地域名", " "]]
     for nat, ratio in (("0_国籍総数", 1.0), ("1_うち日本人", 0.9)):
@@ -2150,7 +2151,8 @@ def _write_census2025(directory: Path, base: dict, before: dict[str, int]) -> di
                 f = ratio * share
                 rows.append([nat, sex, level, f"{pref}_{pnames[pref]}", code, "2000", f"{pref}_{pnames[pref]}",
                              code, f"{code}_{label}", round(value(code, "人口") * f)]
-                            + [round(value(code, c) * f) for c in ("15歳未満", "15～64歳", "65歳以上")])
+                            + [round(value(code, c) * f) for c in ("15歳未満", "15～64歳", "65歳以上")]
+                            + age5_columns(round(value(code, "15歳未満") * f), round(value(code, "15～64歳") * f)))
     save("census2025_municipal_age", "wb02_07.xlsx", rows)
     # 表6-3: 地域名の先頭が市区町村コード
     rows = title + [[None, None, "表章項目", "一般世帯数", "一般世帯数", "一般世帯人員"],
@@ -2206,6 +2208,15 @@ def _area_rows(pops: dict[str, int]) -> list[tuple[str, str, str, int]]:
     return rows
 
 
+# 不詳補完値の年齢の表の5歳階級の列（子ども女性比、#203）。0〜4歳と15〜49歳の7階級だけを、3区分の人数から作る
+AGE5_ITEMS = ["01_0～4歳"] + [f"{i + 4:02d}_{a}～{a + 4}歳" for i, a in enumerate(range(15, 50, 5))]
+
+
+def age5_columns(young: int, working: int) -> list[int]:
+    """AGE5_ITEMS の列の値（15歳未満・15〜64歳の人数から）。"""
+    return [round(young * 0.32)] + [round(working * 0.066)] * 7
+
+
 def census_imputed_age_values(year: str, pops: dict[str, int]) -> dict[str, dict[str, int]]:
     """統計局の不詳補完値の年齢3区分（2015・2020年の遡及集計。#154）の見本。地域コード（都道府県は 13000 など）→ 区分 → 人数。
     年齢「不詳」はない（補完済み）ので3区分の合計が人口。小地域の表の値（不詳を除く）とは違う割合にする。"""
@@ -2223,29 +2234,30 @@ def _write_census_imputed_age(directory: Path, pops: dict[str, dict[str, int]]) 
     文字がなく、地域名の先頭が地域コード）。"""
     from .xlsx import write_sheet
     out = {}
-    items = ["00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上"]
+    items = ["00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上", *AGE5_ITEMS]
+    n = len(items)
     for year, key, fname in (("2020", "census2020_municipal_age", "swb02_07.xlsx"),
                              ("2015", "census2015_municipal_age", "w3_01_04.xlsx")):
         vals = census_imputed_age_values(year, pops[year])
         title = [["【不詳補完値】見本"], ["見本"], [], ["1) 注記"]]
         if year == "2020":
-            rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * 4, [None] * 8 + ["事項名"] + ["年齢"] * 4,
-                            [None] * 8 + ["項目名"] + items, [None] * 8 + ["表章単位"] + ["人"] * 4,
+            rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * n, [None] * 8 + ["事項名"] + ["年齢"] * n,
+                            [None] * 8 + ["項目名"] + items, [None] * 8 + ["表章単位"] + ["人"] * n,
                             ["国籍総数か日本人", "男女", "地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域",
                              "2020年_都道府県", "2020年_地域コード", "地域名", " "]]
         else:
-            rows = title + [[None] * 5 + ["人口"] * 4, [None] * 5 + ["年齢"] * 4, [None] * 5 + ["1"] * 4,
-                            [None] * 5 + items, [None] * 5 + ["人"] * 4,
+            rows = title + [[None] * 5 + ["人口"] * n, [None] * 5 + ["年齢"] * n, [None] * 5 + ["1"] * n,
+                            [None] * 5 + items, [None] * 5 + ["人"] * n,
                             ["国籍総数か日本人", "男女", "地域識別コード", "都道府県", "地域名"]]
         for nat, ratio in (("0_国籍総数", 1.0), ("1_うち日本人", 0.9)):
-            for sex, share in (("0_総数", 1.0), ("1_男", 0.48)):
+            for sex, share in (("0_総数", 1.0), ("1_男", 0.48), ("2_女", 0.52)):
                 for k, (level, code, label, _) in enumerate(_area_rows(pops[year])):
                     v = vals[code]
                     counts = [round(v[c] * ratio * share) for c in ("15歳未満", "15～64歳", "65歳以上")]
                     pref = f"{code[:2]}_x"
                     lead = ([nat, sex, level, pref, code, "2000", pref, code, f"{k + 1:04d}_{label}"] if year == "2020"
                             else [nat, sex, level, pref, f"{code}_{label}"])
-                    rows.append(lead + [sum(counts), *counts])
+                    rows.append(lead + [sum(counts), *counts, *age5_columns(counts[0], counts[1])])
         d = directory / key
         d.mkdir(parents=True, exist_ok=True)
         write_sheet(d / fname, rows, fname.removesuffix(".xlsx"))
@@ -2546,6 +2558,14 @@ def juki_total_values(year: int) -> dict[str, int]:
             for c, v in juki_foreign_values(year).items()}
 
 
+def juki_moves(year: int) -> dict[str, tuple[int, int]]:
+    """見本の市区町村ごとの、year 年1月1日のファイルの転入者数・転出者数（前の年の1年間）。島しょの村は転出者を50人未満にする。"""
+    rnd = random.Random(f"juki-moves-{year}")
+    return {c: (rnd.randint(30, 40), rnd.randint(20, 30)) if c == "13499" else
+            (round(v * rnd.uniform(0.03, 0.08)), round(v * rnd.uniform(0.03, 0.08)))
+            for c, v in juki_total_values(year).items()}
+
+
 def _write_juki_foreign(directory: Path, year: int, rnd: random.Random, total: bool = False) -> Path:
     """【外国人住民】（total なら【総計】）の市区町村別人口。2つは同じ形。"""
     from .xlsx import write_sheet
@@ -2554,14 +2574,20 @@ def _write_juki_foreign(directory: Path, year: int, rnd: random.Random, total: b
     d.mkdir(parents=True, exist_ok=True)
     vals = juki_total_values(year) if total else juki_foreign_values(year)
     names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
-    era = f"令和{year - 2018}年"
-    rows = [[f"{era}1月1日住民基本台帳人口・世帯数、{era}（1月1日から同年12月31日まで）人口動態（市区町村別）【{label}】"],
-            [None] * 3 + [era] * 4, [None] * 3 + [f"{year}年"] * 4, [None] * 3 + ["人口", "人口", "人口", "世帯数"],
-            [None] * 3 + ["男", "女", "計", "世帯数"], ["団体コード", "都道府県名", "市区町村名", "人", "人", "人", "世帯"]]
+    era, prev = f"令和{year - 2018}年", f"令和{year - 2019}年"
+    # 【総計】には人口動態（前の年の1年間の転入者数・転出者数、#202）の列もある
+    flow = (["住民票記載数", "住民票消除数"], ["転入者数（計）", "転出者数（計）"]) if total else ([], [])
+    rows = [[f"{era}1月1日住民基本台帳人口・世帯数、{prev}（1月1日から同年12月31日まで）人口動態（市区町村別）【{label}】"],
+            [None] * 3 + [era] * 4, [None] * 3 + [f"{year}年"] * 4,
+            [None] * 3 + ["人口", "人口", "人口", "世帯数"] + flow[0],
+            [None] * 3 + ["男", "女", "計", "世帯数"] + flow[1],
+            ["団体コード", "都道府県名", "市区町村名", "人", "人", "人", "世帯"] + ["人"] * len(flow[1])]
+    moves = juki_moves(year) if total else {}
 
     def row(code5, pref, name, total):
         male = total // 2
-        return [_check_digit(code5), pref, name, male, total - male, total, round(total * 0.6)]
+        out = [_check_digit(code5), pref, name, male, total - male, total, round(total * 0.6)]
+        return out + list(moves.get(code5, (round(total * 0.03), round(total * 0.028)))) if moves else out
 
     rows.append(["-", "合計", "-"] + [None] * 4)
     for pref in ("13", "14"):

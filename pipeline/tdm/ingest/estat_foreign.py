@@ -74,7 +74,8 @@ def _write(conn, entity_id, targets, values: dict, source_id, period) -> None:
 def ingest_juki(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
                 period: tuple[str, str, str], kind: str = JUKI_KIND) -> dict:
     """住民基本台帳の外国人住民・総計（市区町村別）。列は「見出し3行目/見出し4行目」（例: 人口/計）で指定する。
-    【総計】のファイルも【外国人住民】と同じ形（団体コードの行・人口の男／女／計の列）。"""
+    【総計】のファイルも【外国人住民】と同じ形（団体コードの行・人口の男／女／計の列）。
+    juki_flow = true の指標（転入者数・転出者数）は前の年の年計（1月1日〜12月31日）として書く。"""
     rows = read_sheet(path, 0)
     targets = {i: d for i, d in catalog.items() if d.get("source_kind") == kind}
     head = next(i for i, r in enumerate(rows) if r and str(r[0]).strip() == "団体コード")
@@ -83,6 +84,11 @@ def ingest_juki(conn: sqlite3.Connection, path: Path, source_id: str, catalog: d
     missing = [d["column"] for d in targets.values() if d["column"] not in labels]
     if missing:
         raise KeyError(f"{path.name}: 列 {missing} が見つかりません（{sorted(labels)}）")
+    # 人口動態（転入者数など、juki_flow = true）は1月1日のファイルの前の年の1年間の値（#202）
+    stocks = {i: d for i, d in targets.items() if not d.get("juki_flow")}
+    flows = {i: d for i, d in targets.items() if d.get("juki_flow")}
+    year = int(period[0][:4]) - 1
+    flow_period = (f"{year}-01-01", f"{year}-12-31", "calendar_year")
     n, prefs, unmatched = 0, 0, []
     for r in rows[head + 1:]:
         code = str(r[0] or "").strip()
@@ -94,7 +100,8 @@ def ingest_juki(conn: sqlite3.Connection, path: Path, source_id: str, catalog: d
                 unmatched.append(code[:5])   # 対象の都道府県の、政令指定都市の市全体など。確認用に一部を返す
             continue
         values = {d["column"]: _number(r[labels[d["column"]]]) for d in targets.values()}
-        _write(conn, entity_id, targets, values, source_id, period)
+        _write(conn, entity_id, stocks, values, source_id, period)
+        _write(conn, entity_id, flows, values, source_id, flow_period)
         if entity_id.startswith("pref-"):
             prefs += 1
         else:

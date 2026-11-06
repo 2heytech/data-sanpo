@@ -783,6 +783,29 @@ def test_foreign_residents(built):
     assert old.get("muni-13499") is None or old["muni-13499"]["value"] is None
 
 
+def test_juki_migration(built):
+    """転入率・転出率・転出入人口比率（住民基本台帳の人口動態。#202）。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert "juki_moved_in" not in by and "juki_moved_out" not in by   # 分子・分母の人数は公開しない
+    # 令和8年1月1日のファイルの転入者数は2025年の値。分母はその年の1月1日（2025年のファイル）の人口
+    assert [p["period"] for p in by["in_migration_rate"]["periods"]] == ["2025-01-01"]
+    assert [p["period"] for p in by["migration_in_out_ratio"]["periods"]] == ["2024-01-01", "2025-01-01"]
+    moves, pop = fixture.juki_moves(2026), fixture.juki_total_values(2025)
+    rate = {r["entity_id"]: r for r in load(built, "values/in_migration_rate/2025-01-01/municipalities.json")["rows"]}
+    assert rate["muni-13199"]["numerator"] == moves["13199"][0] and rate["muni-13199"]["denominator"] == pop["13199"]
+    assert rate["muni-13199"]["value"] == pytest.approx(moves["13199"][0] / pop["13199"] * 100, abs=1e-4)
+    assert rate["muni-13499"]["value"] is None and rate["muni-13499"]["status"] == "withheld"   # 人口が50人未満
+    out = {r["entity_id"]: r for r in load(built, "values/out_migration_rate/2025-01-01/municipalities.json")["rows"]}
+    assert out["muni-14199"]["value"] == pytest.approx(moves["14199"][1] / pop["14199"] * 100, abs=1e-4)
+    ratio = {r["entity_id"]: r for r in load(
+        built, "values/migration_in_out_ratio/2025-01-01/municipalities.json")["rows"]}
+    assert ratio["muni-13199"]["value"] == pytest.approx(moves["13199"][0] / moves["13199"][1] * 100, abs=1e-3)
+    assert ratio["muni-13499"]["value"] is None and ratio["muni-13499"]["status"] == "withheld"   # 転出者が50人未満
+    prefs = {r["entity_id"]: r for r in load(
+        built, "values/in_migration_rate/2025-01-01/prefectures.json")["rows"]}
+    assert prefs["pref-13"]["value"] is not None   # 都道府県は出典の都道府県の行（県外からの転入）を使う
+
+
 def test_census_foreign_by_nationality(built):
     """国勢調査 人口等基本集計の男女・国籍別人口（市区町村・都道府県、2010〜2025年。#102）。"""
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
@@ -1482,6 +1505,30 @@ def test_census2025_municipal(built):
     kids = muni("households_with_children_share")
     assert kids["numerator"] == int(f["18歳未満世帯員のいる一般世帯総数"])  # 家族類型の総数の行
     assert kids["denominator"] == int(f["一般世帯総数"])
+
+
+def test_child_woman_ratio(built):
+    """子ども女性比: 0〜4歳（男女計）÷ 15〜49歳の女性 × 100。不詳補完値の表の別の行を extra_tables で読む（#203）。"""
+    from tdm.config import load_sources
+    from tdm.ingest.estat_census_municipal import read_table
+    cfg = load_sources()
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert "children_0_4" not in by and "women_15_49" not in by
+    assert [p["period"] for p in by["child_woman_ratio"]["periods"]] == ["2015-10-01", "2020-10-01", "2025-10-01"]
+    for year in ("2015", "2020", "2025"):
+        c = cfg[f"census{year}_municipal_age"]
+        young, female = ({r["KEY_CODE"]: r for r in read_table(
+            built.raw / f"census{year}_municipal_age" / c["files"][0], e["columns"], e["filters"]).rows}
+            for e in c["extra_tables"])
+        got = {r["entity_id"]: r for r in load(
+            built, f"values/child_woman_ratio/{year}-10-01/municipalities.json")["rows"]}
+        women = sum(int(v) for k, v in female["13199"].items() if k.startswith("女"))
+        assert got["muni-13199"]["numerator"] == int(young["13199"]["総数0~4歳"])
+        assert got["muni-13199"]["denominator"] == women
+        assert got["muni-13199"]["value"] == pytest.approx(int(young["13199"]["総数0~4歳"]) / women * 100, abs=1e-2)
+        prefs = {r["entity_id"]: r for r in load(
+            built, f"values/child_woman_ratio/{year}-10-01/prefectures.json")["rows"]}
+        assert prefs["pref-13"]["numerator"] == int(young["13"]["総数0~4歳"])   # 表の都道府県の行
 
 
 def test_census_imputed_age_and_official_density(built):
