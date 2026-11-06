@@ -769,6 +769,44 @@ unbounded = true
 fraction_units = ["人", "人"]
 legend = { method = "nice", classes = 12, scheme = "greens" }
 
+# 病床数（#207）。医療施設（動態）調査の二次医療圏・市区町村編の第1表（病院）・第2表（一般診療所）
+[hospital_clinic_beds]
+name = "病院・一般診療所の病床数"
+category = "医療"
+unit = "床"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "その地域にある病院と一般診療所（有床診療所）の病床（入院用のベッド）の数の合計。"
+method = "厚生労働省「医療施設（動態）調査」二次医療圏・市区町村編の第1表の病院の病床数（精神・感染症・結核・療養・一般病床の総数）と、第2表の一般診療所の病床数の合計。2025年10月1日現在。"
+caveats = ["病院のある市区町村に数えます。周りの市区町村から入院する人も使う病床です。", "歯科診療所の病床は含みません。"]
+source_kind = "mhlw_medical_facilities"
+medical_item = "beds_total"
+legend = { method = "nice", classes = 12, scheme = "blues", zero_blank = true }
+
+[hospital_clinic_beds_per_100k]
+name = "病院・一般診療所の病床数（人口10万人あたり）"
+category = "医療"
+unit = "床/10万人"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 100000
+unbounded = true
+min_denominator = 100
+levels = ["municipality", "prefecture"]
+description = "病院と一般診療所の病床（入院用のベッド）の数を、その地域に住む人（2025年国勢調査の人口）10万人あたりにした値。"
+method = "病院・一般診療所の病床数 ÷ 2025年国勢調査の人口 × 100,000。病床数は厚生労働省「医療施設（動態）調査」（2025年10月1日）。"
+caveats = ["病床は周りの市区町村から入院する人も使います。大きな病院のある市区町村は値が大きく、ない市区町村は0になります。", "精神病床・療養病床を含みます。", "人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "hospital_clinic_beds"
+denominator_indicator = "population_total"
+denominator_period = "2025-10-01"
+denominator_label = "2025年の人口"
+fraction_units = ["床", "人"]
+compare_with = ["hospital_clinic_beds"]
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
 [single_person_household_share]
 name = "一人暮らし世帯の割合"
 category = "暮らし方"
@@ -5972,6 +6010,42 @@ caveats = ["経済センサスの産業の分類（事業所の主な事業）�
 source_kind = "estat_economic_census_municipal_industry"
 column = "58_飲食料品小売業|事業所数"
 legend = { method = "nice", classes = 12, scheme = "greens", zero_blank = true }
+
+[inhabitable_area]
+name = "可住地面積"
+category = "土地"
+unit = "km²"
+kind = "count"
+definition_version = "1"
+digits = 2
+levels = ["municipality", "prefecture"]
+publish = false
+description = "面積のうち、森林・原野・湖沼などを除いた、人が住んだり使ったりできる土地の面積。可住地面積あたりの指標の分母。"
+method = "総務省統計局「統計でみる市区町村のすがた2026」の基礎データ「可住地面積」（B1103、2024年10月1日。総面積から林野面積と主要湖沼面積を除いた面積）。"
+source_kind = "ssds_municipal"
+ssds_item = "B1103"
+
+[food_retail_per_inhabitable_km2]
+name = "飲食料品小売業の事業所数（可住地面積1km²あたり）"
+category = "商業"
+unit = "事業所/km²"
+kind = "ratio"
+definition_version = "1"
+digits = 2
+scale = 1
+unbounded = true
+min_denominator = 0.5
+levels = ["municipality", "prefecture"]
+description = "飲食料品の小売店（スーパー・八百屋・肉屋・魚屋・酒屋・菓子店・パン屋・コンビニエンスストアなど）の事業所の数を、可住地面積（森林や湖などを除いた、人が住める土地の面積）1km²あたりにした値。身近に食料品の店がどれだけあるかの目安。"
+method = "飲食料品小売業の事業所数 ÷ 可住地面積（km²）。事業所数は総務省・経済産業省「令和3年経済センサス‐活動調査」第9-1A表の「58 飲食料品小売業」の全事業所数（2021年6月1日）、可住地面積は総務省統計局「統計でみる市区町村のすがた2026」（2024年10月1日）。"
+caveats = ["事業所数（2021年）と面積（2024年）の時点が違います。", "百貨店・総合スーパー（各種商品小売業）やドラッグストアは含みません。", "店の大きさ（売場面積）は考えていません。", "可住地面積が0.5km²未満の地域は値を表示しません。"]
+numerator_indicator = "food_retail_establishments"
+denominator_indicator = "inhabitable_area"
+denominator_period = "2024-10-01"
+denominator_label = "可住地面積"
+fraction_units = ["事業所", "km²"]
+compare_with = ["food_retail_establishments"]
+legend = { method = "nice", classes = 12, scheme = "greens" }
 
 [wholesale_sales]
 name = "卸売業の年間商品販売額"

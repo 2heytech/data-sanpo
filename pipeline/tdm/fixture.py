@@ -191,6 +191,8 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out["census_history"] = _write_census_history(directory)
     out.update(_write_economic_census(directory))
     out.update(_write_industry_census(directory))
+    out["ssds_municipal_2026_b"] = _write_ssds(directory)
+    out["mhlw_medical_2025"] = _write_medical(directory)
     out.update(_write_industry_tables(directory))
     out["land_survey"] = _write_land_survey(directory, random.Random(f"{seed}-land-survey"))
     out.update(_write_npa_crime_stats(directory))
@@ -332,6 +334,60 @@ MUNICIPAL_INDUSTRY_ROWS = [
 ]
 MUNICIPAL_INDUSTRY_REDUCE = {"columns": ["58_飲食料品小売業", "75_宿泊業", "751_旅館，ホテル", "752_簡易宿所", "76_飲食店"],
                              "measures": ["事業所数"], "label_columns": 2}
+
+
+# 統計でみる市区町村のすがたの基礎データ（B 自然環境、#206）。地域コード → (総面積, 可住地面積)。
+# 政令指定都市の市全体（14100）の行もある（区の行を使う）。かりの村の可住地面積は0.5km²未満（値を出さない）
+SSDS_AREAS = {"13": (2194.05, 1424.3), "14": (2416.32, 1489.2), "13199": (5.21, 5.0), "13299": (12.34, 9.1),
+              "13499": (20.5, 0.4), "14100": (8.76, 8.0), "14199": (8.76, 8.0)}
+
+
+def _write_ssds(directory: Path) -> Path:
+    """.xls の代わりに同じ形の .xlsx を置く（読む処理は拡張子で切り替える）。"""
+    from .xlsx import write_sheet
+    pad = [None] * 10
+    rows = [pad + [3.0, 4.0, None], pad + [3.0, 4.0, None], [], pad + ["Ｂ　自然環境　　　B. Natural Environment"],
+            pad + [23.0, 24.0], [None] * 8 + ["市区町村", "Municipalities", "総面積(北方地域及び竹島を除く)", "可住地面積", "市区町村ｺｰﾄﾞ"],
+            pad + ["Total land area", "Inhabitable area"], pad + ["B1101", "B1103"], pad + ["k㎡", "k㎡"],
+            pad + ["2024", "2024"]]
+    for i, (code, (total, inhabitable)) in enumerate(SSDS_AREAS.items()):
+        rows.append(["302  ", f"{code:<12}", "ABCD        ", "  ", None, float(i + 1), None, f"{code:<5}", "見本", "Mihon",
+                     total, inhabitable, f"{code:<5}"])
+    d = directory / "ssds_municipal_2026_b"
+    d.mkdir(parents=True, exist_ok=True)
+    write_sheet(d / "ssds_2026_b.xlsx", rows, "B")
+    return d
+
+
+# 医療施設（動態）調査の二次医療圏・市区町村編（#207）。地域 → (病院の病床数, 一般診療所の病床数)。「-」は該当なし（0）。
+# 二次医療圏の行（4桁）は使わない
+MEDICAL_BEDS = [("13", "東京都", 120000, 1500), ("1301", "区中央部", 9999, 99), ("13199", "サンプル区", 1500, 40),
+                ("13299", "ためし市", 820, "-"), ("13499", "かりの村", "-", "-"), ("14", "神奈川県", 70000, 900),
+                ("1401", "横浜", 9999, 99), ("14199", "みほん市中区", 900, 19)]
+
+
+def _write_medical(directory: Path) -> Path:
+    d = directory / "mhlw_medical_2025"
+    d.mkdir(parents=True, exist_ok=True)
+    pad = lambda name: f"{name}　　　　"
+    head1 = [["令和７（２０２５）年", "医療施設調査", "令和７（２０２５）年１０月１日", ""],
+             ["二次医療圏・市区町村編　第１表　病院数；病床数，病院－病床の種類・二次医療圏・市区町村別"],
+             ["", "施設数", "", "", "", "", "", "病床数", "", "", "", "", "", ""],
+             ["", "総　数", "精神科", "一般病院", "", "地域医", "救　急", "総　数", "精　神", "感染症", "結　核", "療　養", "一　般", "地域医"],
+             [""] * 14]
+    head2 = [["令和７（２０２５）年", "医療施設調査", "令和７（２０２５）年１０月１日", ""],
+             ["二次医療圏・市区町村編　第２表　一般診療所数；歯科診療所数；病床数，病床の有無・二次医療圏・市区町村別"],
+             ["", "一般診療所数", "", "", "", "歯科診療所数", "", "", "一般診療所", ""],
+             ["", "総数", "有床", "（再掲）療養病床を有する一般診療所", "無床", "総数", "有床", "無床", "病床数", "（再掲）療養病床"],
+             [""] * 10]
+    rows1 = [[f"{code}　{pad(name)}" if len(code) != 5 else f"{code} {pad(name)}", "1", "-", "1", "-", "-", "1", str(h)]
+             + ["-"] * 6 for code, name, h, _ in MEDICAL_BEDS]
+    rows2 = [[f"{code}　{pad(name)}" if len(code) != 5 else f"{code} {pad(name)}", "3", "1", "-", "2", "2", "-", "2", str(c), "-"]
+             for code, name, _, c in MEDICAL_BEDS]
+    for name, rows in (("n1.csv", head1 + rows1), ("n2.csv", head2 + rows2)):
+        with (d / name).open("w", encoding="cp932", newline="") as f:
+            csv.writer(f).writerows(rows)
+    return d
 
 
 def _write_industry_census(directory: Path) -> dict[str, Path]:

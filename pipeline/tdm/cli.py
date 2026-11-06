@@ -36,7 +36,7 @@ from .ingest import (cfa_childcare, estat_boundary, estat_census_history, estat_
                      mlit_facilities, mlit_inbound, mlit_landprice, mlit_road_census, mlit_stations, mlit_transport,
                      nier_gakuryoku,
                      cultural_properties, michi_no_eki, npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_finance,
-                     soumu_furusato,
+                     soumu_furusato, ssds_municipal, mhlw_medical,
                      soumu_tax, tokyo_childcare,
                      tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
@@ -265,7 +265,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
                         "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "estat_economic_census_town_industry",
-                        "estat_economic_census_municipal_industry", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
+                        "estat_economic_census_municipal_industry", "ssds_municipal", "mhlw_medical_facilities", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata", "mext_school_aid", "maff_agri_output", "maff_agri_prefecture",
                         "meti_manufacturing",
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
@@ -347,6 +347,10 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "estat_economic_census_municipal_industry":
             result[key] = estat_economic_census.ingest_municipal_industry(
                 conn, files[0], src, catalog, (cfg["period"], cfg["period"], "point"))
+        elif kind == "mhlw_medical_facilities":
+            result[key] = mhlw_medical.ingest(conn, files, src, catalog, (cfg["period"], cfg["period"], "point"))
+        elif kind == "ssds_municipal":
+            result[key] = ssds_municipal.ingest(conn, files[0], src, catalog, (cfg["period"], cfg["period"], "point"))
         elif kind == "npa_crime_stats":
             result[key] = npa_crime_stats.ingest(conn, files[0], src, catalog, int(cfg["year"]),
                                                  cfg.get("encoding", "cp932"))

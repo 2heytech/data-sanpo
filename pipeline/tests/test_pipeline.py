@@ -1531,6 +1531,21 @@ def test_child_woman_ratio(built):
         assert prefs["pref-13"]["numerator"] == int(young["13"]["総数0~4歳"])   # 表の都道府県の行
 
 
+def test_medical_beds(built):
+    """病院・一般診療所の病床数と人口10万人あたり（医療施設調査の二次医療圏・市区町村編、#207）。"""
+    def rows(ind, level="municipalities"):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/2025-10-01/{level}.json")["rows"]}
+    beds = rows("hospital_clinic_beds")
+    assert beds["muni-13199"]["value"] == 1500 + 40 and beds["muni-14199"]["value"] == 919
+    assert beds["muni-13299"]["value"] == 820            # 「-」は0
+    assert beds["muni-13499"]["value"] == 0 and beds["muni-13499"]["status"] == "observed"
+    assert rows("hospital_clinic_beds", "prefectures")["pref-13"]["value"] == 121500   # 表の都道府県の行
+    per = rows("hospital_clinic_beds_per_100k")["muni-13199"]
+    assert per["numerator"] == 1540 and per["value"] == pytest.approx(1540 / per["denominator"] * 100000, abs=0.5)
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert by["hospital_clinic_beds_per_100k"]["category"] == "医療"
+
+
 def test_census_imputed_age_and_official_density(built):
     """年齢の割合は統計局の不詳補完値の表、人口密度は国勢調査の表の面積から（市区町村・都道府県。#154）。"""
     from tdm.config import load_sources
@@ -3163,6 +3178,16 @@ def test_accommodation_industry(built):
     assert rows("food_retail_establishments", "prefectures")["pref-13"]["value"] == 9000
     per = rows("restaurants_per_1000", "municipalities")["muni-13199"]
     assert per["numerator"] == 2500 and per["value"] == pytest.approx(2500 / per["denominator"] * 1000, abs=1e-2)
+    # 可住地面積あたり（分母は統計でみる市区町村のすがたの可住地面積、#206）
+    dens = {r["entity_id"]: r for r in load(
+        built, "values/food_retail_per_inhabitable_km2/2021-06-01/municipalities.json")["rows"]}
+    assert dens["muni-13199"]["value"] == pytest.approx(300 / 5.0, abs=1e-2)
+    assert dens["muni-14199"]["value"] == pytest.approx(80 / 8.0, abs=1e-2)   # 区の行（市全体の行ではない）
+    assert dens["muni-13499"]["value"] is None and dens["muni-13499"]["status"] == "withheld"
+    pdens = {r["entity_id"]: r for r in load(
+        built, "values/food_retail_per_inhabitable_km2/2021-06-01/prefectures.json")["rows"]}
+    assert pdens["pref-13"]["value"] == pytest.approx(9000 / 1424.3, abs=1e-2)
+    assert "inhabitable_area" not in {i["id"] for i in load(built, "indicators.json")["indicators"]}
 
 
 def test_reduce_xlsx_keeps_named_columns(tmp_path):
