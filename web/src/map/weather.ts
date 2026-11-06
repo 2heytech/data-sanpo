@@ -14,8 +14,8 @@ const SELECTED = "weather-selected";
 const LABEL = "weather-label";
 const SOURCE = "weather-points";
 const MONTHS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
-// 指標ごとの短い名前（切り替えの選択肢・月の表の見出し）
-const SHORT: Record<string, string> = {
+// 指標ごとの短い名前（切り替えの選択肢・月の表の見出し。指標の選択画面の検索でも使う）
+export const SHORT: Record<string, string> = {
   sunshine_normal: "日照時間", precipitation_normal: "降水量", snow_depth_normal: "最深積雪", snowfall_normal: "降雪量",
 };
 
