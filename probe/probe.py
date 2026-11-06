@@ -17,34 +17,21 @@ def headers_xlsx(data,maxrow=15,pat=None):
 def listing(q):
     u="https://www.e-stat.go.jp/stat-search/files?"+q
     t=get(u).decode("utf-8","replace")
-    ids=re.findall(r'statInfId=(\d{12})',t)
-    # titles near
-    for m in re.finditer(r'<span class="stat-title-text"[^>]*>(.*?)</span>|statInfId=(\d{12})&amp;fileKind=(\d)',t,re.S):
-        pass
-    blocks=re.split(r'<article',t)
-    for b in blocks[1:]:
-        txt=re.sub(r'<[^>]+>',' ',b); txt=H.unescape(re.sub(r'\s+',' ',txt)).strip()
-        sid=sorted(set(re.findall(r'statInfId=(\d{12})&amp;fileKind=(\d)',b)))
-        if sid: print(sid, txt[:260])
-    print("ids:",len(set(ids)))
-try:
-    sec("A t9-1a headers (economic census)")
-    d=dl("000040067884"); print(len(d))
-    headers_xlsx(d,maxrow=14,pat=r"^(5[6-9]|7[67]|58\d|76\d)_|飲食")
-except Exception as e: print("ERR",e)
-try:
-    sec("B settlement city_2 2024 headers")
-    d=get("https://www.soumu.go.jp/main_content/001061670.xlsx"); print(len(d))
-    headers_xlsx(d,maxrow=14)
-except Exception as e: print("ERR",e)
-try:
-    sec("C tax collection 2024 row names")
-    d=dl("000040375642",1).decode("cp932","replace")
-    names=[]
-    for r in csv.reader(io.StringIO(d)):
-        if len(r)>9 and r[9] not in names: names.append(r[9])
-    print(names[:120])
-except Exception as e: print("ERR",e)
+    seen=set()
+    for m in re.finditer(r'statInfId=(\d{12})',t):
+        sid=m.group(1)
+        if sid in seen: continue
+        seen.add(sid)
+        a=t.rfind('stat-dataset_list-detail-item',0,m.start())
+        chunk=t[max(0,m.start()-1500):m.start()]
+        txt=H.unescape(re.sub(r'\s+',' ',re.sub(r'<[^>]+>',' ',chunk))).strip()
+        print(sid, "|", txt[-300:])
+    print("ids:",len(seen))
+for y in (2021,2022,2023,2024):
+    sid={2021:"000040306659",2022:"000032224636",2023:"000040306647",2024:"000040306672"}[y]
+    try:
+        sec(f"juki {y}"); headers_xlsx(dl(sid),maxrow=6)
+    except Exception as e: print("ERR",e)
 for title,q in [
   ("D 医療施設調査 病床 市区町村", "page=1&query=%E5%B8%82%E5%8C%BA%E7%94%BA%E6%9D%91%E5%88%A5+%E7%97%85%E5%BA%8A&layout=dataset&toukei=00450021"),
   ("D2 医療施設調査 2023 list", "page=1&layout=dataset&toukei=00450021&tstat=000001030908&cycle=7&year=20230"),
@@ -58,12 +45,12 @@ for title,q in [
     try:
         sec(title); listing(q)
     except Exception as e: print("ERR",e)
-for title,u in [("H 汚水処理 MLIT","https://www.mlit.go.jp/mizukokudo/sewerage/crd_sewerage_tk_000135.html"),
-                ("I 都市公園 MLIT","https://www.mlit.go.jp/toshi/park/toshi_parkgreen_tk_000060.html"),
-                ("I2 都市公園 MLIT","https://www.mlit.go.jp/toshi/park/toshi_parkgreen_fr_000011.html")]:
+for title,u,pat in [("H 下水道top","https://www.mlit.go.jp/mizukokudo/sewerage/","普及|汚水"),
+                    ("H2 env 汚水","https://www.env.go.jp/recycle/jokaso/data/","普及|汚水|市町村"),
+                    ("I 公園top","https://www.mlit.go.jp/toshi/park/","現況|データ|統計|整備")]:
     try:
         sec(title); t=get(u).decode("utf-8","replace")
-        print(re.sub(r'\s+',' ',H.unescape(re.sub(r'<[^>]+>',' ',t)))[:1500])
-        for m in re.finditer(r'href="([^"]+\.(?:xlsx?|csv|zip|pdf))"[^>]*>(.*?)</a>',t,re.S):
-            print(m.group(1), re.sub(r'<[^>]+>|\s+',' ',m.group(2))[:100])
+        for m in re.finditer(r'href="([^"]+)"[^>]*>(.*?)</a>',t,re.S):
+            txt=re.sub(r'<[^>]+>|\s+',' ',m.group(2)).strip()
+            if re.search(pat,txt): print(m.group(1), txt[:120])
     except Exception as e: print("ERR",e)
