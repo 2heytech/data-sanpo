@@ -1,5 +1,5 @@
 import subprocess, re, sys, io, csv, html as H
-subprocess.run([sys.executable,"-m","pip","install","-q","openpyxl"])
+subprocess.run([sys.executable,"-m","pip","install","-q","--user","--break-system-packages","openpyxl"]); import site; sys.path.append(site.getusersitepackages())
 import openpyxl
 UA="Mozilla/5.0 (data-sanpo probe)"
 def get(u):
