@@ -36,45 +36,35 @@ def head_rows(data, maxrow=12, maxcol=200):
         for i,row in enumerate(ws.iter_rows(max_row=maxrow,values_only=True)):
             cells=[str(c).replace("\n","") for c in row[:maxcol] if c is not None]
             if cells: print(i,cells)
-urls=["000607404","000607409","000676021","000676026","000738077","000738082","000800820","000800828","000871019","000871024","000937288","000937293","000999901","000999906","001061670","001061675"]
-sec("settlement 法人分")
-for u in urls:
-    try:
-        d=get(f"https://www.soumu.go.jp/main_content/{u}.xlsx")
-        wb=openpyxl.load_workbook(io.BytesIO(d),read_only=True,data_only=True); ws=wb.worksheets[0]
-        hit=[]
-        for i,row in enumerate(ws.iter_rows(max_row=16,values_only=True)):
-            for j,c in enumerate(row):
-                if c is not None and re.sub(r"\s+","",str(c))=="うち市町村民税法人分": hit.append((i,j))
-        print(u, hit)
-    except Exception as e: print(u,"ERR",e)
-def xls_rows(data,maxrow=12):
+def xls_rows(data,rows):
     b=xlrd.open_workbook(file_contents=data)
-    for sh in b.sheets()[:2]:
-        print("-- sheet",sh.name,sh.nrows,sh.ncols)
-        for i in range(min(maxrow,sh.nrows)):
-            cells=[str(c).replace("\n","") for c in sh.row_values(i) if str(c).strip()]
-            if cells: print(i,cells)
-for sid in [f"0000404635{n}" for n in range(84,94)]:
-    try:
-        sec("SSDS 2026 "+sid); xls_rows(dl(sid), 9)
+    sh=b.sheets()[0]
+    print("-- sheet",sh.name,sh.nrows,sh.ncols)
+    for i in rows:
+        if i<sh.nrows: print(i,[str(c) for c in sh.row_values(i)])
+for sid in ["000040463585","000040463591"]:
+    sec("SSDS rows "+sid)
+    try: xls_rows(dl(sid), list(range(0,4))+list(range(9,16))+list(range(1960,1970)))
     except Exception as e: print("ERR",e)
-sec("medical list")
-try:
-    wb=openpyxl.load_workbook(io.BytesIO(dl("000040501275")),read_only=True,data_only=True)
-    for row in wb.worksheets[0].iter_rows(values_only=True):
-        if row and any(c and "市区町村" in str(c) for c in row): print(row)
-except Exception as e: print("ERR",e)
-for title,q in [("D3 医療施設 2025 市区町村編", "page=1&layout=dataset&toukei=00450021&query=%E5%B8%82%E5%8C%BA%E7%94%BA%E6%9D%91&year=20250")]:
-    sec(title); t=get("https://www.e-stat.go.jp/stat-search/files?"+q).decode("utf-8","replace")
-    for m in re.finditer(r'statInfId=(\d{12})&amp;fileKind=(\d)',t):
-        print(m.group(1), m.group(2), H.unescape(re.sub(r"\s+"," ",re.sub(r"<[^>]+>"," ",t[max(0,m.start()-2500):m.start()])))[-260:])
-for pg in range(1,8):
+for sid in ["000040501271","000040501272"]:
+    for k in (0,1,2,3,4):
+        d=dl(sid,k); print(sid,k,len(d),d[:8])
+        if d[:2]==b"PK" or d[:4]==b"\xd0\xcf\x11\xe0":
+            try:
+                if d[:2]==b"PK":
+                    wb=openpyxl.load_workbook(io.BytesIO(d),read_only=True,data_only=True)
+                    for i,row in enumerate(wb.worksheets[0].iter_rows(max_row=16,values_only=True)):
+                        c=[str(x).replace("\n","") for x in row[:40] if x is not None]
+                        if c: print(i,c)
+                else: xls_rows(d, range(0,16))
+            except Exception as e: print("ERR",e)
+            break
+for pg in (1,2,3,4,5,6):
     sec(f"housing page {pg}")
     t=get(f"https://www.e-stat.go.jp/stat-search/files?page={pg}&layout=dataset&toukei=00200522&tstat=000001207800&tclass1=000001207808&tclass2=000001207809").decode("utf-8","replace")
-    txt=H.unescape(re.sub(r"\s+"," ",re.sub(r"<(?!/?a\b)[^>]+>"," ",t)))
-    for m in re.finditer(r'(第[０-９0-9－\-]+表[^<]{5,160}?)\s', txt):
-        if re.search("延べ面積|畳数|床面積", m.group(1)): print(m.group(1)[:200])
-    for m in re.finditer(r'statInfId=(\d{12})&amp;fileKind=0', t):
-        seg=H.unescape(re.sub(r"\s+"," ",re.sub(r"<[^>]+>"," ",t[max(0,m.start()-3000):m.start()])))
-        if re.search("延べ面積|畳数", seg[-900:]): print("ID", m.group(1), seg[-400:])
+    txt=H.unescape(re.sub(r"\s+"," ",re.sub(r"<[^>]+>"," ",t)))
+    for m in re.finditer(r"第[０-９0-9]+(?:[－\-][０-９0-9]+)?表.{0,170}", txt):
+        x=m.group(0)
+        if "延べ" in x or "畳" in x or "面積" in x: print(x[:200])
+    ids=re.findall(r"statInfId=(\d{12})&amp;fileKind=0", t)
+    print("ids", len(ids), ids[:3], ids[-3:])
