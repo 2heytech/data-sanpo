@@ -74,6 +74,11 @@ run("mlit_parks_2025", lambda cfg, f: mlit_parks.ingest(conn, f[0], "s", catalog
 summary(["city_park_area_per_capita"], PICKS)
 run("mlit_sewerage_2026", lambda cfg, f: mlit_sewerage.ingest(conn, f[0], "s", catalog, cfg["period"]))
 summary(["sewage_treatment_coverage"], PICKS)
+fetch_source("cfa_child_medical_2025", sources["cfa_child_medical_2025"], raw / "cfa_child_medical_2025")
+_t = subprocess.run(["pdftotext", "-layout", str(raw / "cfa_child_medical_2025" / "child_medical_2025.pdf"), "-"], capture_output=True, text=True).stdout.splitlines()
+for i, l in enumerate(_t):
+    if "安堵" in l or "奈良県" in l and ("三郷" in l or "平群" in l or "斑鳩" in l or "川西" in l or "三宅" in l):
+        print("NARA", i, repr(l))
 run("cfa_child_medical_2025", lambda cfg, f: cfa_child_medical.ingest(conn, f[0], "s", catalog, cfg["period"]))
 summary(["child_medical_age_outpatient", "child_medical_age_inpatient"], PICKS)
 run("digital_water_2024", lambda cfg, f: digital_water.ingest(conn, f[0], "s", catalog, cfg))
