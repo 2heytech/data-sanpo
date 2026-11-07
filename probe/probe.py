@@ -5,7 +5,8 @@ pass
 sys.path.insert(0, "/tmp/nw/pipeline")
 from tdm.config import load_sources, load_indicators
 from tdm.db import connect, init_schema, upsert_indicators, insert_observation
-from tdm.fetch import fetch_source, find_files
+from tdm.fetch import fetch_source
+from tdm.sources import find_files
 from tdm.ingest import mhlw_care, mlit_parks, mlit_sewerage, cfa_child_medical, digital_water
 
 UA = "Mozilla/5.0 (data-sanpo probe)"
