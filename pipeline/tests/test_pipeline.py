@@ -3896,3 +3896,16 @@ def test_water_fee_suppliers(built):
         digital_water.read_table(built.raw / "digital_water_2024" / "water_supply_table_02.zip", 2023)
     with pytest.raises(ValueError, match="2022.csv がありません"):
         digital_water.read_table(built.raw / "digital_water_2024" / "water_supply_table_02.zip", 2022)
+
+
+def test_child_medical_repeated_row(built, tmp_path):
+    # ページの境目でくり返された同じ行は1つにし、中身の違う同じ名前の行は止める
+    from tdm.ingest.cfa_child_medical import read_table
+    lines = (built.raw / "cfa_child_medical_2025" / "child_medical_2025.txt").read_text(encoding="utf-8").splitlines()
+    row = next(line for line in lines if "ためし市" in line)
+    f = tmp_path / "child_medical.txt"
+    f.write_text("\n".join(lines + [row]) + "\n", encoding="utf-8")
+    assert read_table(f)[1][("13", "ためし市")]["outpatient"] == 15
+    f.write_text("\n".join(lines + [row.replace("15歳", "12歳")]) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="行が2つあります"):
+        read_table(f)

@@ -5,8 +5,9 @@
 pdftotext -layout で確認）: 1行が1市区町村（全国1,741。政令指定都市は市全体の行だけ、東京都の23区は区ごと）で、
 「北海道 1 札幌市 18歳年度末 18歳年度末 有 有 有 有」のように、都道府県名・番号・市区町村名・対象年齢（通院・入院）・
 所得制限（通院・入院）・一部自己負担（通院・入院）。対象年齢は「◯歳年度末」か「就学前」（6歳の年度末まで）。
-ページごとに見出しの行がくり返される。名前に「※」が付く市町村は、18歳の年度末より後は大学などに通う人だけが
-対象（注記）。番号は表の通し番号で、市区町村コードではないので、都道府県の中の名前で地図の市区町村に合わせる。
+ページごとに見出しの行がくり返される（ページの境目で同じ番号の同じ行がくり返されることもある）。
+名前に「※」が付く市町村は、18歳の年度末より後は大学などに通う人だけが対象（注記）。番号は表の通し番号で、
+市区町村コードではないので、都道府県の中の名前で地図の市区町村に合わせる。
 PDF は pdftotext（poppler-utils）でテキストにしてから読む。テストの見本は同じ形のテキスト（.txt）を使う。
 政令指定都市の助成は市全体の制度なので、区にも市の値を入れ、そのことを注記に書く（制度の内容で、数を割り振る
 ものではない）。都道府県の値は作らない。
@@ -52,6 +53,7 @@ def read_table(path: Path) -> tuple[str, dict[tuple[str, str], dict]]:
     """(時点, (都道府県コード, 市区町村名) → {"outpatient", "inpatient", "notes"})。"""
     text = pdf_text(path)
     out: dict[tuple[str, str], dict] = {}
+    seen: dict[tuple[str, str], list[str]] = {}
     for line in text.splitlines():
         m = ROW.match(line)
         if not m:
@@ -68,8 +70,11 @@ def read_table(path: Path) -> tuple[str, dict[tuple[str, str], dict]]:
             notes.append(STUDENT_NOTE)
         key = (pref, name.replace("※", ""))
         if key in out:
+            if seen[key] == line.split():
+                continue   # ページの境目でくり返された同じ番号の同じ行（令和7年度の奈良県安堵町）
             raise ValueError(f"{path.name}: {m.group(1)}{key[1]} の行が2つあります")
         out[key] = {"outpatient": outpatient, "inpatient": inpatient, "notes": notes}
+        seen[key] = line.split()
     if not out:
         raise ValueError(f"{path.name}: 市区町村の行が読めません")
     return _period(text), out
