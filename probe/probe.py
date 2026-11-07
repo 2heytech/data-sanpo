@@ -66,7 +66,7 @@ def summary(ids, picks):
         for e in picks:
             r = next((x for x in rows if x["entity_id"] == e), None)
             print("   ", e, names.get(e), None if r is None else (r["value"], r["status"], r["method_note"]))
-PICKS = ["muni-01101", "muni-01209", "muni-13101", "muni-13104", "muni-13201", "muni-13361", "muni-14101", "muni-14150",
+PICKS = ["muni-22131", "muni-29345", "muni-01101", "muni-01209", "muni-13101", "muni-13104", "muni-13201", "muni-13361", "muni-14101", "muni-14150",
          "muni-12101", "muni-27127", "muni-26100", "muni-26101", "muni-47201", "muni-40131", "muni-34101", "muni-37201", "muni-28205", "pref-13", "pref-01"]
 run("mhlw_care_2024", lambda cfg, f: mhlw_care.ingest(conn, f[0], "s", catalog, (cfg["period"], cfg["period"], "point")))
 summary(["care_facility_capacity"], PICKS)
