@@ -195,6 +195,11 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out["ssds_municipal_2026_h"] = _write_ssds_h(directory)
     out["housing_members_2023"] = _write_housing_members(directory)
     out["mhlw_medical_2025"] = _write_medical(directory)
+    out["mhlw_care_2024"] = _write_care(directory)
+    out["mlit_parks_2025"] = _write_parks(directory)
+    out["mlit_sewerage_2026"] = _write_sewerage(directory)
+    out["cfa_child_medical_2025"] = _write_child_medical(directory)
+    out["digital_water_2024"] = _write_water(directory)
     out.update(_write_industry_tables(directory))
     out["land_survey"] = _write_land_survey(directory, random.Random(f"{seed}-land-survey"))
     out.update(_write_npa_crime_stats(directory))
@@ -433,6 +438,137 @@ def _write_medical(directory: Path) -> Path:
     for name, rows in (("n1.csv", head1 + rows1), ("n2.csv", head2 + rows2)):
         with (d / name).open("w", encoding="cp932", newline="") as f:
             csv.writer(f).writerows(rows)
+    return d
+
+
+# 介護サービス施設・事業所調査 基本票 第1表（#209）。地域 → 3種類の施設の (施設数, 定員)。「-」は該当なし（0）。
+# 政令指定都市の市全体の行（14190）は使わない（区の行がある）
+CARE_FACILITIES = [("00000", "全国", [(9, 700), (2, 200), (1, 20)]), ("13000", "東京都", [(3, 230), (1, 100), ("-", "-")]),
+                   ("13199", "サンプル区", [(1, 80), ("-", "-"), ("-", "-")]),
+                   ("13299", "ためし市", [(2, 150), (1, 100), ("-", "-")]),
+                   ("13499", "かりの村", [("-", "-"), ("-", "-"), ("-", "-")]),
+                   ("14000", "神奈川県", [(1, 50), ("-", "-"), (1, 20)]), ("14190", "みほん市", [(1, 50), ("-", "-"), (1, 20)]),
+                   ("14199", "中区", [(1, 50), ("-", "-"), (1, 20)])]
+
+
+def _write_care(directory: Path) -> Path:
+    d = directory / "mhlw_care_2024"
+    d.mkdir(parents=True, exist_ok=True)
+    rows = [["令和６（2024）年", "介護サービス施設・事業所調査", "令和６（2024）年10月１日", ""],
+            ["閲覧表　介護保険施設", "【基本票】　第１表　介護保険施設数－定員，市区町村、施設の種類別"],
+            ["", "介護老人福祉施設", "", "介護老人保健施設", "", "介護医療院", ""],
+            ["", "施設数", "定員", "施設数", "定員", "施設数", "定員"]]
+    rows += [[f"{code} {name}　　　　"] + [str(v) for pair in kinds for v in pair] for code, name, kinds in CARE_FACILITIES]
+    with (d / "care_facilities_2024.csv").open("w", encoding="cp932", newline="") as f:
+        csv.writer(f).writerows(rows)
+    return d
+
+
+# 都市公園整備現況一覧表の市町村別（#210）。市町村コード → (都市公園合計 ha, カントリーパーク ha, 都市計画区域人口 千人)。
+# かりの村は都市計画区域がない（人口0）。みほん市（政令指定都市）は市全体の行だけ
+CITY_PARKS = {"13199": ("東京都", "サンプル区", 20.0, 0.0, 100.0), "13299": ("東京都", "ためし市", 60.5, 0.5, 50.0),
+              "13499": ("東京都", "かりの村", 1.0, 1.0, 0.0), "14190": ("神奈川県", "みほん市", 100.0, 0.0, 200.0)}
+
+
+def _write_parks(directory: Path) -> Path:
+    from .xlsx import write_sheets
+    d = directory / "mlit_parks_2025"
+    d.mkdir(parents=True, exist_ok=True)
+    head = ["市町村コード", "都道府県名", "市町村名", "街区公園　箇所", "街区公園　面積(ha)", "ｶﾝﾄﾘｰﾊﾟｰｸ　箇所",
+            "ｶﾝﾄﾘｰﾊﾟｰｸ　面積(ha)", "都市公園合計　箇所", "都市公園合計　面積(ha)", "都市計画区域人口(千人)",
+            "1人当り公園面積(㎡/人)"]
+    rows = [["R06年度末　都道府県別都市公園等整備現況（カントリーパークを含む）"], ["国営含む"], ["2025.3.31時点"], head]
+    for code, (pref, name, total, country, pop) in CITY_PARKS.items():
+        rows.append([code, pref, name, 3.0, total - country, 1.0 if country else 0.0, country, 4.0, total, pop,
+                     total * 10 / pop if pop else 0.0])
+    write_sheets(d / "city_parks_2025.xlsx", {"都道府県別都市公園等整備現況（カントリーパークを含む）": [["見本"]],
+                                              "市町村別": rows})
+    return d
+
+
+# 市町村別汚水処理及び下水道処理人口普及率（#211）。pdftotext -bbox の HTML の形（縦の表が横に並ぶ）。
+# (列, 行の単語)。東京都の23区は「区部」の1行、政令指定都市は市全体の行だけ
+SEWERAGE_COLUMNS = [
+    [["東京都"], ["市町村名", "汚水", "下水"], ["区部※", "100.0%", "100.0%"], ["ためし市", "95.5%", "90.1%"],
+     ["かりの村", "60.0%", "＊"]],
+    [["東京都", "99.9%", "99.7%"], ["神奈川県"], ["市町村名", "汚水", "下水"], ["みほん市", "99.0%", "98.0%"],
+     ["神奈川県", "98.0%", "97.0%"]],
+]
+
+
+def _write_sewerage(directory: Path) -> Path:
+    d = directory / "mlit_sewerage_2026"
+    d.mkdir(parents=True, exist_ok=True)
+    words = ['<word xMin="176.0" yMin="49.0" xMax="219.0" yMax="56.0">全国市町村別</word>',
+             '<word xMin="230.0" yMin="49.0" xMax="420.0" yMax="56.0">汚水処理及び下水道処理人口普及率一覧（令和７年度末）</word>']
+    for c, column in enumerate(SEWERAGE_COLUMNS):
+        x = 66.0 + c * 110
+        for i, row in enumerate(column):
+            y = 60.0 + i * 5.5
+            head = row[0] == "市町村名"
+            for j, t in enumerate(row):
+                x0 = x + (6.0 if head and j == 0 else 0) + j * 28 + (2.0 if len(row) == 3 and row[0] in PREF_NAMES.values() and j == 0 else 0)
+                words.append(f'<word xMin="{x0:.1f}" yMin="{y:.1f}" xMax="{x0 + 20:.1f}" yMax="{y + 5:.1f}">{t}</word>')
+    text = ('<html><body><doc>\n<page width="595.3" height="841.9">\n' + "\n".join(words)
+            + '\n</page>\n<page width="595.3" height="841.9">\n</page>\n</doc></body></html>\n')
+    (d / "sewerage_2026.html").write_text(text, encoding="utf-8")
+    return d
+
+
+# こどもに係る医療費の助成についての調査 別紙3（#212）。pdftotext -layout のテキストの形
+CHILD_MEDICAL_ROWS = [("東京都", "サンプル区", "18歳年度末", "18歳年度末", "無無無無"),
+                      ("東京都", "ためし市", "15歳年度末", "18歳年度末", "有無有有"),
+                      ("東京都", "かりの村※", "就学前", "22歳年度末", "無無無無"),
+                      ("神奈川県", "みほん市", "18歳年度末", "18歳年度末", "無無有有")]
+
+
+def _write_child_medical(directory: Path) -> Path:
+    d = directory / "cfa_child_medical_2025"
+    d.mkdir(parents=True, exist_ok=True)
+    head = ["                                                       別紙３",
+            "こども医療費に対する助成の実施状況調査（市区町村用）（令和７年４月１日時点）",
+            "                           対象年齢          所得制限     一部自己負担",
+            "都道府県名       市区町村名",
+            "                     通 院          入 院   通院   入院   通院   入院", ""]
+    lines = [f" {pref}    {i + 1}     {name}   {out}    {inp}    " + "    ".join(flags)
+             for i, (pref, name, out, inp, flags) in enumerate(CHILD_MEDICAL_ROWS)]
+    (d / "child_medical_2025.txt").write_text("\n".join(head + lines + ["", "※ 18歳年度末以降は学生医療として実施しており、"
+                                                                       "対象は大学等に通う者に限る。（一定の所得制限あり。）"]) + "\n",
+                                              encoding="utf-8")
+    return d
+
+
+# 水道事業等の経営状況に関するダッシュボードの公開データ（#213）。(事業者コード, 名前, 事業の区分, 経営主体, 料金, 給水人口)。
+# サンプル区は東京都の水道（実際の設定の suppliers にない見本のコードなので値なし）、かりの村は給水人口が少ない（値なし）
+WATER_UTILITIES = [("130001", "東京都", "001", "1:都道府県営", 2560, 13000000),
+                   ("132993", "ためし市", "001", "3:市営", 3000, 10_000_000),
+                   ("134996", "かりの村", "005", "4:町村営", 4500, 1),
+                   ("141909", "みほん市", "001", "2:指定市営", 2200, 10_000_000)]
+WATER_COLUMNS = ["source_url", "fiscal_year", "local_public_enterprise_code", "local_public_enterprise_name", "facility_code",
+                 "facility_code_name", "cond_1_business_type", "cond_2_operating_entity", "cond_3_profit_status",
+                 "cond_45_water_supply_population_category", "cond_6_domestic_water_ratio", "cond_7_water_source_type",
+                 "similar_org_code", "similar_org_code_label", "statistical_table_number", "statistical_table_name",
+                 "row_index", "item_key", "item_name", "item_value", "item_unit"]
+
+
+def _write_water(directory: Path) -> Path:
+    import io
+    import zipfile
+    d = directory / "digital_water_2024"
+    d.mkdir(parents=True, exist_ok=True)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(WATER_COLUMNS)
+    items = [("6.料金__(2)料金(家庭用)__1か月20㎥当たり料金__口径13mm", 4), ("6.料金__(2)料金(家庭用)__1か月20㎥当たり料金__口径20mm", 4),
+             ("4.施設__(3)現在給水人口(人)", 5)]
+    for code, name, facility, entity, fee, pop in WATER_UTILITIES:
+        for item, value_index in items:
+            value = fee if value_index == 4 else pop
+            w.writerow(["", "2024", code, name, facility, f"{facility}:末端給水事業", "", entity, "", "", "", "", "", "",
+                        "01", "01 施設及び業務概況に関する調", "1", "列032", item, str(value), "円" if value_index == 4 else "人"])
+    with zipfile.ZipFile(d / "water_supply_table_02.zip", "w") as z:
+        z.writestr("2024.csv", buf.getvalue().encode("utf-8-sig"))
+        z.writestr("2023.csv", ",".join(WATER_COLUMNS) + "\n")
     return d
 
 

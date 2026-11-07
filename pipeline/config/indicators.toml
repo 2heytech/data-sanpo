@@ -772,7 +772,7 @@ legend = { method = "nice", classes = 12, scheme = "greens" }
 # 病床数（#207）。医療施設（動態）調査の二次医療圏・市区町村編の第1表（病院）・第2表（一般診療所）
 [hospital_clinic_beds]
 name = "病院・一般診療所の病床数"
-category = "医療"
+category = "医療・介護"
 unit = "床"
 kind = "count"
 definition_version = "1"
@@ -787,7 +787,7 @@ legend = { method = "nice", classes = 12, scheme = "blues", zero_blank = true }
 
 [hospital_clinic_beds_per_100k]
 name = "病院・一般診療所の病床数（人口10万人あたり）"
-category = "医療"
+category = "医療・介護"
 unit = "床/10万人"
 kind = "ratio"
 definition_version = "1"
@@ -806,6 +806,148 @@ denominator_label = "2025年の人口"
 fraction_units = ["床", "人"]
 compare_with = ["hospital_clinic_beds"]
 legend = { method = "nice", classes = 12, scheme = "blues" }
+
+# 介護保険施設の定員（#209）。介護サービス施設・事業所調査 基本票 第1表
+[care_facility_capacity]
+name = "介護保険施設の定員"
+category = "医療・介護"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+description = "特別養護老人ホーム（介護老人福祉施設）・介護老人保健施設・介護医療院の定員の合計（2024年10月1日現在）。"
+method = "厚生労働省「介護サービス施設・事業所調査」基本票 閲覧表 第1表の、介護老人福祉施設・介護老人保健施設・介護医療院の定員の合計。"
+caveats = ["施設のある市区町村に数えます。ほかの市区町村に住んでいた人も入所します。", "定員29人以下の特別養護老人ホーム（地域密着型介護老人福祉施設）、認知症の人のグループホーム、有料老人ホーム、サービス付き高齢者向け住宅は含みません。"]
+source_kind = "mhlw_care_facilities"
+legend = { method = "nice", classes = 12, scheme = "purples", zero_blank = true }
+
+[care_facility_capacity_per_1000_elderly]
+name = "介護保険施設の定員（65歳以上1,000人あたり）"
+category = "医療・介護"
+unit = "人/65歳以上1,000人"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1000
+unbounded = true
+min_denominator = 100
+levels = ["municipality", "prefecture"]
+description = "特別養護老人ホーム・介護老人保健施設・介護医療院の定員の合計を、その地域の65歳以上の人1,000人あたりにした値。"
+method = "介護保険施設の定員（2024年10月1日）÷ 2025年国勢調査の65歳以上人口 × 1,000。定員は厚生労働省「介護サービス施設・事業所調査」、65歳以上人口は統計局の参考表「不詳補完値」。"
+caveats = ["施設はほかの市区町村の人も入所します。施設のある市区町村は値が大きく、ない市区町村は0になります。", "定員29人以下の特別養護老人ホーム（地域密着型）、グループホーム、有料老人ホームなどは含みません。", "定員は2024年10月1日、65歳以上人口は2025年10月1日の値です。", "65歳以上の人口が100人未満の地域は値を表示しません。"]
+numerator_indicator = "care_facility_capacity"
+denominator_indicator = "population_65_plus"
+denominator_period = "2025-10-01"
+denominator_label = "2025年の65歳以上人口"
+fraction_units = ["人", "人"]
+compare_with = ["care_facility_capacity"]
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[population_65_plus]
+name = "65歳以上の人口"
+category = "年齢構成"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+publish = false
+description = "65歳以上の人口（男女計）。介護保険施設の定員（65歳以上1,000人あたり）の分母。"
+method = "統計局の参考表「不詳補完値」の人口等基本集計の65歳以上人口（年齢3区分）。"
+# 市区町村・都道府県の表（不詳補完値）だけから取る（町丁・字等の値は使わないので、小地域の表の名前にしない）
+table = "age_municipal_only"
+municipal_table = "age"
+column = ["総数65歳以上", "65歳以上"]
+
+# 子どもの医療費の助成（#212）。こども家庭庁「こどもに係る医療費の助成についての調査」別紙3
+[child_medical_age_outpatient]
+name = "子どもの医療費の助成の対象年齢（通院）"
+category = "子育て"
+unit = "歳"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 1
+unbounded = true
+levels = ["municipality"]
+description = "市区町村が子どもの通院の医療費を助成する年齢の上限（その年齢の年度末、3月31日まで。2025年4月1日現在）。"
+method = "こども家庭庁「こどもに係る医療費の助成についての調査」（令和7年度）別紙3の、市区町村ごとの通院の対象年齢。「就学前」は6（6歳の年度末まで）。"
+caveats = ["所得制限・一部自己負担のあり・なしは、地域を選んだときの注記に書いています。", "「◯歳年度末」は、◯歳になった後の最初の3月31日までです。", "名前に「※」が付いた市町村（18歳の年度末より後は大学などに通う人だけが対象）は注記に書いています。", "政令指定都市は市全体の制度なので、区にも市の値を表示しています。", "都道府県の値はありません。", "2025年4月1日より後に制度が変わった市区町村があります。"]
+source_kind = "cfa_child_medical"
+child_medical = "outpatient"
+compare_with = ["child_medical_age_inpatient"]
+legend = { method = "nice", classes = 6, scheme = "greens" }
+
+[child_medical_age_inpatient]
+name = "子どもの医療費の助成の対象年齢（入院）"
+category = "子育て"
+unit = "歳"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 1
+unbounded = true
+levels = ["municipality"]
+description = "市区町村が子どもの入院の医療費を助成する年齢の上限（その年齢の年度末、3月31日まで。2025年4月1日現在）。"
+method = "こども家庭庁「こどもに係る医療費の助成についての調査」（令和7年度）別紙3の、市区町村ごとの入院の対象年齢。「就学前」は6（6歳の年度末まで）。"
+caveats = ["所得制限・一部自己負担のあり・なしは、地域を選んだときの注記に書いています。", "「◯歳年度末」は、◯歳になった後の最初の3月31日までです。", "政令指定都市は市全体の制度なので、区にも市の値を表示しています。", "都道府県の値はありません。", "2025年4月1日より後に制度が変わった市区町村があります。"]
+source_kind = "cfa_child_medical"
+child_medical = "inpatient"
+compare_with = ["child_medical_age_outpatient"]
+legend = { method = "nice", classes = 6, scheme = "greens" }
+
+# 汚水処理人口普及率（#211）。国土交通省「下水道データ室」の市町村別の表（PDF）
+[sewage_treatment_coverage]
+name = "汚水処理人口普及率"
+category = "上下水道"
+unit = "%"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 100
+levels = ["municipality", "prefecture"]
+description = "住民のうち、下水道・農業集落排水施設・浄化槽・コミュニティプラントのいずれかで汚水を処理できる人の割合（2026年3月31日現在）。"
+method = "国土交通省「下水道データ室」の市町村別汚水処理及び下水道処理人口普及率（令和7年度末）の、汚水処理人口普及率（国土交通省・農林水産省・環境省の調べ）。"
+caveats = ["国が公表した割合です。", "東京都の23区は区部全体の値（100.0%）だけが、政令指定都市は市全体の値だけが公表されているため、区の値はありません。", "四捨五入して100.0%になった市町村（実際は100%に少し足りない）は、地域を選んだときの注記に書いています。"]
+source_kind = "mlit_sewerage"
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
+# 家庭用の水道料金（#213）。デジタル庁「水道事業等の経営状況に関するダッシュボード」の公開データ
+[water_fee_household]
+name = "水道料金（家庭用・1か月20m³）"
+category = "上下水道"
+unit = "円/月"
+kind = "ratio"
+definition_version = "1"
+digits = 0
+scale = 1
+unbounded = true
+levels = ["municipality"]
+description = "家庭で1か月に20m³の水道水を使ったときの料金（口径20mm、税抜き、2024年度）。"
+method = "デジタル庁「水道事業等の経営状況に関するダッシュボード」の公開データ（総務省「地方公営企業決算状況調査」）の、家庭用1か月20m³当たり料金（口径20mm）。上水道（末端給水事業）の料金で、上水道がない市町村は法適用の簡易水道事業の料金。"
+caveats = ["税抜きの料金です（ダッシュボードの定義）。", "企業団・都県（東京都・神奈川県・千葉県・長野県）や隣の市の水道が給水する市区町村は、その水道の料金です。", "市区町村の水道が住民の半分未満にしか給水していない市区町村や、統合した市町村ごとに料金が違う（または統一を確かめられない）企業団が給水する市区町村は、値を表示しません。", "法の適用を受けない小さな簡易水道や井戸で暮らす地域の料金は含みません。", "政令指定都市は市全体の料金なので、区にも市の値を表示しています。", "都道府県の値はありません。"]
+source_kind = "digital_water_supply"
+legend = { method = "nice", classes = 12, scheme = "oranges" }
+
+# 都市公園の面積（#210）。国土交通省「都市公園データベース」都市公園整備現況一覧表 市町村別
+[city_park_area_per_capita]
+name = "都市公園の面積（都市計画区域の住民1人あたり）"
+category = "緑"
+unit = "m²/人"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1
+unbounded = true
+min_denominator = 5000
+levels = ["municipality", "prefecture"]
+description = "都市計画区域に住む人1人あたりの都市公園の面積（2025年3月31日現在）。国営公園を含みます。"
+method = "（都市公園の面積の合計 − カントリーパークの面積）÷ 都市計画区域の人口。国土交通省「都市公園データベース」都市公園整備現況一覧表（令和6年度末）の市町村別。カントリーパークは都市計画区域の外にある公園なので引いています。"
+caveats = ["都市計画区域の人口は千人単位で公表されているため、都市計画区域の人口が5千人未満の市町村は値を表示しません。", "都市計画区域がない市町村は値がありません。", "市民緑地は含みません。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。都道府県の値は、市区町村の分子・分母を合計して計算しています。"]
+source_kind = "mlit_city_parks"
+fraction_units = ["m²", "人"]
+legend = { method = "nice", classes = 12, scheme = "greens" }
 
 [single_person_household_share]
 name = "一人暮らし世帯の割合"
