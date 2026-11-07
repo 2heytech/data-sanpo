@@ -30,7 +30,7 @@ import zipfile
 from pathlib import Path
 
 from ..db import insert_observation
-from ..regions import designated_city_wards
+from ..regions import designated_city_wards, map_municipalities
 
 KIND = "digital_water_supply"
 FEE_ITEM = "6.料金__(2)料金(家庭用)__1か月20㎥当たり料金__口径20mm"
@@ -84,7 +84,7 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, 
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == KIND}
     utilities = read_table(path, year)
     population = _population(conn)
-    known = {r[0][5:] for r in conn.execute("SELECT entity_id FROM entities WHERE entity_type = 'municipality'")}
+    known = {r["entity_id"][5:] for r in map_municipalities(conn)}
     share = float(cfg.get("main_supplier_share", 0.5))
 
     def area(code: str) -> list[str]:
