@@ -82,3 +82,14 @@ def region_of(city_code5: str, designated_city: str | None = None) -> str | None
             return "多摩"
         return "島しょ"
     return designated_city or None
+
+
+REORGANIZED_WARD_NOTE = "区の再編で、表の区が地図の区（2020年国勢調査の区）と合わないため値なし"
+
+
+def wards_without_rows(conn, written: set[str]) -> list[str]:
+    """政令指定都市の区（地図の区）のうち、表に行のなかった地域ID。区を再編した市（浜松市は2024年1月）の
+    古い区は、新しい区の表に行がない。値なし（0 にしない）にして理由を書くのに使う。"""
+    return [r[0] for r in conn.execute(
+        """SELECT entity_id FROM entities WHERE entity_type = 'municipality' AND region IS NOT NULL
+             AND substr(entity_id, 6, 2) != ? ORDER BY entity_id""", (TOKYO,)) if r[0] not in written]

@@ -36,7 +36,8 @@ from .ingest import (cfa_childcare, estat_boundary, estat_census_history, estat_
                      mlit_facilities, mlit_inbound, mlit_landprice, mlit_road_census, mlit_stations, mlit_transport,
                      nier_gakuryoku,
                      cultural_properties, michi_no_eki, npa_crime_stats, npa_traffic, police_crime_opendata, soumu_election, soumu_finance,
-                     soumu_furusato,
+                     soumu_furusato, ssds_municipal, mhlw_medical, mhlw_care, mlit_parks, mlit_sewerage,
+                     cfa_child_medical, digital_water,
                      soumu_tax, tokyo_childcare,
                      tokyo_election,
                      tokyo_foreign, tokyo_jhs_progress, tokyo_nurseries, tokyo_schools, tokyo_street_trees)
@@ -145,48 +146,57 @@ def _ingest_municipal_census(conn, paths: Paths, sources: dict, catalog: dict,
             result[key] = "元ファイルがないため除外"
             continue
         src = register_source(conn, key, cfg, files, overrides)
-        parts = [estat_census_municipal.read_table(f, cfg["columns"], cfg.get("filters"),
-                                                   cfg.get("encoding", "cp932"), cfg.get("row_codes"))
-                 for f in files]
-        table = estat_small_area.Table(parts[0].labels, [r for t in parts for r in t.rows], True)
-        period = (cfg["period"], cfg["period"], "point")
-        for indicator_id, d in catalog.items():
-            # municipal_table: 町丁・字等の値は小地域の表（table）から、市区町村・都道府県の値はこの表からも取る（#102）
-            if cfg["table"] not in (d.get("table"), d.get("municipal_table")):
-                continue
-            missing = _missing_columns(d, table)
-            if missing:
-                # 調査の年によって国籍の区分が違う（例: 2010年の表にインドはない）。その年は値なし
-                result[f"{key} {indicator_id}"] = f"列 {missing} がないため対象外"
-                continue
-            fn = (estat_small_area.ingest_ratio if d["kind"] == "ratio"
-                  else estat_small_area.ingest_counts)
-            if cfg.get("replace_municipal_values"):
-                # 統計局の不詳補完値の表（#154）: 小地域の表から取り込んだ同じ時点の市区町村・都道府県の値を置き換える
-                delete_area_observations(conn, indicator_id, cfg["period"], keep_source=src)
-                rows = table
-            else:
-                rows = _without_ingested(conn, table, indicator_id, d, period)
-            result[f"{key} {indicator_id}"] = fn(conn, rows, src, indicator_id, d, period)
-        pseudo = {"period": cfg["period"], "label": cfg.get("label", cfg["period"][:4] + "年"),
-                  "boundary_version": last_census["boundary_version"]}
-        for indicator_id, d in catalog.items():
-            if d["kind"] == "density" and cfg.get("official_density") and d["numerator"] == "population_total":
-                # 市区町村・都道府県の人口密度は国勢調査の表の面積・人口密度から（統計局の公表値に合わせる。#154）
-                result[f"{key} {indicator_id}"] = estat_census_municipal.ingest_official_density(
+        # extra_tables: 同じファイルから別の行（例: 女の行）を別の表として読む（子ども女性比、#203）
+        for variant in [cfg] + [dict(cfg, official_density=False, **extra) for extra in cfg.get("extra_tables", [])]:
+            result.update(_ingest_municipal_census_table(conn, key, variant, files, src, catalog, last_census))
+    return result
+
+
+def _ingest_municipal_census_table(conn, key: str, cfg: dict, files: list, src: str, catalog: dict,
+                                   last_census: dict) -> dict:
+    result: dict = {}
+    parts = [estat_census_municipal.read_table(f, cfg["columns"], cfg.get("filters"),
+                                               cfg.get("encoding", "cp932"), cfg.get("row_codes"))
+             for f in files]
+    table = estat_small_area.Table(parts[0].labels, [r for t in parts for r in t.rows], True)
+    period = (cfg["period"], cfg["period"], "point")
+    for indicator_id, d in catalog.items():
+        # municipal_table: 町丁・字等の値は小地域の表（table）から、市区町村・都道府県の値はこの表からも取る（#102）
+        if cfg["table"] not in (d.get("table"), d.get("municipal_table")):
+            continue
+        missing = _missing_columns(d, table)
+        if missing:
+            # 調査の年によって国籍の区分が違う（例: 2010年の表にインドはない）。その年は値なし
+            result[f"{key} {indicator_id}"] = f"列 {missing} がないため対象外"
+            continue
+        fn = (estat_small_area.ingest_ratio if d["kind"] == "ratio"
+              else estat_small_area.ingest_counts)
+        if cfg.get("replace_municipal_values"):
+            # 統計局の不詳補完値の表（#154）: 小地域の表から取り込んだ同じ時点の市区町村・都道府県の値を置き換える
+            delete_area_observations(conn, indicator_id, cfg["period"], keep_source=src)
+            rows = table
+        else:
+            rows = _without_ingested(conn, table, indicator_id, d, period)
+        result[f"{key} {indicator_id}"] = fn(conn, rows, src, indicator_id, d, period)
+    pseudo = {"period": cfg["period"], "label": cfg.get("label", cfg["period"][:4] + "年"),
+              "boundary_version": last_census["boundary_version"]}
+    for indicator_id, d in catalog.items():
+        if d["kind"] == "density" and cfg.get("official_density") and d["numerator"] == "population_total":
+            # 市区町村・都道府県の人口密度は国勢調査の表の面積・人口密度から（統計局の公表値に合わせる。#154）
+            result[f"{key} {indicator_id}"] = estat_census_municipal.ingest_official_density(
+                conn, table, src, indicator_id, d, period)
+        elif d["kind"] == "density" and catalog[d["numerator"]].get("table") == cfg["table"]:
+            result[f"{key} {indicator_id}"] = {"rows": derive_density(
+                conn, indicator_id, d, catalog[d["numerator"]], last_census["boundary_version"],
+                cfg["period"])}
+        elif d["kind"] == "change" and catalog[d["base"]].get("table") == cfg["table"]:
+            # 前回（最新の小地域まである国勢調査）→ 今回。今回は市区町村だけなので境界の比較は要らない
+            result[f"{key} {indicator_id}"] = derive_change(
+                conn, indicator_id, d, catalog[d["base"]], [last_census, pseudo], {})
+            if "前回の人口" in table.labels and d["base"] == "population_total":
+                # 都道府県は表の都道府県の行の今回・前回の人口から（区の再編などで市区町村がそろわなくても出す）
+                result[f"{key} {indicator_id} 都道府県"] = estat_census_municipal.ingest_prefecture_change(
                     conn, table, src, indicator_id, d, period)
-            elif d["kind"] == "density" and catalog[d["numerator"]].get("table") == cfg["table"]:
-                result[f"{key} {indicator_id}"] = {"rows": derive_density(
-                    conn, indicator_id, d, catalog[d["numerator"]], last_census["boundary_version"],
-                    cfg["period"])}
-            elif d["kind"] == "change" and catalog[d["base"]].get("table") == cfg["table"]:
-                # 前回（最新の小地域まである国勢調査）→ 今回。今回は市区町村だけなので境界の比較は要らない
-                result[f"{key} {indicator_id}"] = derive_change(
-                    conn, indicator_id, d, catalog[d["base"]], [last_census, pseudo], {})
-                if "前回の人口" in table.labels and d["base"] == "population_total":
-                    # 都道府県は表の都道府県の行の今回・前回の人口から（区の再編などで市区町村がそろわなくても出す）
-                    result[f"{key} {indicator_id} 都道府県"] = estat_census_municipal.ingest_prefecture_change(
-                        conn, table, src, indicator_id, d, period)
     return result
 
 
@@ -254,9 +264,10 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
                         "nier_gakuryoku", "estat_school_basic", "estat_school_classes", "estat_school_progress", "mlit_schools",
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
-                        "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
+                        "estat_housing_stock", "estat_housing_members", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "estat_economic_census_town_industry",
-                        "estat_economic_census_municipal_industry", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
+                        "estat_economic_census_municipal_industry", "ssds_municipal", "mhlw_medical_facilities", "mhlw_care_facilities",
+                        "mlit_city_parks", "mlit_sewerage", "cfa_child_medical", "digital_water_supply", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata", "mext_school_aid", "maff_agri_output", "maff_agri_prefecture",
                         "meti_manufacturing",
                         "estat_commerce", "mlit_airports", "mlit_airport_locations", "mlit_ports", "wikidata_ports",
@@ -328,6 +339,9 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "estat_housing_income":
             result[key] = estat_housing.ingest_income(conn, files[0], src, catalog,
                                                       (cfg["period"], cfg["period"], "point"))
+        elif kind == "estat_housing_members":
+            result[key] = estat_housing.ingest_members(conn, files[0], src, catalog,
+                                                       (cfg["period"], cfg["period"], "point"))
         elif kind == "estat_housing_stock":
             result[key] = estat_housing.ingest_stock(conn, files[0], src, catalog,
                                                      (cfg["period"], cfg["period"], "point"))
@@ -338,6 +352,20 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "estat_economic_census_municipal_industry":
             result[key] = estat_economic_census.ingest_municipal_industry(
                 conn, files[0], src, catalog, (cfg["period"], cfg["period"], "point"))
+        elif kind == "mhlw_medical_facilities":
+            result[key] = mhlw_medical.ingest(conn, files, src, catalog, (cfg["period"], cfg["period"], "point"))
+        elif kind == "ssds_municipal":
+            result[key] = ssds_municipal.ingest(conn, files[0], src, catalog, (cfg["period"], cfg["period"], "point"))
+        elif kind == "mhlw_care_facilities":
+            result[key] = mhlw_care.ingest(conn, files[0], src, catalog, (cfg["period"], cfg["period"], "point"))
+        elif kind == "mlit_city_parks":
+            result[key] = mlit_parks.ingest(conn, files[0], src, catalog, (cfg["period"], cfg["period"], "point"))
+        elif kind == "mlit_sewerage":
+            result[key] = mlit_sewerage.ingest(conn, files[0], src, catalog, cfg["period"])
+        elif kind == "cfa_child_medical":
+            result[key] = cfa_child_medical.ingest(conn, files[0], src, catalog, cfg["period"])
+        elif kind == "digital_water_supply":
+            result[key] = digital_water.ingest(conn, files[0], src, catalog, cfg)
         elif kind == "npa_crime_stats":
             result[key] = npa_crime_stats.ingest(conn, files[0], src, catalog, int(cfg["year"]),
                                                  cfg.get("encoding", "cp932"))
