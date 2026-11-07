@@ -6666,6 +6666,39 @@ attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat
 modification_note = "市区町村・都道府県の可住地面積を抜き出し、可住地面積あたりの事業所数を算出して作成"
 redistributable = true
 
+[ssds_municipal_2026_h]
+kind = "ssds_municipal"
+period = "2023-10-01"
+title = "統計でみる市区町村のすがた2026 基礎データ H 居住"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200502&layout=dataset"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040463591&fileKind=0"
+download_filename = "ssds_2026_h.xls"
+files = ["ssds_2026_h.xls*"]   # 見本（fixture）は .xlsx
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省統計局「統計でみる市区町村のすがた」"
+modification_note = "市区町村・都道府県の居住世帯あり住宅数と1住宅当たり延べ面積から延べ面積の合計を求め、世帯人員1人あたりの延べ面積を算出して作成"
+redistributable = true
+
+# 住宅・土地統計調査 第2表（主世帯の世帯人員。1人あたり延べ面積の分母、#208）
+[housing_members_2023]
+kind = "estat_housing_members"
+period = "2023-10-01"
+title = "令和5年住宅・土地統計調査 第2表 住宅の種類(2区分)別住宅数並びに世帯の種類(3区分)別世帯数及び世帯人員－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200522&tstat=000001207800&tclass1=000001207808&tclass2=000001207809"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040209844&fileKind=0"
+download_filename = "housing_members_2023.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住宅・土地統計調査」"
+modification_note = "主世帯の世帯人員を抜き出し、世帯人員1人あたりの延べ面積の分母に使用"
+redistributable = true
+
 # 医療施設（動態）調査（厚生労働省、各年10月1日現在）の二次医療圏・市区町村編。形式は pipeline/tdm/ingest/mhlw_medical.py を
 # 参照（#207。2026-11-06 に GitHub Actions から取得して確認）。CSV は fileKind=1
 [mhlw_medical_2025]

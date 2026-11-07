@@ -192,6 +192,8 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out.update(_write_economic_census(directory))
     out.update(_write_industry_census(directory))
     out["ssds_municipal_2026_b"] = _write_ssds(directory)
+    out["ssds_municipal_2026_h"] = _write_ssds_h(directory)
+    out["housing_members_2023"] = _write_housing_members(directory)
     out["mhlw_medical_2025"] = _write_medical(directory)
     out.update(_write_industry_tables(directory))
     out["land_survey"] = _write_land_survey(directory, random.Random(f"{seed}-land-survey"))
@@ -356,6 +358,50 @@ def _write_ssds(directory: Path) -> Path:
     d = directory / "ssds_municipal_2026_b"
     d.mkdir(parents=True, exist_ok=True)
     write_sheet(d / "ssds_2026_b.xlsx", rows, "B")
+    return d
+
+
+# 統計でみる市区町村のすがたの H 居住と、住宅・土地統計調査 第2表の主世帯の世帯人員（#208）。
+# 地域コード → (居住世帯あり住宅数, 1住宅当たり延べ面積, 主世帯の世帯人員)。かりの村は公表の対象外（「...」・行がない）
+HOUSING_FLOOR = {"13": (7235400.0, 64.02, 13766300), "14": (4300000.0, 70.5, 9000000),
+                 "13199": (60000.0, 55.25, 110000), "13299": (35000.0, 88.1, 80000), "14100": (130000.0, 70.0, 300000),
+                 "14199": (130000.0, 70.0, 290000)}
+
+
+def _write_ssds_h(directory: Path) -> Path:
+    from .xlsx import write_sheet
+    pad = [None] * 10
+    rows = [pad + [8.0, 9.0], pad + [8.0, 9.0], [], pad + ["Ｈ　居住　　　H. Dwelling"], pad + [68.0, 71.0],
+            [None] * 8 + ["市区町村", "Municipalities", "居住世帯あり住宅数", "１住宅当たり延べ面積", "市区町村ｺｰﾄﾞ"],
+            pad + ["Number of dwellings", "Area of floor space per dwelling"], pad + ["H1101", "H2130"], pad + ["戸", "㎡"],
+            pad + ["2023", "2023"]]
+    codes = list(HOUSING_FLOOR) + ["13499"]
+    for i, code in enumerate(codes):
+        n, area, _ = HOUSING_FLOOR.get(code, ("...", "...", None))
+        rows.append(["304  ", f"{code:<12}", "FGHI        ", "  ", None, float(i + 1), None, f"{code:<5}", "見本", "Mihon",
+                     n, area, f"{code:<5}"])
+    d = directory / "ssds_municipal_2026_h"
+    d.mkdir(parents=True, exist_ok=True)
+    write_sheet(d / "ssds_2026_h.xlsx", rows, "H")
+    return d
+
+
+def _write_housing_members(directory: Path) -> Path:
+    from .xlsx import write_sheet
+    rows = [["令和５年住宅・土地統計調査　住宅及び世帯に関する基本集計"], ["第２表　見本"], [], [],
+            [None, None, "表章項目", "住宅数", "世帯数", "世帯数", "世帯人員", "世帯人員"],
+            [None, None, "事項名", "世帯の種類", "世帯の種類", "世帯の種類", "世帯の種類", "世帯の種類"],
+            [None, None, "項目名", "0_総数", "0_総数", "1_主世帯", "0_総数", "1_主世帯"],
+            [None, None, "表章単位", "戸", "世帯", "世帯", "人", "人"],
+            ["地域識別コード", "地域区分", "住宅の種類", " "]]
+    for code, (n, _, members) in HOUSING_FLOOR.items():
+        code5 = f"{code}000" if len(code) == 2 else code
+        level = "a" if len(code) == 2 else "0"
+        for kind, f in (("0_総数", 1.0), ("1_専用住宅", 0.9)):
+            rows.append([level, f"{code5}_見本", kind, n * f, n * f + 100, n * f, members * f + 50, round(members * f)])
+    d = directory / "housing_members_2023"
+    d.mkdir(parents=True, exist_ok=True)
+    write_sheet(d / "housing_members_2023.xlsx", rows, "e002")
     return d
 
 

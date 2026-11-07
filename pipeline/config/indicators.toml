@@ -5548,6 +5548,56 @@ fraction_units = ["世帯", "世帯"]
 period_labels = { "2018-10-01" = "2018年10月1日現在", "2023-10-01" = "2023年10月1日現在" }
 legend = { method = "nice", classes = 12, scheme = "purples" }
 
+# 世帯人員1人あたりの延べ面積（#208）。延べ面積の合計は「統計でみる市区町村のすがた」の居住世帯あり住宅数 ×
+# 1住宅当たり延べ面積（どちらも住宅・土地統計調査）、分母は住宅・土地統計調査 第2表の主世帯の世帯人員
+[housing_floor_area_total]
+name = "住宅の延べ面積の合計"
+category = "暮らし方"
+unit = "㎡"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+publish = false
+description = "人が住んでいる住宅の延べ面積（各階の床面積の合計）の合計。1人あたり延べ面積の分子。"
+method = "総務省統計局「統計でみる市区町村のすがた2026」の居住世帯あり住宅数（H1101）× 1住宅当たり延べ面積（H2130）。どちらも2023年住宅・土地統計調査。"
+source_kind = "ssds_municipal"
+ssds_product = ["H1101", "H2130"]
+
+[main_household_members]
+name = "主世帯の世帯人員"
+category = "暮らし方"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality", "prefecture"]
+publish = false
+description = "住宅に住む世帯（主世帯）の人数の合計。1人あたり延べ面積の分母。"
+method = "総務省「住宅・土地統計調査」（2023年）第2表の世帯人員（主世帯）。"
+source_kind = "estat_housing_members"
+
+[floor_area_per_person]
+name = "1人あたりの住宅の延べ面積"
+category = "暮らし方"
+unit = "㎡"
+kind = "ratio"
+definition_version = "1"
+digits = 1
+scale = 1
+unbounded = true
+min_denominator = 1000
+levels = ["municipality", "prefecture"]
+description = "住宅に住む人1人あたりの、住宅の延べ面積（各階の床面積の合計）。住まいのゆとりの目安。"
+method = "住宅の延べ面積の合計 ÷ 主世帯の世帯人員。延べ面積の合計は居住世帯あり住宅数 × 1住宅当たり延べ面積（総務省統計局「統計でみる市区町村のすがた2026」）、世帯人員は総務省「住宅・土地統計調査」第2表。どちらも2023年10月1日現在。"
+caveats = ["市・区と人口1万5千人以上の町村だけの値です（それより小さい町村は公表されていません）。", "標本調査の推計値です。延べ面積の合計は、公表されている1住宅当たり延べ面積（小数第2位まで）と住宅数から計算しています。", "寮・病院・社会施設などに住む人や、同じ住宅に間借りしている世帯（同居世帯）は含みません。"]
+numerator_indicator = "housing_floor_area_total"
+denominator_indicator = "main_household_members"
+denominator_period = "same"
+denominator_label = "主世帯の世帯人員"
+fraction_units = ["㎡", "人"]
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
 [vacant_house_rate]
 name = "空き家率"
 category = "暮らし方"

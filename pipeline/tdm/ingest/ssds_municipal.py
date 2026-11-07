@@ -5,7 +5,8 @@
   （「B1103」）、9行目に単位、10行目に調査年（「2024」）。11行目から1地域1行で、8列目（0から数えて7）が地域コード
   （都道府県は「01」、市区町村・政令指定都市の区は5桁。末尾に空白が付く）。全国の行はない。
   「...」「…」は値なし（調査の対象外。人口1万5千人未満の町村の住宅・土地統計調査の値など）、「-」は該当なし（0）。
-指標（definition の ssds_item で項目コードを選ぶ）の値をそのまま入れる。時点は出典の period。
+指標（definition の ssds_item で項目コードを選ぶ）の値をそのまま入れる。ssds_product = [項目, 項目] なら2つの積
+（例: 居住世帯あり住宅数 × 1住宅当たり延べ面積 = 延べ面積の合計、#208）。どちらかが値なしなら値なし。時点は出典の period。
 """
 from __future__ import annotations
 
@@ -65,15 +66,25 @@ def read_table(path: Path, items: list[str]) -> dict[str, dict[str, float | None
 
 def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
            period: tuple[str, str, str]) -> dict:
-    targets = {k: d for k, d in catalog.items() if d.get("source_kind") == KIND}
-    data = read_table(path, sorted({d["ssds_item"] for d in targets.values()}))
+    items = lambda d: d.get("ssds_product") or [d["ssds_item"]]
+    # 分野ごとのファイルなので、このファイルにある項目の指標だけを取り込む
+    present = {c for r in _rows(path)[:30] for c in r if re.fullmatch(r"[A-K]\d{4,6}", c)}
+    targets = {k: d for k, d in catalog.items()
+               if d.get("source_kind") == KIND and all(i in present for i in items(d))}
+    if not targets:
+        raise KeyError(f"{path.name}: 取り込む項目がありません（{sorted(present)}）")
+    data = read_table(path, sorted({i for d in targets.values() for i in items(d)}))
     result = {"municipalities": 0, "prefectures": 0}
     for code, values in data.items():
         entity_id = f"pref-{code}" if len(code) == 2 else f"muni-{code}"
         if not conn.execute("SELECT 1 FROM entities WHERE entity_id = ?", (entity_id,)).fetchone():
             continue   # 対象外の都道府県、政令指定都市の市全体の行（区ごとの行を使う）
         for indicator_id, d in targets.items():
-            v = values[d["ssds_item"]]
+            if d.get("ssds_product"):
+                a, b = (values[i] for i in d["ssds_product"])
+                v = None if a is None or b is None else a * b
+            else:
+                v = values[d["ssds_item"]]
             insert_observation(conn, entity_id=entity_id, indicator_id=indicator_id,
                                definition_version=d["definition_version"], value=v,
                                status="observed" if v is not None else "missing",

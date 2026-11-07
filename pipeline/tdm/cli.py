@@ -263,7 +263,7 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
                         "tokyo_nurseries", "soumu_furusato", "tokyo_jhs_progress", "mlit_inbound",
                         "nier_gakuryoku", "estat_school_basic", "estat_school_classes", "estat_school_progress", "mlit_schools",
                         "soumu_juki_foreign", "soumu_juki_total", "moj_zairyu_foreign", "estat_housing_income",
-                        "estat_housing_stock", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
+                        "estat_housing_stock", "estat_housing_members", "mhlw_tfr", "mhlw_life_table", "estat_census_history",
                         "estat_economic_census", "estat_economic_census_town_industry",
                         "estat_economic_census_municipal_industry", "ssds_municipal", "mhlw_medical_facilities", "mlit_landsurvey", "jma_normals", "npa_crime_stats",
                         "police_crime_opendata", "mext_school_aid", "maff_agri_output", "maff_agri_prefecture",
@@ -337,6 +337,9 @@ def _ingest_other_sources(conn, paths: Paths, sources: dict, catalog: dict,
         elif kind == "estat_housing_income":
             result[key] = estat_housing.ingest_income(conn, files[0], src, catalog,
                                                       (cfg["period"], cfg["period"], "point"))
+        elif kind == "estat_housing_members":
+            result[key] = estat_housing.ingest_members(conn, files[0], src, catalog,
+                                                       (cfg["period"], cfg["period"], "point"))
         elif kind == "estat_housing_stock":
             result[key] = estat_housing.ingest_stock(conn, files[0], src, catalog,
                                                      (cfg["period"], cfg["period"], "point"))

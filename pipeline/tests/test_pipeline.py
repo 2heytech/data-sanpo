@@ -1546,6 +1546,20 @@ def test_medical_beds(built):
     assert by["hospital_clinic_beds_per_100k"]["category"] == "医療"
 
 
+def test_floor_area_per_person(built):
+    """1人あたりの住宅の延べ面積 = 居住世帯あり住宅数 × 1住宅当たり延べ面積 ÷ 主世帯の世帯人員（#208）。"""
+    got = {r["entity_id"]: r for r in load(
+        built, "values/floor_area_per_person/2023-10-01/municipalities.json")["rows"]}
+    n, area, members = fixture.HOUSING_FLOOR["13199"]
+    assert got["muni-13199"]["value"] == pytest.approx(n * area / members, abs=0.05)
+    assert got["muni-13199"]["denominator"] == members
+    assert got["muni-14199"]["denominator"] == fixture.HOUSING_FLOOR["14199"][2]   # 区の行（市全体ではない）
+    assert got["muni-13499"]["value"] is None   # 人口1万5千人未満の町村は公表されていない（0 にしない）
+    prefs = {r["entity_id"]: r for r in load(
+        built, "values/floor_area_per_person/2023-10-01/prefectures.json")["rows"]}
+    assert prefs["pref-13"]["value"] == pytest.approx(7235400 * 64.02 / 13766300, abs=0.05)
+
+
 def test_census_imputed_age_and_official_density(built):
     """年齢の割合は統計局の不詳補完値の表、人口密度は国勢調査の表の面積から（市区町村・都道府県。#154）。"""
     from tdm.config import load_sources
