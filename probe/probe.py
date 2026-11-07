@@ -108,3 +108,4 @@ for m, lst in sorted(own.items()):
         print("  ", m, names.get("muni-" + m), lst)
 for m in ["40220", "40224", "34302", "34309", "02209", "06426", "16343", "13382"]:
     print("NONE pop", m, names.get("muni-" + m), conn.execute("SELECT value FROM observations WHERE indicator_id='population_total' AND entity_id=?", ("muni-" + m,)).fetchone()[0])
+# rerun
