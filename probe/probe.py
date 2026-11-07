@@ -1,7 +1,7 @@
 import subprocess, sys, json, re, collections, urllib.request
 from pathlib import Path
 sh = lambda c: subprocess.run(c, shell=True)
-sh("git fetch -q origin claude/new-indicators-1106 && git worktree add -q /tmp/nw FETCH_HEAD")
+pass
 sys.path.insert(0, "/tmp/nw/pipeline")
 from tdm.config import load_sources, load_indicators
 from tdm.db import connect, init_schema, upsert_indicators, insert_observation

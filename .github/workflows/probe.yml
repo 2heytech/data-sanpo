@@ -7,4 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils poppler-data
+      - run: git fetch -q origin claude/new-indicators-1106 && git worktree add -q /tmp/nw FETCH_HEAD && pip install -q -r /tmp/nw/pipeline/requirements.txt
       - run: python3 probe/probe.py
