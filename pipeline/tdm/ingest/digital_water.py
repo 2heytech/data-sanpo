@@ -10,6 +10,7 @@ UTF-8）。1行が「年度・水道事業者・事業の区分・項目」の�
   給水人口: item_name「4.施設__(3)現在給水人口(人)」
 市区町村との対応（水道事業者のコードは市区町村のコードとは限らない）:
   1. 市区町村営の水道事業は、コードの先頭5桁の市区町村の料金にする（末端給水事業。ない市町村は法適用簡易水道事業）。
+     料金が0か空欄の事業（小さな簡易水道）は値なしにする（0円にしない）。
      ただし、その市区町村の水道事業の給水人口の合計が住民（国勢調査の人口）の main_supplier_share（半分）未満なら、
      その料金は住民の多くには当てはまらないので値なしにする（県営水道や井戸・小さな簡易水道などが多い地域）。
   2. 出典の設定 suppliers（水道事業者のコード → 主に給水する市区町村のコード）に書いた市区町村は、その事業者の料金にする。
@@ -37,6 +38,7 @@ POP_ITEM = "4.施設__(3)現在給水人口(人)"
 MUNICIPAL = ("2", "3", "4")   # 指定市営・市営・町村営
 NONE_NOTE = "市区町村の水道事業がなく、ほかの事業者（企業団など）や法の適用を受けない簡易水道・井戸などで給水している地域です"
 LOW_NOTE = "市区町村の水道事業が給水しているのは住民の半分未満のため、値を表示しません（ほかは県営水道・簡易水道・井戸など）"
+NO_FEE_NOTE = "市区町村の水道事業の料金（1か月20m³・口径20mm）が表にない（0円か空欄の）ため、値を表示しません"
 AREA_NOTE = "{name}が給水していて、地域（統合前の市町村）ごとに料金が違うか、統一を確かめられないため、値を表示しません"
 
 
@@ -99,12 +101,17 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, 
             served = own.get(code[:5], (None, 0.0))[1] + (u.get("population") or 0.0)
             own[code[:5]] = (main, served)
     values: dict[str, tuple[float | None, str | None]] = {}   # 地図の市区町村コード → (料金, 注記)
-    result = {"own": 0, "suppliers": 0, "low_share": 0, "area_tariffs": 0, "none": 0, "unmatched": [],
+    result = {"own": 0, "suppliers": 0, "low_share": 0, "no_fee": 0, "area_tariffs": 0, "none": 0, "unmatched": [],
               "missing_suppliers": []}
     for code, (main, served) in sorted(own.items()):
         wards = area(code)
-        if main is None or not wards:
-            result["unmatched"].append(code)
+        if not wards:
+            result["unmatched"].append(code)   # 取り込む都道府県を絞ったとき
+            continue
+        if main is None:
+            for w in wards:
+                values[w] = (None, NO_FEE_NOTE)
+            result["no_fee"] += 1
             continue
         residents = sum(population.get(w, 0.0) for w in wards)
         city = f"{main['name']}全体の料金" if wards != [code] else None

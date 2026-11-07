@@ -3909,3 +3909,38 @@ def test_child_medical_repeated_row(built, tmp_path):
     f.write_text("\n".join(lines + [row.replace("15歳", "12歳")]) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="行が2つあります"):
         read_table(f)
+
+
+def test_water_fee_without_fee(tmp_path):
+    # 料金が0円か空欄の市町村営の水道事業は、0円にせず値なし
+    import csv
+    import io
+    import zipfile
+    from tdm.ingest import digital_water
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fixture.WATER_COLUMNS)
+    w.writeheader()
+    for code, fee in (("132993", "0"), ("134996", "")):
+        for item, value in ((digital_water.FEE_ITEM, fee), (digital_water.POP_ITEM, "100")):
+            w.writerow({k: "" for k in fixture.WATER_COLUMNS} | {
+                "fiscal_year": "2024", "local_public_enterprise_code": code, "local_public_enterprise_name": "見本",
+                "facility_code": "005", "cond_2_operating_entity": "4:町村営", "item_name": item, "item_value": value})
+    w.writerow({k: "" for k in fixture.WATER_COLUMNS} | {
+        "fiscal_year": "2024", "local_public_enterprise_code": "130001", "local_public_enterprise_name": "東京都",
+        "facility_code": "001", "cond_2_operating_entity": "1:都道府県営", "item_name": digital_water.FEE_ITEM,
+        "item_value": "2,560"})
+    path = tmp_path / "water.zip"
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("data/2024.csv", buf.getvalue().encode("utf-8-sig"))
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    catalog = {k: d for k, d in load_indicators().items() if k == "water_fee_household"}
+    upsert_indicators(conn, catalog)
+    for code in ("13299", "13499"):
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'municipality', '見本')", (f"muni-{code}",))
+    result = digital_water.ingest(conn, path, "s", catalog, {"fiscal_year": 2024})
+    got = {r["entity_id"]: (r["value"], r["method_note"]) for r in conn.execute(
+        "SELECT entity_id, value, method_note FROM observations")}
+    assert got["muni-13299"] == got["muni-13499"] == (None, digital_water.NO_FEE_NOTE)
+    assert result["no_fee"] == 2 and result["unmatched"] == []

@@ -29,6 +29,8 @@ KIND = "cfa_child_medical"
 ROW = re.compile(r"^\s*(\S+?[都道府県])\s+\d+\s+(\S+)\s+(\S+)\s+(\S+)\s+([有無])\s+([有無])\s+([有無])\s+([有無])\s*$")
 PREF_CODE = {name: code for code, name in PREFECTURES.items()}
 ZEN = str.maketrans("０１２３４５６７８９", "0123456789")
+# 表と地図で字が違う市町村（表 → 地図。令和7年度の表は「鯵ケ沢町」「飯館村」）
+NAME_FIXES = {"鯵ケ沢町": "鰺ヶ沢町", "飯館村": "飯舘村"}
 STUDENT_NOTE = "18歳の年度末より後は、大学などに通う人だけが対象（一定の所得制限あり）"
 
 
@@ -68,7 +70,8 @@ def read_table(path: Path) -> tuple[str, dict[tuple[str, str], dict]]:
         notes = [income, copay] + (["通院は" + out_note] if out_note else []) + (["入院は" + in_note] if in_note else [])
         if "※" in name:
             notes.append(STUDENT_NOTE)
-        key = (pref, name.replace("※", ""))
+        name = name.replace("※", "")
+        key = (pref, NAME_FIXES.get(name, name))
         if key in out:
             if seen[key] == line.split():
                 continue   # ページの境目でくり返された同じ番号の同じ行（令和7年度の奈良県安堵町）
