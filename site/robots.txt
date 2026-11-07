@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+User-agent: Googlebot
+User-agent: Bingbot
+Disallow: /map/?
+
+Sitemap: https://data-sanpo.com/sitemap-index.xml

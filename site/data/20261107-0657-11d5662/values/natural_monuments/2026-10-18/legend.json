@@ -1,0 +1,1 @@
+{"indicator_id":"natural_monuments","period":"2026-10-18","method":"nice","scheme":"oranges","zero_blank":true,"pooled_periods":1,"levels":{"municipality":{"breaks":[2.0,3.0,5.0,7.0,8.0,10.0],"min":0.0,"max":10.0,"count":1896},"prefecture":{"breaks":[8.0,10.0,13.0,15.0,17.0,20.0,25.0,28.0,30.0,35.0,40.0],"min":6.0,"max":44.0,"count":47}}}

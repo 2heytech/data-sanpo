@@ -1,0 +1,1 @@
+{"indicator_id":"crime_npa_total_per_100_residents","period":"2021-2025","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":1,"levels":{"prefecture":{"breaks":[1.6,1.8,2.0,2.2,2.4,2.6,2.8,3.0,3.2],"min":1.1966,"max":4.2676,"count":47}}}
