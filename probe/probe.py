@@ -1,111 +1,40 @@
-import subprocess, sys, json, re, collections, urllib.request
-from pathlib import Path
-sh = lambda c: subprocess.run(c, shell=True)
-pass
-sys.path.insert(0, "/tmp/nw/pipeline")
-from tdm.config import load_sources, load_indicators
-from tdm.db import connect, init_schema, upsert_indicators, insert_observation
-from tdm.fetch import fetch_source
-from tdm.sources import find_files
-from tdm.ingest import mhlw_care, mlit_parks, mlit_sewerage, cfa_child_medical, digital_water
-
+import json, re, subprocess, os
 UA = "Mozilla/5.0 (data-sanpo probe)"
 def get(u):
-    return subprocess.run(["curl", "-sSL", "-A", UA, "--max-time", "300", u], capture_output=True).stdout
-home = get("https://data-sanpo.com/map/").decode("utf-8", "replace")
-rel = re.search(r'data-base="/data/([^"]+)"', home).group(1)
+    r = subprocess.run(["curl", "-sSL", "-A", UA, "--max-time", "120", "-w", "\n%{http_code}", u], capture_output=True)
+    body, _, code = r.stdout.rpartition(b"\n")
+    return body, code.decode()
+home, _ = get("https://data-sanpo.com/map/")
+rel = re.search(r'data-base="/data/([^"]+)"', home.decode()).group(1)
 print("release", rel)
-areas = json.loads(get(f"https://data-sanpo.com/data/{rel}/areas.json"))
-popf = json.loads(get(f"https://data-sanpo.com/data/{rel}/values/population_total/2025-10-01/municipalities.json"))
-conn = connect(":memory:")
-init_schema(conn)
-conn.execute("PRAGMA foreign_keys = OFF")
-catalog = load_indicators()
-upsert_indicators(conn, catalog)
-for p in areas["prefectures"]:
-    conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'prefecture', ?)", (p["id"], p["name"]))
-names = {}
-for m in areas["municipalities"]:
-    conn.execute("INSERT INTO entities (entity_id, entity_type, name, region) VALUES (?, 'municipality', ?, ?)",
-                 (m["id"], m["name"], m["region"]))
-    names[m["id"]] = m["name"]
-print("entities", len(areas["prefectures"]), len(areas["municipalities"]))
-for r in popf["rows"]:
-    if r.get("value") is not None:
-        insert_observation(conn, entity_id=r["entity_id"], indicator_id="population_total", definition_version=1,
-                           value=r["value"], status="observed", period_start="2025-10-01", period_end="2025-10-01",
-                           period_kind="point", source_id="pop")
-sources = load_sources()
-raw = Path("/tmp/raw")
-def run(key, fn):
-    cfg = sources[key]
-    try:
-        fetch_source(key, cfg, raw / key)
-    except Exception as e:
-        print(key, "FETCH FAILED", e); return
-    files = find_files(raw / key, cfg["files"])
-    print(f"\n===== {key} files={[f.name for f in files]}")
-    try:
-        res = fn(cfg, files)
-    except Exception as e:
-        import traceback; traceback.print_exc(); return
-    print("result", json.dumps(res, ensure_ascii=False)[:3000])
-def summary(ids, picks):
-    for ind in ids:
-        rows = conn.execute("SELECT entity_id, value, status, method_note FROM observations WHERE indicator_id = ?", (ind,)).fetchall()
-        st = collections.Counter((r["entity_id"][:4], r["status"]) for r in rows)
-        vals = sorted(r["value"] for r in rows if r["value"] is not None and r["entity_id"].startswith("muni"))
-        print(f"-- {ind}: {dict(st)}")
-        if vals:
-            n = len(vals); print("   muni min/p10/median/p90/max", vals[0], vals[n//10], vals[n//2], vals[n*9//10], vals[-1])
-        notes = collections.Counter((r["method_note"] or "")[:40] for r in rows if r["entity_id"].startswith("muni"))
-        print("   notes", notes.most_common(8))
-        covered = {r["entity_id"] for r in rows}
-        miss = [f"{e}{names[e]}" for e in names if e not in covered]
-        print("   municipalities without row", len(miss), miss[:30])
-        for e in picks:
-            r = next((x for x in rows if x["entity_id"] == e), None)
-            print("   ", e, names.get(e), None if r is None else (r["value"], r["status"], r["method_note"]))
-PICKS = ["muni-22131", "muni-29345", "muni-01101", "muni-01209", "muni-13101", "muni-13104", "muni-13201", "muni-13361", "muni-14101", "muni-14150",
-         "muni-12101", "muni-27127", "muni-26100", "muni-26101", "muni-47201", "muni-40131", "muni-34101", "muni-37201", "muni-28205", "pref-13", "pref-01"]
-run("mhlw_care_2024", lambda cfg, f: mhlw_care.ingest(conn, f[0], "s", catalog, (cfg["period"], cfg["period"], "point")))
-summary(["care_facility_capacity"], PICKS)
-run("mlit_parks_2025", lambda cfg, f: mlit_parks.ingest(conn, f[0], "s", catalog, (cfg["period"], cfg["period"], "point")))
-summary(["city_park_area_per_capita"], PICKS)
-run("mlit_sewerage_2026", lambda cfg, f: mlit_sewerage.ingest(conn, f[0], "s", catalog, cfg["period"]))
-summary(["sewage_treatment_coverage"], PICKS)
-fetch_source("cfa_child_medical_2025", sources["cfa_child_medical_2025"], raw / "cfa_child_medical_2025")
-_t = subprocess.run(["pdftotext", "-layout", str(raw / "cfa_child_medical_2025" / "child_medical_2025.pdf"), "-"], capture_output=True, text=True).stdout.splitlines()
-for i, l in enumerate(_t):
-    if "吉野" in l or "鯵" in l or "飯館" in l or "大淀" in l or "下市" in l:
-        print("NARA", i, repr(l))
-run("cfa_child_medical_2025", lambda cfg, f: cfa_child_medical.ingest(conn, f[0], "s", catalog, cfg["period"]))
-summary(["child_medical_age_outpatient", "child_medical_age_inpatient"], PICKS)
-run("digital_water_2024", lambda cfg, f: digital_water.ingest(conn, f[0], "s", catalog, cfg))
-summary(["water_fee_household"], PICKS)
-# 水道: 値なしの市区町村（注記ごと）
-rows = conn.execute("SELECT entity_id, method_note FROM observations WHERE indicator_id = 'water_fee_household' AND value IS NULL").fetchall()
-by = collections.defaultdict(list)
-for r in rows:
-    by[(r["method_note"] or "")[:30]].append(f"{r['entity_id'][5:]}{names.get(r['entity_id'], '')}")
-for k, v in by.items():
-    print("WATER NULL", k, len(v), " ".join(v))
-
-u = digital_water.read_table(raw / "digital_water_2024" / "water_supply_table_02.zip", 2024)
-cfg = sources["digital_water_2024"]
-used = set(cfg.get("suppliers", {})) | set(cfg.get("area_tariffs", {}))
-print("\nUTILITIES not municipal and not in config")
-for (c, f), x in sorted(u.items()):
-    if x["entity"] in ("1", "5") and c not in used:
-        print("  ", c, f, x)
-print("\nOWN without fee")
-own = collections.defaultdict(list)
-for (c, f), x in u.items():
-    if x["entity"] in ("2", "3", "4"):
-        own[c[:5]].append((c, f, x))
-for m, lst in sorted(own.items()):
-    if not any(x.get("fee") and f in ("001", "005") for c, f, x in lst):
-        print("  ", m, names.get("muni-" + m), lst)
-for m in ["40220", "40224", "34302", "34309", "02209", "06426", "16343", "13382"]:
-    print("NONE pop", m, names.get("muni-" + m), conn.execute("SELECT value FROM observations WHERE indicator_id='population_total' AND entity_id=?", ("muni-" + m,)).fetchone()[0])
-# rerun
+cat = json.loads(get(f"https://data-sanpo.com/data/{rel}/indicators.json")[0])["indicators"]
+by = {i["id"]: i for i in cat}
+print("indicators", len(cat))
+NEW = ["care_facility_capacity", "care_facility_capacity_per_1000_elderly", "city_park_area_per_capita", "sewage_treatment_coverage",
+       "child_medical_age_outpatient", "child_medical_age_inpatient", "water_fee_household", "in_migration_rate", "out_migration_rate",
+       "migration_in_out_ratio", "child_woman_ratio", "restaurants", "restaurants_per_1000", "food_retail_establishments",
+       "food_retail_per_inhabitable_km2", "corporate_tax_per_capita", "hospital_clinic_beds", "hospital_clinic_beds_per_100k",
+       "floor_area_per_person"]
+for k in NEW:
+    i = by.get(k)
+    if not i:
+        print("MISSING", k); continue
+    p = i["periods"][-1]
+    page, code = get(f"https://data-sanpo.com/indicators/{k}/")
+    title = re.search(rb"<title>([^<]*)</title>", page)
+    rows = json.loads(get(f"https://data-sanpo.com/data/{rel}/values/{k}/{p['period']}/municipalities.json")[0])["rows"]
+    n = sum(r.get("value") is not None for r in rows)
+    print(f"{k} | {i['category']} | {p['label']} | page {code} {title.group(1).decode() if title else ''} | munis with value {n}/{len(rows)}")
+from playwright.sync_api import sync_playwright
+os.makedirs("/tmp/shots", exist_ok=True)
+with sync_playwright() as pw:
+    b = pw.chromium.launch()
+    pg = b.new_page(viewport={"width": 1280, "height": 800})
+    for k in ["water_fee_household", "child_medical_age_outpatient", "care_facility_capacity_per_1000_elderly"]:
+        pg.goto(f"https://data-sanpo.com/map/?i={k}&l=municipality", wait_until="networkidle", timeout=120000)
+        pg.wait_for_timeout(6000)
+        pg.screenshot(path=f"/tmp/shots/map_{k}.png")
+        print("shot", k, pg.title())
+    pg.goto("https://data-sanpo.com/indicators/water_fee_household/", wait_until="networkidle")
+    pg.screenshot(path="/tmp/shots/page_water.png")
+    b.close()

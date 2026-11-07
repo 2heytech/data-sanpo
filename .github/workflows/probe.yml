@@ -10,6 +10,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils poppler-data
-      - run: git fetch -q origin claude/new-indicators-1106 && git worktree add -q /tmp/nw FETCH_HEAD && pip install -q -e /tmp/nw/pipeline
+      - run: pip install -q playwright==1.49.1 && python -m playwright install --with-deps chromium > /dev/null
       - run: python3 probe/probe.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shots
+          path: /tmp/shots
+          retention-days: 1
