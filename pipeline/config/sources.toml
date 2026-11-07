@@ -6801,6 +6801,7 @@ provider = "デジタル庁（元データは総務省「地方公営企業決�
 url = "https://www.digital.go.jp/resources/govdashboard/watersupply"
 download_url = "https://www.digital.go.jp/assets/contents/node/basic_page/field_ref_resources/9112b58e-556c-429e-906f-45be48b63fd9/db7e75fb/20260703_resources_govdashboard_watersupply_table_02.zip"
 download_filename = "water_supply_table_02.zip"
+extract = false
 files = ["water_supply_table_02.zip"]
 cache = true
 license = "公共データ利用規約（第1.0版）（PDL1.0）準拠（デジタル庁コピーライトポリシー）"
