@@ -77,7 +77,7 @@ summary(["sewage_treatment_coverage"], PICKS)
 fetch_source("cfa_child_medical_2025", sources["cfa_child_medical_2025"], raw / "cfa_child_medical_2025")
 _t = subprocess.run(["pdftotext", "-layout", str(raw / "cfa_child_medical_2025" / "child_medical_2025.pdf"), "-"], capture_output=True, text=True).stdout.splitlines()
 for i, l in enumerate(_t):
-    if "安堵" in l or "奈良県" in l and ("三郷" in l or "平群" in l or "斑鳩" in l or "川西" in l or "三宅" in l):
+    if "吉野" in l or "鯵" in l or "飯館" in l or "大淀" in l or "下市" in l:
         print("NARA", i, repr(l))
 run("cfa_child_medical_2025", lambda cfg, f: cfa_child_medical.ingest(conn, f[0], "s", catalog, cfg["period"]))
 summary(["child_medical_age_outpatient", "child_medical_age_inpatient"], PICKS)
@@ -90,3 +90,21 @@ for r in rows:
     by[(r["method_note"] or "")[:30]].append(f"{r['entity_id'][5:]}{names.get(r['entity_id'], '')}")
 for k, v in by.items():
     print("WATER NULL", k, len(v), " ".join(v))
+
+u = digital_water.read_table(raw / "digital_water_2024" / "water_supply_table_02.zip", 2024)
+cfg = sources["digital_water_2024"]
+used = set(cfg.get("suppliers", {})) | set(cfg.get("area_tariffs", {}))
+print("\nUTILITIES not municipal and not in config")
+for (c, f), x in sorted(u.items()):
+    if x["entity"] in ("1", "5") and c not in used:
+        print("  ", c, f, x)
+print("\nOWN without fee")
+own = collections.defaultdict(list)
+for (c, f), x in u.items():
+    if x["entity"] in ("2", "3", "4"):
+        own[c[:5]].append((c, f, x))
+for m, lst in sorted(own.items()):
+    if not any(x.get("fee") and f in ("001", "005") for c, f, x in lst):
+        print("  ", m, names.get("muni-" + m), lst)
+for m in ["40220", "40224", "34302", "34309", "02209", "06426", "16343", "13382"]:
+    print("NONE pop", m, names.get("muni-" + m), conn.execute("SELECT value FROM observations WHERE indicator_id='population_total' AND entity_id=?", ("muni-" + m,)).fetchone()[0])
