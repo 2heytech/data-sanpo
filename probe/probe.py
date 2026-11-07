@@ -13,7 +13,7 @@ UA = "Mozilla/5.0 (data-sanpo probe)"
 def get(u):
     return subprocess.run(["curl", "-sSL", "-A", UA, "--max-time", "300", u], capture_output=True).stdout
 home = get("https://data-sanpo.com/map/").decode("utf-8", "replace")
-rel = re.search(r"/data/([^/\"']+)/", home).group(1)
+rel = re.search(r'data-base="/data/([^"]+)"', home).group(1)
 print("release", rel)
 areas = json.loads(get(f"https://data-sanpo.com/data/{rel}/areas.json"))
 popf = json.loads(get(f"https://data-sanpo.com/data/{rel}/values/population_total/2025-10-01/municipalities.json"))
