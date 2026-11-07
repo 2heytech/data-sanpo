@@ -3846,6 +3846,21 @@ def test_child_medical(built):
     assert out["muni-14199"]["value"] == 18 and out["muni-14199"]["note"].startswith("みほん市全体の制度")
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
     assert all(p["levels"] == ["municipality"] for p in by["child_medical_age_outpatient"]["periods"])
+    # 表に行のない市町村は値なしにして理由を書く
+    from tdm.ingest import cfa_child_medical
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    catalog = {k: d for k, d in load_indicators().items() if k == "child_medical_age_outpatient"}
+    upsert_indicators(conn, catalog)
+    for code, name in (("13299", "ためし市"), ("13599", "ない町")):
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'municipality', ?)", (f"muni-{code}", name))
+    result = cfa_child_medical.ingest(conn, built.raw / "cfa_child_medical_2025" / "child_medical_2025.txt", "s",
+                                      catalog, "2025-04-01")
+    got = {r["entity_id"]: (r["value"], r["method_note"]) for r in conn.execute(
+        "SELECT entity_id, value, method_note FROM observations")}
+    assert got["muni-13599"] == (None, cfa_child_medical.NOT_LISTED_NOTE) and result["not_listed"] == ["muni-13599"]
+    assert got["muni-13299"][0] == 15
 
 
 def test_child_medical_rejects_other_period(built):

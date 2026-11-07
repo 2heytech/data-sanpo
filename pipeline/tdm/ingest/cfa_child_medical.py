@@ -31,6 +31,8 @@ PREF_CODE = {name: code for code, name in PREFECTURES.items()}
 ZEN = str.maketrans("０１２３４５６７８９", "0123456789")
 # 表と地図で字が違う市町村（表 → 地図。令和7年度の表は「鯵ケ沢町」「飯館村」）
 NAME_FIXES = {"鯵ケ沢町": "鰺ヶ沢町", "飯館村": "飯舘村"}
+# 表に行のない地図の市町村（令和7年度の表には奈良県吉野町の行がない）は値なしにして理由を書く
+NOT_LISTED_NOTE = "調査の表にこの市町村の行がないため値なし"
 STUDENT_NOTE = "18歳の年度末より後は、大学などに通う人だけが対象（一定の所得制限あり）"
 
 
@@ -108,7 +110,8 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, 
     targets = {k: d for k, d in catalog.items() if d.get("source_kind") == KIND}
     names, wards = _municipalities(conn)
     base = dict(period_start=period, period_end=period, period_kind="point", source_id=source_id)
-    result = {"municipalities": 0, "designated_cities": 0, "unmatched": []}
+    result = {"municipalities": 0, "designated_cities": 0, "unmatched": [], "not_listed": []}
+    written: set[str] = set()
     for (pref, name), values in sorted(data.items()):
         key = (pref, normalize_municipality(name))
         if key in names:
@@ -121,9 +124,16 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict, 
             result["unmatched"].append(f"{PREFECTURES[pref]}{name}")
             continue
         note = "。".join(extra + values["notes"])
+        written.update(entities)
         for entity_id in entities:
             for indicator_id, d in targets.items():
                 insert_observation(conn, entity_id=entity_id, indicator_id=indicator_id,
                                    definition_version=d["definition_version"], value=values[d["child_medical"]],
                                    status="observed", method_note=note, **base)
+    for entity_id in sorted(set(names.values()) - written):
+        for indicator_id, d in targets.items():
+            insert_observation(conn, entity_id=entity_id, indicator_id=indicator_id,
+                               definition_version=d["definition_version"], value=None,
+                               status="missing", method_note=NOT_LISTED_NOTE, **base)
+        result["not_listed"].append(entity_id)
     return result
