@@ -3959,3 +3959,31 @@ def test_water_fee_without_fee(tmp_path):
         "SELECT entity_id, value, method_note FROM observations")}
     assert got["muni-13299"] == got["muni-13499"] == (None, digital_water.NO_FEE_NOTE)
     assert result["no_fee"] == 2 and result["unmatched"] == []
+
+
+def test_name_matching_uses_map_municipalities(built):
+    # 過去の境界にしかない同じ名前の市（政令指定都市になる前の市など）と取り違えず、地図の区に入れる
+    from tdm.ingest import cfa_child_medical, mlit_sewerage
+    from tdm.regions import map_municipalities, wards_without_rows
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    catalog = {k: d for k, d in load_indicators().items()
+               if k in ("child_medical_age_outpatient", "sewage_treatment_coverage")}
+    upsert_indicators(conn, catalog)
+    for code, name, region, version in [("14201", "みほん市", None, "census2010"), ("14191", "みほん市北区", "みほん市", "census2020"),
+                                        ("14192", "みほん市南区", "みほん市", "census2020"), ("13299", "ためし市", None, "census2020")]:
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name, region) VALUES (?, 'municipality', ?, ?)",
+                     (f"muni-{code}", name, region))
+        conn.execute("INSERT INTO boundaries (boundary_id, boundary_version, entity_id, reference_date, source_id, "
+                     "geometry, bbox_west, bbox_south, bbox_east, bbox_north) VALUES (?, ?, ?, '2020', 's', '{}', 0, 0, 0, 0)",
+                     (f"b:{code}", version, f"muni-{code}"))
+    assert [r["entity_id"] for r in map_municipalities(conn)] == ["muni-13299", "muni-14191", "muni-14192"]
+    cfa_child_medical.ingest(conn, built.raw / "cfa_child_medical_2025" / "child_medical_2025.txt", "s", catalog, "2025-04-01")
+    mlit_sewerage.ingest(conn, built.raw / "mlit_sewerage_2026" / "sewerage_2026.html", "s", catalog, "2026-03-31")
+    got = {(r["entity_id"], r["indicator_id"]): (r["value"], r["status"]) for r in conn.execute(
+        "SELECT entity_id, indicator_id, value, status FROM observations")}
+    assert got[("muni-14191", "child_medical_age_outpatient")] == (18, "observed")
+    assert got[("muni-14192", "sewage_treatment_coverage")] == (None, "not_applicable")
+    assert not any(e == "muni-14201" for e, _ in got)          # 今はない市には入れない
+    assert wards_without_rows(conn, {"muni-14191"}) == ["muni-14192"]

@@ -21,7 +21,7 @@ import unicodedata
 from pathlib import Path
 
 from ..db import insert_observation
-from ..regions import PREFECTURES
+from ..regions import PREFECTURES, map_municipalities
 from .isj_geocode import normalize_municipality
 from .mext_school_aid import pdf_text
 
@@ -95,7 +95,7 @@ def _pair(label: str, outpatient: str, inpatient: str) -> str:
 def _municipalities(conn: sqlite3.Connection) -> tuple[dict, dict]:
     """((都道府県コード, 市区町村名) → 地域ID, (都道府県コード, 政令指定都市名) → 区の地域ID)。"""
     names, wards = {}, {}
-    for r in conn.execute("SELECT entity_id, name, region FROM entities WHERE entity_type = 'municipality'"):
+    for r in map_municipalities(conn):
         pref = r["entity_id"][5:7]
         names[(pref, normalize_municipality(r["name"]))] = r["entity_id"]
         if r["region"] and pref != "13":
