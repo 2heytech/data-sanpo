@@ -22,7 +22,18 @@ const POINT_ROWS: PointRow[] = [
   { files: ["cultural_properties"], category: "観光", show: "bunka" },
 ];
 
+let cached: ReturnType<typeof buildCatalog> | null = null;
 export function indicatorCatalog() {
+  cached ??= buildCatalog();
+  return cached;
+}
+
+/** 指標の分類（カテゴリ）が入っているトップページの一覧のジャンル（指標ページのパンくずに使う。#216） */
+export function genreOfCategory(category: string): Genre | null {
+  return indicatorCatalog().genres.find((g) => g.categories.includes(category)) ?? null;
+}
+
+function buildCatalog() {
   const indicators = loadIndicators();
   const areas = loadAreas();
   const points = POINT_ROWS.flatMap(({ files, ...p }) => {

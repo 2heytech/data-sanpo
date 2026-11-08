@@ -1,4 +1,5 @@
-import { fitDescription } from "./areaSummary";
+import { DESCRIPTION_MAX, fitDescription } from "./areaSummary";
+import type { DescriptionLeaders, Leader } from "./indicatorSummary";
 import { latestPeriod } from "./periods";
 import type { Indicator } from "./types";
 
@@ -14,6 +15,20 @@ export interface IndicatorPageScope {
   nationwide: boolean;
   /** 一部の都道府県だけの指標か */
   partial: boolean;
+  /** 値のある都道府県の数（説明文の「47都道府県と1,896市区町村の全順位」） */
+  prefCount?: number;
+  /** 一部の都道府県だけの指標の範囲（「東京都」）。説明文の「東京都の市区町村で〜」 */
+  coverageLabel?: string | null;
+}
+
+export interface IndicatorPageText {
+  title: string;
+  description: string;
+  /**
+   * ページの見出し（h1）。main（指標名）を大きく、sub（「都道府県別・市区町村別ランキング（2020年）」）を小さく、同じ h1 に入れる。
+   * Google は長い題名を h1 に差し替えるので、h1 にも「ランキング」と時点を入れておく（#216）
+   */
+  heading: { main: string; sub: string | null };
 }
 
 // 比例代表の得票率は「政党名 得票率」で探されるので、題名を政党名から始める。
@@ -53,7 +68,7 @@ function electionNames(ind: Indicator): string {
 
 /**
  * 説明文の書き出し（「全国1位の市区町村はどこ？ 」）。検索結果で、開いて確かめたくなるように問いかけで始める（設計変更記録 #144）。
- * 答え（1位の地域名）は書かない（犯罪など、地域を悪く言うように読める指標もあるため）
+ * 1位の地域名を書かない指標（犯罪など、地域を悪く言うように読める指標。#216）と、1位が並ぶ指標に使う
  */
 function hook(scope: IndicatorPageScope): string {
   const allPrefs = scope.nationwide && !scope.partial;
@@ -64,15 +79,76 @@ function hook(scope: IndicatorPageScope): string {
 /** 指標の説明は、検索結果で途中で切れないよう、120字に収まるときだけ後ろに付ける（#144） */
 const withExplanation = (text: string, ind: Indicator) => fitDescription(text, [ind.description]);
 
-export function indicatorPageText(ind: Indicator, scope: IndicatorPageScope): { title: string; description: string } {
+/** 指標名・政党名の後ろに付ける「都道府県別・市区町村別ランキング（2020年）」と、題名でのつなぎ方 */
+function rankingSub(ind: Indicator, scope: IndicatorPageScope, party: boolean): { sub: string | null; join: string } {
   const allPrefs = scope.nationwide && !scope.partial;
   const year = rankingYear(ind);
-  const party = voteShareParty(ind);
   if (party) {
     const when = year ? `（${year}・比例代表）` : "（比例代表）";
-    const title = scope.muniCount > 0
-      ? `${party.short}の得票率 ${scope.hasPrefRows ? "都道府県別・" : ""}市区町村別ランキング${when}`
-      : `${party.short}の得票率 都道府県別${when}`;
+    return scope.muniCount > 0
+      ? { sub: `${scope.hasPrefRows ? "都道府県別・" : ""}市区町村別ランキング${when}`, join: " " }
+      : { sub: `都道府県別${when}`, join: " " };
+  }
+  // 「〇〇 都道府県別」「〇〇 市区町村 ランキング 2025」のように探されるので、都道府県別の表があればそう書き、
+  // ランキングの時点の年を添える。都道府県の値だけの指標は「〇〇 都道府県別ランキング（年）」（#144）、どちらもなければ名前だけ
+  if (scope.muniCount > 0 && scope.hasPrefRows) return { sub: `都道府県別・市区町村別ランキング${year ? `（${year}）` : ""}`, join: " " };
+  if (scope.muniCount > 0) {
+    const notes = [allPrefs ? "全国" : null, year].filter((x) => !!x);
+    return { sub: `市区町村ランキング${notes.length ? `（${notes.join("・")}）` : ""}`, join: "の" };
+  }
+  if (scope.hasPrefRows) return { sub: `都道府県別ランキング${year ? `（${year}）` : ""}`, join: " " };
+  return { sub: null, join: "" };
+}
+
+const followed = (l: Leader, withNext: boolean) =>
+  `${l.top}${withNext && l.next.length ? `で、${l.next.join("・")}が続きます` : "です"}。`;
+
+/**
+ * 説明文を、都道府県と市区町村の1位から始める（#216。#144 の「1位の地域名は書かない」を、ページ冒頭の要約の決まり #190 に置き換えた）。
+ * 「平均標高の都道府県1位は長野県（1,131.4m）で、山梨県・群馬県が続きます。市区町村の1位は長野県川上村（1,624.6m）。」に、
+ * 開くと何があるか（全順位・色分け地図・出典）を、120字に収まる長さで続ける。どれも収まらなければ null（今までの問いかけの文にする）
+ */
+function leadersDescription(ind: Indicator, subject: string, scope: IndicatorPageScope, leaders: DescriptionLeaders,
+  party: boolean): string | null {
+  const { prefecture: p, municipality: m } = leaders;
+  const prefPart = (withNext: boolean) => (p ? `${subject}の都道府県1位は${followed(p, withNext)}` : "");
+  const muniAlone = (withNext: boolean) => {
+    if (!m) return "";
+    return scope.coverageLabel
+      ? `${scope.coverageLabel}の市区町村で${subject}の1位は${followed(m, withNext)}`
+      : `${subject}の市区町村1位は${followed(m, withNext)}`;
+  };
+  const muniAfter = m ? `市区町村の1位は${m.top}。` : "";
+  const bodies = [
+    ...(p ? [prefPart(true) + muniAfter, prefPart(false) + muniAfter, prefPart(true), prefPart(false)] : []),
+    muniAlone(true), muniAlone(false),
+  ].filter((b) => b.length > 0);
+  const year = rankingYear(ind);
+  const when = year ? `（${year}${party ? "・比例代表" : ""}）` : party ? "（比例代表）" : "";
+  const prefCount = scope.hasPrefRows && scope.prefCount ? `${scope.prefCount}都道府県` : null;
+  const muniCount = scope.muniCount > 0
+    ? `${scope.coverageLabel ? `${scope.coverageLabel}の` : ""}${scope.muniCount.toLocaleString("ja-JP")}市区町村` : null;
+  const counts = [prefCount, muniCount].filter((x) => !!x).join("と");
+  const tails = [
+    ...(counts ? [`${counts}の全順位を、色分け地図と出典つきで紹介${when}。`, `${counts}の全順位を色分け地図で紹介${when}。`] : []),
+    `全順位を色分け地図で紹介${when}。`,
+    `全順位を地図で紹介${party ? "（比例代表）" : ""}。`,
+  ];
+  const shortest = Math.min(...tails.map((t) => t.length));
+  const body = bodies.find((b) => b.length + shortest <= DESCRIPTION_MAX);
+  return body ? fitDescription(body, tails) : null;
+}
+
+export function indicatorPageText(ind: Indicator, scope: IndicatorPageScope, leaders?: DescriptionLeaders | null): IndicatorPageText {
+  const allPrefs = scope.nationwide && !scope.partial;
+  const party = voteShareParty(ind);
+  const main = party ? `${party.short}の得票率` : ind.name;
+  const { sub, join } = rankingSub(ind, scope, !!party);
+  const title = sub ? `${main}${join}${sub}` : main;
+  const heading = { main, sub };
+  const fromLeaders = leaders ? leadersDescription(ind, main, scope, leaders, !!party) : null;
+  if (fromLeaders) return { title, description: fromLeaders, heading };
+  if (party) {
     const where = scope.hasMuniValues
       ? `${scope.hasPrefRows ? "都道府県別と" : ""}${allPrefs ? "全国の" : ""}市区町村別のランキング`
       : "都道府県別の値";
@@ -81,18 +157,7 @@ export function indicatorPageText(ind: Indicator, scope: IndicatorPageScope): { 
     const description = withExplanation(`${party.short}の得票率が${hook(scope)}`
       + `${party.short !== party.full ? party.full + "の" : ""}比例代表の得票率を、`
       + `${where}で紹介${elections ? `（${elections}）` : ""}。意味・計算方法・出典つき。`, ind);
-    return { title, description };
-  }
-  // 「〇〇 都道府県別」「〇〇 市区町村 ランキング 2025」のように探されるので、都道府県別の表があればそう書き、
-  // ランキングの時点の年を添える。都道府県の値だけの指標は「〇〇 都道府県別ランキング（年）」（#144）、どちらもなければ名前だけ
-  let title = ind.name;
-  if (scope.muniCount > 0 && scope.hasPrefRows) {
-    title = `${ind.name} 都道府県別・市区町村別ランキング${year ? `（${year}）` : ""}`;
-  } else if (scope.muniCount > 0) {
-    const notes = [allPrefs ? "全国" : null, year].filter((x) => !!x);
-    title = `${ind.name}の市区町村ランキング${notes.length ? `（${notes.join("・")}）` : ""}`;
-  } else if (scope.hasPrefRows) {
-    title = `${ind.name} 都道府県別ランキング${year ? `（${year}）` : ""}`;
+    return { title, description, heading };
   }
   const where = scope.hasMuniValues
     ? `${allPrefs ? "全国の" : ""}市区町村ランキング${scope.hasPrefRows ? "と都道府県別の値" : ""}`
@@ -105,5 +170,5 @@ export function indicatorPageText(ind: Indicator, scope: IndicatorPageScope): { 
   const description = withExplanation(scope.muniCount > 0 || scope.hasPrefRows
     ? `${ind.name}が${hook(scope)}${scope.hasMuniValues ? where : "都道府県別のランキング"}${paren}を、意味・計算方法・出典つきで紹介。`
     : `${ind.name}の${where}${paren}。意味・計算方法・出典つき。`, ind);
-  return { title, description };
+  return { title, description, heading };
 }
