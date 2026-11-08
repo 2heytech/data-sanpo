@@ -14,26 +14,27 @@ const spot = loadCenterSpots().get(muni.id);
 const view = spot ? { zoom: PHOTO_MAP_ZOOM, lat: spot.lat, lng: spot.lng } : undefined;
 const href = (base: string) => mapHref({ area: muni.id, base, view });
 const nowTiles = spot ? photoTiles(LATEST_PHOTO_ERA, spot.lng, spot.lat) : [];
-const OLD_NOTE = "昔の写真は、この場所が写っているいちばん古い年代のものです。航空写真: 国土地理院（";
+// 冒頭は何の写真かだけにし、中心部の決め方・昔の年代・地図のことは下の注釈に書く。
 // 文の間に改行を入れると表示で空白になるので、文はそれぞれ1つの文字列にする
-let lead = "";
+const COMMON_NOTE = "昔の写真は、この場所が写っているいちばん古い年代のものです。写真を押すと、地図の航空写真で年代を変えながら見られます。"
+  + "航空写真: 国土地理院（";
 let note = "";
 if (spot?.kind === "station") {
-  lead = `${muni.name}でいちばん乗降客数が多い${spot.name}駅のまわりを中心部として、昔と今の航空写真で比べます。`;
-  note = `中心部は、1日の乗降客数（${spot.year}。乗り換えのできる駅は事業者の合計）がいちばん多い駅にしています（空港の駅は除く）。`
-    + "写真の真ん中の丸がその駅です。" + OLD_NOTE;
+  note = `中心部は、${muni.name}で1日の乗降客数（${spot.year}。乗り換えのできる駅は事業者の合計、空港の駅は除く）がいちばん多い${spot.name}駅のまわりで、`
+    + "写真の真ん中の丸がその駅です。" + COMMON_NOTE;
 } else if (spot) {
   const where = spotWhere(spot);
   const what = spot.commercial ? "地価がいちばん高い商業地の地点" : `地価がいちばん高い地点（${spot.use}）`;
-  lead = `${muni.name}には乗降客数の分かる駅がないため、${what}${where && `（${where}）`}のまわりを中心部として、昔と今の航空写真で比べます。`;
-  note = `中心部の地点は${spot.survey ? "都道府県地価調査" : "地価公示"}（${spot.year}）の価格で選んでいます。写真の真ん中の丸がその地点です。` + OLD_NOTE;
+  const source = `${spot.survey ? "都道府県地価調査" : "地価公示"}・${spot.year}`;
+  note = `${muni.name}には乗降客数の分かる駅がないため、中心部は${what}（${[where, source].filter(Boolean).join("。")}）のまわりで、`
+    + "写真の真ん中の丸がその地点です。" + COMMON_NOTE;
 }
 const tileStyle = (t: { left: number; top: number }) => `left:calc(50% + ${t.left}px);top:calc(50% + ${t.top}px)`;
 ---
 {spot && (
   <section class="sheet center-photos" id={id}>
     <h2>{muni.name}の中心部の昔と今</h2>
-    <p>{lead}写真を押すと、地図の航空写真で年代を変えながら見られます。</p>
+    <p>{`${muni.name}の中心部を写した、昔と今の航空写真です。`}</p>
     <div class="photo-pair">
       <figure class="center-photo" data-old-photo data-lng={spot.lng} data-lat={spot.lat} data-name={muni.name}>
         <a class="photo-frame" href={href(LATEST_PHOTO_ERA.id)} aria-label={`${muni.name}の中心部の昔の航空写真を地図で見る`}>
