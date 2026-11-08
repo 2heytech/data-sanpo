@@ -147,6 +147,26 @@ function changeSentence(ind: Indicator, ranked: Ranked[], previous: PreviousValu
   return `${previous.label}と比べると、両方の時点に値のある${fmt(both)}${unitWord}のうち${body}。`;
 }
 
+/** 説明文に書く1位の地域（「長野県（1,131.4m）」）と、続く2つの地域の名前 */
+export interface Leader { top: string; next: string[] }
+export interface DescriptionLeaders { prefecture: Leader | null; municipality: Leader | null }
+
+/**
+ * 検索結果に出る説明文に書く、都道府県と市区町村の1位（#216）。ページ冒頭の要約と同じ決まり（#190）で、
+ * 要約を出さない指標は null。書くのは大きい方だけ。1位が並ぶときは、その単位（都道府県・市区町村）を書かない
+ */
+export function descriptionLeaders(input: SummaryInput): DescriptionLeaders | null {
+  const { ind } = input;
+  if (summaryPolicy(ind) === "none") return null;
+  const leader = (ranked: Ranked[], min: number): Leader | null =>
+    ranked.length >= min && ranked[0].value !== ranked[1].value
+      ? { top: named(ind, ranked[0]), next: ranked.slice(1, 3).map((a) => a.label) }
+      : null;
+  const prefecture = leader(sortDesc(input.prefectures), 10);
+  const municipality = leader(sortDesc(input.municipalities), MIN_RANKED);
+  return prefecture || municipality ? { prefecture, municipality } : null;
+}
+
 /**
  * 指標ページの冒頭に出す文（3〜6文）。出さない指標や、比べるだけの地域がないときは空の配列
  */

@@ -34,6 +34,7 @@ import { newerPeriod } from "../lib/periods";
 import { IndicatorSearch, type SearchDoc } from "../lib/indicatorSearch";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 import { esc } from "../lib/html";
+import { detailPageLinks, pageLinksHtml } from "./pageLinks";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
 // 切り替えは、次の段階の地名がある程度読める縮尺まで待つ（市区町村名は MUNI_LABEL_ZOOM、町丁目名は AREA_LABEL_ZOOM から）
@@ -1041,6 +1042,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       detailEl.innerHTML = detailIntro;
       return;
     }
+    const sel = selected;
     // 都道府県だけの指標では、市区町村・町丁目を選んでもその都道府県の値を出す
     const within = prefectureOnly() && !isPref(selected) && prefectureCodeOf(selected) ? selected : null;
     const id = within ? `pref-${prefectureCodeOf(within)}` : selected;
@@ -1071,6 +1073,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     const title = page
       ? `<a href="${esc(page)}" title="${esc(name)}のデータをまとめたページへ">${esc(name)}${ICON_NEXT}</a>`
       : esc(name);
+    // くわしく見るページ（#218）: 選んだ地域（町丁・字等ならその市区町村）と都道府県のページ、この指標のランキングのページ
+    const selCode = isPref(sel) ? null : municipalityCodeOf(sel);
+    const selMuni = selCode && munis.has(`muni-${selCode}`) ? `muni-${selCode}` : null;
+    const selPref = prefectureCodeOf(sel);
+    const pages = pageLinksHtml(detailPageLinks({
+      municipality: selMuni ? { id: selMuni, name: entityName(selMuni).name } : null,
+      prefecture: selPref ? { code: selPref, name: prefName(selPref) } : null,
+      indicator: { id: indicator.id, name: indicator.name },
+      prefectureOnly: prefectureOnly(),
+    }));
     detailEl.innerHTML = `
       ${crumbsHtml(id)}
       <h2 class="detail-title">${title}</h2>
@@ -1083,13 +1095,11 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       ${within ? `<p class="note small">この指標は都道府県別の値だけです（${esc(entityName(within).name)}を含む${esc(name)}の値）。</p>` : ""}
       ${!pref && !covers(prefectureCodeOf(id)) ? `<p class="note small">この指標は${esc(indicator.prefectures!.map(prefName).join("・"))}だけの値です。</p>` : ""}
       ${rankHtml(ranks)}
+      ${pages}
       ${compare}
       ${trend}
-      <ul class="detail-links">
-        ${site ? `<li><a href="${esc(site)}" target="_blank" rel="noopener">
-          <span>${esc(entityName(homeId).name)}の公式サイト<small>別のタブで開きます</small></span>${ICON_EXTERNAL}</a></li>` : ""}
-        <li><a href="/indicators/${esc(indicator.id)}/"><span>「${esc(indicator.name)}」の意味と注意点</span>${ICON_NEXT}</a></li>
-      </ul>
+      ${site ? `<ul class="detail-links"><li><a href="${esc(site)}" target="_blank" rel="noopener">
+          <span>${esc(entityName(homeId).name)}の公式サイト<small>別のタブで開きます</small></span>${ICON_EXTERNAL}</a></li></ul>` : ""}
       <p class="detail-sources">${srcHtml}<span aria-hidden="true">・</span><a href="/sources/">出典の一覧</a></p>`;
   }
 
@@ -1172,6 +1182,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const pickerNav = pickerEl.querySelector<HTMLElement>(".picker-nav")!;
   const pickerSearch = $<HTMLInputElement>("#picker-search");
   const openButton = $<HTMLButtonElement>("#indicator-open");
+  const indicatorPageLink = $<HTMLAnchorElement>("#indicator-page");
   const iconTemplate = root.querySelector<HTMLTemplateElement>("#category-icons");
   const catIcon = (c: string, bubble = true) => {
     const el = iconTemplate?.content.querySelector(`[data-category="${CSS.escape(c)}"]`);
@@ -1245,6 +1256,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     openButton.querySelector(".io-icon")!.innerHTML = catIcon(indicator.category, false);
     openButton.querySelector(".io-name")!.textContent = optionLabel(indicator);
     openButton.title = `指標を変える（今は「${optionLabel(indicator)}」）`;
+    // 凡例の下の、この指標のランキングのページへのリンク（#218）
+    indicatorPageLink.href = `/indicators/${indicator.id}/`;
+    indicatorPageLink.querySelector("span")!.textContent = `「${indicator.name}」のランキングと解説`;
   }
   let pickerHits: PickerDoc[] = [];
   function filterPicker() {
