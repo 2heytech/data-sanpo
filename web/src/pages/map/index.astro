@@ -8,6 +8,8 @@ import { RELIEF_GRADIENT, RELIEF_STOPS, reliefAt } from "../../map/relief";
 import { SLOPE_CLASSES } from "../../map/slope";
 import { fallbackView } from "../../lib/mapFallback";
 import { mapFallbackData } from "../../lib/mapFallbackData";
+import { ICON_INDICATOR } from "../../lib/navIcons";
+import { pageLinksHtml } from "../../map/pageLinks";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl-${version}/maplibre-gl.mjs`;
 // 右の欄の「〇〇の公式サイト」の URL 一覧（pages/official-sites.json.ts）。架空の地名を使う開発用データでは出さない
@@ -65,6 +67,12 @@ const indicatorCount = loadIndicators().length;
 const fallbackData = mapFallbackData();
 const fallback = fallbackView({}, fallbackData);
 const ICON_NEXT = '<path d="m6 3.5 4.5 4.5L6 12.5"/>';
+// 何も選んでいないときの欄の、指標・都道府県・市区町村の一覧へのリンク（地域を選んだときと同じ形。#218）
+const introPages = pageLinksHtml([
+  { href: "/#indicators", kind: "indicator", title: "指標の一覧", note: `${indicatorCount}の指標の意味とランキング` },
+  { href: "/prefectures/", kind: "prefecture", title: "都道府県の一覧", note: "特徴と、市区町村の人口ランキング" },
+  { href: "/areas/", kind: "municipality", title: "市区町村の一覧", note: "名前で探して、まちごとのデータを見る" },
+], "一覧のページ");
 const FALLBACK_LINKS = [
   { href: "/#indicators", text: "指標の一覧", note: `人口・所得・子育てなど${indicatorCount}の指標から選ぶ` },
   { href: "/prefectures/", text: "都道府県の一覧", note: "都道府県ごとの特徴と、市区町村の人口ランキング" },
@@ -144,6 +152,11 @@ const FALLBACK_LINKS = [
           <span id="aggregate-label">直近5年の合計で見る</span></label>
       </div>
       <div id="legend" class="legend" aria-live="polite"></div>
+      {/* この指標のランキングのページ（#218）。指標を変えると、地図の処理が行き先と名前を替える */}
+      <a id="indicator-page" class="indicator-page" href="/#indicators">
+        <svg class="ip-icon" viewBox="0 0 24 24" aria-hidden="true" set:html={ICON_INDICATOR} /><span>指標のランキングと解説</span>
+        <svg class="ip-next" viewBox="0 0 16 16" aria-hidden="true" set:html={ICON_NEXT} />
+      </a>
       {/* 表示に関する切替（色分け・地名・数値）は1行のアイコン、地図に重ねるものはアイコンの並び。
            細かい説明は地図の右上の凡例に出す（#97・#139）。チェックボックスは見えないだけで、id と動きはそのまま */}
       <fieldset class="field view-options">
@@ -176,7 +189,8 @@ const FALLBACK_LINKS = [
           <h1>データさんぽの地図</h1>
           <p>全国の都道府県・市区町村・町丁目を、人口・所得・子育て・地価など{indicatorCount}の公開統計で色分けした地図です。「指標」で見たいデータと時点を選び、地図の地域をクリックすると、値・全国での順位・年ごとの移り変わりを見られます。</p>
           <p class="muted mi-howto">地図をクリックするか、地域名で検索してください。</p>
-          <p class="small"><a href="/#indicators">指標の一覧</a>・<a href="/guide/">地図の使い方</a>・<a href="/articles/">寄り道・分析記事</a></p>
+          <Fragment set:html={introPages} />
+          <p class="small mi-more"><a href="/guide/">地図の使い方</a>・<a href="/articles/">寄り道・分析記事</a></p>
         </div>
       </section>
       <p class="muted small panel-foot">
@@ -849,6 +863,29 @@ const FALLBACK_LINKS = [
   .detail-links a span { min-width: 0; }
   .detail-links small { display: block; font-size: 0.75rem; color: var(--muted); }
   .detail-links .icon { width: 16px; height: 16px; color: var(--muted); }
+  /* 地域・都道府県・指標のページへのリンク（#218）。値と順位のすぐ下に、何が見られるかを添えたボタンの形で並べる */
+  .detail-pages { display: grid; gap: 8px; margin: 16px 0 0; }
+  .detail-pages a {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid #c9d8ea; border-radius: 10px;
+    background: var(--surface); color: var(--accent-ink); text-decoration: none; line-height: 1.45;
+  }
+  .detail-pages a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  .detail-pages a > span { flex: 1; min-width: 0; }
+  .detail-pages strong { display: block; font-size: 0.92rem; }
+  .detail-pages small { display: block; font-size: 0.75rem; color: var(--muted); }
+  .detail-pages .icon { width: 20px; height: 20px; color: var(--accent); stroke-width: 1.8; }
+  .detail-pages .icon.dp-next { width: 14px; height: 14px; stroke-width: 2.2; }
+  .map-intro .detail-pages { margin: 4px 0 12px; }
+  .map-intro p.mi-more { margin: 0; }
+  .indicator-page {
+    display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 8px 12px; border: 1px solid #c9d8ea; border-radius: 10px;
+    background: var(--surface); color: var(--accent-ink); font-size: 0.88rem; font-weight: 700; line-height: 1.45; text-decoration: none;
+  }
+  .indicator-page:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  .indicator-page span { flex: 1; min-width: 0; }
+  .indicator-page svg { flex: none; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+  .indicator-page .ip-icon { width: 18px; height: 18px; color: var(--accent); stroke-width: 1.8; }
+  .indicator-page .ip-next { width: 14px; height: 14px; stroke-width: 2.2; }
   .detail-sources { margin: 10px 0 0; font-size: 0.75rem; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
   .detail-sources a { color: inherit; }
   .detail-sources > span { margin: 0 2px; }
