@@ -14,7 +14,7 @@ const spot = loadCenterSpots().get(muni.id);
 const view = spot ? { zoom: PHOTO_MAP_ZOOM, lat: spot.lat, lng: spot.lng } : undefined;
 const href = (base: string) => mapHref({ area: muni.id, base, view });
 const nowTiles = spot ? photoTiles(LATEST_PHOTO_ERA, spot.lng, spot.lat) : [];
-// 冒頭は何の写真かだけにし、中心部の決め方・昔の年代・地図のことは下の注釈に書く。
+// 見出しの下に説明の文は置かない（見出しの繰り返しになる）。中心部の決め方・昔の年代・地図のことは下の注釈に書く。
 // 文の間に改行を入れると表示で空白になるので、文はそれぞれ1つの文字列にする
 const COMMON_NOTE = "昔の写真は、この場所が写っているいちばん古い年代のものです。写真を押すと、地図の航空写真で年代を変えながら見られます。"
   + "航空写真: 国土地理院（";
@@ -34,7 +34,6 @@ const tileStyle = (t: { left: number; top: number }) => `left:calc(50% + ${t.lef
 {spot && (
   <section class="sheet center-photos" id={id}>
     <h2>{muni.name}の中心部の昔と今</h2>
-    <p>{`${muni.name}の中心部を写した、昔と今の航空写真です。`}</p>
     <div class="photo-pair">
       <figure class="center-photo" data-old-photo data-lng={spot.lng} data-lat={spot.lat} data-name={muni.name}>
         <a class="photo-frame" href={href(LATEST_PHOTO_ERA.id)} aria-label={`${muni.name}の中心部の昔の航空写真を地図で見る`}>
