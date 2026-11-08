@@ -1,0 +1,159 @@
+---
+// 地域ページの「中心部の昔と今」（設計変更記録 #215）。地価がいちばん高い商業地の地点のまわりを、昔と今の航空写真で並べる。
+// 写真は地理院タイルをそのまま並べ、押すとその場所・年代の航空写真を背景にした地図を開く。
+// 今の写真（最新の写真）はページに書いておき、昔の写真は欄が画面に近づいてから、その場所が写っているいちばん古い年代を探して出す
+import { loadCenterSpots } from "../lib/data";
+import { LATEST_PHOTO_ERA, PHOTO_MAP_ZOOM, photoTiles, spotWhere } from "../lib/centerPhoto";
+import { mapHref } from "../lib/urlstate";
+import type { Municipality } from "../lib/types";
+
+interface Props { muni: Municipality; id?: string }
+const { muni, id } = Astro.props;
+const spot = loadCenterSpots().get(muni.id);
+const view = spot ? { zoom: PHOTO_MAP_ZOOM, lat: spot.lat, lng: spot.lng } : undefined;
+const href = (base: string) => mapHref({ area: muni.id, base, view });
+const nowTiles = spot ? photoTiles(LATEST_PHOTO_ERA, spot.lng, spot.lat) : [];
+const where = spot ? spotWhere(spot) : "";
+const what = spot?.commercial ? "地価がいちばん高い商業地の地点" : `地価がいちばん高い地点（${spot?.use}）`;
+// 文の間に改行を入れると、表示で空白になるので1つの文字列にする
+const note = spot ? `中心部の地点は${spot.survey ? "都道府県地価調査" : "地価公示"}（${spot.year}）の価格で選んでいます。写真の真ん中の丸がその地点です。`
+  + "昔の写真は、この場所が写っているいちばん古い年代のものです。航空写真: 国土地理院（" : "";
+const tileStyle = (t: { left: number; top: number }) => `left:calc(50% + ${t.left}px);top:calc(50% + ${t.top}px)`;
+---
+{spot && (
+  <section class="sheet center-photos" id={id}>
+    <h2>{muni.name}の中心部の昔と今</h2>
+    <p>{what}{where && `（${where}）`}を中心部として、そのまわりを昔と今の航空写真で比べます。写真を押すと、地図の航空写真で年代を変えながら見られます。</p>
+    <div class="photo-pair">
+      <figure class="center-photo" data-old-photo data-lng={spot.lng} data-lat={spot.lat} data-name={muni.name}>
+        <a class="photo-frame" href={href(LATEST_PHOTO_ERA.id)} aria-label={`${muni.name}の中心部の昔の航空写真を地図で見る`}>
+          <span class="tiles"></span>
+          <span class="photo-status">昔の写真を探しています…</span>
+          <span class="center-mark" aria-hidden="true"></span>
+          <span class="map-chip" aria-hidden="true">地図で見る</span>
+        </a>
+        <figcaption><span class="era-label">昔</span></figcaption>
+      </figure>
+      <figure class="center-photo">
+        <a class="photo-frame" href={href(LATEST_PHOTO_ERA.id)} aria-label={`${muni.name}の中心部の最新の航空写真を地図で見る`}>
+          <span class="tiles">
+            {nowTiles.map((t) => <img src={t.url} alt="" width={t.px} height={t.px} loading="lazy" decoding="async" style={tileStyle(t)} />)}
+          </span>
+          <span class="center-mark" aria-hidden="true"></span>
+          <span class="map-chip" aria-hidden="true">地図で見る</span>
+        </a>
+        <figcaption>今（最新の写真）</figcaption>
+      </figure>
+    </div>
+    <p class="muted small photo-note">{note}<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>）</p>
+  </section>
+)}
+
+<script>
+  // 昔の写真: 古い年代から順に、写真の真ん中の範囲の半分以上が写っているかを確かめ（地図の航空写真と同じ方法、#162）、
+  // 最初に見つかった年代のタイルを並べる。欄が画面に近づくまでは地理院タイルを読まない
+  import { PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare, type PhotoEra } from "../map/photoEras";
+  import { OLD_PHOTO_ERAS, PHOTO_MAP_ZOOM, photoTiles } from "../lib/centerPhoto";
+
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = PHOTO_MASK_SIZE;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  let offline = false;
+
+  async function tileMask(url: string): Promise<Uint8Array | null> {
+    let res: Response;
+    try {
+      res = await fetch(url);
+    } catch {
+      offline = true;
+      return null;
+    }
+    if (!res.ok || !context) return null;
+    try {
+      const image = await createImageBitmap(await res.blob());
+      context.clearRect(0, 0, PHOTO_MASK_SIZE, PHOTO_MASK_SIZE);
+      context.drawImage(image, 0, 0, PHOTO_MASK_SIZE, PHOTO_MASK_SIZE);
+      image.close();
+      return photoMask(context.getImageData(0, 0, PHOTO_MASK_SIZE, PHOTO_MASK_SIZE).data);
+    } catch {
+      return null;
+    }
+  }
+
+  async function eraShare(era: PhotoEra, lng: number, lat: number, width: number, height: number): Promise<number> {
+    const { z, samples } = photoSamples({ lng, lat }, PHOTO_MAP_ZOOM, width, height, era);
+    const keys = [...new Set(samples.map((s) => `${s.x}/${s.y}`))];
+    const masks = await Promise.all(keys.map((k) => {
+      const [x, y] = k.split("/");
+      return tileMask(era.tiles.replace("{z}", String(z)).replace("{x}", x).replace("{y}", y));
+    }));
+    return photoShare(samples, new Map(keys.map((k, i) => [k, masks[i]])));
+  }
+
+  async function showOld(figure: HTMLElement) {
+    const lng = Number(figure.dataset.lng);
+    const lat = Number(figure.dataset.lat);
+    const frame = figure.querySelector<HTMLAnchorElement>(".photo-frame")!;
+    const status = figure.querySelector<HTMLElement>(".photo-status")!;
+    for (const era of OLD_PHOTO_ERAS) {
+      if (await eraShare(era, lng, lat, frame.clientWidth, frame.clientHeight) < PHOTO_MIN_SHARE) continue;
+      const box = figure.querySelector(".tiles")!;
+      for (const t of photoTiles(era, lng, lat, window.devicePixelRatio || 1)) {
+        const img = document.createElement("img");
+        img.alt = "";
+        img.width = img.height = t.px;
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.style.left = `calc(50% + ${t.left}px)`;
+        img.style.top = `calc(50% + ${t.top}px)`;
+        img.src = t.url;
+        box.append(img);
+      }
+      frame.setAttribute("href", (frame.getAttribute("href") ?? "").replace(/([?&]b=)[^&]*/, `$1${era.id}`));
+      frame.setAttribute("aria-label", `${figure.dataset.name}の中心部の${era.label}の航空写真を地図で見る`);
+      figure.querySelector(".era-label")!.textContent = `昔（${era.label}）`;
+      status.hidden = true;
+      return;
+    }
+    status.textContent = offline ? "昔の写真を読み込めませんでした。" : "この場所の昔の写真は見つかりませんでした。";
+  }
+
+  for (const figure of document.querySelectorAll<HTMLElement>("[data-old-photo]")) {
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      showOld(figure).catch(() => {});
+    }, { rootMargin: "300px" });
+    io.observe(figure);
+  }
+</script>
+
+<style>
+  .photo-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 440px)); gap: 12px 16px; margin: 14px 0 10px; }
+  .center-photo { margin: 0; }
+  .photo-frame {
+    position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  }
+  .photo-frame :global(img) { position: absolute; max-width: none; }
+  .photo-frame:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .photo-status {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 12px;
+    color: var(--muted); font-size: 0.9rem; text-align: center;
+  }
+  .photo-status[hidden] { display: none; }
+  .center-mark {
+    position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(28, 39, 51, 0.7), 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+  .map-chip {
+    position: absolute; right: 8px; bottom: 8px; padding: 3px 10px; border-radius: 999px;
+    background: rgba(28, 39, 51, 0.78); color: #ffffff; font-size: 0.78rem; font-weight: 700;
+  }
+  .photo-frame:hover .map-chip { background: var(--accent); }
+  figcaption { margin-top: 6px; font-weight: 700; font-size: 0.95rem; }
+  .photo-note { margin-bottom: 0; }
+  @media (max-width: 560px) {
+    .photo-pair { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

@@ -10,7 +10,8 @@ import PrNotice from "../../components/PrNotice.astro";
 import SmallAreaRanking from "../../components/SmallAreaRanking.astro";
 import { smallAreaTables } from "../../lib/smallAreaTables";
 import StatList from "../../components/StatList.astro";
-import { RELEASE, loadAreas, loadIndicators, loadValues } from "../../lib/data";
+import CenterPhotos from "../../components/CenterPhotos.astro";
+import { RELEASE, loadAreas, loadCenterSpots, loadIndicators, loadValues } from "../../lib/data";
 import { aramashiOf } from "../../lib/aramashi";
 import { formatValue, rankIfVaried } from "../../lib/format";
 import { areaDescription, areaSummary, formerWard } from "../../lib/areaSummary";
@@ -85,9 +86,10 @@ const groups = statGroups(stats);
 // 公式サイトなどで確かめた事実の短いまとめ（設計変更記録 #164）。「データで見る〇〇」の中に出す（#166）。開発用の架空データでは地名が実在しないので出さない
 const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
 const hasIntro = summary.length > 0 || insights.length > 0 || !!aramashi;
-// 冒頭の目次（設計変更記録 #193）。スマホでは表やとなりのまちとの比べがずっと下にあるので、最初にそこへ移れるようにする
+// 冒頭の目次（設計変更記録 #193・#215）。スマホでは表やとなりのまちとの比べがずっと下にあるので、最初にそこへ移れるようにする
 const toc = [
   ...(hasIntro ? [{ id: "profile", label: `データで見る${muni.name}` }] : []),
+  ...(loadCenterSpots().has(muni.id) ? [{ id: "photos", label: "中心部の昔と今" }] : []),
   { id: "stats", label: `主な指標（${statCount}）` },
   ...(neighbors.length ? [{ id: "compare", label: "となりの市区町村と比べる", main: true }] : []),
   ...(smallAreaTables(muni).tables.length ? [{ id: "small-areas", label: "町丁目別ランキング" }] : []),
@@ -133,6 +135,9 @@ const toc = [
       </div>
     </section>
   )}
+
+  {/* 中心部の昔と今の航空写真（設計変更記録 #215） */}
+  <CenterPhotos muni={muni} id="photos" />
 
   <section class="sheet" id="stats">
     <h2>主な指標<span class="count">{statCount}</span></h2>
