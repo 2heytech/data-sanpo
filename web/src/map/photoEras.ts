@@ -3,6 +3,28 @@
 // タイルがあっても中央は撮影範囲の外で何も出ないことがある。そこで表示する縮尺に近いタイルの画像を縮めて読み、
 // 中央の範囲のうち写っている割合を数える。撮影範囲の外は、PNG の年代は透明、1974〜1990年（国土画像情報の JPEG）は黒。
 
+/** 地理院タイルの URL の形（{z}/{x}/{y} を入れ替えて使う） */
+export const GSI_TILE = (path: string) => `https://cyberjapandata.gsi.go.jp/xyz/${path}/{z}/{x}/{y}`;
+// 航空写真は撮影年代をスライドバーで選ぶ（古い順）。2007年度以降は年度ごとに撮影した地域の写真
+// （年度別空中写真）で、どの年度も国土の一部だけ。1979〜1990年の国土画像情報も主に都市部だけ。
+// 1991〜2006年は地理院タイルの写真がない。地図の背景（app.ts）と地域ページの「中心部の昔と今」（#215）で使う
+const NENDO_FIRST = 2007;
+const NENDO_LAST = 2025;
+export const PHOTO_ERAS = [
+  { id: "photo1928", label: "1928年頃", path: "ort_1928", ext: "png", minzoom: 13, maxzoom: 18 },
+  { id: "photo1936", label: "1936〜1942年頃", path: "ort_riku10", ext: "png", minzoom: 13, maxzoom: 18 },
+  { id: "photo1945", label: "1945〜1950年", path: "ort_USA10", ext: "png", minzoom: 10, maxzoom: 17 },
+  { id: "photo1961", label: "1961〜1969年", path: "ort_old10", ext: "png", minzoom: 10, maxzoom: 17 },
+  { id: "photo1974", label: "1974〜1978年", path: "gazo1", ext: "jpg", minzoom: 10, maxzoom: 17 },
+  { id: "photo1979", label: "1979〜1983年", path: "gazo2", ext: "jpg", minzoom: 10, maxzoom: 17 },
+  { id: "photo1984", label: "1984〜1986年", path: "gazo3", ext: "jpg", minzoom: 10, maxzoom: 17 },
+  { id: "photo1987", label: "1987〜1990年", path: "gazo4", ext: "jpg", minzoom: 10, maxzoom: 17 },
+  ...Array.from({ length: NENDO_LAST - NENDO_FIRST + 1 }, (_, i) => NENDO_FIRST + i).map((y) => (
+    { id: `photo${y}n`, label: `${y}年度`, path: `nendophoto${y}`, ext: "png", minzoom: 14, maxzoom: 18 })),
+  { id: "photo", label: "最新", path: "seamlessphoto", ext: "jpg", minzoom: 2, maxzoom: 18 },
+].map((e) => ({ ...e, tiles: GSI_TILE(e.path) + "." + e.ext }));
+export type PhotoEra = (typeof PHOTO_ERAS)[number];
+
 /** タイルの画像を縮めて調べるときの大きさ（縦横の画素数） */
 export const PHOTO_MASK_SIZE = 64;
 /** 中央の範囲を縦横この数の点で調べる */

@@ -27,7 +27,7 @@ import { initMapSheet } from "./sheet";
 import { showMapFallback, supportsWebGL2 } from "./fallback";
 import { RELIEF_STOPS, reliefAt } from "./relief";
 import { registerSlopeProtocol, SLOPE_CLASSES, SLOPE_MAXZOOM, SLOPE_MINZOOM, SLOPE_TILES } from "./slope";
-import { PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare } from "./photoEras";
+import { GSI_TILE, PHOTO_ERAS, PHOTO_MASK_SIZE, PHOTO_MIN_SHARE, photoMask, photoSamples, photoShare } from "./photoEras";
 import type { FocusPoint, PointLayer } from "./points";
 import { genresFor } from "../lib/genres";
 import { newerPeriod } from "../lib/periods";
@@ -66,25 +66,7 @@ const GSI_ATTRIBUTION =
   '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>';
 // 背景に切り替えられる地理院タイル（淡色地図はいつも下に敷き、写真が撮られていない場所や縮小時はそれが見える）。
 // 年代別の空中写真は拡大しないと出ない（minzoom）。色別標高図は z15 まで。傾斜は標高タイルからブラウザで作る（slope.ts、#177）
-const GSI_TILE = (path: string) => `https://cyberjapandata.gsi.go.jp/xyz/${path}/{z}/{x}/{y}`;
-// 航空写真は撮影年代をスライドバーで選ぶ（古い順）。2007年度以降は年度ごとに撮影した地域の写真
-// （年度別空中写真）で、どの年度も国土の一部だけ。1979〜1990年の国土画像情報も主に都市部だけ。
-// 1991〜2006年は地理院タイルの写真がない
-const NENDO_FIRST = 2007;
-const NENDO_LAST = 2025;
-export const PHOTO_ERAS = [
-  { id: "photo1928", label: "1928年頃", path: "ort_1928", ext: "png", minzoom: 13, maxzoom: 18 },
-  { id: "photo1936", label: "1936〜1942年頃", path: "ort_riku10", ext: "png", minzoom: 13, maxzoom: 18 },
-  { id: "photo1945", label: "1945〜1950年", path: "ort_USA10", ext: "png", minzoom: 10, maxzoom: 17 },
-  { id: "photo1961", label: "1961〜1969年", path: "ort_old10", ext: "png", minzoom: 10, maxzoom: 17 },
-  { id: "photo1974", label: "1974〜1978年", path: "gazo1", ext: "jpg", minzoom: 10, maxzoom: 17 },
-  { id: "photo1979", label: "1979〜1983年", path: "gazo2", ext: "jpg", minzoom: 10, maxzoom: 17 },
-  { id: "photo1984", label: "1984〜1986年", path: "gazo3", ext: "jpg", minzoom: 10, maxzoom: 17 },
-  { id: "photo1987", label: "1987〜1990年", path: "gazo4", ext: "jpg", minzoom: 10, maxzoom: 17 },
-  ...Array.from({ length: NENDO_LAST - NENDO_FIRST + 1 }, (_, i) => NENDO_FIRST + i).map((y) => (
-    { id: `photo${y}n`, label: `${y}年度`, path: `nendophoto${y}`, ext: "png", minzoom: 14, maxzoom: 18 })),
-  { id: "photo", label: "最新", path: "seamlessphoto", ext: "jpg", minzoom: 2, maxzoom: 18 },
-].map((e) => ({ ...e, tiles: GSI_TILE(e.path) + "." + e.ext }));
+// 航空写真の撮影年代の一覧（PHOTO_ERAS）は地域ページの「中心部の昔と今」でも使うので photoEras.ts に置く（#215）
 export const BASEMAPS = [
   ...PHOTO_ERAS,
   // 色別標高図は海域部に海上保安庁の資料を使っており、その旨の記載が必要
