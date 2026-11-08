@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  centerSpots, LATEST_PHOTO_ERA, OLD_PHOTO_ERAS, PHOTO_BOX, PHOTO_MAP_ZOOM, photoTiles, photoTileSize, placeName, spotWhere,
-  type LandSource,
+  centerSpots, landSpots, LATEST_PHOTO_ERA, OLD_PHOTO_ERAS, PHOTO_BOX, PHOTO_MAP_ZOOM, photoTiles, photoTileSize, placeName,
+  spotWhere, stationSpots, type LandSource, type StationSource,
 } from "../src/lib/centerPhoto";
 import { PHOTO_ERAS } from "../src/map/photoEras";
 
@@ -26,6 +26,7 @@ describe("地価の地点の所在地から町名を取り出す", () => {
     expect(placeName("長野県 北安曇郡白馬村大字北城字新田３０２０番８３７外", "白馬村")).toBe("北城");
     expect(placeName("神奈川県 足柄下郡箱根町湯本字白石下７０６番１２外", "箱根町")).toBe("湯本");
     expect(placeName("北海道 虻田郡ニセコ町字本通８３番１", "ニセコ町")).toBe("本通");
+    expect(placeName("福島県 大沼郡会津美里町字瀬戸町甲３０７３番", "会津美里町")).toBe("瀬戸町");
   });
   it("市区町村名が見つからない・町名がないときは null", () => {
     expect(placeName("石川県 金沢市本町２丁目５７１番１外", "小松市")).toBeNull();
@@ -34,9 +35,9 @@ describe("地価の地点の所在地から町名を取り出す", () => {
   });
 });
 
-describe("中心部の地点", () => {
+describe("地価がいちばん高い地点（駅のない市区町村の中心部）", () => {
   it("商業地のうち最新の時点の価格がいちばん高い地点（住宅地のほうが高くても商業地）", () => {
-    const spots = centerSpots([{ survey: false, periods: KOUJI, points: [
+    const spots = landSpots([{ survey: false, periods: KOUJI, points: [
       point({ coord: [1, 1], values: [null, 500] }),
       point({ coord: [2, 2], values: [9000, 800] }),
       point({ coord: [3, 3], use: "000", use_label: "住宅地", values: [null, 5000] }),
@@ -46,12 +47,12 @@ describe("中心部の地点", () => {
     expect(s).toMatchObject({ commercial: true, use: "商業地", survey: false, year: "2026年", place: "本町2丁目" });
   });
   it("商業地の地点がなければ用途を問わずいちばん高い地点。最新の時点に価格のない地点は使わない", () => {
-    const spots = centerSpots([{ survey: false, periods: KOUJI, points: [
+    const spots = landSpots([{ survey: false, periods: KOUJI, points: [
       point({ coord: [1, 1], use: "000", use_label: "住宅地", values: [null, 300] }),
       point({ coord: [2, 2], use: "009", use_label: "工業地", values: [null, 400] }),
       point({ coord: [3, 3], values: [9000, null] }),
     ] }], NAMES);
-    expect(spots.get("muni-17201")).toMatchObject({ lng: 2, commercial: false, use: "工業地" });
+    expect(spots.get("muni-17201")).toMatchObject({ kind: "land", lng: 2, commercial: false, use: "工業地" });
   });
   it("地価公示と都道府県地価調査を合わせて比べ、同じ価格なら先に渡した地価公示の地点にする", () => {
     const sources: LandSource[] = [
@@ -59,17 +60,17 @@ describe("中心部の地点", () => {
       { survey: true, periods: CHOUSA, points: [point({ coord: [2, 2], values: [null, 700] }),
         point({ municipality_id: "muni-01400", coord: [3, 3], address: "北海道 虻田郡倶知安町南１条西１丁目４０番１外", values: [null, 100] })] },
     ];
-    const spots = centerSpots(sources, NAMES);
+    const spots = landSpots(sources, NAMES);
     expect(spots.get("muni-17201")).toMatchObject({ lng: 1, survey: false });
     expect(spots.get("muni-01400")).toMatchObject({ lng: 3, survey: true, year: "2025年", place: "南1条西1丁目" });
   });
   it("地点のない市区町村は入れない", () => {
-    expect(centerSpots([{ survey: false, periods: KOUJI, points: [] }], NAMES).size).toBe(0);
+    expect(landSpots([{ survey: false, periods: KOUJI, points: [] }], NAMES).size).toBe(0);
   });
 });
 
-describe("中心部の地点の説明", () => {
-  const base = { lng: 0, lat: 0, commercial: true, use: "商業地", survey: false, year: "2026年" };
+describe("地価の地点の説明", () => {
+  const base = { kind: "land", lng: 0, lat: 0, commercial: true, use: "商業地", survey: false, year: "2026年" } as const;
   it("町名と1km以内の駅", () => {
     expect(spotWhere({ ...base, place: "本町2丁目", station: { name: "金沢", distance: 250 } })).toBe("本町2丁目、金沢駅から約250m");
     expect(spotWhere({ ...base, place: "銀座4丁目", station: { name: "銀座", distance: 0 } })).toBe("銀座4丁目、銀座駅のすぐ近く");
@@ -77,10 +78,49 @@ describe("中心部の地点の説明", () => {
   });
   it("バス停と1kmより遠い駅は書かない", () => {
     const stationOf = (p: Partial<Point>) =>
-      centerSpots([{ survey: false, periods: KOUJI, points: [point(p)] }], NAMES).get("muni-17201")!.station;
+      landSpots([{ survey: false, periods: KOUJI, points: [point(p)] }], NAMES).get("muni-17201")!.station;
     expect(stationOf({ station: "倶知安", station_distance_m: 6500 })).toBeNull();
     expect(stationOf({ station: "バス停歌志内市街", station_distance_m: 280 })).toBeNull();
     expect(stationOf({ station: "地下鉄西２８丁目", station_distance_m: 650 })).toEqual({ name: "地下鉄西28丁目", distance: 650 });
+  });
+});
+
+describe("中心部の駅", () => {
+  type St = StationSource["stations"][number];
+  const st = (over: Partial<St>): St => ({ name: "金沢", group: "g1", municipality_id: "muni-17201", coord: [136.648, 36.578], values: [100, 200, 300], ...over });
+  const PERIODS = ["2022年度", "2023年度", "2024年度"];
+  it("乗り換えのできる駅は事業者の値を同じ年度で合計し、いちばん多い駅にする。位置はいちばん多い事業者の駅", () => {
+    const spots = stationSpots({ periods: PERIODS, stations: [
+      st({ name: "金沢", group: "g1", coord: [1, 1], values: [null, null, 300] }),
+      st({ name: "金沢", group: "g1", coord: [2, 2], values: [null, null, 250] }),
+      st({ name: "野町", group: "g2", coord: [3, 3], values: [null, null, 500] }),
+    ] });
+    expect(spots.get("muni-17201")).toEqual({ kind: "station", lng: 1, lat: 1, name: "金沢", passengers: 550, year: "2024年度" });
+  });
+  it("最新の年度に値のない駅は、3年度前までの値を使う。それより古い値しかない駅は使わない", () => {
+    const spots = stationSpots({ periods: ["2020年度", ...PERIODS], stations: [
+      st({ name: "古い", group: "a", values: [9999, null, null, null] }),
+      st({ name: "美瑛", group: "b", values: [null, 692, null, null] }),
+    ] });
+    expect(spots.get("muni-17201")).toMatchObject({ name: "美瑛", passengers: 692, year: "2022年度" });
+  });
+  it("乗降客数が 0 の駅しかない市区町村は入れない（地価の地点にする）", () => {
+    expect(stationSpots({ periods: PERIODS, stations: [st({ values: [null, null, 0] })] }).size).toBe(0);
+  });
+  it("空港の駅は選ばない", () => {
+    const spots = stationSpots({ periods: PERIODS, stations: [
+      st({ name: "那覇空港", group: "a", values: [null, null, 15896] }),
+      st({ name: "県庁前", group: "b", values: [null, null, 9000] }),
+    ] });
+    expect(spots.get("muni-17201")).toMatchObject({ name: "県庁前" });
+  });
+  it("駅があれば駅、乗降客数の分かる駅がなければ地価の地点。どちらもない市区町村は入れない", () => {
+    const spots = centerSpots({ periods: PERIODS, stations: [st({ values: [null, null, 300] }), st({ municipality_id: "muni-01400", values: [null, null, null] })] },
+      [{ survey: false, periods: KOUJI, points: [point({}), point({ municipality_id: "muni-01400", address: "北海道 虻田郡倶知安町南１条西１丁目４０番１外" })] }],
+      new Map([...NAMES, ["muni-13382", "御蔵島村"]]));
+    expect(spots.get("muni-17201")).toMatchObject({ kind: "station", name: "金沢" });
+    expect(spots.get("muni-01400")).toMatchObject({ kind: "land", place: "南1条西1丁目" });
+    expect(spots.has("muni-13382")).toBe(false);
   });
 });
 

@@ -1,5 +1,6 @@
 ---
-// 地域ページの「中心部の昔と今」（設計変更記録 #215）。地価がいちばん高い商業地の地点のまわりを、昔と今の航空写真で並べる。
+// 地域ページの「中心部の昔と今」（設計変更記録 #215）。乗降客数がいちばん多い駅（駅がなければ地価がいちばん高い地点）のまわりを、
+// 昔と今の航空写真で並べる。
 // 写真は地理院タイルをそのまま並べ、押すとその場所・年代の航空写真を背景にした地図を開く。
 // 今の写真（最新の写真）はページに書いておき、昔の写真は欄が画面に近づいてから、その場所が写っているいちばん古い年代を探して出す
 import { loadCenterSpots } from "../lib/data";
@@ -13,17 +14,26 @@ const spot = loadCenterSpots().get(muni.id);
 const view = spot ? { zoom: PHOTO_MAP_ZOOM, lat: spot.lat, lng: spot.lng } : undefined;
 const href = (base: string) => mapHref({ area: muni.id, base, view });
 const nowTiles = spot ? photoTiles(LATEST_PHOTO_ERA, spot.lng, spot.lat) : [];
-const where = spot ? spotWhere(spot) : "";
-const what = spot?.commercial ? "地価がいちばん高い商業地の地点" : `地価がいちばん高い地点（${spot?.use}）`;
-// 文の間に改行を入れると、表示で空白になるので1つの文字列にする
-const note = spot ? `中心部の地点は${spot.survey ? "都道府県地価調査" : "地価公示"}（${spot.year}）の価格で選んでいます。写真の真ん中の丸がその地点です。`
-  + "昔の写真は、この場所が写っているいちばん古い年代のものです。航空写真: 国土地理院（" : "";
+const OLD_NOTE = "昔の写真は、この場所が写っているいちばん古い年代のものです。航空写真: 国土地理院（";
+// 文の間に改行を入れると表示で空白になるので、文はそれぞれ1つの文字列にする
+let lead = "";
+let note = "";
+if (spot?.kind === "station") {
+  lead = `${muni.name}でいちばん乗降客数が多い${spot.name}駅のまわりを中心部として、昔と今の航空写真で比べます。`;
+  note = `中心部は、1日の乗降客数（${spot.year}。乗り換えのできる駅は事業者の合計）がいちばん多い駅にしています（空港の駅は除く）。`
+    + "写真の真ん中の丸がその駅です。" + OLD_NOTE;
+} else if (spot) {
+  const where = spotWhere(spot);
+  const what = spot.commercial ? "地価がいちばん高い商業地の地点" : `地価がいちばん高い地点（${spot.use}）`;
+  lead = `${muni.name}には乗降客数の分かる駅がないため、${what}${where && `（${where}）`}のまわりを中心部として、昔と今の航空写真で比べます。`;
+  note = `中心部の地点は${spot.survey ? "都道府県地価調査" : "地価公示"}（${spot.year}）の価格で選んでいます。写真の真ん中の丸がその地点です。` + OLD_NOTE;
+}
 const tileStyle = (t: { left: number; top: number }) => `left:calc(50% + ${t.left}px);top:calc(50% + ${t.top}px)`;
 ---
 {spot && (
   <section class="sheet center-photos" id={id}>
     <h2>{muni.name}の中心部の昔と今</h2>
-    <p>{what}{where && `（${where}）`}を中心部として、そのまわりを昔と今の航空写真で比べます。写真を押すと、地図の航空写真で年代を変えながら見られます。</p>
+    <p>{lead}写真を押すと、地図の航空写真で年代を変えながら見られます。</p>
     <div class="photo-pair">
       <figure class="center-photo" data-old-photo data-lng={spot.lng} data-lat={spot.lat} data-name={muni.name}>
         <a class="photo-frame" href={href(LATEST_PHOTO_ERA.id)} aria-label={`${muni.name}の中心部の昔の航空写真を地図で見る`}>
@@ -116,6 +126,15 @@ const tileStyle = (t: { left: number; top: number }) => `left:calc(50% + ${t.lef
       return;
     }
     status.textContent = offline ? "昔の写真を読み込めませんでした。" : "この場所の昔の写真は見つかりませんでした。";
+  }
+
+  // 撮影範囲の外などでタイルがない（404）ときは、壊れた画像の印を出さずに隠す（下の地の色が見える）
+  const hideBroken = (img: HTMLImageElement) => { img.style.visibility = "hidden"; };
+  document.addEventListener("error", (e) => {
+    if (e.target instanceof HTMLImageElement && e.target.closest(".photo-frame")) hideBroken(e.target);
+  }, true);
+  for (const img of document.querySelectorAll<HTMLImageElement>(".photo-frame img")) {
+    if (img.complete && img.naturalWidth === 0 && img.currentSrc) hideBroken(img);
   }
 
   for (const figure of document.querySelectorAll<HTMLElement>("[data-old-photo]")) {

@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import release from "../generated/release.json";
-import { centerSpots, type CenterSpot, type LandSource } from "./centerPhoto";
+import { centerSpots, type CenterSpot, type LandSource, type StationSource } from "./centerPhoto";
 import type { PlacePoints } from "./placeStats";
 import type { Geometry } from "./shape";
 import type {
@@ -172,16 +172,21 @@ export function loadPlacePoints(): PlacePoints | null {
 }
 
 let centerSpotCache: Map<string, CenterSpot> | undefined;
-/** 市区町村ごとの中心部の地点（地価がいちばん高い商業地の地点。地域ページの「中心部の昔と今」、#215）。ビルドの間とっておく */
+/**
+ * 市区町村ごとの中心部の地点（乗降客数がいちばん多い駅。駅がなければ地価がいちばん高い商業地の地点。
+ * 地域ページの「中心部の昔と今」、#215）。ビルドの間とっておく
+ */
 export function loadCenterSpots(): Map<string, CenterSpot> {
   if (!centerSpotCache) {
     const p = loadPlacePoints();
     const names = new Map(loadAreas().municipalities.map((m) => [m.id, m.name]));
     // 地価公示を先に渡し、同じ価格なら地価公示の地点にする
-    centerSpotCache = p ? centerSpots([
-      { points: p.land as unknown as LandSource["points"], periods: p.landPeriods, survey: false },
-      { points: (p.landSurvey ?? []) as unknown as LandSource["points"], periods: p.landSurveyPeriods ?? [], survey: true },
-    ], names) : new Map();
+    centerSpotCache = p ? centerSpots(
+      { stations: p.stations as unknown as StationSource["stations"], periods: p.stationPeriods },
+      [
+        { points: p.land as unknown as LandSource["points"], periods: p.landPeriods, survey: false },
+        { points: (p.landSurvey ?? []) as unknown as LandSource["points"], periods: p.landSurveyPeriods ?? [], survey: true },
+      ], names) : new Map();
   }
   return centerSpotCache;
 }
