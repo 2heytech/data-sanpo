@@ -191,7 +191,7 @@ const structured = breadcrumbList(Astro.site, [
             <tr>
               <td class="num">{t.rank ?? "—"}</td>
               <td><a href={`/areas/${t.muni.id}/`}><strong>{t.muni.name}</strong></a>
-                {popInd && t.rank !== null && <a class="to-map" href={mapHref({ indicator: popInd.id, area: t.muni.id })}>地図</a>}
+                {popInd && t.rank !== null && <a class="to-map" href={mapHref({ indicator: popInd.id, area: t.muni.id })} aria-label={`${t.muni.name}を地図で見る`}></a>}
                 {t.catch && <span class="catch-line">{t.catch}</span>}</td>
               <td class="num">{t.pop}<span class="change-sm">{t.change}</span></td>
               <td class="num col-change">{t.change}</td>

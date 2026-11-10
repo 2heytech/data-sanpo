@@ -19,6 +19,7 @@ import { loadAreaProfile } from "../../lib/profiles";
 import { breadcrumbList } from "../../lib/structured";
 import { municipalityPeriods } from "../../lib/periods";
 import { statGroups } from "../../lib/statList";
+import { populationChangeIndicator, populationHistory } from "../../lib/populationHistory";
 import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -69,9 +70,19 @@ const place = [pref, muni.region].filter(Boolean).join("・");
 const statCount = stats.filter((s) => s.row?.value != null).length;
 // 浜松市の旧区など、今はない区（設計変更記録 #144）
 const former = formerWard(muni.id);
+// 人口の移り変わり（国勢調査の各回。設計変更記録 #217）。新しい回を上にする
+const history = populationHistory(muni.id);
+const changeInd = populationChangeIndicator();
+// 説明文は人口・5年前からの増減・人口密度の全国順位から始める（#217）。増減と順位は人口と同じ回のものだけ使う
+const samePeriod = (id: string) => stats.find((s) => s.ind.id === id && s.period.period === pop?.period.period);
 const description = areaDescription({
   name: muni.name, pref, title: profile.title, insights, statCount, note: former?.note,
-  population: pop?.row?.value != null ? { text: formatValue(pop.row, pop.ind, { inText: true }), label: pop.period.label } : null,
+  population: pop?.row?.value != null ? {
+    text: formatValue(pop.row, pop.ind, { inText: true }), label: pop.period.label,
+    change: samePeriod("population_change_rate")?.row?.value ?? null,
+    densityRank: samePeriod("population_density")?.ranks[1]?.rank ?? null,
+  } : null,
+  historyFrom: history.length >= 2 ? history[0].year : null,
 });
 // パンくず（データさんぽ ＞ 市区町村の一覧 ＞ 都道府県 ＞ 市区町村）。都道府県のページから県内の市区町村へたどれるようにする（設計変更記録 #130）
 const structured = breadcrumbList(Astro.site, [
@@ -79,8 +90,10 @@ const structured = breadcrumbList(Astro.site, [
   ...(prefPath ? [{ name: pref, path: prefPath }] : []), { name: muni.name },
 ]);
 // 検索結果で同じ名前の市区町村（府中市・伊達市など）を見分けられるよう、題名に都道府県名を入れる
+// 「〇〇 人口 推移」でも探されるので、人口の移り変わりの表があれば「人口推移」と書く（#217）
+const popWord = history.length >= 2 ? "人口推移" : "人口";
 const pageTitle = pref || former
-  ? `${muni.name}（${[pref, former?.label].filter(Boolean).join("・")}）の人口・統計データと順位` : `${muni.name}の人口・統計データと順位`;
+  ? `${muni.name}（${[pref, former?.label].filter(Boolean).join("・")}）の${popWord}・統計データと順位` : `${muni.name}の${popWord}・統計データと順位`;
 // 表に出すのは値のある指標だけ（データなしの行は出さない）。ジャンル・カテゴリごとにまとめる
 const groups = statGroups(stats);
 // 公式サイトなどで確かめた事実の短いまとめ（設計変更記録 #164）。「データで見る〇〇」の中に出す（#166）。開発用の架空データでは地名が実在しないので出さない
@@ -88,6 +101,7 @@ const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
 const hasIntro = summary.length > 0 || insights.length > 0 || !!aramashi;
 // 冒頭の目次（設計変更記録 #193・#215）。スマホでは表やとなりのまちとの比べがずっと下にあるので、最初にそこへ移れるようにする
 const toc = [
+  ...(history.length ? [{ id: "population", label: "人口の移り変わり" }] : []),
   ...(hasIntro ? [{ id: "profile", label: `データで見る${muni.name}` }] : []),
   ...(loadCenterSpots().has(muni.id) ? [{ id: "photos", label: "中心部の昔と今" }] : []),
   { id: "stats", label: `主な指標（${statCount}）` },
@@ -101,7 +115,7 @@ const toc = [
     <AreaShape muni={muni} variant="mark" />
     <div>
       <p class="eyebrow">{place}{former && `（${former.label}）`}</p>
-      <h1>{muni.name}のデータ</h1>
+      <h1>{muni.name}の人口・統計データ</h1>
     </div>
     <div class="actions">
       <a class="button" href={`/map/?a=${muni.id}`}>地図で{muni.name}を見る</a>
@@ -126,6 +140,29 @@ const toc = [
       </ul>
     </nav>
   </section>
+
+  {history.length > 0 && (
+    <section class="sheet" id="population">
+      <h2>{muni.name}の人口の移り変わり</h2>
+      <div class="table-scroll">
+        <table class="pop-history">
+          <thead><tr><th>調査年</th><th class="num">人口</th><th class="num">5年間の増減</th><th class="num">世帯数</th></tr></thead>
+          <tbody>
+            {[...history].reverse().map((h) => (
+              <tr>
+                <td>{h.year}</td>
+                <td class="num">{h.population.toLocaleString("ja-JP")}人</td>
+                <td class="num">{h.change === null || !changeInd ? "—" : formatValue({ value: h.change, status: "observed" }, changeInd)}</td>
+                <td class="num">{h.households === null ? "—" : `${h.households.toLocaleString("ja-JP")}世帯`}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="muted small">国勢調査の各回の10月1日現在の値です。5年間の増減は、前の回の国勢調査からの人口の増加率です。
+        <a href="/indicators/population_total/">人口の全国ランキング</a>{changeInd && <>・<a href={`/indicators/${changeInd.id}/`}>人口増加率の全国ランキング</a></>}</p>
+    </section>
+  )}
 
   {hasIntro && (
     <section class="sheet area-intro" id="profile">
@@ -167,6 +204,8 @@ const toc = [
   .area-head .actions { flex-basis: 100%; }
   :global(.sheet[id]) { scroll-margin-top: 100px; }
   .area-points h2 { margin-top: 0; }
+  .pop-history td { white-space: nowrap; }
+  .pop-history th.num { white-space: normal; }
   .points { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
   .points li {
     display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: baseline;
@@ -193,6 +232,7 @@ const toc = [
     .area-intro > :global(figure) :global(svg) { max-width: 120px; max-height: 120px; }
     .area-intro:has(> figure) > div { grid-row: 2; }
     .points li { display: block; padding: 8px 10px; font-size: 0.95rem; line-height: 1.65; }
+    .pop-history th, .pop-history td { padding: 8px 6px; font-size: 0.88rem; }
     .point-theme { margin-right: 6px; }
   }
 </style>

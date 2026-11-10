@@ -1,4 +1,4 @@
-import { formatValue } from "./format";
+import { formatNumber, formatValue } from "./format";
 import type { Indicator, ValueRow } from "./types";
 
 /** 地域ページのあらまし（表の数字から作る短い文章）に使う、指標ごとの値と順位 */
@@ -78,23 +78,63 @@ export function fitDescription(body: string, tails: string[]): string {
 /** 時点の見出しの年（「2025年10月1日現在」→「2025年」） */
 export const periodYear = (label: string) => /^\d{4}年(?:度)?/.exec(label)?.[0] ?? label;
 
+/** 説明文の人口（「457,195人」、時点の見出し、5年前からの増加率（%）、人口密度の全国順位） */
+export interface DescriptionPopulation {
+  text: string;
+  label: string;
+  change?: number | null;
+  densityRank?: number | null;
+}
+
+/** 5年前からの人口の増減（「5年前より0.5%減」）。増加率の小数1桁で0になるときは「5年前とほぼ同じ」 */
+export function fiveYearChange(rate: number | null | undefined, digits = 1): string | null {
+  if (rate === null || rate === undefined) return null;
+  const abs = formatNumber(Math.abs(rate), digits);
+  if (Number(abs.replace(/,/g, "")) === 0) return "5年前とほぼ同じ";
+  return `5年前より${abs}%${rate > 0 ? "増" : "減"}`;
+}
+
 /**
- * 地域ページの説明文（検索結果に出る文）。特徴の一言と、いちばん目立つ考察の数字から始め、まちごとに違う文にする（設計変更記録 #130・#144）。
- * 「特徴の一言＋数字の1文＋（注記）＋人口＋締め」で、120字前後に収める。締めは、開くと何が分かるかを、収まる長さで書く
+ * 地域ページの説明文（検索結果に出る文）。120字前後に収め、締め（開くと何が分かるか）は収まる長さのものを付ける（設計変更記録 #130・#144）。
+ * 地域ページは「尼崎 人口」「茨木市 人口密度」のように人口で探されるので、人口・5年前からの増減・人口密度の順位から始め、
+ * 特徴の一言を続ける（#217。#144 の「特徴の一言＋数字の1文＋人口」から、人口を先にした）。考察の数字は本文だけに書く。
+ * 人口がない地域は、特徴の一言と、いちばん目立つ考察の数字から始める（#144 のまま）
  */
 export function areaDescription(a: {
   name: string; pref: string; title: string | null; insights: string[];
-  population: { text: string; label: string } | null; statCount: number; note?: string;
+  population: DescriptionPopulation | null; statCount: number; note?: string;
+  /** 人口の移り変わりの表の最初の年（「2010年」）。表がなければ null */
+  historyFrom?: string | null;
 }): string {
   const where = a.pref ? `（${a.pref}）` : "";
-  const head = a.title ? `${a.name}${where}をデータで見ると「${a.title}」。` : `${a.name}${where}のデータ。`;
-  const body = head + descriptionFact(a.insights) + (a.note ?? "") +
-    (a.population ? `人口${a.population.text}（${periodYear(a.population.label)}）。` : "");
-  return fitDescription(body, [
-    `人口・暮らし・産業など${a.statCount}の指標の全国順位を、となりのまちと比べられます。`,
-    `${a.statCount}の指標の全国順位を、となりのまちと比べられます。`,
+  const note = a.note ?? "";
+  const p = a.population;
+  if (!p) {
+    const head = a.title ? `${a.name}${where}をデータで見ると「${a.title}」。` : `${a.name}${where}のデータ。`;
+    return fitDescription(head + descriptionFact(a.insights) + note, [
+      `人口・暮らし・産業など${a.statCount}の指標の全国順位を、となりのまちと比べられます。`,
+      `${a.statCount}の指標の全国順位を、となりのまちと比べられます。`,
+      `${a.statCount}の指標の全国順位を紹介。`,
+    ]);
+  }
+  const change = fiveYearChange(p.change);
+  const density = p.densityRank ? `人口密度は全国${p.densityRank.toLocaleString("ja-JP")}位` : null;
+  const head = (withChange: boolean, withDensity: boolean) => {
+    const facts = [withChange ? change : null, withDensity ? density : null].filter((x) => !!x);
+    return `${a.name}${where}の人口は${p.text}（${periodYear(p.label)}国勢調査）${facts.length ? `で、${facts.join("、")}` : ""}。`;
+  };
+  const title = a.title ? `データで見ると「${a.title}」。` : "";
+  const bodies = [
+    head(true, true) + note + title, head(true, false) + note + title, head(false, false) + note + title,
+    head(true, true) + note, head(false, false) + note,
+  ];
+  const tails = [
+    ...(a.historyFrom ? [`${a.historyFrom}からの人口の移り変わりと、${a.statCount}の指標の全国順位を紹介。`] : []),
     `${a.statCount}の指標の全国順位を紹介。`,
-  ]);
+  ];
+  const shortest = Math.min(...tails.map((t) => t.length));
+  const body = bodies.find((b) => b.length + shortest <= DESCRIPTION_MAX) ?? bodies[bodies.length - 1];
+  return fitDescription(body, tails);
 }
 
 /**

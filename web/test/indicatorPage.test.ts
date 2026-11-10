@@ -60,6 +60,7 @@ describe("indicatorPageText", () => {
     expect(indicatorPageText(pop, national)).toEqual({
       title: "人口 都道府県別・市区町村別ランキング（2020年）",
       description: "人口が全国1位の市区町村はどこ？ 全国の市区町村ランキングと都道府県別の値（2020年10月1日現在、単位: 人）を、意味・計算方法・出典つきで紹介。常住人口。",
+      heading: { main: "人口", sub: "都道府県別・市区町村別ランキング（2020年）" },
     });
     expect(indicatorPageText(pop, { ...national, hasPrefRows: false }).title).toBe("人口の市区町村ランキング（全国・2020年）");
     expect(indicatorPageText(pop, { ...national, partial: true, hasPrefRows: false }).title).toBe("人口の市区町村ランキング（2020年）");
@@ -78,5 +79,49 @@ describe("indicatorPageText", () => {
     expect(indicatorPageText(withPeriod("2020年"), { ...national, partial: true }).description.startsWith("人口が1位の市区町村はどこ？ ")).toBe(true);
     expect(indicatorPageText(withPeriod("2020年"), { ...national, muniCount: 0, hasMuniValues: false, hasPrefRows: false }).description)
       .toBe("人口の都道府県別の値（2020年、単位: 人）。意味・計算方法・出典つき。常住人口。");
+  });
+
+  it("見出しは、指標名（政党は「〇〇の得票率」）と、題名の後ろの「ランキング（年）」に分ける", () => {
+    const pop = withPeriod("2020年10月1日現在");
+    expect(indicatorPageText(pop, { ...national, hasPrefRows: false }).heading).toEqual({ main: "人口", sub: "市区町村ランキング（全国・2020年）" });
+    expect(indicatorPageText(pop, { ...national, muniCount: 0, hasMuniValues: false, hasPrefRows: false }).heading).toEqual({ main: "人口", sub: null });
+    expect(indicatorPageText(vote("参政党"), national).heading)
+      .toEqual({ main: "参政党の得票率", sub: "都道府県別・市区町村別ランキング（2026年衆院選・比例代表）" });
+  });
+
+  describe("上位の地域から始める説明文（#216）", () => {
+    const elev = withPeriod("2026年10月1日現在", { name: "平均標高", unit: "m" });
+    const leaders = {
+      prefecture: { top: "長野県（1,131.4m）", next: ["山梨県", "群馬県"] },
+      municipality: { top: "長野県川上村（1,624.6m）", next: ["長野県大鹿村", "山梨県鳴沢村"] },
+    };
+    const scope = { ...national, muniCount: 1896, prefCount: 47 };
+    it("都道府県の1位と続く2つ、市区町村の1位を書き、全順位があることを120字に収まる長さで続ける", () => {
+      expect(indicatorPageText(elev, scope, leaders).description).toBe(
+        "平均標高の都道府県1位は長野県（1,131.4m）で、山梨県・群馬県が続きます。市区町村の1位は長野県川上村（1,624.6m）。"
+        + "47都道府県と1,896市区町村の全順位を、色分け地図と出典つきで紹介（2026年）。",
+      );
+    });
+    it("市区町村だけのとき・一部の都道府県だけのときは、市区町村の1位と続く2つを書く", () => {
+      const m = { prefecture: null, municipality: leaders.municipality };
+      expect(indicatorPageText(elev, { ...scope, hasPrefRows: false }, m).description).toBe(
+        "平均標高の市区町村1位は長野県川上村（1,624.6m）で、長野県大鹿村・山梨県鳴沢村が続きます。1,896市区町村の全順位を、色分け地図と出典つきで紹介（2026年）。",
+      );
+      expect(indicatorPageText(elev, { ...scope, partial: true, hasPrefRows: false, muniCount: 62, coverageLabel: "東京都" }, m).description)
+        .toBe("東京都の市区町村で平均標高の1位は長野県川上村（1,624.6m）で、長野県大鹿村・山梨県鳴沢村が続きます。東京都の62市区町村の全順位を、色分け地図と出典つきで紹介（2026年）。");
+    });
+    it("政党は「〇〇の得票率」で書き、比例代表と添える。長すぎるときは続く地域を省く", () => {
+      const d = indicatorPageText(vote("自由民主党"), scope, {
+        prefecture: { top: "鳥取県（40.12%）", next: ["島根県", "山口県"] }, municipality: { top: "東京都青ヶ島村（80.25%）", next: [] },
+      }).description;
+      expect(d.startsWith("自民党の得票率の都道府県1位は鳥取県（40.12%）で、島根県・山口県が続きます。市区町村の1位は東京都青ヶ島村（80.25%）。")).toBe(true);
+      expect(d).toContain("（2026年衆院選・比例代表）");
+      const long = indicatorPageText(withPeriod("2020年", { name: "あ".repeat(55) }), scope, leaders).description;
+      expect(long.length).toBeLessThanOrEqual(120);
+      expect(long).not.toContain("山梨県・群馬県");
+    });
+    it("書く地域がないとき（要約を出さない指標など）は、今までの問いかけの文にする", () => {
+      expect(indicatorPageText(elev, scope, null).description.startsWith("平均標高が全国1位の市区町村はどこ？ ")).toBe(true);
+    });
   });
 });

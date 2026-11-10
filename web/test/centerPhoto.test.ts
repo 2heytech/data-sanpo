@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   centerSpots, landSpots, LATEST_PHOTO_ERA, OLD_PHOTO_ERAS, PHOTO_BOX, PHOTO_MAP_ZOOM, photoTiles, photoTileSize, placeName,
-  spotWhere, stationSpots, type LandSource, type StationSource,
+  spotArea, spotWhere, stationSpots, townSpot, type LandSource, type StationSource, type TownSource,
 } from "../src/lib/centerPhoto";
 import { PHOTO_ERAS } from "../src/map/photoEras";
 
@@ -121,6 +121,85 @@ describe("中心部の駅", () => {
     expect(spots.get("muni-17201")).toMatchObject({ kind: "station", name: "金沢" });
     expect(spots.get("muni-01400")).toMatchObject({ kind: "land", place: "南1条西1丁目" });
     expect(spots.has("muni-13382")).toBe(false);
+  });
+});
+
+describe("人口がいちばん多い町丁目（駅も地価の地点もない市区町村の中心部）", () => {
+  const CENSUS = (year: number, rows: [string, number | null][]) => ({
+    label: `${year}年10月1日現在`, rows: rows.map(([entity_id, value]) => ({ entity_id, value })) });
+  const futaba: TownSource = {
+    muniName: "双葉町",
+    areas: [
+      { id: "area-075460010", name: "大字新山", center: [141.01078, 37.44391] },
+      { id: "area-075460100", name: "大字長塚", center: [141.01012, 37.45541] },
+    ],
+    censuses: [
+      CENSUS(2020, [["area-075460010", 0], ["area-075460100", 0]]),
+      CENSUS(2015, [["area-075460010", 0], ["area-075460100", 0]]),
+      CENSUS(2010, [["area-075460010", 1513], ["area-075460100", 1965]]),
+    ],
+    schools: [{ id: "school-1", name: "双葉北小学校", school_type: "elementary", coord: [141.0, 37.45] }],
+  };
+  it("新しい国勢調査から順に、人口のいる町丁目がある最初の年でいちばん多い町丁目。代表点を中心にする", () => {
+    expect(townSpot(futaba)).toEqual({ kind: "town", lng: 141.01012, lat: 37.45541, name: "大字長塚", population: 1965, year: "2010年",
+      skipped: ["2015年", "2020年"], school: null });
+    const latest = { ...futaba, censuses: [CENSUS(2020, [["area-075460010", 10], ["area-075460100", 3]]), ...futaba.censuses.slice(1)] };
+    expect(townSpot(latest)).toMatchObject({ name: "大字新山", population: 10, year: "2020年", skipped: [] });
+  });
+  it("同じ人口なら町丁目のコードの小さい方。人口のいる町丁目がどの年にもなければ null", () => {
+    const tie = { ...futaba, censuses: [CENSUS(2020, [["area-075460100", 5], ["area-075460010", 5]])] };
+    expect(townSpot(tie)).toMatchObject({ name: "大字新山" });
+    expect(townSpot({ ...futaba, censuses: futaba.censuses.slice(0, 2) })).toBeNull();
+  });
+  it("町丁目の名前が市区町村の名前と同じ（島の村など）なら、閉じていない学校（小学校を先に）の位置にする", () => {
+    const toshima: TownSource = {
+      muniName: "利島村",
+      areas: [{ id: "area-133620010", name: "利島村", center: [139.27979, 34.52246] }],
+      censuses: [CENSUS(2020, [["area-133620010", 327]])],
+      schools: [
+        { id: "school-372010", name: "利島中学校", school_type: "junior_high", coord: [139.278, 34.53] },
+        { id: "school-000001", name: "閉じた小学校", school_type: "elementary", coord: [139.27, 34.52], closed: true },
+        { id: "school-272010", name: "利島小学校", school_type: "elementary", coord: [139.27801, 34.52999] },
+      ],
+    };
+    expect(townSpot(toshima)).toMatchObject({ lng: 139.27801, lat: 34.52999, name: "利島村", population: 327, school: "利島小学校" });
+    // 「青ヶ島村」と「青ケ島村」のような書き方の違いは同じとみなす。位置の分かる学校がなければ町丁目の代表点のまま
+    const aogashima: TownSource = {
+      muniName: "青ヶ島村",
+      areas: [{ id: "area-134020010", name: "青ケ島村", center: [139.76742, 32.45822] }],
+      censuses: [CENSUS(2020, [["area-134020010", 169]])],
+      schools: [{ id: "school-278010", name: "青ヶ島小学校", school_type: "elementary", coord: null }],
+    };
+    expect(townSpot(aogashima)).toMatchObject({ lng: 139.76742, lat: 32.45822, school: null });
+  });
+  it("駅も地価の地点もない市区町村だけ町丁目で選ぶ（町丁目は必要な市区町村の分だけ読む）", () => {
+    const asked: string[] = [];
+    const spots = centerSpots({ periods: ["2024年度"], stations: [] },
+      [{ survey: false, periods: KOUJI, points: [point({})] }],
+      new Map([["muni-17201", "金沢市"], ["muni-07546", "双葉町"], ["muni-13382", "御蔵島村"]]),
+      (id) => { asked.push(id); return id === "muni-07546" ? futaba : null; });
+    expect(asked).toEqual(["muni-07546", "muni-13382"]);
+    expect(spots.get("muni-17201")).toMatchObject({ kind: "land" });
+    expect(spots.get("muni-07546")).toMatchObject({ kind: "town", name: "大字長塚" });
+    expect(spots.has("muni-13382")).toBe(false);
+  });
+});
+
+describe("写真の見出しに添える場所", () => {
+  const land = landSpots([{ survey: false, periods: KOUJI, points: [point({})] }], NAMES).get("muni-17201")!;
+  it("駅は「〇〇駅」、地価の地点は町名、町丁目は大字・字を外した名前、島の村は学校の名前", () => {
+    expect(spotArea({ kind: "station", lng: 0, lat: 0, name: "金沢", passengers: 1, year: "2024年度" }, "金沢市")).toBe("金沢駅");
+    expect(spotArea(land, "金沢市")).toBe("本町2丁目");
+    const town = { kind: "town" as const, lng: 0, lat: 0, name: "大字長塚", population: 1965, year: "2010年", skipped: [], school: null };
+    expect(spotArea(town, "双葉町")).toBe("長塚");
+    expect(spotArea({ ...town, name: "利島村", school: "利島小学校" }, "利島村")).toBe("利島小学校");
+  });
+  it("町名が読み取れない・市区町村の名前と同じなら最寄りの駅。それもなければ添えない", () => {
+    expect(spotArea({ ...land, place: null }, "金沢市")).toBe("金沢駅");
+    expect(spotArea({ ...land, place: "蘭越町", station: { name: "蘭越", distance: 300 } }, "蘭越町")).toBe("蘭越駅");
+    expect(spotArea({ ...land, place: null, station: null }, "平谷村")).toBeNull();
+    const town = { kind: "town" as const, lng: 0, lat: 0, name: "青ケ島村", population: 169, year: "2020年", skipped: [], school: null };
+    expect(spotArea(town, "青ヶ島村")).toBeNull();
   });
 });
 

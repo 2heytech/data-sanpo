@@ -1,10 +1,10 @@
 // 地域ページの「中心部の昔と今」の航空写真（設計変更記録 #215）。ビルド時とブラウザの両方で使う（node の読み込みはしない）。
 // 中心部は、その市区町村で1日の乗降客数がいちばん多い駅（乗り換えのできる駅は事業者の合計。空港の駅は除く）。
 // 乗降客数の分かる駅がない市区町村は、地価がいちばん高い商業地の地点（地価公示・都道府県地価調査の最新の価格。
-// 商業地の地点がなければ、ほかの用途も含めていちばん高い地点）。どちらもなければ欄を出さない。
+// 商業地の地点がなければ、ほかの用途も含めていちばん高い地点）。どちらもなければ、国勢調査で人口がいちばん多い町丁目の代表点（#219）。
 // 写真は地理院タイルをそのまま並べる（サイトの静的ファイルは増やさない）。
 import { PHOTO_ERAS, type PhotoEra } from "../map/photoEras";
-import type { LandPoint, Station } from "./types";
+import type { LandPoint, School, SmallArea, Station } from "./types";
 
 /** 地価公示・都道府県地価調査の用途のコードのうち商業地 */
 const COMMERCIAL = "005";
@@ -53,7 +53,28 @@ export interface LandSpot {
   station: { name: string; distance: number } | null;
 }
 
-export type CenterSpot = StationSpot | LandSpot;
+/** 人口がいちばん多い町丁目（乗降客数の分かる駅も地価の地点もない市区町村） */
+export interface TownSpot {
+  kind: "town";
+  /** 町丁目の代表点 */
+  lng: number;
+  lat: number;
+  /** 町丁目の名前（境界の名前のまま。「大字長塚」） */
+  name: string;
+  /** 国勢調査の人口 */
+  population: number;
+  /** 国勢調査の年（「2020年」） */
+  year: string;
+  /** これより新しい国勢調査で人口のいる町丁目がなかった年（古い順。「2015年」「2020年」）。なければ空 */
+  skipped: string[];
+  /**
+   * 町丁目が市区町村のほぼ全体にあたる（島の村など、町丁目の名前が市区町村の名前と同じ）とき、中心にした学校の名前。
+   * 町丁目の範囲の真ん中は山や森になりやすいので、集落にある学校の位置にする。学校の位置がなければ null（町丁目の代表点のまま）
+   */
+  school: string | null;
+}
+
+export type CenterSpot = StationSpot | LandSpot | TownSpot;
 
 export interface StationSource {
   stations: Pick<Station, "name" | "group" | "municipality_id" | "coord" | "values">[];
@@ -68,7 +89,20 @@ export interface LandSource {
   survey: boolean;
 }
 
+export interface TownSource {
+  /** 市区町村の名前 */
+  muniName: string;
+  /** 市区町村の町丁目（名前と代表点） */
+  areas: Pick<SmallArea, "id" | "name" | "center">[];
+  /** 国勢調査の町丁目の人口。新しい順 */
+  censuses: { label: string; rows: { entity_id: string; value: number | null }[] }[];
+  /** 市区町村の公立小中学校（町丁目が市区町村のほぼ全体にあたるときだけ使う） */
+  schools: Pick<School, "id" | "name" | "school_type" | "coord" | "closed">[];
+}
+
 const toHalfWidth = (s: string) => s.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+/** 「茅ヶ崎市」と「茅ケ崎市」のような書き方の違いをそろえる */
+const sameKana = (s: string) => s.replace(/ヶ/g, "ケ");
 
 /**
  * 地価の地点の所在地から町名を取り出す（「石川県 金沢市本町２丁目５７１番１外」→「本町2丁目」）。
@@ -76,9 +110,8 @@ const toHalfWidth = (s: string) => s.replace(/[０-９]/g, (c) => String.fromCha
  */
 export function placeName(address: string | null | undefined, muniName: string): string | null {
   if (!address) return null;
-  // 「茅ヶ崎市」と「茅ケ崎市」のような書き方の違いはそろえて探す（同じ文字数なので位置は変わらない）
-  const same = (s: string) => s.replace(/ヶ/g, "ケ");
-  const at = same(address).indexOf(same(muniName));
+  // 書き方の違いはそろえて探す（同じ文字数なので位置は変わらない）
+  const at = sameKana(address).indexOf(sameKana(muniName));
   if (at < 0) return null;
   let rest = address.slice(at + muniName.length).trim();
   rest = rest.replace(/[0-9０-９]+番.*$/, "").replace(/^(大字|字)/, "").replace(/^(.{2,}?)字.+$/, "$1")
@@ -163,11 +196,75 @@ export function stationSpots(src: StationSource): Map<string, StationSpot> {
   return best;
 }
 
-/** 中心部: 乗降客数がいちばん多い駅、なければ地価がいちばん高い地点 */
-export function centerSpots(stations: StationSource, lands: LandSource[], names: Map<string, string>): Map<string, CenterSpot> {
+/** 町丁目の名前から大字・字を外す（「大字長塚」→「長塚」） */
+const townName = (name: string) => toHalfWidth(name).replace(/^(大字|字)/, "");
+const SCHOOL_ORDER: Record<string, number> = { elementary: 0, compulsory: 1, junior_high: 2 };
+
+/**
+ * 人口がいちばん多い町丁目。新しい国勢調査から順に、人口のいる町丁目がある最初の年で選ぶ
+ * （同じ人口なら町丁目のコードの小さい方）。人口のいる町丁目がどの年にもなければ null。
+ * 町丁目の名前が市区町村の名前と同じ（町丁目が市区町村のほぼ全体）なら、位置の分かる学校（小学校を先に）を中心にする
+ */
+export function townSpot(src: TownSource): TownSpot | null {
+  const areas = new Map(src.areas.map((a) => [a.id, a]));
+  const skipped: string[] = [];
+  for (const census of src.censuses) {
+    const year = yearOf(census.label);
+    if (!year) continue;
+    let best: { area: TownSource["areas"][number]; value: number } | null = null;
+    for (const r of census.rows) {
+      const area = areas.get(r.entity_id);
+      if (!area || r.value == null || r.value <= 0) continue;
+      if (!best || r.value > best.value || (r.value === best.value && area.id < best.area.id)) best = { area, value: r.value };
+    }
+    if (best) {
+      const whole = sameKana(townName(best.area.name)) === sameKana(src.muniName);
+      const school = whole
+        ? src.schools.filter((x) => x.coord && !x.closed)
+          .sort((a, b) => (SCHOOL_ORDER[a.school_type] ?? 9) - (SCHOOL_ORDER[b.school_type] ?? 9) || a.id.localeCompare(b.id))[0]
+        : undefined;
+      const [lng, lat] = school?.coord ?? best.area.center;
+      return { kind: "town", lng, lat, name: best.area.name, population: best.value, year: `${year}年`, skipped,
+        school: school ? toHalfWidth(school.name) : null };
+    }
+    skipped.unshift(`${year}年`);
+  }
+  return null;
+}
+
+/**
+ * 中心部: 乗降客数がいちばん多い駅、なければ地価がいちばん高い地点、どちらもなければ人口がいちばん多い町丁目。
+ * towns は町丁目の名前と人口を返す（駅も地価の地点もない市区町村の分だけ読む）
+ */
+export function centerSpots(stations: StationSource, lands: LandSource[], names: Map<string, string>,
+  towns?: (id: string) => TownSource | null): Map<string, CenterSpot> {
   const out = new Map<string, CenterSpot>(landSpots(lands, names));
   for (const [id, spot] of stationSpots(stations)) if (names.has(id)) out.set(id, spot);
+  if (towns) {
+    for (const id of names.keys()) {
+      if (out.has(id)) continue;
+      const src = towns(id);
+      const spot = src && townSpot(src);
+      if (spot) out.set(id, spot);
+    }
+  }
   return out;
+}
+
+/**
+ * 写真の見出しに添える場所（「金沢駅」「本町2丁目」「長塚」「利島小学校」）。見出しでは「（〇〇周辺）」と書く。
+ * 地価の地点で町名が読み取れない（市区町村の名前と同じも含む）ときは最寄りの駅。町丁目の名前が市区町村の名前と同じで学校もないときや、
+ * 何もないときは null
+ */
+export function spotArea(spot: CenterSpot, muniName: string): string | null {
+  if (spot.kind === "station") return `${spot.name}駅`;
+  if (spot.kind === "land") {
+    const place = spot.place && sameKana(spot.place) !== sameKana(muniName) ? spot.place : null;
+    return place ?? (spot.station ? `${spot.station.name}駅` : null);
+  }
+  if (spot.school) return spot.school;
+  const name = townName(spot.name);
+  return name && sameKana(name) !== sameKana(muniName) ? name : null;
 }
 
 /** 地価の地点の説明（「本町2丁目、金沢駅から約250m」）。何もなければ空 */

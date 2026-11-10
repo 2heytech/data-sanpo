@@ -119,24 +119,26 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 /* 指標のページの表: スマホで1列目が1文字幅に縮み、県名・粒度が縦に並ばないようにする
    （長い指標名の見出しは折り返す（ランキングの表で途中で切れないように）。粒度は「都道府県」などの語の途中では折り返さない） */
 .pref-table th.num, .ranking th.num { white-space: normal; }
-.pref-table td:first-child, .pref-table th:first-child { white-space: nowrap; }
+.pref-table td:first-child, .pref-table th:first-child, .pref-table .col-name { white-space: nowrap; }
+/* 都道府県の表は、順位の列を中身の幅にし、都道府県名と「地図」を折り返さずに1行に収める（#216） */
+.pref-table .col-rank { width: 1%; white-space: nowrap; }
+.pref-table .to-map { float: none; margin: 0 0 0 8px; vertical-align: 1px; }
 .table-scroll + .table-scroll, .table-scroll + .ranking-more, .ranking-more + .table-scroll, .ranking-more + .ranking-more { margin-top: 12px; }
 .ranking { table-layout: fixed; min-width: 600px; }  /* 上位・下位などの表で列の幅をそろえる */
 .ranking .col-rank { width: 6.5em; }
-.ranking .col-extra { width: 9em; }
 .ranking .col-value { width: 11em; }
 .ranking .col-note { width: 9em; }
 .ranking td { overflow-wrap: anywhere; }
-.ranking .ranking-place { display: none; font-size: 0.8rem; }
-/* スマホでは都道府県・市区町村の列と備考を地域名の下にまとめ、横にはみ出さないようにする */
+/* 都道府県・市区町村は列にせず、地域名の下に1回だけ書く（検索結果に表が抜き出されたときに同じ名前が2回並ばないように。#216） */
+.ranking .ranking-place { font-size: 0.8rem; }
+/* スマホでは備考を隠し、横にはみ出さないようにする */
 @media (max-width: 640px) {
   .ranking { min-width: 0; }
   .ranking .col-rank { width: 4.2em; }
   .ranking .col-value { width: 7.5em; }
   /* 「83,422.27 km²」など長い値は、数字と単位の間で折り返す（右端で切れて見えないようにする） */
   .ranking td.num { white-space: normal; }
-  .ranking .col-extra, .ranking .col-note { display: none; }
-  .ranking .ranking-place { display: block; }
+  .ranking .col-note { display: none; }
 }
 /* 表の地域名の横の「地図」: その指標の色分けで、その地域を選んだ地図へのリンク（#200）。地域名のリンク（地域のページ）とは別に置く */
 .to-map {
@@ -149,8 +151,12 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linejoin='round'%3E%3Cpath d='M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z'/%3E%3Cpath d='M9 4v13.5M15 6.5V20'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linejoin='round'%3E%3Cpath d='M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z'/%3E%3Cpath d='M9 4v13.5M15 6.5V20'/%3E%3C/svg%3E") center / contain no-repeat;
 }
+/* 「地図」の文字は CSS で出す（リンクの名前は aria-label。検索結果に抜き出される表の文字に「地図」を混ぜない。#216） */
+.to-map::after { content: "地図"; }
 .to-map:hover { background: var(--accent-soft); border-color: #b9d0ea; text-decoration: none; }
 @media (max-width: 640px) { .to-map { padding: 2px 9px 2px 7px; } }
+/* 広い画面のランキングの表では、地域名の列が広いので「地図」を名前のすぐ後ろに置く（右端に離れて値の横に見えないように） */
+@media (min-width: 641px) { .ranking .to-map { float: none; margin: 0 0 0 10px; vertical-align: 1px; } }
 .ranking caption { text-align: left; font-weight: 700; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .ranking-more > summary { cursor: pointer; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: 10px;
   color: var(--accent); font-weight: 600; }

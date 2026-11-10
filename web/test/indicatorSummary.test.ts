@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { indicatorSummary, shortPeriodLabel, summaryPolicy, type SummaryArea } from "../src/lib/indicatorSummary";
+import { descriptionLeaders, indicatorSummary, shortPeriodLabel, summaryPolicy, type SummaryArea } from "../src/lib/indicatorSummary";
 import { cityValues, designatedCities } from "../src/lib/designatedCities";
 import { latestPeriod, newerPeriod } from "../src/lib/periods";
 import type { Indicator, Municipality, ValueRow } from "../src/lib/types";
@@ -27,6 +27,24 @@ describe("summaryPolicy", () => {
     expect(summaryPolicy(ind({ category: "外国人住民", name: "外国人住民の割合" }))).toBe("top");
     expect(summaryPolicy(ind({ id: "life_expectancy_female", category: "健康" }))).toBe("top");
     expect(summaryPolicy(ind())).toBe("both");
+  });
+});
+
+describe("descriptionLeaders", () => {
+  const prefs = Array.from({ length: 47 }, (_, i) => area(`p${i}`, 100 - i, `県${i}`, `県${i}`));
+  it("都道府県と市区町村の1位（値つき）と、続く2つの名前を返す", () => {
+    expect(descriptionLeaders({ ind: ind(), municipalities: series(30), prefectures: prefs })).toEqual({
+      prefecture: { top: "県0（100人）", next: ["県1", "県2"] },
+      municipality: { top: "東京都m0（30人）", next: ["東京都m1", "東京都m2"] },
+    });
+  });
+  it("1位が並ぶ単位は書かず、要約を出さない指標は null", () => {
+    const tied = [area("a", 50), area("b", 50), ...series(10)];
+    expect(descriptionLeaders({ ind: ind(), municipalities: tied, prefectures: prefs })?.municipality).toBeNull();
+    expect(descriptionLeaders({ ind: ind(), municipalities: tied, prefectures: [] })).toBeNull();
+    expect(descriptionLeaders({ ind: ind({ category: "犯罪" }), municipalities: series(30), prefectures: prefs })).toBeNull();
+    // 都道府県が10未満（一部の都道府県だけの指標）のときは都道府県を書かない
+    expect(descriptionLeaders({ ind: ind(), municipalities: series(30), prefectures: prefs.slice(0, 3) })?.prefecture).toBeNull();
   });
 });
 
