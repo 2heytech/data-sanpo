@@ -1,0 +1,78 @@
+---
+// 寄り道の中の天気（気象庁の平年値）の観測所の表。指標の値の大きい順に並べ（lib/articleData.ts の weatherRanking）、
+// 観測所の名前から、その観測所を選んだ地図（月ごとの平年値の表つき）を開く。本文で挙げた観測所（expect）が表に入るかを確かめる。
+// also に指標を渡すと、同じ観測所のその指標の値も並べる（値のない観測所は「—」。0 にしない）
+import { weatherElement, weatherRanking, weatherValue } from "../lib/articleData";
+import { loadAreas } from "../lib/data";
+import { formatNumber } from "../lib/format";
+import type { WeatherStation } from "../lib/types";
+
+interface Props {
+  element: string;
+  also?: string;
+  n?: number;
+  expect?: (WeatherStation | null)[];
+  caption: string;
+}
+const { element, also, n = 10, expect = [], caption } = Astro.props;
+const el = weatherElement(element);
+const other = also ? weatherElement(also) : null;
+const list = el ? weatherRanking(element, n, expect) : [];
+const areas = loadAreas();
+const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
+const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));
+const place = (id: string) => {
+  const m = munis.get(id);
+  return m ? `${m.name}（${prefs.get(m.prefecture) ?? ""}）` : "";
+};
+const fmt = (v: number | null, digits: number, unit: string) => (v === null ? "—" : `${formatNumber(v, digits)}${unit}`);
+---
+{el && list.length > 0 && (
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking weather">
+        <caption>{caption}</caption>
+        <thead><tr>
+          <th class="num col-rank">順位</th><th>観測所</th><th class="num col-value">{el.name}</th>
+          {other && <th class="num col-value">{other.name}</th>}
+          <th class="num col-alt">標高</th>
+        </tr></thead>
+        <tbody>
+          {list.map((r) => (
+            <tr>
+              <td class="num">{`${formatNumber(r.rank, 0)}位`}</td>
+              <td>
+                <a href={`/map/?ws=${r.station.id}&wx=${element}`}>{r.station.name}</a>
+                <span class="station-meta muted"><a href={`/areas/${r.station.municipality_id}/`}>{place(r.station.municipality_id)}</a></span>
+                <span class="station-meta station-alt muted">{`標高${fmt(r.station.altitude_m, 0, "m")}`}</span>
+              </td>
+              <td class="num">{fmt(r.value, el.digits, el.unit)}</td>
+              {other && <td class="num">{fmt(weatherValue(r.station, other.id), other.digits, other.unit)}</td>}
+              <td class="num col-alt">{fmt(r.station.altitude_m, 0, "m")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <figcaption class="muted">
+      気象庁の平年値（1991〜2020年）の、観測所ごとの値の大きい順です。観測所の名前から、月ごとの平年値を地図で見られます。
+    </figcaption>
+  </figure>
+)}
+
+<style>
+  /* 指標の値の列を狭めて観測所の列を広くする。スマホでは標高を観測所の名前の下に出し、横にはみ出さないようにする */
+  .station-meta { display: block; font-size: 0.8rem; }
+  .station-alt { display: none; }
+  table.ranking.weather .col-rank { width: 4.5em; }
+  table.ranking.weather .col-value { width: 8em; }
+  table.ranking.weather .col-alt { width: 6em; }
+  @media (max-width: 640px) {
+    table.ranking.weather th, table.ranking.weather td { padding-left: 6px; padding-right: 6px; }
+    table.ranking.weather .col-rank { width: 3.2em; }
+    table.ranking.weather .col-value { width: 6.2em; }
+    table.ranking.weather td.num { white-space: nowrap; }
+    table.ranking.weather .col-alt { display: none; }
+    .station-alt { display: block; }
+  }
+</style>

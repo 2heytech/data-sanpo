@@ -23,6 +23,31 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "snowfall-normals",
+    title: "雪が1年に17m降る場所はどこ？：降雪量・最深積雪の平年値ランキング",
+    description: "気象庁の平年値（1991〜2020年）で、雪がたくさん降る場所と深く積もる場所を観測所ごとに比べます。1年の降雪量が17mを超える観測所、積もる深さの1位、平地で2mを超える所、都道府県庁のある市も見ます。",
+    published: "2026-11-20",
+    // 天気の平年値は地図に重ねる観測所の点で、色分けの指標ではないので、記事の地図の画像はない。「データを地図で見る」は酸ケ湯を選んだ地図
+    indicators: [],
+    mapHref: "/map/?ws=wx-31482&wx=snowfall_normal",
+  },
+  {
+    slug: "total-fertility-rate",
+    title: "出生率が高い市区町村：合計特殊出生率の市区町村ランキング",
+    description: "厚生労働省の2018〜2022年の合計特殊出生率で、出生率が高い市区町村を見ます。1位の徳之島町をはじめ2.0以上の11市町村、過去4回の1位、市と人口20万人以上の市区町村、都道府県の順位も見ます。",
+    published: "2026-11-18",
+    indicators: ["total_fertility_rate"],
+    mapHref: "/map/?i=total_fertility_rate&p=2018-01-01&a=muni-46530&l=municipality",
+  },
+  {
+    slug: "slope-building",
+    title: "坂の多いまちはどこ？：建物用地の平均傾斜の市区町村ランキング",
+    description: "家や店などが建つ土地（建物用地）の地面の傾きの平均で、坂の多いまちを比べます。1位の山あいの村、市の1位の熱海市、大きな市の1位の長崎市、都道府県の順位、地面全体の傾きとの違いも見ます。",
+    published: "2026-11-16",
+    indicators: ["slope_building_mean", "slope_building_steep_share", "slope_mean"],
+    mapHref: "/map/?i=slope_building_mean&p=2021-04-01&a=muni-39364&l=municipality",
+  },
+  {
     slug: "life-expectancy",
     title: "平均寿命の長い都道府県・市区町村はどこ？",
     description: "厚生労働省の生命表（2020年）で、平均寿命の長い都道府県と市区町村を男女別に見ます。都道府県の1位の移り変わり、男女とも1位になった市区町村、上位に多い長野県の町村、2015年からの延びも見ます。",

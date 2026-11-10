@@ -1,0 +1,119 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleWeather from "../components/ArticleWeather.astro";
+import { check, weatherElement, weatherRanking, weatherStation, weatherValue } from "../lib/articleData";
+import { articleBySlug } from "../lib/articles";
+import { formatNumber } from "../lib/format";
+import type { WeatherStation } from "../lib/types";
+
+const SLUG = "snowfall-normals";
+const FALL = "snowfall_normal";
+const DEPTH = "snow_depth_normal";
+const SUKAYU = weatherStation("wx-31482", "酸ケ湯");
+const HIJIORI = weatherStation("wx-35216", "肘折");
+const TSUNAN = weatherStation("wx-54836", "津南");
+const OIZAWA = weatherStation("wx-35361", "大井沢");
+const KOIDE = weatherStation("wx-54616", "小出");
+const TOKAMACHI = weatherStation("wx-54676", "十日町");
+const AOMORI = weatherStation("wx-31312", "青森");
+const SAPPORO = weatherStation("wx-14163", "札幌");
+const YAMAGATA = weatherStation("wx-35426", "山形");
+// 都道府県庁のある市の観測所（気象台など。高知市は2地点）
+const CAPITALS = ["wx-14163", "wx-31312", "wx-33431", "wx-34392", "wx-32402", "wx-35426", "wx-36127", "wx-40201", "wx-41277", "wx-42251",
+  "wx-43241", "wx-45212", "wx-44132", "wx-46106", "wx-54232", "wx-55102", "wx-56227", "wx-57066", "wx-49142", "wx-48156", "wx-52586",
+  "wx-50331", "wx-51106", "wx-53133", "wx-60216", "wx-61286", "wx-62078", "wx-63518", "wx-64036", "wx-65042", "wx-69122", "wx-68132",
+  "wx-66408", "wx-67437", "wx-81286", "wx-71106", "wx-72086", "wx-73166", "wx-74181", "wx-74182", "wx-82182", "wx-85142", "wx-84496",
+  "wx-86141", "wx-83216", "wx-87376", "wx-88317", "wx-91197"];
+
+const el = weatherElement(FALL);
+const cm = (v: number | null) => (v === null ? "—" : `${formatNumber(v, 0)}cm`);
+const m = (s: WeatherStation | null) => (s?.altitude_m === null || s?.altitude_m === undefined ? "—" : `${formatNumber(s.altitude_m, 0)}m`);
+const fall = (s: WeatherStation | null) => cm(weatherValue(s, FALL));
+const depth = (s: WeatherStation | null) => cm(weatherValue(s, DEPTH));
+// 酸ケ湯の月ごとの降雪量（1月と、12〜3月の合計）
+const monthly = SUKAYU?.monthly[FALL] ?? [];
+const jan = monthly[0] ?? null;
+const winter = [11, 0, 1, 2].every((i) => monthly[i] !== null && monthly[i] !== undefined)
+  ? [11, 0, 1, 2].reduce((sum, i) => sum + (monthly[i] as number), 0) : null;
+
+// 題名「1年に17m」: 降雪量の1位は酸ケ湯で、1,700cm以上1,800cm未満。2・3位は肘折・津南
+const fallTop = weatherRanking(FALL, 3);
+check(fallTop.map((r) => r.station.id).join() === [SUKAYU, HIJIORI, TSUNAN].map((s) => s?.id).join(), "降雪量の1〜3位が酸ケ湯・肘折・津南ではありません");
+check(weatherRanking(FALL, 10).every((r) => /^muni-(0[1-7]|15)/.test(r.station.municipality_id)), "降雪量の上位10に東北・北海道・新潟県のほかの観測所があります");
+check((weatherValue(SUKAYU, FALL) ?? 0) >= 1700 && (weatherValue(SUKAYU, FALL) ?? 0) < 1800, "酸ケ湯の降雪量が17mあまりではありません");
+check(jan !== null && winter !== null && monthly.every((v, i) => i === 0 || v === null || (v as number) <= (jan as number)), "酸ケ湯の降雪量が1月に最も多くありません");
+// 年最深積雪の1〜3位は肘折・津南・大井沢。酸ケ湯は年最深積雪の平年値がない（気象庁の2月の値 373cm を本文に書く）
+const depthTop = weatherRanking(DEPTH, 3);
+check(depthTop.map((r) => r.station.id).join() === [HIJIORI, TSUNAN, OIZAWA].map((s) => s?.id).join(), "年最深積雪の1〜3位が肘折・津南・大井沢ではありません");
+check(weatherValue(SUKAYU, DEPTH) === null && (weatherValue(HIJIORI, DEPTH) ?? Infinity) < 373, "酸ケ湯に年最深積雪の平年値があるか、肘折が373cm以上です");
+// 標高の低い小出・十日町でも2mを超える
+check([KOIDE, TOKAMACHI].every((s) => (weatherValue(s, DEPTH) ?? 0) > 200 && (s?.altitude_m ?? Infinity) < 200), "小出・十日町が標高200m未満で年最深積雪2m超ではありません");
+// 都道府県庁のある市の観測所では、降雪量・年最深積雪とも青森が1位、札幌が2位。降雪量の3位は山形
+const capitalRank = (element: string) => CAPITALS.map((id) => ({ id, v: weatherRanking(element, 2000).find((r) => r.station.id === id)?.value ?? null }))
+  .filter((r) => r.v !== null).sort((a, b) => (b.v as number) - (a.v as number)).map((r) => r.id);
+check(capitalRank(FALL).slice(0, 3).join() === [AOMORI, SAPPORO, YAMAGATA].map((s) => s?.id).join(), "都道府県庁のある市の降雪量の1〜3位が青森・札幌・山形ではありません");
+check(capitalRank(DEPTH).slice(0, 2).join() === [AOMORI, SAPPORO].map((s) => s?.id).join(), "都道府県庁のある市の年最深積雪の1・2位が青森・札幌ではありません");
+// 「データを地図で見る」（lib/articles.ts の mapHref）は酸ケ湯を選んだ降雪量の地図
+check(articleBySlug(SLUG)?.mapHref === `/map/?ws=${SUKAYU?.id}&wx=${FALL}`, "記事の mapHref が酸ケ湯の降雪量の地図になっていません");
+---
+<Article slug={SLUG}>
+  <p>
+    冬が近づいてきました。雪がたくさん降るのはどこでしょうか。気象庁の平年値（1991〜2020年の30年間の平均的な値）で、観測所ごとに比べてみます。
+  </p>
+  <p>
+    1年間に新しく降り積もった雪の深さを合計したものを「降雪量」、1年でいちばん深く積もったときの深さを「年最深積雪」といいます。
+    降った雪はとけたり、重みで沈んだりするので、降雪量は積もる深さよりずっと大きくなります。
+    降雪量の平年値がある観測所は、全国で{el ? formatNumber(el.count, 0) : "—"}か所です。
+  </p>
+
+  <h2>降雪量の1位は青森市の酸ケ湯</h2>
+  <p>
+    降雪量の1位は、青森市の酸ケ湯（標高{m(SUKAYU)}）の{fall(SUKAYU)}です。1年に17mあまりの雪が降ることになります。
+    酸ケ湯は八甲田山系にある観測所で、1月だけで{cm(jan)}、12月から3月までの4か月で{cm(winter)}の雪が降ります。
+  </p>
+  <p>
+    2位は山形県大蔵村の肘折（{fall(HIJIORI)}）、3位は新潟県津南町の津南（{fall(TSUNAN)}）です。上位10は、どれも東北・北海道・新潟県の観測所です。
+  </p>
+  <ArticleWeather element={FALL} also={DEPTH} n={10} expect={[SUKAYU, HIJIORI, TSUNAN]} caption="年間の降雪量が多い観測所（1991〜2020年の平年値）" />
+
+  <h2>積もる深さの1位は肘折</h2>
+  <p>
+    年最深積雪の平年値が最も深いのは、肘折の{depth(HIJIORI)}です。2位は津南（{depth(TSUNAN)}）、3位は山形県西川町の大井沢（{depth(OIZAWA)}）です。
+  </p>
+  <p>
+    酸ケ湯は、気象庁の平年値に年最深積雪の値がないため、この表には入っていません。
+    ただ、月ごとの平年値では2月の最深積雪が373cmで、肘折の年の値を上回ります。
+    酸ケ湯では2013年2月26日に566cmの積雪を観測していて、1979年に統計を始めてから最も深い記録になっています（青森地方気象台）。
+  </p>
+  <ArticleWeather element={DEPTH} also={FALL} n={10} expect={[HIJIORI, TSUNAN, OIZAWA]} caption="年最深積雪が深い観測所（1991〜2020年の平年値）" />
+
+  <h2>平地でも2mを超える所</h2>
+  <p>
+    上位には標高の高い観測所が多いものの、新潟県魚沼市の小出（標高{m(KOIDE)}）でも年最深積雪は{depth(KOIDE)}、
+    新潟県十日町市の十日町（標高{m(TOKAMACHI)}）では{depth(TOKAMACHI)}です。人の多く住む平地でも、2mを超える雪が積もります。
+  </p>
+
+  <h2>都道府県庁のある市では青森</h2>
+  <p>
+    都道府県庁のある市の観測所で比べると、降雪量・年最深積雪とも青森（{fall(AOMORI)}・{depth(AOMORI)}）が最も多く、
+    札幌（{fall(SAPPORO)}・{depth(SAPPORO)}）が続きます。降雪量の3位は山形（{fall(YAMAGATA)}）です。
+    降雪量1位の酸ケ湯も、同じ青森市にあります。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?ws=${SUKAYU?.id ?? ""}&wx=${FALL}`}>降雪量を地図で見る</a>
+    <a class="button secondary" href={`/map/?ws=${HIJIORI?.id ?? ""}&wx=${DEPTH}`}>年最深積雪を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>観測所1か所の値で、市区町村全体の平均ではありません。同じ市町村でも、山の上と平地では大きく違います。</li>
+    <li>積雪計で雪の深さを観測している観測所だけです。観測所のない場所は値がありません（0cmではありません）。</li>
+    <li>平年値は1991〜2020年の平均的な値です。年によって、雪の量は平年値と大きく違うことがあります。</li>
+    <li>気象庁が平年値を出していない観測所や項目（酸ケ湯の年最深積雪など）は、表に入っていません。</li>
+    <li>月ごとの最深積雪（酸ケ湯の2月）は、気象庁の平年値の資料の値です。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
