@@ -119,6 +119,12 @@ YEARS = {
 }
 CHANGED_CELL = 2   # 過去の時点は面積が異なる（比較不可）
 NEW_CELL = 3       # 過去の時点には存在しない
+# 同じ名前の町丁目が別の KEY_CODE に分かれている例（長崎市の大手二丁目など。#183）。14199 の最初の町丁目
+# （14199001001「標本町1丁目」）の南に接する人口0の小さな区域で、町のコードが違う。取込で最初の町丁目にまとめる。
+# 人口の表は「-」、年齢の表は最初の町丁目に合算された秘匿地域にする（まとめた地域の中の合算は印を外す）
+SPLIT_KEY = "14199001101"
+# 名前も町丁・字等のコードもない地物（KEY_CODE が都道府県コードだけ）の例。14199 の東に接する。市区町村界にだけ使う
+LOOSE_KEY = "14"
 
 
 def write(directory: Path, seed: int = 42) -> dict[str, Path]:
@@ -185,6 +191,15 @@ def write(directory: Path, seed: int = 42) -> dict[str, Path]:
     out["census_history"] = _write_census_history(directory)
     out.update(_write_economic_census(directory))
     out.update(_write_industry_census(directory))
+    out["ssds_municipal_2026_b"] = _write_ssds(directory)
+    out["ssds_municipal_2026_h"] = _write_ssds_h(directory)
+    out["housing_members_2023"] = _write_housing_members(directory)
+    out["mhlw_medical_2025"] = _write_medical(directory)
+    out["mhlw_care_2024"] = _write_care(directory)
+    out["mlit_parks_2025"] = _write_parks(directory)
+    out["mlit_sewerage_2026"] = _write_sewerage(directory)
+    out["cfa_child_medical_2025"] = _write_child_medical(directory)
+    out["digital_water_2024"] = _write_water(directory)
     out.update(_write_industry_tables(directory))
     out["land_survey"] = _write_land_survey(directory, random.Random(f"{seed}-land-survey"))
     out.update(_write_npa_crime_stats(directory))
@@ -311,20 +326,250 @@ TOWN_INDUSTRY_ROWS = [
 ]
 TOWN_INDUSTRY_REDUCE = {"columns": ["AR_全産業（S_公務を除く）", "75_宿泊業"], "measures": ["事業所数", "従業者数_男女計"],
                         "label_columns": 6, "row_filter": {"column": 6, "values": ["0_総数"]}}
-# 表9-1A（市区町村×産業小分類の全事業所数）。(地域識別コード, 地域区分, 宿泊業, 旅館・ホテル, 簡易宿所)
+# 表9-1A（市区町村×産業小分類の全事業所数）。(地域識別コード, 地域区分, 宿泊業, 旅館・ホテル, 簡易宿所,
+# 飲食料品小売業, 飲食店)（#204）
 MUNICIPAL_INDUSTRY_ROWS = [
-    ("a", "00000_全国", 45327.0, 34797.0, 3269.0),
-    ("a", "13000_東京都", 600.0, 400.0, 150.0),
-    ("a", "14000_神奈川県", 300.0, 200.0, 20.0),
-    ("1", "13100_特別区部", 10.0, 6.0, 3.0),   # 区ごとの行があるので使わない
-    ("0", "13199_サンプル区", 10.0, 6.0, 3.0),
-    ("2", "13299_ためし市", 4.0, 3.0, "-"),     # 「-」は該当なし（0）
-    ("3", "13499_かりの村", 1.0, 1.0, "-"),
-    ("1", "14100_みほん市", 9.0, 7.0, 1.0),     # 政令指定都市の市全体（区ごとの行を使う）
-    ("0", "14199_みほん市中区", 9.0, 7.0, 1.0),
+    ("a", "00000_全国", 45327.0, 34797.0, 3269.0, 290000.0, 400000.0),
+    ("a", "13000_東京都", 600.0, 400.0, 150.0, 9000.0, 60000.0),
+    ("a", "14000_神奈川県", 300.0, 200.0, 20.0, 5000.0, 20000.0),
+    ("1", "13100_特別区部", 10.0, 6.0, 3.0, 300.0, 2500.0),   # 区ごとの行があるので使わない
+    ("0", "13199_サンプル区", 10.0, 6.0, 3.0, 300.0, 2500.0),
+    ("2", "13299_ためし市", 4.0, 3.0, "-", 120.0, 340.0),     # 「-」は該当なし（0）
+    ("3", "13499_かりの村", 1.0, 1.0, "-", 2.0, "-"),
+    ("1", "14100_みほん市", 9.0, 7.0, 1.0, 80.0, 410.0),     # 政令指定都市の市全体（区ごとの行を使う）
+    ("0", "14199_みほん市中区", 9.0, 7.0, 1.0, 80.0, 410.0),
 ]
-MUNICIPAL_INDUSTRY_REDUCE = {"columns": ["75_宿泊業", "751_旅館，ホテル", "752_簡易宿所"], "measures": ["事業所数"],
-                             "label_columns": 2}
+MUNICIPAL_INDUSTRY_REDUCE = {"columns": ["58_飲食料品小売業", "75_宿泊業", "751_旅館，ホテル", "752_簡易宿所", "76_飲食店"],
+                             "measures": ["事業所数"], "label_columns": 2}
+
+
+# 統計でみる市区町村のすがたの基礎データ（B 自然環境、#206）。地域コード → (総面積, 可住地面積)。
+# 政令指定都市の市全体（14100）の行もある（区の行を使う）。かりの村の可住地面積は0.5km²未満（値を出さない）
+SSDS_AREAS = {"13": (2194.05, 1424.3), "14": (2416.32, 1489.2), "13199": (5.21, 5.0), "13299": (12.34, 9.1),
+              "13499": (20.5, 0.4), "14100": (8.76, 8.0), "14199": (8.76, 8.0)}
+
+
+def _write_ssds(directory: Path) -> Path:
+    """.xls の代わりに同じ形の .xlsx を置く（読む処理は拡張子で切り替える）。"""
+    from .xlsx import write_sheet
+    pad = [None] * 10
+    rows = [pad + [3.0, 4.0, None], pad + [3.0, 4.0, None], [], pad + ["Ｂ　自然環境　　　B. Natural Environment"],
+            pad + [23.0, 24.0], [None] * 8 + ["市区町村", "Municipalities", "総面積(北方地域及び竹島を除く)", "可住地面積", "市区町村ｺｰﾄﾞ"],
+            pad + ["Total land area", "Inhabitable area"], pad + ["B1101", "B1103"], pad + ["k㎡", "k㎡"],
+            pad + ["2024", "2024"]]
+    for i, (code, (total, inhabitable)) in enumerate(SSDS_AREAS.items()):
+        rows.append(["302  ", f"{code:<12}", "ABCD        ", "  ", None, float(i + 1), None, f"{code:<5}", "見本", "Mihon",
+                     total, inhabitable, f"{code:<5}"])
+    d = directory / "ssds_municipal_2026_b"
+    d.mkdir(parents=True, exist_ok=True)
+    write_sheet(d / "ssds_2026_b.xlsx", rows, "B")
+    return d
+
+
+# 統計でみる市区町村のすがたの H 居住と、住宅・土地統計調査 第2表の主世帯の世帯人員（#208）。
+# 地域コード → (居住世帯あり住宅数, 1住宅当たり延べ面積, 主世帯の世帯人員)。かりの村は公表の対象外（「...」・行がない）
+HOUSING_FLOOR = {"13": (7235400.0, 64.02, 13766300), "14": (4300000.0, 70.5, 9000000),
+                 "13199": (60000.0, 55.25, 110000), "13299": (35000.0, 88.1, 80000), "14100": (130000.0, 70.0, 300000),
+                 "14199": (130000.0, 70.0, 290000)}
+
+
+def _write_ssds_h(directory: Path) -> Path:
+    from .xlsx import write_sheet
+    pad = [None] * 10
+    rows = [pad + [8.0, 9.0], pad + [8.0, 9.0], [], pad + ["Ｈ　居住　　　H. Dwelling"], pad + [68.0, 71.0],
+            [None] * 8 + ["市区町村", "Municipalities", "居住世帯あり住宅数", "１住宅当たり延べ面積", "市区町村ｺｰﾄﾞ"],
+            pad + ["Number of dwellings", "Area of floor space per dwelling"], pad + ["H1101", "H2130"], pad + ["戸", "㎡"],
+            pad + ["2023", "2023"]]
+    codes = list(HOUSING_FLOOR) + ["13499"]
+    for i, code in enumerate(codes):
+        n, area, _ = HOUSING_FLOOR.get(code, ("...", "...", None))
+        rows.append(["304  ", f"{code:<12}", "FGHI        ", "  ", None, float(i + 1), None, f"{code:<5}", "見本", "Mihon",
+                     n, area, f"{code:<5}"])
+    d = directory / "ssds_municipal_2026_h"
+    d.mkdir(parents=True, exist_ok=True)
+    write_sheet(d / "ssds_2026_h.xlsx", rows, "H")
+    return d
+
+
+def _write_housing_members(directory: Path) -> Path:
+    from .xlsx import write_sheet
+    rows = [["令和５年住宅・土地統計調査　住宅及び世帯に関する基本集計"], ["第２表　見本"], [], [],
+            [None, None, "表章項目", "住宅数", "世帯数", "世帯数", "世帯人員", "世帯人員"],
+            [None, None, "事項名", "世帯の種類", "世帯の種類", "世帯の種類", "世帯の種類", "世帯の種類"],
+            [None, None, "項目名", "0_総数", "0_総数", "1_主世帯", "0_総数", "1_主世帯"],
+            [None, None, "表章単位", "戸", "世帯", "世帯", "人", "人"],
+            ["地域識別コード", "地域区分", "住宅の種類", " "]]
+    for code, (n, _, members) in HOUSING_FLOOR.items():
+        code5 = f"{code}000" if len(code) == 2 else code
+        level = "a" if len(code) == 2 else "0"
+        for kind, f in (("0_総数", 1.0), ("1_専用住宅", 0.9)):
+            rows.append([level, f"{code5}_見本", kind, n * f, n * f + 100, n * f, members * f + 50, round(members * f)])
+    d = directory / "housing_members_2023"
+    d.mkdir(parents=True, exist_ok=True)
+    write_sheet(d / "housing_members_2023.xlsx", rows, "e002")
+    return d
+
+
+# 医療施設（動態）調査の二次医療圏・市区町村編（#207）。地域 → (病院の病床数, 一般診療所の病床数)。「-」は該当なし（0）。
+# 二次医療圏の行（4桁）は使わない
+MEDICAL_BEDS = [("13", "東京都", 120000, 1500), ("1301", "区中央部", 9999, 99), ("13199", "サンプル区", 1500, 40),
+                ("13299", "ためし市", 820, "-"), ("13499", "かりの村", "-", "-"), ("14", "神奈川県", 70000, 900),
+                ("1401", "横浜", 9999, 99), ("14199", "みほん市中区", 900, 19)]
+
+
+def _write_medical(directory: Path) -> Path:
+    d = directory / "mhlw_medical_2025"
+    d.mkdir(parents=True, exist_ok=True)
+    pad = lambda name: f"{name}　　　　"
+    head1 = [["令和７（２０２５）年", "医療施設調査", "令和７（２０２５）年１０月１日", ""],
+             ["二次医療圏・市区町村編　第１表　病院数；病床数，病院－病床の種類・二次医療圏・市区町村別"],
+             ["", "施設数", "", "", "", "", "", "病床数", "", "", "", "", "", ""],
+             ["", "総　数", "精神科", "一般病院", "", "地域医", "救　急", "総　数", "精　神", "感染症", "結　核", "療　養", "一　般", "地域医"],
+             [""] * 14]
+    head2 = [["令和７（２０２５）年", "医療施設調査", "令和７（２０２５）年１０月１日", ""],
+             ["二次医療圏・市区町村編　第２表　一般診療所数；歯科診療所数；病床数，病床の有無・二次医療圏・市区町村別"],
+             ["", "一般診療所数", "", "", "", "歯科診療所数", "", "", "一般診療所", ""],
+             ["", "総数", "有床", "（再掲）療養病床を有する一般診療所", "無床", "総数", "有床", "無床", "病床数", "（再掲）療養病床"],
+             [""] * 10]
+    rows1 = [[f"{code}　{pad(name)}" if len(code) != 5 else f"{code} {pad(name)}", "1", "-", "1", "-", "-", "1", str(h)]
+             + ["-"] * 6 for code, name, h, _ in MEDICAL_BEDS]
+    rows2 = [[f"{code}　{pad(name)}" if len(code) != 5 else f"{code} {pad(name)}", "3", "1", "-", "2", "2", "-", "2", str(c), "-"]
+             for code, name, _, c in MEDICAL_BEDS]
+    for name, rows in (("n1.csv", head1 + rows1), ("n2.csv", head2 + rows2)):
+        with (d / name).open("w", encoding="cp932", newline="") as f:
+            csv.writer(f).writerows(rows)
+    return d
+
+
+# 介護サービス施設・事業所調査 基本票 第1表（#209）。地域 → 3種類の施設の (施設数, 定員)。「-」は該当なし（0）。
+# 政令指定都市の市全体の行（14190）は使わない（区の行がある）
+CARE_FACILITIES = [("00000", "全国", [(9, 700), (2, 200), (1, 20)]), ("13000", "東京都", [(3, 230), (1, 100), ("-", "-")]),
+                   ("13199", "サンプル区", [(1, 80), ("-", "-"), ("-", "-")]),
+                   ("13299", "ためし市", [(2, 150), (1, 100), ("-", "-")]),
+                   ("13499", "かりの村", [("-", "-"), ("-", "-"), ("-", "-")]),
+                   ("14000", "神奈川県", [(1, 50), ("-", "-"), (1, 20)]), ("14190", "みほん市", [(1, 50), ("-", "-"), (1, 20)]),
+                   ("14199", "中区", [(1, 50), ("-", "-"), (1, 20)])]
+
+
+def _write_care(directory: Path) -> Path:
+    d = directory / "mhlw_care_2024"
+    d.mkdir(parents=True, exist_ok=True)
+    rows = [["令和６（2024）年", "介護サービス施設・事業所調査", "令和６（2024）年10月１日", ""],
+            ["閲覧表　介護保険施設", "【基本票】　第１表　介護保険施設数－定員，市区町村、施設の種類別"],
+            ["", "介護老人福祉施設", "", "介護老人保健施設", "", "介護医療院", ""],
+            ["", "施設数", "定員", "施設数", "定員", "施設数", "定員"]]
+    rows += [[f"{code} {name}　　　　"] + [str(v) for pair in kinds for v in pair] for code, name, kinds in CARE_FACILITIES]
+    with (d / "care_facilities_2024.csv").open("w", encoding="cp932", newline="") as f:
+        csv.writer(f).writerows(rows)
+    return d
+
+
+# 都市公園整備現況一覧表の市町村別（#210）。市町村コード → (都市公園合計 ha, カントリーパーク ha, 都市計画区域人口 千人)。
+# かりの村は都市計画区域がない（人口0）。みほん市（政令指定都市）は市全体の行だけ
+CITY_PARKS = {"13199": ("東京都", "サンプル区", 20.0, 0.0, 100.0), "13299": ("東京都", "ためし市", 60.5, 0.5, 50.0),
+              "13499": ("東京都", "かりの村", 1.0, 1.0, 0.0), "14190": ("神奈川県", "みほん市", 100.0, 0.0, 200.0)}
+
+
+def _write_parks(directory: Path) -> Path:
+    from .xlsx import write_sheets
+    d = directory / "mlit_parks_2025"
+    d.mkdir(parents=True, exist_ok=True)
+    head = ["市町村コード", "都道府県名", "市町村名", "街区公園　箇所", "街区公園　面積(ha)", "ｶﾝﾄﾘｰﾊﾟｰｸ　箇所",
+            "ｶﾝﾄﾘｰﾊﾟｰｸ　面積(ha)", "都市公園合計　箇所", "都市公園合計　面積(ha)", "都市計画区域人口(千人)",
+            "1人当り公園面積(㎡/人)"]
+    rows = [["R06年度末　都道府県別都市公園等整備現況（カントリーパークを含む）"], ["国営含む"], ["2025.3.31時点"], head]
+    for code, (pref, name, total, country, pop) in CITY_PARKS.items():
+        rows.append([code, pref, name, 3.0, total - country, 1.0 if country else 0.0, country, 4.0, total, pop,
+                     total * 10 / pop if pop else 0.0])
+    write_sheets(d / "city_parks_2025.xlsx", {"都道府県別都市公園等整備現況（カントリーパークを含む）": [["見本"]],
+                                              "市町村別": rows})
+    return d
+
+
+# 市町村別汚水処理及び下水道処理人口普及率（#211）。pdftotext -bbox の HTML の形（縦の表が横に並ぶ）。
+# (列, 行の単語)。東京都の23区は「区部」の1行、政令指定都市は市全体の行だけ
+SEWERAGE_COLUMNS = [
+    [["東京都"], ["市町村名", "汚水", "下水"], ["区部※", "100.0%", "100.0%"], ["ためし市", "95.5%", "90.1%"],
+     ["かりの村", "60.0%", "＊"]],
+    [["東京都", "99.9%", "99.7%"], ["神奈川県"], ["市町村名", "汚水", "下水"], ["みほん市", "99.0%", "98.0%"],
+     ["神奈川県", "98.0%", "97.0%"]],
+]
+
+
+def _write_sewerage(directory: Path) -> Path:
+    d = directory / "mlit_sewerage_2026"
+    d.mkdir(parents=True, exist_ok=True)
+    words = ['<word xMin="176.0" yMin="49.0" xMax="219.0" yMax="56.0">全国市町村別</word>',
+             '<word xMin="230.0" yMin="49.0" xMax="420.0" yMax="56.0">汚水処理及び下水道処理人口普及率一覧（令和７年度末）</word>']
+    for c, column in enumerate(SEWERAGE_COLUMNS):
+        x = 66.0 + c * 110
+        for i, row in enumerate(column):
+            y = 60.0 + i * 5.5
+            head = row[0] == "市町村名"
+            for j, t in enumerate(row):
+                x0 = x + (6.0 if head and j == 0 else 0) + j * 28 + (2.0 if len(row) == 3 and row[0] in PREF_NAMES.values() and j == 0 else 0)
+                words.append(f'<word xMin="{x0:.1f}" yMin="{y:.1f}" xMax="{x0 + 20:.1f}" yMax="{y + 5:.1f}">{t}</word>')
+    text = ('<html><body><doc>\n<page width="595.3" height="841.9">\n' + "\n".join(words)
+            + '\n</page>\n<page width="595.3" height="841.9">\n</page>\n</doc></body></html>\n')
+    (d / "sewerage_2026.html").write_text(text, encoding="utf-8")
+    return d
+
+
+# こどもに係る医療費の助成についての調査 別紙3（#212）。pdftotext -layout のテキストの形
+CHILD_MEDICAL_ROWS = [("東京都", "サンプル区", "18歳年度末", "18歳年度末", "無無無無"),
+                      ("東京都", "ためし市", "15歳年度末", "18歳年度末", "有無有有"),
+                      ("東京都", "かりの村※", "就学前", "22歳年度末", "無無無無"),
+                      ("神奈川県", "みほん市", "18歳年度末", "18歳年度末", "無無有有")]
+
+
+def _write_child_medical(directory: Path) -> Path:
+    d = directory / "cfa_child_medical_2025"
+    d.mkdir(parents=True, exist_ok=True)
+    head = ["                                                       別紙３",
+            "こども医療費に対する助成の実施状況調査（市区町村用）（令和７年４月１日時点）",
+            "                           対象年齢          所得制限     一部自己負担",
+            "都道府県名       市区町村名",
+            "                     通 院          入 院   通院   入院   通院   入院", ""]
+    lines = [f" {pref}    {i + 1}     {name}   {out}    {inp}    " + "    ".join(flags)
+             for i, (pref, name, out, inp, flags) in enumerate(CHILD_MEDICAL_ROWS)]
+    (d / "child_medical_2025.txt").write_text("\n".join(head + lines + ["", "※ 18歳年度末以降は学生医療として実施しており、"
+                                                                       "対象は大学等に通う者に限る。（一定の所得制限あり。）"]) + "\n",
+                                              encoding="utf-8")
+    return d
+
+
+# 水道事業等の経営状況に関するダッシュボードの公開データ（#213）。(事業者コード, 名前, 事業の区分, 経営主体, 料金, 給水人口)。
+# サンプル区は東京都の水道（実際の設定の suppliers にない見本のコードなので値なし）、かりの村は給水人口が少ない（値なし）
+WATER_UTILITIES = [("130001", "東京都", "001", "1:都道府県営", 2560, 13000000),
+                   ("132993", "ためし市", "001", "3:市営", 3000, 10_000_000),
+                   ("134996", "かりの村", "005", "4:町村営", 4500, 1),
+                   ("141909", "みほん市", "001", "2:指定市営", 2200, 10_000_000)]
+WATER_COLUMNS = ["source_url", "fiscal_year", "local_public_enterprise_code", "local_public_enterprise_name", "facility_code",
+                 "facility_code_name", "cond_1_business_type", "cond_2_operating_entity", "cond_3_profit_status",
+                 "cond_45_water_supply_population_category", "cond_6_domestic_water_ratio", "cond_7_water_source_type",
+                 "similar_org_code", "similar_org_code_label", "statistical_table_number", "statistical_table_name",
+                 "row_index", "item_key", "item_name", "item_value", "item_unit"]
+
+
+def _write_water(directory: Path) -> Path:
+    import io
+    import zipfile
+    d = directory / "digital_water_2024"
+    d.mkdir(parents=True, exist_ok=True)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(WATER_COLUMNS)
+    items = [("6.料金__(2)料金(家庭用)__1か月20㎥当たり料金__口径13mm", 4), ("6.料金__(2)料金(家庭用)__1か月20㎥当たり料金__口径20mm", 4),
+             ("4.施設__(3)現在給水人口(人)", 5)]
+    for code, name, facility, entity, fee, pop in WATER_UTILITIES:
+        for item, value_index in items:
+            value = fee if value_index == 4 else pop
+            w.writerow(["", "2024", code, name, facility, f"{facility}:末端給水事業", "", entity, "", "", "", "", "", "",
+                        "01", "01 施設及び業務概況に関する調", "1", "列032", item, str(value), "円" if value_index == 4 else "人"])
+    with zipfile.ZipFile(d / "water_supply_table_02.zip", "w") as z:
+        z.writestr("2024.csv", buf.getvalue().encode("utf-8-sig"))
+        z.writestr("2023.csv", ",".join(WATER_COLUMNS) + "\n")
+    return d
 
 
 def _write_industry_census(directory: Path) -> dict[str, Path]:
@@ -354,11 +599,11 @@ def _write_industry_census(directory: Path) -> dict[str, Path]:
         out[f"town_industry_{pref}"] = path
     rows = [["令和３年経済センサス‐活動調査　事業所に関する集計－産業横断的集計－事業所数、従業者数"],
             ["第９－１Ａ表　産業(小分類)別全事業所数－全国、都道府県、市区町村"], [], [],
-            [None, None] + ["産業小分類"] * 6,
-            [None, None, "AS_全産業", "75_宿泊業", "750_管理，補助的経済活動を行う事業所（75_宿泊業）", "751_旅館，ホテル",
-             "752_簡易宿所", "753_下宿業"],
-            [None, None] + ["事業所数"] * 6, [None, None] + ["事業所"] * 6, ["地域識別コード", "地域区分", " "]]
-    rows += [[k, area, 999.0, a, 0.0, b, c, 0.0] for k, area, a, b, c in MUNICIPAL_INDUSTRY_ROWS]
+            [None, None] + ["産業小分類"] * 9,
+            [None, None, "AS_全産業", "58_飲食料品小売業", "581_各種食料品小売業", "75_宿泊業",
+             "750_管理，補助的経済活動を行う事業所（75_宿泊業）", "751_旅館，ホテル", "752_簡易宿所", "753_下宿業", "76_飲食店"],
+            [None, None] + ["事業所数"] * 9, [None, None] + ["事業所"] * 9, ["地域識別コード", "地域区分", " "]]
+    rows += [[k, area, 999.0, food, 1.0, a, 0.0, b, c, 0.0, eat] for k, area, a, b, c, food, eat in MUNICIPAL_INDUSTRY_ROWS]
     tmp = directory / "_t9-1a.xlsx"
     write_sheet(tmp, rows)
     path = directory / "economic_census2021_municipal_industry" / "t9-1a.csv"
@@ -1406,10 +1651,12 @@ def _write_finance(directory: Path) -> dict[str, Path]:
             (16, "住民基本台帳\n登載人口", ""), (17, "", "うち日本人"), (34, "財政力\n指数", ""),
             (39, "歳入総額", ""), (40, "歳出総額", "")], pref_head + overview))
         # 歳入内訳: 地方税（16、2段目）。内訳の表にも同じ名前の列（20）があるが、最初の列を使う
-        revenue = [[None] * 14 + [f"{code}0", name, tax, tax * 0.5, None, None, 1.0]
+        # 法人分（18、#205）。特別区（サンプル区）は都が課税するので0
+        revenue = [[None] * 14 + [f"{code}0", name, tax, tax * 0.5, 0 if code[:3] == "131" else tax * 0.1, None, 1.0]
                    for code, name, _, _, _, tax, *_ in members]
         write_sheet(d / f"{side}_2.xlsx", _settlement_sheet("イ歳入内訳", [
-            (16, "一", "地方税"), (17, "地方税内訳", "うち\n市町村民税\n個人分"), (20, "二十六", "地方税")],
+            (16, "一", "地方税"), (17, "地方税内訳", "うち\n市町村民税\n個人分"), (18, "", "うち\n市町村民税\n法人分"),
+            (20, "二十六", "地方税")],
             pref_head + revenue))
         debt = [[None] * 14 + [f"{code}0", name, bond, fund] for code, name, *_, bond, fund in members]
         write_sheet(d / f"{side}_5.xlsx", _settlement_sheet("オ地方債現在高等", [
@@ -1559,16 +1806,18 @@ SLOPE_LAND_USES = ["建物用地", "田", "畑など"]
 
 def slope_land_use_stats(key: str, t: int) -> list[tuple[str, int, float, list[int]]]:
     """区分ごとの (区分, 点の数, 傾斜の合計, ○度以上の点の数…)。点のない区分は入れない。
-    13199 は田・畑のない平らな市街地、13299 はゆるい坂の住宅地と平らな田（畑などは市区町村の合計でも1,500点未満）、
-    13499 は斜面の田・畑の多い島（海だけの地域は点がなく、陸の少ない地域は建物用地の点が40だけ）、14199 は平らな田と畑。"""
+    地域のすべての点は slope_stats（多くは36,000）。13199 は田・畑のない平らな市街地、13299 はゆるい坂の住宅地と平らな田
+    （畑などは地域の5%未満で、市区町村の合計でも1,500点未満）、13499 は斜面の田・畑の多い島（海だけの地域は点がなく、
+    陸の少ない地域は建物用地の点が40だけ。t=3 は田が地域の5%未満の森の多い地域）、14199 は平らな田と畑。"""
     city = key[:5]
     if city == "13499" and t == 0:
         return []
     spec = {"13199": {"建物用地": (5000 + 100 * t, 1.0 + t / 20)},
-            "13299": {"建物用地": (3000, 4.0 + t / 2), "田": (800, 1.5 + t / 10), "畑など": (200 if t < 5 else 0, 3.0)},
-            "13499": {"建物用地": (40, 12.0) if t == 1 else (1200, 10.0 + t),
-                      "田": (0 if t == 1 else 600, 6.0 + t / 2), "畑など": (0 if t == 1 else 900, 15.0 + t)},
-            "14199": {"建物用地": (2500, 1.5), "田": (2000, 0.8 + t / 20), "畑など": (700, 2.0 + t / 10)}}[city]
+            "13299": {"建物用地": (3000, 4.0 + t / 2), "田": (2400, 1.5 + t / 10), "畑など": (200 if t < 5 else 0, 3.0)},
+            "13499": {"建物用地": (40, 12.0) if t == 1 else (4000, 10.0 + t),
+                      "田": (0 if t == 1 else 900 if t == 3 else 6000, 6.0 + t / 2),
+                      "畑など": (0 if t == 1 else 9000, 15.0 + t)},
+            "14199": {"建物用地": (2500, 1.5), "田": (2000, 0.8 + t / 20), "畑など": (2000, 2.0 + t / 10)}}[city]
     out = []
     for land in SLOPE_LAND_USES:
         n, mean = spec.get(land, (0, 1.0))
@@ -2130,10 +2379,11 @@ def _write_census2025(directory: Path, base: dict, before: dict[str, int]) -> di
     rows.append(["9", "13_東京都", "13199", "2000", "13_東京都", "13199", "9999_旧サンプル町", 5, 3, 2, 4, 0.5, 10, 2, 2])
     save("census2025_municipal_population", "b01_01.xlsx", rows)
     # 表2-7: 国籍総数か日本人・男女の分類の列が地域の前にある
-    rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * 4,
-                    [None] * 8 + ["事項名"] + ["年齢"] * 4,
-                    [None] * 8 + ["項目名", "00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上"],
-                    [None] * 8 + ["表章単位"] + ["人"] * 4,
+    rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * 12,
+                    [None] * 8 + ["事項名"] + ["年齢"] * 12,
+                    [None] * 8 + ["項目名", "00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上",
+                                  *AGE5_ITEMS],
+                    [None] * 8 + ["表章単位"] + ["人"] * 12,
                     ["国籍総数か日本人", "男女", "地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域",
                      "2025年_都道府県", "2025年_地域コード", "地域名", " "]]
     for nat, ratio in (("0_国籍総数", 1.0), ("1_うち日本人", 0.9)):
@@ -2142,7 +2392,8 @@ def _write_census2025(directory: Path, base: dict, before: dict[str, int]) -> di
                 f = ratio * share
                 rows.append([nat, sex, level, f"{pref}_{pnames[pref]}", code, "2000", f"{pref}_{pnames[pref]}",
                              code, f"{code}_{label}", round(value(code, "人口") * f)]
-                            + [round(value(code, c) * f) for c in ("15歳未満", "15～64歳", "65歳以上")])
+                            + [round(value(code, c) * f) for c in ("15歳未満", "15～64歳", "65歳以上")]
+                            + age5_columns(round(value(code, "15歳未満") * f), round(value(code, "15～64歳") * f)))
     save("census2025_municipal_age", "wb02_07.xlsx", rows)
     # 表6-3: 地域名の先頭が市区町村コード
     rows = title + [[None, None, "表章項目", "一般世帯数", "一般世帯数", "一般世帯人員"],
@@ -2198,6 +2449,15 @@ def _area_rows(pops: dict[str, int]) -> list[tuple[str, str, str, int]]:
     return rows
 
 
+# 不詳補完値の年齢の表の5歳階級の列（子ども女性比、#203）。0〜4歳と15〜49歳の7階級だけを、3区分の人数から作る
+AGE5_ITEMS = ["01_0～4歳"] + [f"{i + 4:02d}_{a}～{a + 4}歳" for i, a in enumerate(range(15, 50, 5))]
+
+
+def age5_columns(young: int, working: int) -> list[int]:
+    """AGE5_ITEMS の列の値（15歳未満・15〜64歳の人数から）。"""
+    return [round(young * 0.32)] + [round(working * 0.066)] * 7
+
+
 def census_imputed_age_values(year: str, pops: dict[str, int]) -> dict[str, dict[str, int]]:
     """統計局の不詳補完値の年齢3区分（2015・2020年の遡及集計。#154）の見本。地域コード（都道府県は 13000 など）→ 区分 → 人数。
     年齢「不詳」はない（補完済み）ので3区分の合計が人口。小地域の表の値（不詳を除く）とは違う割合にする。"""
@@ -2215,29 +2475,30 @@ def _write_census_imputed_age(directory: Path, pops: dict[str, dict[str, int]]) 
     文字がなく、地域名の先頭が地域コード）。"""
     from .xlsx import write_sheet
     out = {}
-    items = ["00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上"]
+    items = ["00_総数", "R1_（再掲）15歳未満", "R2_（再掲）15～64歳", "R3_（再掲）65歳以上", *AGE5_ITEMS]
+    n = len(items)
     for year, key, fname in (("2020", "census2020_municipal_age", "swb02_07.xlsx"),
                              ("2015", "census2015_municipal_age", "w3_01_04.xlsx")):
         vals = census_imputed_age_values(year, pops[year])
         title = [["【不詳補完値】見本"], ["見本"], [], ["1) 注記"]]
         if year == "2020":
-            rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * 4, [None] * 8 + ["事項名"] + ["年齢"] * 4,
-                            [None] * 8 + ["項目名"] + items, [None] * 8 + ["表章単位"] + ["人"] * 4,
+            rows = title + [[None] * 8 + ["表章項目"] + ["人口"] * n, [None] * 8 + ["事項名"] + ["年齢"] * n,
+                            [None] * 8 + ["項目名"] + items, [None] * 8 + ["表章単位"] + ["人"] * n,
                             ["国籍総数か日本人", "男女", "地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域",
                              "2020年_都道府県", "2020年_地域コード", "地域名", " "]]
         else:
-            rows = title + [[None] * 5 + ["人口"] * 4, [None] * 5 + ["年齢"] * 4, [None] * 5 + ["1"] * 4,
-                            [None] * 5 + items, [None] * 5 + ["人"] * 4,
+            rows = title + [[None] * 5 + ["人口"] * n, [None] * 5 + ["年齢"] * n, [None] * 5 + ["1"] * n,
+                            [None] * 5 + items, [None] * 5 + ["人"] * n,
                             ["国籍総数か日本人", "男女", "地域識別コード", "都道府県", "地域名"]]
         for nat, ratio in (("0_国籍総数", 1.0), ("1_うち日本人", 0.9)):
-            for sex, share in (("0_総数", 1.0), ("1_男", 0.48)):
+            for sex, share in (("0_総数", 1.0), ("1_男", 0.48), ("2_女", 0.52)):
                 for k, (level, code, label, _) in enumerate(_area_rows(pops[year])):
                     v = vals[code]
                     counts = [round(v[c] * ratio * share) for c in ("15歳未満", "15～64歳", "65歳以上")]
                     pref = f"{code[:2]}_x"
                     lead = ([nat, sex, level, pref, code, "2000", pref, code, f"{k + 1:04d}_{label}"] if year == "2020"
                             else [nat, sex, level, pref, f"{code}_{label}"])
-                    rows.append(lead + [sum(counts), *counts])
+                    rows.append(lead + [sum(counts), *counts, *age5_columns(counts[0], counts[1])])
         d = directory / key
         d.mkdir(parents=True, exist_ok=True)
         write_sheet(d / fname, rows, fname.removesuffix(".xlsx"))
@@ -2538,6 +2799,14 @@ def juki_total_values(year: int) -> dict[str, int]:
             for c, v in juki_foreign_values(year).items()}
 
 
+def juki_moves(year: int) -> dict[str, tuple[int, int]]:
+    """見本の市区町村ごとの、year 年1月1日のファイルの転入者数・転出者数（前の年の1年間）。島しょの村は転出者を50人未満にする。"""
+    rnd = random.Random(f"juki-moves-{year}")
+    return {c: (rnd.randint(30, 40), rnd.randint(20, 30)) if c == "13499" else
+            (round(v * rnd.uniform(0.03, 0.08)), round(v * rnd.uniform(0.03, 0.08)))
+            for c, v in juki_total_values(year).items()}
+
+
 def _write_juki_foreign(directory: Path, year: int, rnd: random.Random, total: bool = False) -> Path:
     """【外国人住民】（total なら【総計】）の市区町村別人口。2つは同じ形。"""
     from .xlsx import write_sheet
@@ -2546,14 +2815,20 @@ def _write_juki_foreign(directory: Path, year: int, rnd: random.Random, total: b
     d.mkdir(parents=True, exist_ok=True)
     vals = juki_total_values(year) if total else juki_foreign_values(year)
     names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
-    era = f"令和{year - 2018}年"
-    rows = [[f"{era}1月1日住民基本台帳人口・世帯数、{era}（1月1日から同年12月31日まで）人口動態（市区町村別）【{label}】"],
-            [None] * 3 + [era] * 4, [None] * 3 + [f"{year}年"] * 4, [None] * 3 + ["人口", "人口", "人口", "世帯数"],
-            [None] * 3 + ["男", "女", "計", "世帯数"], ["団体コード", "都道府県名", "市区町村名", "人", "人", "人", "世帯"]]
+    era, prev = f"令和{year - 2018}年", f"令和{year - 2019}年"
+    # 【総計】には人口動態（前の年の1年間の転入者数・転出者数、#202）の列もある
+    flow = (["住民票記載数", "住民票消除数"], ["転入者数（計）", "転出者数（計）"]) if total else ([], [])
+    rows = [[f"{era}1月1日住民基本台帳人口・世帯数、{prev}（1月1日から同年12月31日まで）人口動態（市区町村別）【{label}】"],
+            [None] * 3 + [era] * 4, [None] * 3 + [f"{year}年"] * 4,
+            [None] * 3 + ["人口", "人口", "人口", "世帯数"] + flow[0],
+            [None] * 3 + ["男", "女", "計", "世帯数"] + flow[1],
+            ["団体コード", "都道府県名", "市区町村名", "人", "人", "人", "世帯"] + ["人"] * len(flow[1])]
+    moves = juki_moves(year) if total else {}
 
     def row(code5, pref, name, total):
         male = total // 2
-        return [_check_digit(code5), pref, name, male, total - male, total, round(total * 0.6)]
+        out = [_check_digit(code5), pref, name, male, total - male, total, round(total * 0.6)]
+        return out + list(moves.get(code5, (round(total * 0.03), round(total * 0.028)))) if moves else out
 
     rows.append(["-", "合計", "-"] + [None] * 4)
     for pref in ("13", "14"):
@@ -2818,6 +3093,16 @@ def _write_year(directory: Path, year: str, keys: dict, base: dict,
         w.record(city5 + "999999", pref, city5[2:], "999999", pref_name, shp_city_name, "（水面）",
                  8154, 1000.0, designated)
         w.poly([[(x0, y0), (x0, y0 + CELL), (x0 + CELL / 2, y0 + CELL), (x0, y0)]])
+        split = SPLIT_KEY.startswith(city5)
+        if split:
+            main_key, main_name, _ = cells[0]
+            w.record(SPLIT_KEY, pref, city5[2:], SPLIT_KEY[5:], pref_name, shp_city_name, main_name, 8101,
+                     CELL * 91_000 * CELL / 3 * 111_000, designated)
+            w.poly([[(west, south - CELL / 3), (west, south), (west + CELL, south), (west + CELL, south - CELL / 3),
+                     (west, south - CELL / 3)]])
+            x0 = west + GRID * CELL
+            w.record(LOOSE_KEY, pref, city5[2:], "000000", pref_name, shp_city_name, "", 8101, 1000.0, designated)
+            w.poly([[(x0, south), (x0, south + CELL / 3), (x0 + CELL / 3, south), (x0, south)]])
 
         for key, (pv, av) in values.items():
             totals = [a + b for a, b in zip(totals, pv)]
@@ -2846,6 +3131,13 @@ def _write_year(directory: Path, year: str, keys: dict, base: dict,
                 av = [v if v else "-" for v in av]
                 pop_rows.append(head(code, hyosyo, name) + pv)
                 age_rows.append(head(code, hyosyo, name) + av)
+        if split:
+            pop_rows.append(head(SPLIT_KEY[:9], "3", main_name.split("1丁目")[0]) + ["-"] * 4)
+            pop_rows.append(head(SPLIT_KEY, "4", main_name) + ["-"] * 4)
+            age_rows.append(head(SPLIT_KEY[:9], "3", main_name.split("1丁目")[0], "2", main_key[5:]) + ["X"] * 4)
+            age_rows.append(head(SPLIT_KEY, "4", main_name, "2", main_key[5:]) + ["X"] * 4)
+            row = next(r for r in age_rows if r[0] == main_key)
+            row[4], row[6] = "1", SPLIT_KEY[5:]
     w.close()
     (dirs["boundary"] / "fixture.prj").write_text(
         'GEOGCS["JGD2011",DATUM["D_JGD_2011",SPHEROID["GRS_1980",6378137,298.257222101]],'

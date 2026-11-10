@@ -1,0 +1,130 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, count, ranking, rankOf, raw, rows } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
+
+const ID = "total_fertility_rate";
+const P = "2018-01-01";
+const P13 = "2013-01-01";
+const POP = "population_total";
+const PP = "2025-10-01";
+const TOKUNOSHIMA = "muni-46530";
+const AMAGI = "muni-46531";
+const ISEN = "muni-46532";
+const GINOZA = "muni-47313";
+const KIN = "muni-47314";
+const MIYAKOJIMA = "muni-47214";
+const ITOMAN = "muni-47210";
+const TOMIGUSUKU = "muni-47212";
+const RITTO = "muni-25208";
+const HIRADO = "muni-42207";
+const SASEBO = "muni-42202";
+const AKASHI = "muni-28203";
+const KURUME = "muni-40203";
+
+const ids = (list: { entity_id: string }[]) => list.map((r) => r.entity_id).join();
+// 本文の値は単位（人）をつけずに小数第2位まで（厚生労働省の公表の書き方と同じ）
+const tfr = (period: string, entity: string) => { const v = raw(ID, period, entity); return v === null ? "—" : formatNumber(v, 2); };
+
+// 1〜3位は徳之島町・天城町・宜野座村
+check(ids(ranking(ID, P, "municipality", "high", 3)) === [TOKUNOSHIMA, AMAGI, GINOZA].join(), "2018〜2022年の1〜3位が徳之島町・天城町・宜野座村ではありません");
+// 2.0以上は11市町村で、どれも鹿児島県・沖縄県
+const over2 = rows(ID, P, "municipality").filter((r) => r.value !== null && r.value >= 2);
+check(over2.length === 11 && over2.every((r) => /^muni-4[67]/.test(r.entity_id)), "2.0以上が鹿児島県・沖縄県の11市町村ではありません");
+// 前回（2013〜2017年）は2.0以上が30を超え、1〜3位は金武町・伊仙町・徳之島町
+check(Number(count(ID, P13, "municipality", (v) => v >= 2).replace(/,/g, "")) > 30, "2013〜2017年に2.0以上が30を超えていません");
+check(ids(ranking(ID, P13, "municipality", "high", 3)) === [KIN, ISEN, TOKUNOSHIMA].join(), "2013〜2017年の1〜3位が金武町・伊仙町・徳之島町ではありません");
+
+// 市: 宮古島市・糸満市・豊見城市の順。沖縄県のほかの市では栗東市・平戸市が最も高い（同じ値）
+check(ids(ranking(ID, P, "municipality", "high", 3, [], { kind: "市" })) === [MIYAKOJIMA, ITOMAN, TOMIGUSUKU].join(), "市の1〜3位が宮古島市・糸満市・豊見城市ではありません");
+const outsideOkinawa = ranking(ID, P, "municipality", "high", 20, [], { kind: "市" }).filter((r) => !r.entity_id.startsWith("muni-47"));
+check(outsideOkinawa.filter((r) => r.rank === outsideOkinawa[0]?.rank).map((r) => r.entity_id).sort().join() === [RITTO, HIRADO].sort().join(),
+  "沖縄県のほかで最も高い市が栗東市・平戸市ではありません");
+// 人口20万人以上（2025年国勢調査、政令指定都市は区ごと）では佐世保市が1位、明石市・久留米市が同じ値で続く
+const big = new Set(rows(POP, PP, "municipality").filter((r) => (r.value ?? 0) >= 200000).map((r) => r.entity_id));
+const bigTop = rows(ID, P, "municipality").filter((r) => r.value !== null && big.has(r.entity_id))
+  .sort((a, b) => (b.value as number) - (a.value as number));
+check(bigTop[0]?.entity_id === SASEBO && [bigTop[1], bigTop[2]].map((r) => r?.entity_id).sort().join() === [AKASHI, KURUME].sort().join()
+  && bigTop[1]?.value === bigTop[2]?.value && (bigTop[3]?.value ?? 0) < (bigTop[2]?.value ?? 0),
+  "人口20万人以上の1位が佐世保市、2位が明石市・久留米市ではありません");
+
+// 都道府県: 沖縄県・宮崎県・鹿児島県・長崎県の順。2013〜2017年も沖縄県が1位
+check(ids(ranking(ID, P, "prefecture", "high", 4)) === ["pref-47", "pref-45", "pref-46", "pref-42"].join(), "都道府県の1〜4位が沖縄県・宮崎県・鹿児島県・長崎県ではありません");
+check(ranking(ID, P13, "prefecture", "high", 1)[0]?.entity_id === "pref-47", "2013〜2017年の都道府県の1位が沖縄県ではありません");
+check((raw(ID, P, ISEN) ?? 0) < 2, "伊仙町が2.0未満ではありません");
+---
+<Article slug="total-fertility-rate">
+  <p>
+    合計特殊出生率は、15〜49歳の女性の年齢ごとの出生率を合計したもので、1人の女性が一生のうちに産む子どもの数の目安です。
+    厚生労働省は5年分をまとめて市区町村ごとの値を出していて、最新は2018〜2022年の値です。この値で、出生率が高い市区町村を見てみます。
+    同じ統計で、全国は1.33です。
+  </p>
+
+  <h2>1位は鹿児島県徳之島町</h2>
+  <p>
+    1位は鹿児島県徳之島町の{tfr(P, TOKUNOSHIMA)}で、2位は同じ島にある天城町（{tfr(P, AMAGI)}）、3位は沖縄県宜野座村（{tfr(P, GINOZA)}）です。
+    2.0以上は{count(ID, P, "municipality", (v) => v >= 2)}市町村で、どれも鹿児島県と沖縄県の市町村です。
+    厚生労働省によると、市区町村の約6割は1.2以上1.5未満の値です。
+  </p>
+  <ArticleRanking id={ID} period={P} n={15} expect={[TOKUNOSHIMA, AMAGI, GINOZA]} caption="合計特殊出生率が高い市区町村（2018〜2022年）" />
+
+  <h2>徳之島の町は4回のうち3回1位</h2>
+  <p>
+    徳之島は奄美群島の島で、徳之島町・天城町・伊仙町の3つの町があります。伊仙町も{tfr(P, ISEN)}（{rankOf(ID, P, ISEN)}）と高い値です。
+    厚生労働省が市区町村別の値を公表した直近の4回の1位を並べると、4回のうち3回は徳之島の町が1位になっています。
+  </p>
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking">
+        <caption>市区町村別の合計特殊出生率の1位（厚生労働省）</caption>
+        <thead><tr><th>期間</th><th>1位</th><th class="num col-value">合計特殊出生率</th></tr></thead>
+        <tbody>
+          <tr><td>2003〜2007年</td><td>伊仙町（鹿児島県）</td><td class="num">2.42</td></tr>
+          <tr><td>2008〜2012年</td><td>伊仙町（鹿児島県）</td><td class="num">2.81</td></tr>
+          <tr><td>2013〜2017年</td><td><a href={`/areas/${KIN}/`}>金武町（沖縄県）</a></td><td class="num">{tfr(P13, KIN)}</td></tr>
+          <tr><td>2018〜2022年</td><td><a href={`/areas/${TOKUNOSHIMA}/`}>徳之島町（鹿児島県）</a></td><td class="num">{tfr(P, TOKUNOSHIMA)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption class="muted">2003〜2007年と2008〜2012年は厚生労働省の公表資料の値です（このサイトの地図には2013〜2017年からの値があります）。</figcaption>
+  </figure>
+  <p>
+    前回の2013〜2017年も、2位は伊仙町（{tfr(P13, ISEN)}）、3位は徳之島町（{tfr(P13, TOKUNOSHIMA)}）でした。
+    このときは2.0以上の市区町村が30を超えていましたが、2018〜2022年は{count(ID, P, "municipality", (v) => v >= 2)}になりました。
+  </p>
+
+  <h2>市では沖縄県宮古島市</h2>
+  <p>
+    市だけで比べると、1位は沖縄県宮古島市（{tfr(P, MIYAKOJIMA)}）で、糸満市（{tfr(P, ITOMAN)}）、豊見城市（{tfr(P, TOMIGUSUKU)}）と沖縄県の市が続きます。
+    沖縄県のほかでは、滋賀県栗東市と長崎県平戸市（{tfr(P, RITTO)}）が最も高い市です。
+  </p>
+  <p>
+    人口20万人以上の市区町村（2025年国勢調査、政令指定都市は区ごと）に限ると、1位は長崎県佐世保市（{tfr(P, SASEBO)}）で、
+    兵庫県明石市と福岡県久留米市（{tfr(P, AKASHI)}）が続きます。
+  </p>
+  <ArticleRanking id={ID} period={P} kind="市" n={10} expect={[MIYAKOJIMA, ITOMAN, TOMIGUSUKU, RITTO, HIRADO]} caption="合計特殊出生率が高い市（2018〜2022年）" />
+
+  <h2>都道府県では沖縄県</h2>
+  <p>
+    都道府県では、沖縄県（{tfr(P, "pref-47")}）が1位で、宮崎県（{tfr(P, "pref-45")}）、鹿児島県（{tfr(P, "pref-46")}）、長崎県（{tfr(P, "pref-42")}）が続きます。
+    上位には九州・沖縄の県が多く入ります。沖縄県は2013〜2017年（{tfr(P13, "pref-47")}）も1位でした。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={8} expect={["pref-47", "pref-45", "pref-46", "pref-42"]} caption="合計特殊出生率が高い都道府県（2018〜2022年）" />
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${TOKUNOSHIMA}&l=municipality`}>合計特殊出生率を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>5年間（2018〜2022年）をまとめた値で、毎年の値ではありません。日本に住んでいる日本人の出生数と人口から計算しています。</li>
+    <li>市区町村の値は、出生数の少ない市区町村でも数値が安定するように、その市区町村を含む都道府県の出生の状況も使って推定した値（ベイズ推定値）です。</li>
+    <li>都道府県の値は、同じ統計にある都道府県の値です。</li>
+    <li>東日本大震災の影響で、福島県の一部の町村などは値がありません。</li>
+    <li>出生率の違いには、年齢ごとの人口、結婚、仕事や住まいなど、さまざまなことが関わっていて、このデータだけでは理由は分かりません。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

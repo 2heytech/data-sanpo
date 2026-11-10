@@ -28,7 +28,7 @@ function allowed(body: string, agent: string, path: string): boolean {
 }
 
 describe("robots.txt", () => {
-  const body = robotsBody(true, SITEMAP, "");
+  const body = robotsBody(true, SITEMAP);
 
   it("サイトマップの場所を書く", () => {
     expect(body).toContain(`Sitemap: ${SITEMAP}`);
@@ -51,10 +51,7 @@ describe("robots.txt", () => {
     expect(allowed(body, "Twitterbot", "/map/?i=population_total&a=muni-17201")).toBe(true);
   });
 
-  it("掲載前は全部止め、広告のクローラだけ通す（#62）", () => {
-    expect(robotsBody(false, SITEMAP, "")).toBe("User-agent: *\nDisallow: /\n");
-    const ads = robotsBody(false, SITEMAP, "ca-pub-0000000000000000");
-    expect(allowed(ads, "Mediapartners-Google", "/areas/muni-17201/")).toBe(true);
-    expect(allowed(ads, "Googlebot", "/")).toBe(false);
+  it("掲載前は全部止める", () => {
+    expect(robotsBody(false, SITEMAP)).toBe("User-agent: *\nDisallow: /\n");
   });
 });

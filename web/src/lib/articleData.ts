@@ -2,9 +2,9 @@
 // 実データで、本文が前提にしている値・地域が見つからないときは例外を投げてビルドを止める
 // （データを差し替えたあとに、本文と表が食い違ったまま公開しないため。設計変更記録 #126）。
 // 開発用の架空データ（fixture）や都道府県を絞ったプレビューでは地域も値も足りないので、止めずに「—」を出す。
-import { loadAreas, loadFacilityPoints, loadIndicators, loadSmallAreas, loadStations, loadValues, RELEASE } from "./data";
+import { loadAreas, loadFacilityPoints, loadIndicators, loadPlace, loadSmallAreas, loadStations, loadValues, RELEASE } from "./data";
 import { formatNumber, formatValue, ranked } from "./format";
-import type { FacilityPoint, Indicator, Station, ValueRow } from "./types";
+import type { FacilityPoint, Indicator, Station, ValueRow, WeatherElement, WeatherFile, WeatherStation } from "./types";
 
 export type ArticleLevel = "municipality" | "prefecture";
 
@@ -300,4 +300,51 @@ export function facilityCount(name: string, test: (p: FacilityPoint) => boolean)
   const points = loadFacilityPoints(name);
   if (points.length === 0) return fail(`点のデータ ${name} がありません`);
   return points.filter(test).length;
+}
+
+/** 天気（気象庁の平年値）の観測所と指標（places/weather_normals.json）。公開版にないときは null */
+function weatherFile(): WeatherFile | null {
+  return loadPlace("weather_normals") as WeatherFile | null;
+}
+
+/** 天気の指標（降雪量など）。ないときは実データなら止める */
+export function weatherElement(id: string): WeatherElement | null {
+  return weatherFile()?.elements.find((e) => e.id === id) ?? fail(`天気の指標 ${id} がありません`);
+}
+
+/** 気象庁の観測所（ID と名前で探す。地図に重ねる「天気」の点）。見つからないときは実データなら止める */
+export function weatherStation(id: string, name: string): WeatherStation | null {
+  return weatherFile()?.stations.find((s) => s.id === id && s.name === name) ?? fail(`観測所 ${name}（${id}）がありません`);
+}
+
+/** 観測所の平年値（値のない指標は null。0 にしない） */
+export function weatherValue(s: WeatherStation | null, element: string): number | null {
+  const v = s?.values[element];
+  return v === undefined ? null : v;
+}
+
+export interface WeatherRankRow {
+  station: WeatherStation;
+  rank: number;
+  value: number;
+}
+
+/**
+ * 天気の指標の値の大きい順（同じ値は同じ順位）。値のない観測所は除く（0 にしない）。
+ * expect に挙げた観測所が上から n 件に入っていなければ、実データでは止める（ranking と同じ）
+ */
+export function weatherRanking(element: string, n: number, expect: (WeatherStation | null)[] = []): WeatherRankRow[] {
+  const stations = weatherFile()?.stations ?? [];
+  const list = stations.flatMap((s) => (s.values[element] === undefined ? [] : [{ station: s, value: s.values[element] }]))
+    .sort((a, b) => b.value - a.value || a.station.id.localeCompare(b.station.id));
+  if (list.length === 0) fail(`天気の指標 ${element} の値がありません`);
+  let rank = 0;
+  const rows = list.map((r, i) => {
+    if (i === 0 || r.value !== list[i - 1].value) rank = i + 1;
+    return { ...r, rank };
+  });
+  const top = rows.slice(0, n);
+  const missing = expect.filter((e) => !e || !top.some((r) => r.station.id === e.id));
+  if (missing.length) fail(`天気の指標 ${element} の上位${n}に ${missing.map((e) => e?.name ?? "?").join("・")} が入っていません`);
+  return top;
 }

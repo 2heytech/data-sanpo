@@ -1,6 +1,6 @@
 ---
+import { ICON_INDICATOR, ICON_MUNICIPALITY, ICON_PREFECTURE } from "../lib/navIcons";
 import FeedbackLink from "../components/FeedbackLink.astro";
-import { ADSENSE_CLIENT } from "../lib/ads";
 import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
 import { RELEASE, loadAreas } from "../lib/data";
 import { ALLOW_INDEXING } from "../lib/indexing";
@@ -43,27 +43,26 @@ const areaLabel = prefecture ?? (prefectures.length === 1 ? prefectures[0].name 
 // wide は、狭い画面で省く先頭の文字（6項目を390px幅の1行に収めるため。global.css の 1180px 以下）。
 // icon は 24×24 のピクトグラム（色はロゴの藍。設計変更記録 #141）
 const nav: { href: string; label: string; wide?: string; icon: string }[] = [
-  // 棒グラフ
-  { href: "/#indicators", label: "指標", icon: '<path d="M4 3.5v17h16.5"/><path d="M8.5 16.5v-4M13 16.5V7M17.5 16.5v-6.5"/>' },
-  // 日本の形（線では細すぎて読めないので塗る）
-  { href: "/prefectures/", label: "都道府県", icon: '<g fill="currentColor" stroke-width="1"><path d="M18.6 8 19 11.2 17.6 14 14.6 15.6 11 16.2 7.4 16.6 5.4 16.4 5.4 14 8.2 13.4 11.4 12.6 13.6 11.2 15.2 9.6 16 7.6z"/><path d="M15.8 4.2 18.8 1.8 22 3.6 21 6 18 6.8z"/><path d="M8 17.8 11.6 17.6 11 19.4 8.6 19.6z"/><path d="M2.6 17.4 5.6 17.6 5.8 20.4 4 22 2.4 20.4z"/></g>' },
-  // 町の建物
-  { href: "/areas/", label: "市区町村", icon: '<path d="M3 20.5h18"/><path d="M5 20.5V10h5"/><path d="M10 20.5V4h9v16.5"/><path d="M7.5 13.5v.1M7.5 17v.1M13.5 8h2M13.5 11.5h2M13.5 15h2"/>' },
-  // 新聞（記事）
-  { href: "/articles/", label: "寄り道", icon: '<path d="M7.5 17.5V5.5a1 1 0 0 1 1-1h10.5a1 1 0 0 1 1 1V18a2.5 2.5 0 0 1-2.5 2.5H5"/><path d="M7.5 9H4.5a1 1 0 0 0-1 1v8a2.5 2.5 0 0 0 5 0"/><path d="M11 8h6M11 11.5h6M11 15h4"/>' },
+  // 棒グラフ・日本の形・町の建物（地図の欄のリンクと同じ絵。lib/navIcons.ts）
+  { href: "/#indicators", label: "指標", icon: ICON_INDICATOR },
+  { href: "/prefectures/", label: "都道府県", icon: ICON_PREFECTURE },
+  { href: "/areas/", label: "市区町村", icon: ICON_MUNICIPALITY },
+  // 新聞（記事）。寄り道の連載を、何が読めるか分かる「分析記事」の名前でメニューに出す（設計変更記録 #192）
+  { href: "/articles/", label: "記事", wide: "分析", icon: '<path d="M7.5 17.5V5.5a1 1 0 0 1 1-1h10.5a1 1 0 0 1 1 1V18a2.5 2.5 0 0 1-2.5 2.5H5"/><path d="M7.5 9H4.5a1 1 0 0 0-1 1v8a2.5 2.5 0 0 0 5 0"/><path d="M11 8h6M11 11.5h6M11 15h4"/>' },
   // 書類
   { href: "/sources/", label: "出典", icon: '<path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14.5 3v4.5H19"/><path d="M9 12h7M9 15.5h7"/>' },
   // 案内の i
   { href: "/about/", label: "サイトについて", wide: "この", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/>' },
 ];
 const onMap = Astro.url.pathname.startsWith("/map/");
-// 検索結果のサイト名に「データさんぽ」を使ってもらうため、トップページにだけ WebSite の構造化データを置く（設計変更記録 #85）
+// 検索結果のサイト名に「データさんぽ」を使ってもらうため、トップページにだけ WebSite の構造化データを置く（設計変更記録 #85）。
+// 別名にドメイン（data-sanpo.com）を書くと、Google がそれをサイト名に選ぶことがあるので書かない（#216）
 const websiteLd = Astro.url.pathname === "/" && Astro.site
   ? JSON.stringify({
       "@context": "https://schema.org",
       "@type": "WebSite",
       name: SITE_NAME,
-      alternateName: ["データ散歩", Astro.site.host],
+      alternateName: ["データ散歩"],
       url: new URL("/", Astro.site).href,
     })
   : "";
@@ -108,9 +107,34 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-title" content={SITE_NAME} />
     <meta name="theme-color" content="#ffffff" />
+    {/* ホーム画面から開いたとき（standalone）はブラウザの戻るボタンがないので、ヘッダーの左端に「戻る」を出す（設計変更記録 #199）。
+        前のページがこのサイトの中にあるときだけ出す。Navigation API があれば canGoBack、なければ referrer がこのサイトかで見る。
+        読み込みの後にヘッダーの並びがずれないよう、head で html に印（app-back-on）を付ける。ボタンを押したときの動きは下の script */}
+    <script is:inline>
+      (function () {
+        var root = document.documentElement;
+        var standalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches;
+        if (!standalone) return;
+        var nav = window.navigation;
+        function update() {
+          var can = false;
+          if (nav && typeof nav.canGoBack === "boolean") {
+            can = nav.canGoBack;
+          } else {
+            try { can = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) { can = false; }
+          }
+          root.classList.toggle("app-back-on", can);
+        }
+        update();
+        if (nav && nav.addEventListener) nav.addEventListener("currententrychange", update);
+        addEventListener("pageshow", update);
+      })();
+    </script>
     <link rel="sitemap" href="/sitemap-index.xml" />
     {preload && <link rel="modulepreload" href={preload} />}
     <script>
+      // ホーム画面から開いたときの「戻る」（設計変更記録 #199。出すかどうかは上の is:inline のスクリプトが決める）
+      document.getElementById("app-back")?.addEventListener("click", () => history.back());
       // 外部サイトへのリンクは別タブで開く（地図の情報欄など、後から差し込まれるリンクも含む）
       document.addEventListener("click", (e) => {
         // ご要望フォームには、開いていたページの URL（地図の表示状態を含む）を入れて開く
@@ -127,14 +151,16 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
       <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js"
         data-cf-beacon={JSON.stringify({ token: CF_WEB_ANALYTICS_TOKEN })}></script>
     )}
-    {ADSENSE_CLIENT && (
-      <script is:inline async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-        crossorigin="anonymous"></script>
-    )}
   </head>
   <body class={wide ? "wide" : ""}>
     <a class="skip" href="#main">本文へ移動</a>
     <header class="site-header">
+      {/* ホーム画面から開いたときだけ出す（head の印 app-back-on。設計変更記録 #199） */}
+      <button type="button" class="app-back" id="app-back" title="前のページに戻る">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5" /></svg>
+        <span>戻る</span>
+      </button>
       <a class="brand" href="/"><img src="/logo.svg" alt={SITE_NAME} width="164" height="34" /></a>
       {/* 見ている都道府県。地図では地図の動きに合わせて書き換える（map/app.ts） */}
       <span class="area-chip" id="area-chip" title="見ている都道府県" hidden={!areaLabel}>{areaLabel}</span>
@@ -173,7 +199,7 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
               <li><a href="/#indicators">指標の一覧</a></li>
               <li><a href="/prefectures/">都道府県の一覧</a></li>
               <li><a href="/areas/">市区町村の一覧</a></li>
-              <li><a href="/articles/">寄り道</a></li>
+              <li><a href="/articles/">寄り道・分析記事</a></li>
               <li><a href="/guide/">使い方</a></li>
             </ul>
           </div>

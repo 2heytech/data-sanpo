@@ -59,8 +59,9 @@ const BRIGHT_SHARE = 0.25;
  */
 const PREF_TEMPLATES: Record<string, RankTemplate | null> = {
   population_density: { ...RANK_TEMPLATES.population_density, low: "山林や農地が広く、土地の広さに比べて住む人の少ない地域と考えられます。" },
-  persons_per_household: { ...RANK_TEMPLATES.persons_per_household, highTag: tag("family", "大家族が多く", "大家族の多い", true),
-    high: "三世代で暮らす家族など、大きな世帯が多いと考えられます。" },
+  // 三世代同居などの世帯の形は公開している値にないので書かない（設計変更記録 #193）
+  persons_per_household: { ...RANK_TEMPLATES.persons_per_household, highTag: tag("family", "家族で暮らす世帯が多く", "家族で暮らす世帯の多い", true),
+    high: "一人暮らしの世帯が少なく、家族で暮らす世帯が多いと考えられます。" },
   single_person_household_share: { high: "単身で働く人や学生などが多く住んでいると思われます。" },
   owner_occupied_share: { highTag: tag("settled", "持ち家が多く", "持ち家の多い", true), high: "長く住み続ける人の多い地域と考えられます。", highTone: "pos",
     lowTag: tag("rent", "借家に住む人が多く", "借家に住む人の多い", true), low: "借家や賃貸マンションに住む人が多い地域のようです。" },

@@ -1,4 +1,5 @@
 ---
+import { RAKUTEN_FURUSATO_TOP, rakutenAffiliateUrl } from "../lib/rakuten";
 import Article from "../layouts/Article.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
 import { formatNumber } from "../lib/format";
@@ -14,6 +15,7 @@ check((raw(PC, P, "muni-01668") ?? 0) > 3000000, "白糠町の住民1人あた�
 const prefRows = rows(ID, P, "prefecture");
 const total = prefRows.length && prefRows.every((r) => r.value !== null) ? prefRows.reduce((s, r) => s + (r.value as number), 0) : null;
 const cho = total === null ? "—" : `約${formatNumber(Math.floor(total / 1e6), 0)}兆${formatNumber(Math.round((total % 1e6) / 100), 0)}億円`;
+const rakuten = rakutenAffiliateUrl(RAKUTEN_FURUSATO_TOP);
 ---
 <Article slug="furusato-nozei">
   <p>
@@ -47,5 +49,17 @@ const cho = total === null ? "—" : `約${formatNumber(Math.floor(total / 1e6),
     <li>政令指定都市は市全体の値しか公表されていないため、区ごとの値はありません。</li>
     <li>返礼品の基準の見直しなどで、年度によって順位が大きく入れ替わることがあります。地図の時点のスライドバーで、過去の年度と比べられます。</li>
   </ul>
+  {rakuten && (
+    <>
+      <h2>返礼品を探す</h2>
+      <p>
+        各自治体の返礼品は、ふるさと納税のサイトで探せます。データさんぽの地域のページにも、その市区町村の返礼品を楽天ふるさと納税で探すリンクを置いています。
+      </p>
+      <p>
+        <a class="button secondary" href={rakuten} target="_blank" rel="sponsored noopener">楽天ふるさと納税を開く</a>
+        <span class="ad-mark">広告</span>
+      </p>
+    </>
+  )}
   <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>ふるさと納税の受入額を地図で見る</a></p>
 </Article>

@@ -1,8 +1,8 @@
 ---
-// 寄り道のページの枠。題名・日付・本文・関連する指標とほかの寄り道・広告枠（本文の後）を並べる。
+// 寄り道のページの枠。題名・日付・本文・関連する指標とほかの寄り道を並べる。
 import Base from "./Base.astro";
-import AdSlot from "../components/AdSlot.astro";
 import ShareButtons from "../components/ShareButtons.astro";
+import PrNotice from "../components/PrNotice.astro";
 import MapFigure from "../components/MapFigure.astro";
 import { articleBySlug, formatDate, publishedArticles } from "../lib/articles";
 import { loadIndicators } from "../lib/data";
@@ -39,7 +39,7 @@ const structuredData = {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "データさんぽ", ...(Astro.site ? { item: new URL("/", Astro.site).href } : {}) },
-        { "@type": "ListItem", position: 2, name: "寄り道", ...(Astro.site ? { item: new URL("/articles/", Astro.site).href } : {}) },
+        { "@type": "ListItem", position: 2, name: "寄り道・分析記事", ...(Astro.site ? { item: new URL("/articles/", Astro.site).href } : {}) },
         { "@type": "ListItem", position: 3, name: article.title },
       ],
     },
@@ -47,7 +47,7 @@ const structuredData = {
 };
 ---
 <Base title={article.title} description={article.description} structuredData={structuredData} image={image ?? undefined} ogType="article">
-  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/articles/">寄り道</a></nav>
+  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/articles/">寄り道・分析記事</a></nav>
   <header class="page-head">
     <p class="eyebrow">寄り道</p>
     <h1>{article.title}</h1>
@@ -55,6 +55,7 @@ const structuredData = {
       <time datetime={article.published}>{formatDate(article.published)}</time>公開
       {article.updated && <>・<time datetime={article.updated}>{formatDate(article.updated)}</time>更新</>}
     </p>
+    {article.affiliate && <PrNotice />}
   </header>
   <article class="sheet article-body">
     {image && <MapFigure image={image} eager mapButton buttonHref={article.mapHref} />}
@@ -78,5 +79,4 @@ const structuredData = {
       {others.map((a) => <li><a href={`/articles/${a.slug}/`}>{a.title}</a></li>)}
     </ul>
   </section>
-  <AdSlot name="page" />
 </Base>

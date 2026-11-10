@@ -2,11 +2,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import release from "../generated/release.json";
+import { centerSpots, type CenterSpot, type LandSource, type StationSource, type TownSource } from "./centerPhoto";
 import type { PlacePoints } from "./placeStats";
 import type { Geometry } from "./shape";
 import type {
-  AreasFile, FacilityPoint, IndicatorCatalog, LegendFile, ReleaseInfo, SmallArea, SmallAreasFile, Source, Station, StationsFile,
-  ValueRow, ValuesFile,
+  AreasFile, FacilityPoint, IndicatorCatalog, LegendFile, ReleaseInfo, School, SchoolsFile, SmallArea, SmallAreasFile, Source, Station,
+  StationsFile, ValueRow, ValuesFile,
 } from "./types";
 
 export const RELEASE = release as ReleaseInfo;
@@ -168,4 +169,43 @@ export function loadPlacePoints(): PlacePoints | null {
     centers: new Map(loadAreas().municipalities.map((m) => [m.id, m.center as [number, number]])),
   };
   return placePoints;
+}
+
+let centerSpotCache: Map<string, CenterSpot> | undefined;
+/**
+ * 市区町村ごとの中心部の地点（乗降客数がいちばん多い駅。駅がなければ地価がいちばん高い商業地の地点、
+ * どちらもなければ人口がいちばん多い町丁目。地域ページの「中心部の昔と今」、#215・#219）。ビルドの間とっておく
+ */
+export function loadCenterSpots(): Map<string, CenterSpot> {
+  if (!centerSpotCache) {
+    const p = loadPlacePoints();
+    const munis = new Map(loadAreas().municipalities.map((m) => [m.id, m]));
+    const names = new Map([...munis].map(([id, m]) => [id, m.name]));
+    // 町丁目の人口は国勢調査の人口総数（町丁目の値のある年を新しい順）
+    const censuses = (loadIndicators().find((i) => i.id === "population_total")?.periods ?? [])
+      .filter((q) => q.levels.includes("small_area") && !q.aggregate)
+      .sort((a, b) => b.period.localeCompare(a.period));
+    const towns = (id: string): TownSource | null => {
+      const m = munis.get(id);
+      const code = id.slice(5);
+      const areas = m && loadSmallAreas(code);
+      if (!m || !areas?.length) return null;
+      let schools: School[] = [];
+      try {
+        schools = (read<SchoolsFile>(`places/school_enrollment/${m.prefecture}.json`).schools ?? []).filter((x) => x.municipality_id === id);
+      } catch {
+        // 学校の点がない公開版
+      }
+      return { muniName: m.name, areas, schools, censuses: censuses.map((q) => ({
+        label: q.label, rows: loadSmallAreaRowsByMunicipality("population_total", q.period, m.prefecture).get(code) ?? [] })) };
+    };
+    // 地価公示を先に渡し、同じ価格なら地価公示の地点にする
+    centerSpotCache = p ? centerSpots(
+      { stations: p.stations as unknown as StationSource["stations"], periods: p.stationPeriods },
+      [
+        { points: p.land as unknown as LandSource["points"], periods: p.landPeriods, survey: false },
+        { points: (p.landSurvey ?? []) as unknown as LandSource["points"], periods: p.landSurveyPeriods ?? [], survey: true },
+      ], names, towns) : new Map();
+  }
+  return centerSpotCache;
 }

@@ -49,6 +49,11 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>, pla
     // 題名に働く人の割合を書く（設計変更記録 #167）
     ["employees_manufacturing_share", ind("employees_manufacturing_share", "%", 1, ["2021-06-01"])],
     ["employees_agriculture_share", ind("employees_agriculture_share", "%", 1, ["2021-06-01"])],
+    // 世帯の人数と内訳（設計変更記録 #193）
+    ["persons_per_household", ind("persons_per_household", "人", 2, ["2025-10-01"])],
+    ["households_with_children_share", ind("households_with_children_share", "%", 1, ["2020-10-01"])],
+    ["single_person_household_share", ind("single_person_household_share", "%", 1, ["2025-10-01"])],
+    ["aged_65_plus_share", ind("aged_65_plus_share", "%", 1, ["2025-10-01"])],
   ]);
   const ids = Array.from({ length: count }, (_, i) => (i === 0 ? first : `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`));
   return {
@@ -583,5 +588,48 @@ describe("考察に添える文（物差し・移り変わり・数え方の癖�
       expect(data("muni-01003").lines).toContain("まちには国の重要文化財「時国家住宅」があります（2026年10月18日現在）。");
       expect(data("muni-01004").lines.join("")).not.toContain("文化財");
     });
+  });
+});
+
+describe("1世帯あたりの人数（設計変更記録 #193）", () => {
+  const sizeLine = (values: Record<string, Record<string, (number | null)[]>>) =>
+    areaInsights("muni-01001", makeData(values)).find((l) => l.startsWith("1世帯あたりの人数"));
+  const size = { persons_per_household: { "2025-10-01": fill(2.76, 2.2) } };
+  it("三世代とは書かず、子どものいる世帯の割合で裏付ける", () => {
+    const line = sizeLine({ ...size, households_with_children_share: { "2020-10-01": fill(32.5, 20) } });
+    expect(line).toBe("1世帯あたりの人数が2.76人と全国でも多い方です（2025年10月1日現在）。18歳未満の子どものいる世帯も32.5%（2020年10月1日現在）と全国で高い方で、"
+      + "子育て中の家族が多いことが世帯の人数の多さにつながっていると思われます。");
+  });
+  it("一人暮らしの世帯が少ないときは家族で暮らす世帯、65歳以上の割合も高いときは高齢の人の同居を書く", () => {
+    const few = { ...size, single_person_household_share: { "2025-10-01": fill(18, 35) } };
+    expect(sizeLine(few)).toBe("1世帯あたりの人数が2.76人と全国でも多い方です（2025年10月1日現在）。一人暮らしの世帯は18.0%と全国でも少ない方です。家族で暮らす世帯が多い地域と考えられます。");
+    expect(sizeLine({ ...few, aged_65_plus_share: { "2025-10-01": fill(40, 30) } }))
+      .toContain("65歳以上の人の割合も40.0%と高めなので、高齢の人も家族と一緒に暮らしていることが多いと思われます。");
+  });
+  it("内訳で裏付けられないときは数字だけ", () => {
+    expect(sizeLine(size)).toBe("1世帯あたりの人数が2.76人と全国でも多い方です（2025年10月1日現在）。");
+  });
+});
+
+describe("冒頭の特徴（設計変更記録 #193）", () => {
+  it("目立つ考察の最初の文（推測なし、時点は年だけ）を3つまで出し、課題・国籍の文は選ばない", () => {
+    const profile: AreaProfile = areaProfile("muni-01001", makeData({
+      persons_per_household: { "2025-10-01": fill(2.76, 2.2) },
+      households_with_children_share: { "2020-10-01": fill(32.5, 20) },
+      daytime_night_ratio: { "2020-10-01": fill(150, 100) },
+      population_change_rate: { "2020-10-01": fill(-12, -2) },
+      foreign_resident_share: { "2025-10-01": fill(21.6, 2) },
+      foreign_residents_share: { "2026-01-01": fill(35.5, 2) },
+      census_foreign_population: { "2025-10-01": fill(321) },
+      foreign_residents: { "2026-01-01": fill(541) },
+    }));
+    expect(profile.points.length).toBeGreaterThan(0);
+    expect(profile.points.length).toBeLessThanOrEqual(3);
+    for (const p of profile.points) {
+      expect(p.text).not.toMatch(/思われ|考えられ|ようです/);
+      expect(p.text).not.toMatch(/月1日現在/);
+      expect(p.text).not.toMatch(/外国人|減っ/);
+    }
+    expect(profile.points.some((p) => p.text.startsWith("1世帯あたりの人数が2.76人と全国でも多い方です（2025年）。"))).toBe(true);
   });
 });

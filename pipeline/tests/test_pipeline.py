@@ -132,6 +132,170 @@ def test_water_polygons_are_excluded(built):
     assert all("999999" not in f["properties"]["id"] for f in gj["features"])
 
 
+def test_same_name_small_areas_are_merged(built):
+    """同じ名前で別の KEY_CODE に分かれた町丁目（長崎市の大手二丁目など）は1つの地域にまとめる（#183）。"""
+    gj = load(built, "boundaries/census2020/14199.geojson")
+    ids = [f["properties"]["id"] for f in gj["features"]]
+    assert len(ids) == fixture.GRID ** 2 and f"area-{fixture.SPLIT_KEY}" not in ids and "area-14" not in ids
+    main = next(f["properties"] for f in gj["features"] if f["properties"]["id"] == "area-14199001001")
+    assert main["bbox"][1] == pytest.approx(35.45 - fixture.CELL / 3, abs=1e-5)   # 南に接する区域を含む
+    towns = load(built, "search-index/14.json")["entries"]
+    assert len({e[1] for e in towns}) == len(towns) and all(len(e[0]) > len("area-14") for e in towns)
+    # 人口の表（区域の行は「-」）は合計、年齢の表（区域は最初の町丁目に合算された秘匿地域）は合算の印を外す
+    for period in ("2010-10-01", "2015-10-01", "2020-10-01"):
+        pop = {r["entity_id"]: r for r in load(built, f"values/population_total/{period}/14.json")["rows"]}
+        assert pop["area-14199001001"]["status"] == "observed" and pop["area-14199001001"]["value"] > 0
+        aged = {r["entity_id"]: r for r in load(built, f"values/aged_65_plus_share/{period}/14.json")["rows"]}
+        assert aged["area-14199001001"]["status"] == "derived" and "note" not in aged["area-14199001001"]
+    # 面積は合わせた区域の合計。過去の時点も同じようにまとめるので、増減率も出る
+    density = {r["entity_id"]: r for r in load(built, "values/population_density/2020-10-01/14.json")["rows"]}
+    assert density["area-14199001001"]["denominator"] == pytest.approx(
+        density["area-14199001002"]["denominator"] * 4 / 3, rel=1e-3)
+    change = {r["entity_id"]: r for r in load(built, "values/population_change_rate/2020-10-01/14.json")["rows"]}
+    assert change["area-14199001001"]["status"] == "derived"
+    # 名前も町丁・字等のコードもない地物（KEY_CODE「14」）は町丁・字等にせず、市区町村界にだけ入れる
+    from shapely.geometry import Point, shape
+    outline = shape(load(built, "boundaries/census2020/municipalities/14.geojson")["features"][0]["geometry"])
+    assert outline.contains(Point(139.60 + fixture.GRID * fixture.CELL + 0.001, 35.451))
+
+
+def _boundary_shapefile(path, records):
+    """(KEY_CODE, S_NAME, 西, 南, 東, 北) の長方形の小地域境界（東京都 13101）。"""
+    import shapefile
+    w = shapefile.Writer(str(path), shapeType=shapefile.POLYGON, encoding="cp932")
+    for name, kind, size, dec in [("KEY_CODE", "C", 11, 0), ("PREF", "C", 2, 0), ("CITY", "C", 3, 0),
+                                  ("S_AREA", "C", 6, 0), ("CITY_NAME", "C", 30, 0), ("S_NAME", "C", 60, 0),
+                                  ("HCODE", "N", 4, 0), ("AREA", "N", 16, 3)]:
+        w.field(name, kind, size, dec)
+    for key, name, x0, y0, x1, y1 in records:
+        w.record(key, "13", "101", key[5:] if len(key) > 5 else "000000", "見本区", name, 8101, 100.0)
+        w.poly([[(x0, y0), (x0, y1), (x1, y1), (x1, y0), (x0, y0)]])
+    w.close()
+    return path.with_suffix(".shp")
+
+
+def test_same_name_grouping_rules(tmp_path):
+    """同じ名前の町丁・字等は、同じ町・大字のコードか隣り合うものだけまとめる。離れた別の町の同じ地名や、
+    名前のない地域はまとめない（#183）。"""
+    from tdm.ingest import estat_boundary
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    shp = _boundary_shapefile(tmp_path / "b", [
+        ("13101001001", "甲町一丁目", 0.00, 0.00, 0.01, 0.01),
+        ("13101001101", "甲町一丁目", 0.00, -0.004, 0.01, 0.00),     # 町のコードは違うが隣り合う
+        ("13101002001", "乙", 0.10, 0.00, 0.11, 0.01),
+        ("13101002002", "乙", 0.20, 0.00, 0.21, 0.01),              # 同じ町のコードの飛び地
+        ("131010030", "丙", 0.30, 0.00, 0.31, 0.01),
+        ("131010040", "丙", 0.40, 0.00, 0.41, 0.01),                # 町のコードが違って離れている（別の地名）
+        ("131010060", "丁", 0.60, 0.00, 0.61, 0.01),
+        ("131010070", "丁", 0.6103, 0.00, 0.62, 0.01),              # 約30mのすき間（島の間の橋など）
+        ("13101005001", "", 0.50, 0.00, 0.51, 0.01),
+        ("13101005002", "", 0.51, 0.00, 0.52, 0.01),                # 名前がない（市区町村名で代用）
+        ("13", "", 0.01, 0.00, 0.02, 0.01),                         # 名前も町丁・字等のコードもない
+    ])
+    r = estat_boundary.ingest(conn, shp, "s", "v", "2020-10-01", pref_code="13")
+    areas = {e: n for e, n in conn.execute("SELECT entity_id, name FROM entities WHERE entity_type = 'small_area'")}
+    assert sorted(areas) == ["area-13101001001", "area-13101002001", "area-131010030", "area-131010040",
+                             "area-13101005001", "area-13101005002", "area-131010060"]
+    assert r["small_areas"] == 7 and r["merged_same_name"] == 3
+    keys = estat_boundary.area_keys(conn, "v")
+    assert keys["13101001101"] == keys["13101001001"] == "area-13101001001"
+    assert keys["13101002002"] == "area-13101002001" and "13" not in keys
+    area = {e: a for e, a in conn.execute("SELECT entity_id, area_m2 FROM boundaries WHERE boundary_version = 'v'")}
+    assert area["area-13101001001"] == 200.0 and area["muni-13101"] == 1100.0   # 町丁・字等にしない地物も市区町村に入る
+    assert estat_boundary.area_keys(conn, "other") == {}
+    # 過去の時点には最新の境界のまとめ方を当てる（過去の名前ではまとめない。最新の地図の地域と区域を合わせる）
+    old = _boundary_shapefile(tmp_path / "old", [
+        ("13101001001", "甲町１丁目", 0.00, 0.00, 0.01, 0.01),
+        ("13101001101", "甲町", 0.00, -0.004, 0.01, 0.00),         # 当時は別の名前でも、最新の地図に合わせてまとめる
+        ("131010030", "丙", 0.30, 0.00, 0.31, 0.01),
+        ("131010031", "丙", 0.31, 0.00, 0.32, 0.01),               # 当時だけ同じ名前で隣り合う（最新の地図では別）
+    ])
+    alias = estat_boundary.same_name_alias(shp, "13")
+    assert alias == {"13101001101": "13101001001", "13101002002": "13101002001", "131010070": "131010060"}
+    estat_boundary.ingest(conn, old, "s-old", "old", "2015-10-01", pref_code="13", alias=alias)
+    old_keys = estat_boundary.area_keys(conn, "old")
+    assert old_keys == {"13101001001": "area-13101001001", "13101001101": "area-13101001001",
+                        "131010030": "area-131010030", "131010031": "area-131010031"}
+
+
+def test_merged_small_area_rows_are_combined():
+    """まとめた地域にあたる国勢調査の表の行を1行に合わせる（#183）: 数は足し、秘匿の合算先が地域の中なら数えず、
+    外なら地域全体を秘匿にする。丁目がすべて地域の中の町・字は、丁目の行の代わりに町・字の行（合計）を使う。"""
+    from tdm.ingest.estat_small_area import Table, ingest_counts, match_rows
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    labels = ["KEY_CODE", "HTKSYORI", "HTKSAKI", "GASSAN", "NAME", "人口"]
+
+    def row(key, flag="0", saki="", gassan="", name="", value="0"):
+        return dict(zip(labels, [key, flag, saki, gassan, name, value]))
+
+    keys = {"13101001001": "area-A", "13101001101": "area-A",                       # 足すだけ
+            "13101002001": "area-B", "13101002101": "area-B",                       # 中に合算された秘匿
+            "13101003001": "area-C", "13101003101": "area-C",                       # 外に合算された秘匿
+            "13101004001": "area-D", "13101004002": "area-D", "13101004101": "area-D",  # 町の行を使う
+            "13101009001": "area-E", "13101009101": "area-E"}                       # 空欄・X
+    table = Table(labels, [
+        row("13101001001", value="10", name="甲"), row("13101001101", value="-"),
+        row("13101002001", "1", gassan="002101", value="7"), row("13101002101", "2", "002001", value="X"),
+        row("13101003001", value="5"), row("13101003101", "2", "008001", value="X"),
+        row("131010040", "1", gassan="004002", value="9"),
+        row("13101004001", value="6"), row("13101004002", "2", "0040", value="X"), row("13101004101", value="2"),
+        row("13101009001", value="3"), row("13101009101", value=""),
+    ])
+    matched, unmatched = match_rows(conn, table, keys)
+    got = dict(matched)
+    assert unmatched == [] and len(matched) == 5
+    assert got["area-A"]["人口"] == "10.0" and got["area-A"]["NAME"] == "甲"
+    assert got["area-B"]["人口"] == "7.0" and got["area-B"]["HTKSYORI"] == "0"         # 合算の印を外す
+    assert got["area-C"]["HTKSYORI"] == "2" and got["area-C"]["人口"] == "X"
+    assert got["area-D"]["人口"] == "11.0"   # 町の行 9（秘匿の丁目を含む）＋町のコードが違う区域 2
+    assert got["area-E"]["人口"] == ""
+    ingest_counts(conn, table, "s", "population_total", {"definition_version": "1", "column": ["人口"]},
+                  ("2020-10-01", "2020-10-01", "point"), keys)
+    obs = {e: (v, st, note) for e, v, st, note in conn.execute(
+        "SELECT entity_id, value, status, coverage_note FROM observations")}
+    assert obs["area-A"] == (10, "observed", None) and obs["area-B"] == (7, "observed", None)
+    assert obs["area-C"][:2] == (None, "suppressed") and "13101008001" in obs["area-C"][2]
+    assert obs["area-D"] == (11, "observed", None) and obs["area-E"] == (None, "missing", None)
+
+
+def test_derived_towns_add_up_merged_keys(tmp_path):
+    """町丁・字等ごとの集計（標高・マスの数）は、まとめた地域の KEY_CODE の行を足し合わせる（#183）。"""
+    from tdm.ingest import derived_towns
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    for eid, kind, parent in [("muni-13101", "municipality", None), ("area-13101001001", "small_area", "muni-13101"),
+                              ("area-13101002001", "small_area", "muni-13101")]:
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name, parent_id) VALUES (?, ?, ?, ?)",
+                     (eid, kind, eid, parent))
+    keys = {"13101001001": "area-13101001001", "13101001101": "area-13101001001",
+            "13101002001": "area-13101002001"}
+    elev = tmp_path / "elevation.csv"
+    elev.write_text("KEY_CODE,点の数,標高の合計,最低,最高\n13101001001,4,40,5,15\n13101001101,2,60,25,35\n"
+                    "13101002001,0,,,\n13101099999,1,1,1,1\n", encoding="utf-8")
+    catalog = {k: d for k, d in load_indicators().items() if d.get("source_kind") == "town_elevation"}
+    r = derived_towns.ingest_elevation(conn, elev, "s", catalog, {"period": "2026-10-01"}, ["13"], keys)
+    assert r["unmatched"] == ["13101099999"]
+    got = {(e, i): (v, note) for e, i, v, note in conn.execute(
+        "SELECT entity_id, indicator_id, value, method_note FROM observations")}
+    assert got[("area-13101001001", "elevation_mean")][0] == pytest.approx(100 / 6)
+    assert got[("area-13101001001", "elevation_range")][0] == pytest.approx(30)   # 35 − 5（区域をまたいだ最高・最低）
+    cells = tmp_path / "land.csv"
+    cells.write_text("KEY_CODE,年度,田,建物用地,データなし\n13101001001,2021,10,30,0\n13101001101,2021,5,5,0\n"
+                     "13101002001,2021,0,40,0\n", encoding="utf-8")
+    catalog = {"land_use_paddy_share": {"source_kind": "land_use_cells", "definition_version": "1",
+                                        "numerator_columns": ["田"], "denominator_columns": "*", "scale": 100}}
+    derived_towns.ingest_cells(conn, cells, "s", catalog, {"kind": "land_use_cells", "gap_column": "データなし"},
+                               ["13"], keys)
+    rows = {e: (n, d) for e, n, d in conn.execute(
+        "SELECT entity_id, numerator, denominator FROM observations WHERE indicator_id = 'land_use_paddy_share'")}
+    assert rows["area-13101001001"] == (15, 50) and rows["muni-13101"] == (15, 90)
+
+
 def test_small_area_names_are_in_boundary_file(built):
     # 町丁・字等の名前・範囲・代表点は境界ファイルに入れ、別のファイル（areas/）は作らない（ファイル数の節約）
     gj = load(built, "boundaries/census2020/13199.geojson")
@@ -617,6 +781,29 @@ def test_foreign_residents(built):
     assert old["muni-13199"]["value"] > 0 and "muni-14199" not in old
     # 2020年の東京都の表では、島しょ（支庁単位でしか公表されない町村）は値なし。0 にしない
     assert old.get("muni-13499") is None or old["muni-13499"]["value"] is None
+
+
+def test_juki_migration(built):
+    """転入率・転出率・転出入人口比率（住民基本台帳の人口動態。#202）。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert "juki_moved_in" not in by and "juki_moved_out" not in by   # 分子・分母の人数は公開しない
+    # 令和8年1月1日のファイルの転入者数は2025年の値。分母はその年の1月1日（2025年のファイル）の人口
+    assert [p["period"] for p in by["in_migration_rate"]["periods"]] == ["2025-01-01"]
+    assert [p["period"] for p in by["migration_in_out_ratio"]["periods"]] == ["2024-01-01", "2025-01-01"]
+    moves, pop = fixture.juki_moves(2026), fixture.juki_total_values(2025)
+    rate = {r["entity_id"]: r for r in load(built, "values/in_migration_rate/2025-01-01/municipalities.json")["rows"]}
+    assert rate["muni-13199"]["numerator"] == moves["13199"][0] and rate["muni-13199"]["denominator"] == pop["13199"]
+    assert rate["muni-13199"]["value"] == pytest.approx(moves["13199"][0] / pop["13199"] * 100, abs=1e-4)
+    assert rate["muni-13499"]["value"] is None and rate["muni-13499"]["status"] == "withheld"   # 人口が50人未満
+    out = {r["entity_id"]: r for r in load(built, "values/out_migration_rate/2025-01-01/municipalities.json")["rows"]}
+    assert out["muni-14199"]["value"] == pytest.approx(moves["14199"][1] / pop["14199"] * 100, abs=1e-4)
+    ratio = {r["entity_id"]: r for r in load(
+        built, "values/migration_in_out_ratio/2025-01-01/municipalities.json")["rows"]}
+    assert ratio["muni-13199"]["value"] == pytest.approx(moves["13199"][0] / moves["13199"][1] * 100, abs=1e-3)
+    assert ratio["muni-13499"]["value"] is None and ratio["muni-13499"]["status"] == "withheld"   # 転出者が50人未満
+    prefs = {r["entity_id"]: r for r in load(
+        built, "values/in_migration_rate/2025-01-01/prefectures.json")["rows"]}
+    assert prefs["pref-13"]["value"] is not None   # 都道府県は出典の都道府県の行（県外からの転入）を使う
 
 
 def test_census_foreign_by_nationality(built):
@@ -1320,6 +1507,59 @@ def test_census2025_municipal(built):
     assert kids["denominator"] == int(f["一般世帯総数"])
 
 
+def test_child_woman_ratio(built):
+    """子ども女性比: 0〜4歳（男女計）÷ 15〜49歳の女性 × 100。不詳補完値の表の別の行を extra_tables で読む（#203）。"""
+    from tdm.config import load_sources
+    from tdm.ingest.estat_census_municipal import read_table
+    cfg = load_sources()
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert "children_0_4" not in by and "women_15_49" not in by
+    assert [p["period"] for p in by["child_woman_ratio"]["periods"]] == ["2015-10-01", "2020-10-01", "2025-10-01"]
+    for year in ("2015", "2020", "2025"):
+        c = cfg[f"census{year}_municipal_age"]
+        young, female = ({r["KEY_CODE"]: r for r in read_table(
+            built.raw / f"census{year}_municipal_age" / c["files"][0], e["columns"], e["filters"]).rows}
+            for e in c["extra_tables"])
+        got = {r["entity_id"]: r for r in load(
+            built, f"values/child_woman_ratio/{year}-10-01/municipalities.json")["rows"]}
+        women = sum(int(v) for k, v in female["13199"].items() if k.startswith("女"))
+        assert got["muni-13199"]["numerator"] == int(young["13199"]["総数0~4歳"])
+        assert got["muni-13199"]["denominator"] == women
+        assert got["muni-13199"]["value"] == pytest.approx(int(young["13199"]["総数0~4歳"]) / women * 100, abs=1e-2)
+        prefs = {r["entity_id"]: r for r in load(
+            built, f"values/child_woman_ratio/{year}-10-01/prefectures.json")["rows"]}
+        assert prefs["pref-13"]["numerator"] == int(young["13"]["総数0~4歳"])   # 表の都道府県の行
+
+
+def test_medical_beds(built):
+    """病院・一般診療所の病床数と人口10万人あたり（医療施設調査の二次医療圏・市区町村編、#207）。"""
+    def rows(ind, level="municipalities"):
+        return {r["entity_id"]: r for r in load(built, f"values/{ind}/2025-10-01/{level}.json")["rows"]}
+    beds = rows("hospital_clinic_beds")
+    assert beds["muni-13199"]["value"] == 1500 + 40 and beds["muni-14199"]["value"] == 919
+    assert beds["muni-13299"]["value"] == 820            # 「-」は0
+    assert beds["muni-13499"]["value"] == 0 and beds["muni-13499"]["status"] == "observed"
+    assert rows("hospital_clinic_beds", "prefectures")["pref-13"]["value"] == 121500   # 表の都道府県の行
+    per = rows("hospital_clinic_beds_per_100k")["muni-13199"]
+    assert per["numerator"] == 1540 and per["value"] == pytest.approx(1540 / per["denominator"] * 100000, abs=0.5)
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert by["hospital_clinic_beds_per_100k"]["category"] == "医療・介護"
+
+
+def test_floor_area_per_person(built):
+    """1人あたりの住宅の延べ面積 = 居住世帯あり住宅数 × 1住宅当たり延べ面積 ÷ 主世帯の世帯人員（#208）。"""
+    got = {r["entity_id"]: r for r in load(
+        built, "values/floor_area_per_person/2023-10-01/municipalities.json")["rows"]}
+    n, area, members = fixture.HOUSING_FLOOR["13199"]
+    assert got["muni-13199"]["value"] == pytest.approx(n * area / members, abs=0.05)
+    assert got["muni-13199"]["denominator"] == members
+    assert got["muni-14199"]["denominator"] == fixture.HOUSING_FLOOR["14199"][2]   # 区の行（市全体ではない）
+    assert got["muni-13499"]["value"] is None   # 人口1万5千人未満の町村は公表されていない（0 にしない）
+    prefs = {r["entity_id"]: r for r in load(
+        built, "values/floor_area_per_person/2023-10-01/prefectures.json")["rows"]}
+    assert prefs["pref-13"]["value"] == pytest.approx(7235400 * 64.02 / 13766300, abs=0.05)
+
+
 def test_census_imputed_age_and_official_density(built):
     """年齢の割合は統計局の不詳補完値の表、人口密度は国勢調査の表の面積から（市区町村・都道府県。#154）。"""
     from tdm.config import load_sources
@@ -1467,6 +1707,14 @@ def test_finance(built):
     ward = rows("expenditure_per_capita")["muni-14199"]
     assert ward["value"] is None and ward["status"] == "not_applicable" and "市全体の値だけ" in ward["note"]
     assert "01100" not in {e[5:] for e in rows("expenditure_per_capita")}              # 取り込まない都道府県
+    # 法人市民税（歳入内訳の「市町村民税 法人分」、#205）。23区と東京都は都が課税するので値なし（0 にしない）
+    corp = rows("corporate_tax_per_capita")
+    assert corp["muni-13299"]["value"] == pytest.approx(s["13299"][5] * 0.1 * 1000 / s["13299"][3], abs=0.01)
+    assert corp["muni-13199"]["value"] is None and corp["muni-13199"]["status"] == "not_applicable"
+    assert "東京都が課税" in corp["muni-13199"]["note"]
+    cpref = rows("corporate_tax_per_capita", "prefectures")
+    assert cpref["pref-13"]["value"] is None and cpref["pref-13"]["status"] == "not_applicable"
+    assert cpref["pref-14"]["value"] == pytest.approx(s["14190"][5] * 0.1 * 1000 / s["14190"][3], abs=0.01)
 
 
 def test_designated_city_wards():
@@ -1782,7 +2030,8 @@ def test_slope_tiles_and_summary(tmp_path):
 
 def test_slope_land_use(built):
     """土地利用別の傾斜（#181）。区分の行だけを使い、平均は合計 ÷ 点の数、割合は点の数から。
-    その区分のない地域は値なし、市区町村は min_denominator_municipality で点の少ない値を出さない。"""
+    その区分のない地域は値なし、市区町村は min_denominator_municipality で点の少ない値を出さない。
+    町丁・字等は区分が地域の5%未満（#182）、建物用地は人口100人未満（#186）でも出さない。"""
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
     ids = ["slope_building_mean", "slope_building_steep_share", "slope_paddy_mean", "slope_paddy_slope_share",
            "slope_field_mean", "slope_field_steep_share"]
@@ -1804,8 +2053,8 @@ def test_slope_land_use(built):
     assert "numerator" not in values("slope_paddy_mean", "13")[f"area-{key}"]
     assert values("slope_paddy_slope_share", "13")[f"area-{key}"]["value"] == pytest.approx(
         at_least[th.index(2.86)] / n * 100, abs=1e-3)
-    n, _, at_least = stats[key]["建物用地"]
-    assert values("slope_building_steep_share", "13")[f"area-{key}"]["value"] == pytest.approx(
+    n, _, at_least = stats["13499002003"]["建物用地"]
+    assert values("slope_building_steep_share", "13")["area-13499002003"]["value"] == pytest.approx(
         at_least[th.index(15)] / n * 100, abs=1e-3)
     building = values("slope_building_mean", "13")
     assert building["area-13499001001"]["status"] == "not_applicable"   # 海だけ（点がない）
@@ -1817,10 +2066,34 @@ def test_slope_land_use(built):
     assert munis["muni-13199"]["status"] == "not_applicable" and munis["muni-13199"]["value"] is None
     city = [v["田"] for k, v in stats.items() if k.startswith("13499") and "田" in v]
     assert munis["muni-13499"]["value"] == pytest.approx(sum(v[1] for v in city) / sum(v[0] for v in city), abs=1e-3)
-    # 畑などは町丁・字等には出るが、市区町村の合計が1,500点未満なので市区町村は出さない
+    # 町丁・字等は、その区分が地域のすべての点の5%未満なら出さない（森の多い地域の境目のマスの一部だけを測らない、#182）
+    th3 = "area-13499001004"
+    assert stats[th3[5:]]["田"][0] >= 150 and stats[th3[5:]]["田"][0] < 0.05 * fixture.slope_stats(th3[5:], 3)[0]
+    for ind in ("slope_paddy_mean", "slope_paddy_slope_share"):
+        row = values(ind, "13")[th3]
+        assert row["status"] == "withheld" and row["value"] is None and "5%未満" in row["note"]
+    assert values("slope_building_mean", "13")[th3]["status"] == "derived"   # 建物用地は地域の5%以上
+    assert values("slope_paddy_mean", "13")["area-13499001003"]["status"] == "derived"
+    # 畑などは町丁・字等では地域の5%未満、市区町村では合計が1,500点未満なので、どちらも出さない
     field = values("slope_field_mean", "municipalities")
     assert field["muni-13299"]["status"] == "withheld"
-    assert values("slope_field_mean", "13")["area-13299001001"]["status"] == "derived"
+    assert values("slope_field_mean", "13")["area-13299001001"]["status"] == "withheld"
+    assert values("slope_field_mean", "14")["area-14199001001"]["status"] == "derived"
+    # 建物用地の2指標は、2020年国勢調査の人口が100人未満か値のない町丁・字等も出さない（人の住んでいない地域、#186）。
+    # 田・畑などは人口によらない。市区町村の値には出さない町丁・字等の点も入る
+    pop = {r["entity_id"]: r["value"] for r in load(built, "values/population_total/2020-10-01/13.json")["rows"]}
+    few, unknown = "area-13499003002", "area-13499002002"
+    assert pop[few] < 100 and pop[unknown] is None and stats[few[5:]]["建物用地"][0] >= 150
+    for ind in ("slope_building_mean", "slope_building_steep_share"):
+        rows = values(ind, "13")
+        assert rows[few]["status"] == "withheld" and rows[few]["value"] is None and "100人未満" in rows[few]["note"]
+        assert rows[unknown]["status"] == "withheld" and "人口が値なし" in rows[unknown]["note"]
+        assert all(r["status"] != "derived" or (pop.get(e) or 0) >= 100 for e, r in rows.items())
+    assert values("slope_paddy_mean", "13")[unknown]["status"] == "derived"
+    built_munis = values("slope_building_mean", "municipalities")
+    city = [v["建物用地"] for k, v in stats.items() if k.startswith("13499") and "建物用地" in v]
+    assert built_munis["muni-13499"]["value"] == pytest.approx(
+        sum(v[1] for v in city) / sum(v[0] for v in city), abs=1e-3)
     # 都道府県は市区町村の点の合計（田のない市区町村・点の少ない市区町村の点も入る）
     pref = [v["畑など"] for k, v in stats.items() if k.startswith("13") and "畑など" in v]
     assert values("slope_field_mean", "prefectures")["pref-13"]["value"] == pytest.approx(
@@ -2912,6 +3185,23 @@ def test_accommodation_industry(built):
     simple = rows("simple_lodgings", "municipalities")
     assert simple["muni-13299"]["value"] == 0 and simple["muni-13299"]["status"] == "observed"
     assert rows("ryokan_hotels", "prefectures")["pref-13"]["value"] == 400
+    # 飲食店・飲食料品小売業（#204）。住民1,000人あたりの分母は2020年の国勢調査の人口
+    eat = rows("restaurants", "municipalities")
+    assert eat["muni-13199"]["value"] == 2500 and eat["muni-14199"]["value"] == 410
+    assert eat["muni-13499"]["value"] == 0 and eat["muni-13499"]["status"] == "observed"   # 「-」は該当なし
+    assert rows("food_retail_establishments", "prefectures")["pref-13"]["value"] == 9000
+    per = rows("restaurants_per_1000", "municipalities")["muni-13199"]
+    assert per["numerator"] == 2500 and per["value"] == pytest.approx(2500 / per["denominator"] * 1000, abs=1e-2)
+    # 可住地面積あたり（分母は統計でみる市区町村のすがたの可住地面積、#206）
+    dens = {r["entity_id"]: r for r in load(
+        built, "values/food_retail_per_inhabitable_km2/2021-06-01/municipalities.json")["rows"]}
+    assert dens["muni-13199"]["value"] == pytest.approx(300 / 5.0, abs=1e-2)
+    assert dens["muni-14199"]["value"] == pytest.approx(80 / 8.0, abs=1e-2)   # 区の行（市全体の行ではない）
+    assert dens["muni-13499"]["value"] is None and dens["muni-13499"]["status"] == "withheld"
+    pdens = {r["entity_id"]: r for r in load(
+        built, "values/food_retail_per_inhabitable_km2/2021-06-01/prefectures.json")["rows"]}
+    assert pdens["pref-13"]["value"] == pytest.approx(9000 / 1424.3, abs=1e-2)
+    assert "inhabitable_area" not in {i["id"] for i in load(built, "indicators.json")["indicators"]}
 
 
 def test_reduce_xlsx_keeps_named_columns(tmp_path):
@@ -3491,3 +3781,209 @@ def test_airports_and_ports(built):
     # 空港・港の値は地域に割り振らない
     ids = {i["id"] for i in load(built, "indicators.json")["indicators"]}
     assert not ids & {"airport_passengers", "port_passengers"}
+
+
+def _rows(paths, indicator, period, level="municipalities"):
+    return {r["entity_id"]: r for r in load(paths, f"values/{indicator}/{period}/{level}.json")["rows"]}
+
+
+def test_care_facilities(built):
+    """介護保険施設の定員: 3種類の施設の定員の合計。「-」は0。政令指定都市は区の行を使う（#209）。"""
+    rows = _rows(built, "care_facility_capacity", "2024-10-01")
+    assert rows["muni-13199"]["value"] == 80 and rows["muni-13299"]["value"] == 250
+    assert rows["muni-13499"]["value"] == 0 and rows["muni-13499"]["status"] == "observed"   # 「-」は該当なし
+    assert rows["muni-14199"]["value"] == 70                     # 区の行（市全体の行は使わない）
+    prefs = _rows(built, "care_facility_capacity", "2024-10-01", "prefectures")
+    assert prefs["pref-13"]["value"] == 330
+    # 65歳以上の人口1,000人あたり（分母は2025年国勢調査の市区町村の表）
+    per = _rows(built, "care_facility_capacity_per_1000_elderly", "2024-10-01")
+    r = per["muni-13299"]
+    assert r["status"] == "derived" and r["numerator"] == 250
+    assert r["value"] == pytest.approx(round(250 / r["denominator"] * 1000, 3))
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert by["care_facility_capacity"]["category"] == "医療・介護"
+    assert "population_65_plus" not in by                      # 分母だけの指標は公開しない
+
+
+def test_city_parks(built):
+    """都市計画区域の住民1人あたりの都市公園の面積: カントリーパークを除く面積 ÷ 都市計画区域の人口（#210）。"""
+    rows = _rows(built, "city_park_area_per_capita", "2025-03-31")
+    assert rows["muni-13199"]["value"] == 2.0                  # 20ha ÷ 10万人
+    r = rows["muni-13299"]
+    assert r["numerator"] == 600000 and r["denominator"] == 50000 and r["value"] == 12.0   # カントリーパーク 0.5ha を引く
+    assert rows["muni-13499"]["value"] is None and rows["muni-13499"]["status"] == "not_applicable"   # 都市計画区域がない
+    assert rows["muni-14199"]["value"] is None and "市全体" in rows["muni-14199"]["note"]     # 区には割り振らない
+    prefs = _rows(built, "city_park_area_per_capita", "2025-03-31", "prefectures")
+    assert prefs["pref-13"]["numerator"] == 800000 and prefs["pref-13"]["denominator"] == 150000
+    assert prefs["pref-14"]["value"] == 5.0                    # 政令指定都市は市全体の行で合計する
+
+
+def test_sewerage(built):
+    """汚水処理人口普及率: PDF の単語の位置で縦に並んだ表を読む（#211）。"""
+    from tdm.ingest.mlit_sewerage import read_table
+    period, munis, prefs = read_table(built.raw / "mlit_sewerage_2026" / "sewerage_2026.html")
+    assert period == "2026-03-31"
+    assert munis[("13", "区部")] == (100.0, True) and munis[("13", "かりの村")] == (60.0, False)
+    assert prefs == {"13": 99.9, "14": 98.0}                   # 列をまたいだ都道府県の行も読む
+    rows = _rows(built, "sewage_treatment_coverage", "2026-03-31")
+    assert rows["muni-13299"]["value"] == 95.5 and rows["muni-13499"]["value"] == 60.0
+    # 東京都の23区・政令指定都市の区は全体の値しかないので値なし
+    assert rows["muni-13199"]["value"] is None and "100.0%" in rows["muni-13199"]["note"]
+    assert rows["muni-14199"]["value"] is None and rows["muni-14199"]["status"] == "not_applicable"
+    prefs = _rows(built, "sewage_treatment_coverage", "2026-03-31", "prefectures")
+    assert prefs["pref-13"]["value"] == 99.9 and prefs["pref-14"]["value"] == 98.0
+
+
+def test_child_medical(built):
+    """子どもの医療費の助成の対象年齢: 通院・入院の「◯歳年度末」。政令指定都市は市の制度を区にも入れる（#212）。"""
+    out = _rows(built, "child_medical_age_outpatient", "2025-04-01")
+    inp = _rows(built, "child_medical_age_inpatient", "2025-04-01")
+    assert out["muni-13199"]["value"] == 18 and out["muni-13199"]["note"] == "所得制限なし。一部自己負担なし"
+    assert out["muni-13299"]["value"] == 15 and inp["muni-13299"]["value"] == 18
+    assert "所得制限は通院あり・入院なし" in out["muni-13299"]["note"]
+    assert out["muni-13499"]["value"] == 6 and "小学校に入る前" in out["muni-13499"]["note"]   # 就学前
+    assert inp["muni-13499"]["value"] == 22 and "大学など" in inp["muni-13499"]["note"]      # 名前の※
+    assert out["muni-14199"]["value"] == 18 and out["muni-14199"]["note"].startswith("みほん市全体の制度")
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert all(p["levels"] == ["municipality"] for p in by["child_medical_age_outpatient"]["periods"])
+    # 表に行のない市町村は値なしにして理由を書く
+    from tdm.ingest import cfa_child_medical
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    catalog = {k: d for k, d in load_indicators().items() if k == "child_medical_age_outpatient"}
+    upsert_indicators(conn, catalog)
+    for code, name in (("13299", "ためし市"), ("13599", "ない町")):
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'municipality', ?)", (f"muni-{code}", name))
+    result = cfa_child_medical.ingest(conn, built.raw / "cfa_child_medical_2025" / "child_medical_2025.txt", "s",
+                                      catalog, "2025-04-01")
+    got = {r["entity_id"]: (r["value"], r["method_note"]) for r in conn.execute(
+        "SELECT entity_id, value, method_note FROM observations")}
+    assert got["muni-13599"] == (None, cfa_child_medical.NOT_LISTED_NOTE) and result["not_listed"] == ["muni-13599"]
+    assert got["muni-13299"][0] == 15
+
+
+def test_child_medical_rejects_other_period(built):
+    from tdm.ingest import cfa_child_medical
+    conn = connect(":memory:")
+    init_schema(conn)
+    with pytest.raises(ValueError, match="2025-04-01 時点"):
+        cfa_child_medical.ingest(conn, built.raw / "cfa_child_medical_2025" / "child_medical_2025.txt", "s", {},
+                                 "2024-04-01")
+
+
+def test_water_fee(built):
+    """水道料金（家庭用・1か月20m³）: 市区町村営の水道事業の料金。給水人口が住民の半分未満なら値なし（#213）。"""
+    rows = _rows(built, "water_fee_household", "2024-04-01")
+    assert rows["muni-13299"]["value"] == 3000 and rows["muni-13299"]["status"] == "observed"
+    assert rows["muni-13499"]["value"] is None and "半分未満" in rows["muni-13499"]["note"]
+    assert rows["muni-13199"]["value"] is None and "水道事業がなく" in rows["muni-13199"]["note"]
+    assert rows["muni-14199"]["value"] == 2200 and rows["muni-14199"]["note"] == "みほん市全体の料金"
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert [p["label"] for p in by["water_fee_household"]["periods"]] == ["2024年度"]
+
+
+def test_water_fee_suppliers(built):
+    """都道府県営・企業団・隣の市の水道は設定の suppliers で、料金が地域ごとに違う企業団は area_tariffs で決める。"""
+    from tdm.ingest import digital_water
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    catalog = {k: d for k, d in load_indicators().items() if k == "water_fee_household"}
+    upsert_indicators(conn, catalog)
+    for code, name, region in [("13199", "サンプル区", "区部"), ("13299", "ためし市", "多摩"), ("13499", "かりの村", "島しょ"),
+                               ("13599", "みほん町", "島しょ"), ("14191", "みほん市北区", "みほん市"),
+                               ("14192", "みほん市南区", "みほん市")]:
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name, region) VALUES (?, 'municipality', ?, ?)",
+                     (f"muni-{code}", name, region))
+    cfg = {"fiscal_year": 2024, "suppliers": {"130001": ["13199"], "13299": ["13599"], "999999": ["13199"]},
+           "area_tariffs": {"134996": ["13499"]}}
+    result = digital_water.ingest(conn, built.raw / "digital_water_2024" / "water_supply_table_02.zip", "s",
+                                  catalog, cfg)
+    got = {r["entity_id"]: (r["value"], r["method_note"]) for r in conn.execute(
+        "SELECT entity_id, value, method_note FROM observations")}
+    assert got["muni-13199"] == (2560, "東京都の水道の料金")
+    assert got["muni-13599"] == (3000, "ためし市の水道の料金")     # 隣の市の水道（市区町村コード5桁で書く）
+    assert got["muni-13499"][0] is None and "かりの村が給水" in got["muni-13499"][1]
+    assert got["muni-14191"] == got["muni-14192"] == (2200, "みほん市全体の料金")   # 政令指定都市は区にも市の料金
+    assert result["missing_suppliers"] == ["999999"]           # その年度の表にない事業者は飛ばす
+    with pytest.raises(ValueError, match="料金の項目"):       # 項目の名前が変わった表は止める
+        digital_water.read_table(built.raw / "digital_water_2024" / "water_supply_table_02.zip", 2023)
+    with pytest.raises(ValueError, match="2022.csv がありません"):
+        digital_water.read_table(built.raw / "digital_water_2024" / "water_supply_table_02.zip", 2022)
+
+
+def test_child_medical_repeated_row(built, tmp_path):
+    # ページの境目でくり返された同じ行は1つにし、中身の違う同じ名前の行は止める
+    from tdm.ingest.cfa_child_medical import read_table
+    lines = (built.raw / "cfa_child_medical_2025" / "child_medical_2025.txt").read_text(encoding="utf-8").splitlines()
+    row = next(line for line in lines if "ためし市" in line)
+    f = tmp_path / "child_medical.txt"
+    f.write_text("\n".join(lines + [row]) + "\n", encoding="utf-8")
+    assert read_table(f)[1][("13", "ためし市")]["outpatient"] == 15
+    f.write_text("\n".join(lines + [row.replace("15歳", "12歳")]) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="行が2つあります"):
+        read_table(f)
+
+
+def test_water_fee_without_fee(tmp_path):
+    # 料金が0円か空欄の市町村営の水道事業は、0円にせず値なし
+    import csv
+    import io
+    import zipfile
+    from tdm.ingest import digital_water
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fixture.WATER_COLUMNS)
+    w.writeheader()
+    for code, fee in (("132993", "0"), ("134996", "")):
+        for item, value in ((digital_water.FEE_ITEM, fee), (digital_water.POP_ITEM, "100")):
+            w.writerow({k: "" for k in fixture.WATER_COLUMNS} | {
+                "fiscal_year": "2024", "local_public_enterprise_code": code, "local_public_enterprise_name": "見本",
+                "facility_code": "005", "cond_2_operating_entity": "4:町村営", "item_name": item, "item_value": value})
+    w.writerow({k: "" for k in fixture.WATER_COLUMNS} | {
+        "fiscal_year": "2024", "local_public_enterprise_code": "130001", "local_public_enterprise_name": "東京都",
+        "facility_code": "001", "cond_2_operating_entity": "1:都道府県営", "item_name": digital_water.FEE_ITEM,
+        "item_value": "2,560"})
+    path = tmp_path / "water.zip"
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("data/2024.csv", buf.getvalue().encode("utf-8-sig"))
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    catalog = {k: d for k, d in load_indicators().items() if k == "water_fee_household"}
+    upsert_indicators(conn, catalog)
+    for code in ("13299", "13499"):
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'municipality', '見本')", (f"muni-{code}",))
+    result = digital_water.ingest(conn, path, "s", catalog, {"fiscal_year": 2024})
+    got = {r["entity_id"]: (r["value"], r["method_note"]) for r in conn.execute(
+        "SELECT entity_id, value, method_note FROM observations")}
+    assert got["muni-13299"] == got["muni-13499"] == (None, digital_water.NO_FEE_NOTE)
+    assert result["no_fee"] == 2 and result["unmatched"] == []
+
+
+def test_name_matching_uses_map_municipalities(built):
+    # 過去の境界にしかない同じ名前の市（政令指定都市になる前の市など）と取り違えず、地図の区に入れる
+    from tdm.ingest import cfa_child_medical, mlit_sewerage
+    from tdm.regions import map_municipalities, wards_without_rows
+    conn = connect(":memory:")
+    init_schema(conn)
+    conn.execute("PRAGMA foreign_keys = OFF")
+    catalog = {k: d for k, d in load_indicators().items()
+               if k in ("child_medical_age_outpatient", "sewage_treatment_coverage")}
+    upsert_indicators(conn, catalog)
+    for code, name, region, version in [("14201", "みほん市", None, "census2010"), ("14191", "みほん市北区", "みほん市", "census2020"),
+                                        ("14192", "みほん市南区", "みほん市", "census2020"), ("13299", "ためし市", None, "census2020")]:
+        conn.execute("INSERT INTO entities (entity_id, entity_type, name, region) VALUES (?, 'municipality', ?, ?)",
+                     (f"muni-{code}", name, region))
+        conn.execute("INSERT INTO boundaries (boundary_id, boundary_version, entity_id, reference_date, source_id, "
+                     "geometry, bbox_west, bbox_south, bbox_east, bbox_north) VALUES (?, ?, ?, '2020', 's', '{}', 0, 0, 0, 0)",
+                     (f"b:{code}", version, f"muni-{code}"))
+    assert [r["entity_id"] for r in map_municipalities(conn)] == ["muni-13299", "muni-14191", "muni-14192"]
+    cfa_child_medical.ingest(conn, built.raw / "cfa_child_medical_2025" / "child_medical_2025.txt", "s", catalog, "2025-04-01")
+    mlit_sewerage.ingest(conn, built.raw / "mlit_sewerage_2026" / "sewerage_2026.html", "s", catalog, "2026-03-31")
+    got = {(r["entity_id"], r["indicator_id"]): (r["value"], r["status"]) for r in conn.execute(
+        "SELECT entity_id, indicator_id, value, status FROM observations")}
+    assert got[("muni-14191", "child_medical_age_outpatient")] == (18, "observed")
+    assert got[("muni-14192", "sewage_treatment_coverage")] == (None, "not_applicable")
+    assert not any(e == "muni-14201" for e, _ in got)          # 今はない市には入れない
+    assert wards_without_rows(conn, {"muni-14191"}) == ["muni-14192"]

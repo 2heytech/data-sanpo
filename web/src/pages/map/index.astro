@@ -1,12 +1,15 @@
 ---
 import Base from "../../layouts/Base.astro";
-import AdSlot from "../../components/AdSlot.astro";
 import FeedbackLink from "../../components/FeedbackLink.astro";
 import CategoryIcon from "../../components/CategoryIcon.astro";
 import { readFileSync } from "node:fs";
 import { DATA_BASE, RELEASE, loadIndicators } from "../../lib/data";
 import { RELIEF_GRADIENT, RELIEF_STOPS, reliefAt } from "../../map/relief";
 import { SLOPE_CLASSES } from "../../map/slope";
+import { fallbackView } from "../../lib/mapFallback";
+import { mapFallbackData } from "../../lib/mapFallbackData";
+import { ICON_INDICATOR } from "../../lib/navIcons";
+import { pageLinksHtml } from "../../map/pageLinks";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl-${version}/maplibre-gl.mjs`;
 // 右の欄の「〇〇の公式サイト」の URL 一覧（pages/official-sites.json.ts）。架空の地名を使う開発用データでは出さない
@@ -58,13 +61,46 @@ const BASES = [
   { id: "landuse", name: "土地利用", title: "土地利用（100m四方のマス）", icon: ICON.landuse },
 ];
 const categories = [...new Set([...loadIndicators().map((i) => i.category), "交通", "教育", "地価", "子育て", "観光", "天気"])];
+const indicatorCount = loadIndicators().length;
+// 地図を表示できないときの案内（設計変更記録 #196）。既定の指標のリンクと静止画の地図はここで書いておき、
+// ほかの指標・地域を選んだ URL のときは地図の処理（map/fallback.ts）が差し替える
+const fallbackData = mapFallbackData();
+const fallback = fallbackView({}, fallbackData);
+const ICON_NEXT = '<path d="m6 3.5 4.5 4.5L6 12.5"/>';
+// 何も選んでいないときの欄の、指標・都道府県・市区町村の一覧へのリンク（地域を選んだときと同じ形。#218）
+const introPages = pageLinksHtml([
+  { href: "/#indicators", kind: "indicator", title: "指標の一覧", note: `${indicatorCount}の指標の意味とランキング` },
+  { href: "/prefectures/", kind: "prefecture", title: "都道府県の一覧", note: "特徴と、市区町村の人口ランキング" },
+  { href: "/areas/", kind: "municipality", title: "市区町村の一覧", note: "名前で探して、まちごとのデータを見る" },
+], "一覧のページ");
+const FALLBACK_LINKS = [
+  { href: "/#indicators", text: "指標の一覧", note: `人口・所得・子育てなど${indicatorCount}の指標から選ぶ` },
+  { href: "/prefectures/", text: "都道府県の一覧", note: "都道府県ごとの特徴と、市区町村の人口ランキング" },
+  { href: "/areas/", text: "市区町村の一覧", note: "名前で探して、まちごとのデータを見る" },
+];
 ---
 <Base menu="地図" preload={maplibreUrl} description="全国の市区町村・町丁目を、人口・高齢化・年収・地価などで色分けした地図。地名で探して拡大すれば、となりのまちとの違いや年ごとの移り変わりがひと目で分かります。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl} data-official-sites={officialSitesUrl}>
-    <aside class="panel panel-conditions" aria-label="表示する条件">
+    {/* スマホ（幅 860px 以下）では、地域の検索を地図の上に常に出し（地図の処理が左の欄の検索欄をここへ移す）、
+         条件の欄と情報の欄を地図の下端のパネルにまとめる（設計変更記録 #194）。パソコンでは .map-sheet は枠を持たず、今までどおり左右の欄になる */}
+    <div class="map-search" role="search" aria-label="地域を検索"></div>
+    <div class="map-sheet" data-tab="conditions">
+      <button type="button" class="sheet-head" aria-expanded="false" aria-controls="panel-conditions panel-info">
+        <span class="sh-row">
+          <span class="sh-icon" aria-hidden="true"></span><span class="sh-name"></span><span class="sh-period"></span>
+          <span class="sh-chevron" aria-hidden="true"><svg viewBox="0 0 12 8" width="12" height="8"><path d="M1.5 6.5 6 2l4.5 4.5" /></svg></span>
+        </span>
+        <span class="sh-legend" aria-hidden="true"><span class="sh-low"></span><span class="sh-bar"></span><span class="sh-high"></span></span>
+        <span class="visually-hidden">（指標・時点・凡例と地域の情報のパネル）</span>
+      </button>
+      <div class="sheet-tabs" role="group" aria-label="パネルに出すもの">
+        <button type="button" data-tab="conditions" aria-pressed="true">指標と表示</button>
+        <button type="button" data-tab="info" aria-pressed="false">この地図について</button>
+      </div>
+    <aside class="panel panel-conditions" id="panel-conditions" aria-label="表示する条件">
       {/* 範囲と地域の検索はあまり使わないので、最初は畳んでおく（開いた状態は覚えない、#103） */}
       <details class="move-tools">
-        <summary>範囲・地域を検索</summary>
+        <summary><span class="mt-wide">範囲・地域を検索</span><span class="mt-phone">範囲・現在地</span></summary>
         <div class="move-tools-body">
           <div class="field region">
             <label for="region-jump">範囲</label>
@@ -116,6 +152,11 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
           <span id="aggregate-label">直近5年の合計で見る</span></label>
       </div>
       <div id="legend" class="legend" aria-live="polite"></div>
+      {/* この指標のランキングのページ（#218）。指標を変えると、地図の処理が行き先と名前を替える */}
+      <a id="indicator-page" class="indicator-page" href="/#indicators">
+        <svg class="ip-icon" viewBox="0 0 24 24" aria-hidden="true" set:html={ICON_INDICATOR} /><span>指標のランキングと解説</span>
+        <svg class="ip-next" viewBox="0 0 16 16" aria-hidden="true" set:html={ICON_NEXT} />
+      </a>
       {/* 表示に関する切替（色分け・地名・数値）は1行のアイコン、地図に重ねるものはアイコンの並び。
            細かい説明は地図の右上の凡例に出す（#97・#139）。チェックボックスは見えないだけで、id と動きはそのまま */}
       <fieldset class="field view-options">
@@ -141,6 +182,23 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
         </div>
       </fieldset>
     </aside>
+    <aside class="panel panel-info" id="panel-info" aria-label="地域の情報">
+      {/* 何も選んでいないときの案内（設計変更記録 #192）。地域を選ぶと地域の情報に替わり、選択を外すと地図の処理がこの中身に戻す */}
+      <section id="detail" class="detail" aria-live="polite">
+        <div class="map-intro">
+          <h1>データさんぽの地図</h1>
+          <p>全国の都道府県・市区町村・町丁目を、人口・所得・子育て・地価など{indicatorCount}の公開統計で色分けした地図です。「指標」で見たいデータと時点を選び、地図の地域をクリックすると、値・全国での順位・年ごとの移り変わりを見られます。</p>
+          <p class="muted mi-howto">地図をクリックするか、地域名で検索してください。</p>
+          <Fragment set:html={introPages} />
+          <p class="small mi-more"><a href="/guide/">地図の使い方</a>・<a href="/articles/">寄り道・分析記事</a></p>
+        </div>
+      </section>
+      <p class="muted small panel-foot">
+        背景地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>。
+        <a href="/sources/">統計の出典</a>・<a href="/about/#terms">利用規約</a>・<FeedbackLink />
+      </p>
+    </aside>
+    </div>
     <div class="map-wrap">
       <div id="map" role="region" aria-label="地図"></div>
       {/* 背景: 地図・航空写真（昔の写真も）・標高・傾斜・土地利用のどれか1つを地図の左上で選ぶ。航空写真の撮影年代・土地利用の年度・
@@ -245,22 +303,51 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
       {/* 左右の欄の表示・非表示（地図を広く見る） */}
       <button type="button" class="panel-toggle left" data-panel="left" aria-pressed="false" aria-label="条件の欄を隠す" title="条件の欄を隠す">‹</button>
       <button type="button" class="panel-toggle right" data-panel="right" aria-pressed="false" aria-label="情報の欄を隠す" title="情報の欄を隠す">›</button>
-    </div>
-    <aside class="panel panel-info" aria-label="地域の情報">
-      <section id="detail" class="detail" aria-live="polite">
-        <p class="muted">地図をクリックするか、地域名で検索してください。</p>
+      {/* 地図を表示できないとき（WebGL2 が使えない・地図の部品を読み込めない）の案内（設計変更記録 #196）。地図の処理が理由に合う文だけ出す */}
+      <section id="map-fallback" class="map-fallback" aria-labelledby="map-fallback-title" data-default={fallbackData.default} hidden>
+        <div class="mf-body">
+          <div class="mf-notice">
+            <svg class="mf-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2-6-2z"/><path d="M9 4.5v13M15 6.5v13M3 3l18 18"/></svg>
+            <div>
+              <h2 id="map-fallback-title">
+                <span data-reason="webgl">この環境では地図を表示できません</span>
+                <span data-reason="load" hidden>地図を読み込めませんでした</span>
+              </h2>
+              <div data-reason="webgl">
+                <p>お使いのブラウザでは、地図を描くのに使う機能（WebGL2）が使えないため、地図を表示できませんでした。次のどれかで表示できることがあります。</p>
+                <ul>
+                  <li>ブラウザを最新の版にする</li>
+                  <li>ブラウザの設定で「ハードウェアアクセラレーション」（グラフィックの機能）をオンにする</li>
+                  <li>別のブラウザや端末で開く</li>
+                </ul>
+              </div>
+              <p data-reason="load" hidden>地図を表示するためのファイルを読み込めませんでした。ページを読み込み直すか、ブラウザを最新の版にしてお試しください。</p>
+            </div>
+          </div>
+          <p class="mf-lead">地図の代わりに、静止画の地図と、同じデータを表で見られるページをご案内します。</p>
+          {fallback.image && (
+            <figure class="mf-figure" hidden>
+              <a href={fallback.image.href}><img data-src={fallback.image.path} alt={fallback.image.alt} width="1200" height="630" decoding="async" /></a>
+              <figcaption class="muted small">{fallback.image.alt}</figcaption>
+            </figure>
+          )}
+          <h3>表とページで見る</h3>
+          <ul class="detail-links mf-links">
+            {fallback.links.map((l) => (
+              <li data-dynamic><a href={l.href}><span>{l.text}<small>{l.note}</small></span><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" set:html={ICON_NEXT} /></a></li>
+            ))}
+            {FALLBACK_LINKS.map((l) => (
+              <li><a href={l.href}><span>{l.text}<small>{l.note}</small></span><svg class="icon" viewBox="0 0 16 16" aria-hidden="true" set:html={ICON_NEXT} /></a></li>
+            ))}
+          </ul>
+        </div>
       </section>
-      <p class="muted small panel-foot">
-        背景地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>。
-        <a href="/sources/">統計の出典</a>・<a href="/about/#terms">利用規約</a>・<FeedbackLink />
-      </p>
-      <AdSlot name="map" />
-    </aside>
+    </div>
     {/* 指標の選択画面（地図の上に重ねて開く。スマホでは全画面） */}
     <dialog id="indicator-picker" class="picker" aria-labelledby="picker-title">
       <div class="picker-head">
         <h2 id="picker-title">指標をえらぶ</h2>
-        <input id="picker-search" type="search" placeholder="指標名で探す（例: 人口、犯罪）" autocomplete="off" aria-label="指標名で探す" />
+        <input id="picker-search" type="search" placeholder="指標を探す（例: 子ども、家賃、坂）" autocomplete="off" enterkeyhint="search" aria-label="指標を探す" />
         <button type="button" class="picker-close" aria-label="閉じる">×</button>
       </div>
       <div class="picker-body">
@@ -402,8 +489,6 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     display: grid; gap: 2px; padding: 8px 10px; text-align: left; font: inherit; cursor: pointer; color: var(--fg);
     border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
   }
-  /* 名前で探したときに当てはまらない指標を隠す（display: grid が hidden より強いので明示する） */
-  .picker-item[hidden] { display: none; }
   .picker-item:hover { border-color: var(--accent); background: #f6f9fd; }
   .picker-item[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft, #e6effa); box-shadow: inset 3px 0 0 var(--accent); }
   .pi-name { font-weight: 600; font-size: 0.92rem; }
@@ -415,9 +500,25 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .picker-points label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   .picker-points .muted { font-size: 0.75rem; }
   .picker-empty { margin: 24px 0; color: var(--muted); }
+  /* 指標の検索（#201）: 当たる指標を当たる順に並べる */
+  .picker-results > h3 { margin: 14px 0 8px; font-size: 0.85rem; color: var(--muted); }
   /* 画像の保存・共有（#153） */
   .map-wrap .share-ctrl button { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 8px; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--fg); }
   .map-wrap .share-ctrl svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  /* 地図の中心を Google マップ・ストリートビューで開くリンク（#187）。ズームのボタンと同じ大きさのアイコンを縦に2つ並べ、
+     ズームのボタンの下に置く（狭い地図では左。下の @container） */
+  .map-wrap .external-ctrl a { display: grid; place-items: center; width: 29px; height: 29px; color: var(--fg); }
+  .map-wrap .external-ctrl a + a { border-top: 1px solid #ddd; }
+  .map-wrap .external-ctrl a:hover { background: rgb(0 0 0 / 5%); }
+  .map-wrap .external-ctrl a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .map-wrap .external-ctrl svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  /* 上のリンクで開く地点（地図の中心）の印。アイコンにマウスを載せている間だけ出す */
+  .center-mark {
+    position: absolute; left: 50%; top: 50%; z-index: 2; width: 30px; height: 30px; margin: -15px 0 0 -15px; pointer-events: none;
+    background: linear-gradient(var(--accent), var(--accent)) center / 2px 100% no-repeat, linear-gradient(var(--accent), var(--accent)) center / 100% 2px no-repeat;
+    filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
+  }
+  .center-mark[hidden] { display: none; }
   .share-dialog {
     width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0;
     border: 0; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25); color: var(--fg); background: var(--surface);
@@ -520,9 +621,10 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .icon-toggle:has(:checked) svg { color: #fff; }
   .icon-toggle:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
   /* 地図に重ねているものの凡例（地図の右上、#139）。オンにしたもの（説明が出ているもの）だけ見せ、何もなければ枠ごと隠す。
-     地図の幅が狭いと左上の背景の切替と横に並ばないので、切替の下に置く（下の @container） */
+     地図の幅が狭いと左上の背景の切替と横に並ばないので、切替の下に置く（下の @container）。
+     高さは、右下の操作の列（共有・現在地・ズーム・Google マップ）の上で止める（#187） */
   .overlay-notes {
-    position: absolute; top: 56px; right: 32px; z-index: 3; width: 290px; max-height: calc(100% - 190px);
+    position: absolute; top: 56px; right: 32px; z-index: 3; width: 290px; max-height: calc(100% - 300px);
     display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px;
     background: rgba(255,255,255,.95); box-shadow: 0 1px 4px rgba(0,0,0,.15);
   }
@@ -555,7 +657,7 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--fg);
   }
   @container (min-width: 780px) {
-    .overlay-notes { top: 10px; max-height: calc(100% - 150px); }
+    .overlay-notes { top: 10px; max-height: calc(100% - 254px); }
   }
   /* 地点の情報のポップアップ（#139）。地図の上の切替・凡例より手前に出し、長い推移の表などはポップアップの中でスクロールする
      （高さの上限は地図の処理が地図の高さから決める） */
@@ -679,6 +781,9 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     .base-panel-head output, .base-panel-title { font-size: 1rem; }
     /* 凡例は左下（縮尺の上）に置き、上に向かって開く。右下のズームのボタンには重ねない */
     .overlay-notes { top: auto; bottom: 34px; right: auto; left: 10px; width: min(290px, calc(100% - 64px)); max-height: calc(100% - 110px); }
+    /* Google マップ・ストリートビューのアイコンはズームのボタンの左に並べ、右下の操作の列を高くしない
+       （上から開く土地利用のパネルに隠れないように。#187） */
+    .map-wrap .maplibregl-ctrl-bottom-right .external-ctrl { clear: none; }
   }
   /* さらに狭いとき（幅 320〜400px のスマホ）は、背景の5つのボタンが1行に収まるよう詰める */
   @container (max-width: 400px) {
@@ -718,6 +823,8 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .legend.dimmed { opacity: 0.45; }
   .detail .value { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .detail h2 { margin: 0.2em 0; font-size: 1.2rem; }
+  .map-intro h1 { margin: 0 0 8px; font-size: 1.15rem; line-height: 1.45; color: var(--ink); }
+  .map-intro p { margin: 0 0 10px; line-height: 1.75; }
   /* 地域の情報（#detail）: 上の地域 → 題名 → 値 → 順位・推移 → リンク・出典の順に並べる（設計変更記録 #135） */
   .detail .icon { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .detail-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; margin: 0; font-size: 0.82rem; color: var(--muted); }
@@ -756,6 +863,29 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
   .detail-links a span { min-width: 0; }
   .detail-links small { display: block; font-size: 0.75rem; color: var(--muted); }
   .detail-links .icon { width: 16px; height: 16px; color: var(--muted); }
+  /* 地域・都道府県・指標のページへのリンク（#218）。値と順位のすぐ下に、何が見られるかを添えたボタンの形で並べる */
+  .detail-pages { display: grid; gap: 8px; margin: 16px 0 0; }
+  .detail-pages a {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid #c9d8ea; border-radius: 10px;
+    background: var(--surface); color: var(--accent-ink); text-decoration: none; line-height: 1.45;
+  }
+  .detail-pages a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  .detail-pages a > span { flex: 1; min-width: 0; }
+  .detail-pages strong { display: block; font-size: 0.92rem; }
+  .detail-pages small { display: block; font-size: 0.75rem; color: var(--muted); }
+  .detail-pages .icon { width: 20px; height: 20px; color: var(--accent); stroke-width: 1.8; }
+  .detail-pages .icon.dp-next { width: 14px; height: 14px; stroke-width: 2.2; }
+  .map-intro .detail-pages { margin: 4px 0 12px; }
+  .map-intro p.mi-more { margin: 0; }
+  .indicator-page {
+    display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 8px 12px; border: 1px solid #c9d8ea; border-radius: 10px;
+    background: var(--surface); color: var(--accent-ink); font-size: 0.88rem; font-weight: 700; line-height: 1.45; text-decoration: none;
+  }
+  .indicator-page:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+  .indicator-page span { flex: 1; min-width: 0; }
+  .indicator-page svg { flex: none; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+  .indicator-page .ip-icon { width: 18px; height: 18px; color: var(--accent); stroke-width: 1.8; }
+  .indicator-page .ip-next { width: 14px; height: 14px; stroke-width: 2.2; }
   .detail-sources { margin: 10px 0 0; font-size: 0.75rem; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
   .detail-sources a { color: inherit; }
   .detail-sources > span { margin: 0 2px; }
@@ -792,13 +922,111 @@ const categories = [...new Set([...loadIndicators().map((i) => i.category), "交
     .map-app.hide-left { grid-template-columns: 0 minmax(0, 1fr) 300px; }
     .map-app.hide-right { grid-template-columns: 260px minmax(0, 1fr) 0; }
   }
+  /* スマホの地図の画面（設計変更記録 #194）。パソコンでは検索の帯・パネルの見出しを出さず、.map-sheet は枠を持たない（中の左右の欄が格子に並ぶ） */
+  .map-search, .sheet-head, .sheet-tabs, .mt-phone { display: none; }
+  .map-sheet { display: contents; }
   @media (max-width: 860px) {
-    .map-app, .map-app.hide-left, .map-app.hide-right, .map-app.hide-left.hide-right { grid-template-columns: 1fr; height: auto; }
+    /* 画面の高さいっぱいに地図を出し、ページは送らない。ヘッダーの高さは画面の幅で変わるので、縦に並べた残りを地図の画面にする */
+    body.wide { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+    body.wide > main { flex: 1; min-height: 0; }
+    /* 上から、地域の検索・地図・パネルの見出しの高さの余白（パネルは地図の画面の下端に重ねる） */
+    .map-app, .map-app.hide-left, .map-app.hide-right, .map-app.hide-left.hide-right {
+      --sheet-head-h: 64px;
+      position: relative; height: 100%;
+      grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) var(--sheet-head-h);
+    }
     .panel-toggle { display: none; }
-    .panel-conditions, .map-wrap, .panel-info { grid-column: auto; grid-row: auto; }
-    /* スマートフォンでは地図を先に出し、条件と情報はその下に置く */
-    .map-wrap { height: 68dvh; order: 1; }
-    .panel-conditions { order: 2; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
-    .panel-info { order: 3; border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+    .map-wrap { grid-column: 1; grid-row: 2; min-height: 0; }
+    /* 地域の検索（地図の上に常に出す）。文字は16px にして、iPhone で入力欄を押したときに画面が拡大しないようにする */
+    .map-search { display: block; grid-column: 1; grid-row: 1; position: relative; z-index: 6; padding: 6px 10px; background: var(--surface); border-bottom: 1px solid var(--line); }
+    .map-search label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .map-search input[type="search"] {
+      width: 100%; margin: 0; padding: 8px 12px 8px 34px; font: inherit; font-size: 16px;
+      border: 1px solid var(--line-strong); border-radius: 999px; color: var(--fg);
+      background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b5cad' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='m15.5 15.5 5 5'/%3E%3C/svg%3E") no-repeat 11px 50% / 17px 17px;
+    }
+    .map-search input[type="search"]:focus { border-color: var(--accent); outline: 2px solid rgba(11,92,173,.2); }
+    .map-search #search-results { margin-top: 4px; }
+    .mt-wide { display: none; }
+    .mt-phone { display: inline; }
+    /* 下端のパネル。閉じているときは見出し（指標・時点・凡例の帯）だけ、開くと切替のボタンと、条件か地域の情報の欄 */
+    .map-sheet {
+      display: flex; flex-direction: column; position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+      max-height: 55%; /* map/sheet.ts の SHEET_MAX と同じ */
+      background: var(--surface); border-radius: 14px 14px 0 0; box-shadow: 0 -2px 12px rgba(0,0,0,.18);
+    }
+    .sheet-head {
+      position: relative; flex: none; display: flex; flex-direction: column; justify-content: center; gap: 5px;
+      width: 100%; height: var(--sheet-head-h); padding: 12px 14px 8px; border: 0; border-radius: 14px 14px 0 0;
+      background: none; font: inherit; color: var(--fg); text-align: left; cursor: pointer;
+    }
+    /* つまみ */
+    .sheet-head::before {
+      content: ""; position: absolute; top: 5px; left: 50%; width: 36px; height: 4px; margin-left: -18px;
+      border-radius: 2px; background: var(--line-strong);
+    }
+    .sheet-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .sh-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .sh-icon { flex: none; display: inline-flex; color: var(--accent); }
+    .sh-icon svg { width: 20px; height: 20px; }
+    .sh-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.95rem; font-weight: 700; }
+    .sh-period { flex: none; font-size: 0.85rem; font-weight: 700; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+    .sh-chevron { flex: none; display: grid; place-items: center; width: 24px; height: 20px; color: var(--accent); }
+    .sh-chevron svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
+    .map-sheet.open .sh-chevron svg { transform: rotate(180deg); }
+    .sh-legend { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 0.72rem; line-height: 1.2; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .sh-legend > span:not(.sh-bar) { flex: none; white-space: nowrap; }
+    .sh-legend.none > .sh-low { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .sh-legend.dimmed { opacity: .45; }
+    .sh-bar { flex: 1; display: flex; height: 10px; border: 1px solid rgba(0,0,0,.2); border-radius: 3px; overflow: hidden; }
+    .sh-bar[hidden] { display: none; }
+    .sh-bar span { flex: 1; }
+    .sheet-tabs { flex: none; gap: 6px; padding: 0 12px 8px; border-bottom: 1px solid var(--line); }
+    .map-sheet.open .sheet-tabs { display: flex; }
+    .sheet-tabs button {
+      flex: 1; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface);
+      font: inherit; font-size: 0.85rem; font-weight: 700; color: #3a4757; cursor: pointer;
+    }
+    .sheet-tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .sheet-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    /* 欄は、パネルを開いて選んでいる方だけ出し、パネルの中で送る */
+    .map-sheet .panel { display: none; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px 18px; border: 0; background: var(--surface); }
+    .map-sheet.open[data-tab="conditions"] .panel-conditions { display: flex; }
+    .map-sheet.open[data-tab="info"] .panel-info { display: block; }
+  }
+  /* 地図を表示できないとき（設計変更記録 #196）。地図の場所に案内を出し、地図の上の操作と条件の欄を隠す。
+     パソコンでは右の欄（地図の説明）を残す。スマホでは地域の検索と下端のパネルも隠し、案内だけにする */
+  .map-app.no-map { grid-template-columns: 0 minmax(0, 1fr) 360px; }
+  .map-app.no-map .panel-conditions, .map-app.no-map .mi-howto, .map-app.no-map .map-wrap > :not(.map-fallback) { display: none; }
+  .map-fallback { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); }
+  .map-fallback[hidden], .map-fallback [hidden] { display: none; }
+  .mf-body { max-width: 760px; margin: 0 auto; padding: 28px 24px 40px; }
+  .mf-notice {
+    display: flex; gap: 14px; padding: 16px 18px; border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 10px; background: var(--surface); line-height: 1.75;
+  }
+  .mf-icon { flex: none; width: 32px; height: 32px; margin-top: 2px; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .mf-notice h2 { margin: 0 0 6px; font-size: 1.2rem; line-height: 1.5; color: var(--ink); }
+  .mf-notice p { margin: 0; }
+  .mf-notice ul { margin: 4px 0 0; padding-left: 1.3em; }
+  .mf-lead { margin: 20px 0 0; line-height: 1.75; }
+  .mf-figure { margin: 12px 0 0; }
+  .mf-figure a { display: block; }
+  .mf-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  .mf-figure figcaption { margin-top: 4px; }
+  .mf-body h3 { margin: 24px 0 0; font-size: 1rem; color: var(--ink); }
+  .mf-links { margin-top: 8px; background: var(--surface); }
+  .mf-links .icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  @media (max-width: 1100px) {
+    .map-app.no-map { grid-template-columns: 0 minmax(0, 1fr) 300px; }
+  }
+  @media (max-width: 860px) {
+    .map-app.no-map { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+    .map-app.no-map .map-search, .map-app.no-map .map-sheet { display: none; }
+    .map-app.no-map .map-wrap { grid-row: 1; }
+    .mf-body { padding: 16px 14px 28px; }
+    .mf-notice { gap: 10px; padding: 12px 14px; font-size: 0.92rem; }
+    .mf-icon { width: 26px; height: 26px; }
+    .mf-notice h2 { font-size: 1.08rem; }
   }
 </style>

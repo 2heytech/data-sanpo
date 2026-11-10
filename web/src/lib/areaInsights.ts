@@ -50,6 +50,8 @@ interface Stat {
 const BRIGHT_SHARE = 0.25;
 /** 考察の数の上限（多すぎると読まれないため） */
 const MAX_INSIGHTS = 8;
+/** ページの冒頭に置く特徴の数（設計変更記録 #193） */
+const MAX_POINTS = 3;
 /** 課題に当たる文の数の上限（人口減少と高齢化など、似た課題の文が並んで暗いページにならないようにする） */
 const MAX_NEGATIVE = 3;
 /** 全国順位で目立つとみなす範囲（上位・下位それぞれ全体のこの割合まで）と、その考察の数の上限 */
@@ -132,7 +134,7 @@ const CATEGORY_THEME: Record<string, Theme> = {
   "人口・世帯": "住む人", "年齢構成": "住む人", "外国人住民": "住む人", "学歴": "住む人", "所得・税": "住む人", "暮らし方": "住まい",
   "緑": "気候と土地", "通勤・通学": "交通", "働き方": "仕事と産業", "農業": "仕事と産業", "工業": "仕事と産業", "商業": "仕事と産業",
   "観光": "仕事と産業", "子育て": "子育てと学び", "教育": "子育てと学び", "交通事故": "安全と健康", "犯罪": "安全と健康", "選挙": "選挙",
-  "土地": "気候と土地", "財政": "まちの財政",
+  "土地": "気候と土地", "財政": "まちの財政", "医療・介護": "安全と健康", "上下水道": "住まい",
 };
 const ID_THEME: Record<string, Theme> = {
   population_density: "気候と土地",
@@ -253,7 +255,11 @@ const MIDDLE_HEAD = "全国の市区町村を値の順に並べると、ちょ�
  * 「データで見る〇〇」の見出し（特徴を一言で表す文）と考察（テーマごとのまとまりと、その順に並べた文）。
  * groups の more は lines と同じ順の、考察に添える文（ないときは空文字）
  */
-export interface AreaProfile { title: string | null; groups: { theme: Theme; lines: string[]; more: string[] }[]; lines: string[] }
+export interface AreaProfile {
+  title: string | null; groups: { theme: Theme; lines: string[]; more: string[] }[]; lines: string[];
+  /** ページの冒頭に置く特徴（考察の最初の文＝数字と順位だけ。最大3つ。設計変更記録 #193） */
+  points: { theme: Theme; text: string }[];
+}
 
 /**
  * 考察の候補（all。目立つ順）から、ページに出す考察と題名を選び、テーマごとに並べる（市区町村・都道府県のページで共通）。
@@ -278,7 +284,28 @@ export function composeProfile(all: Line[], opts: { extra: Line[]; bright: Line[
     return m.replace(MIDDLE_HEAD, "同じように並べると、真ん中に来るまちは");
   }).join("");
   return { title, groups: groups.map((g) => ({ theme: g.theme, lines: g.lines.map((l) => l.text), more: g.lines.map(moreText) })),
-    lines: groups.flatMap((g) => g.lines.map((l) => l.text)) };
+    lines: groups.flatMap((g) => g.lines.map((l) => l.text)), points: pointsOf(picked) };
+
+  /**
+   * 冒頭の特徴（設計変更記録 #193）。表示する考察のうち全国で目立つもの（題名の元になったものを先に）から、
+   * 推測を付けない最初の文（数字と順位）を3つまで、なるべく別のテーマから選ぶ（全国で目立つ強い考察を先に、足りなければ一般的な考察から）。
+   * 課題に当たる文（人口の減少を含む）・住む人の国籍・犯罪と交通事故・選挙・財政・災害は、まちの第一印象にしないので選ばない
+   */
+  function pointsOf(list: Line[]): { theme: Theme; text: string }[] {
+    const order = (l: Line) => (titleLines.includes(l) ? titleLines.indexOf(l) - 10 : l.w);
+    const usable = list.filter((l) => !isFiller(l) && l.tone !== "neg" && l.theme !== "選挙" && l.theme !== "まちの財政"
+      && !/^(evacuation|disaster)$|foreign|crime|accident/.test(l.topic ?? "")
+      // 人口が減っている文は、減り方が小さい方でも課題の話なので冒頭に置かない
+      && !(l.topic === "populationChange" && l.text.includes("減")))
+      .map((l) => ({ l, first: l.text.slice(0, l.text.indexOf("。") + 1) }))
+      .filter((x) => x.first && !/思われ|考えられ|ようです/.test(x.first))
+      .sort((a, b) => order(a.l) - order(b.l));
+    const chosen: typeof usable = [];
+    for (const x of usable) if (chosen.length < MAX_POINTS && !chosen.some((c) => c.l.theme === x.l.theme)) chosen.push(x);
+    for (const x of usable) if (chosen.length < MAX_POINTS && !chosen.includes(x)) chosen.push(x);
+    // 時点は年だけにする（「2020年10月1日現在」→「2020年」）
+    return chosen.map((x) => ({ theme: x.l.theme ?? "安全と健康", text: x.first.replace(/(\d{4}年)\d{1,2}月\d{1,2}日現在/g, "$1") }));
+  }
 
   /**
    * 読む順に並べる。同じテーマの考察はまとめ、題名の元になった考察のテーマを先頭に（題名のすぐ下で理由が分かるように）、
@@ -881,9 +908,27 @@ export function areaProfile(muniId: string, data: InsightData): AreaProfile {
       }
       return strong(`一人暮らしの世帯が${single!.text}と全国でも高い方です（${single!.label}）。単身で働く人や学生などが多く住んでいると思われます。`);
     }
+    // 1世帯あたりの人数が多いときは、世帯の内訳（子どものいる世帯・一人暮らしの世帯・65歳以上の人の割合）で裏付けられることだけを書く。
+    // 三世代同居などの世帯の形は公開している値にないので書かない（設計変更記録 #193）
     const size = stat("persons_per_household");
     if (isTop(size, 0.1)) {
-      return strong(`1世帯あたりの人数が${size!.text}と全国でも多い方です（${size!.label}）。三世代で暮らす家族など、大きな世帯が多いと考えられます。`, undefined, tag("family", "大家族が多く", "大家族の多い", true), size!.top!);
+      const head = `1世帯あたりの人数が${size!.text}と全国でも多い方です（${size!.label}）。`;
+      const at = (x: Stat) => (x.label === size!.label ? "" : `（${x.label}）`);
+      const family = tag("family", "家族で暮らす世帯が多く", "家族で暮らす世帯の多い", true);
+      const children = stat("households_with_children_share");
+      if (isTop(children, 0.1)) {
+        return strong(`${head}18歳未満の子どものいる世帯も${children!.text}${at(children!)}と全国で高い方で、子育て中の家族が多いことが世帯の人数の多さにつながっていると思われます。`,
+          undefined, family, size!.top!);
+      }
+      const alone = stat("single_person_household_share");
+      if (isBottom(alone, 0.25)) {
+        const aged = stat("aged_65_plus_share");
+        const end = isTop(aged, 0.25)
+          ? `65歳以上の人の割合も${aged!.text}${at(aged!)}と高めなので、高齢の人も家族と一緒に暮らしていることが多いと思われます。`
+          : "家族で暮らす世帯が多い地域と考えられます。";
+        return strong(`${head}一人暮らしの世帯は${alone!.text}${at(alone!)}と全国でも少ない方です。${end}`, undefined, family, size!.top!);
+      }
+      return strong(head, undefined, family, size!.top!);
     }
     return null;
   }

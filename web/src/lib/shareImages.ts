@@ -3,8 +3,9 @@
 import type { Article } from "./articles";
 import { loadAreas, loadBoundaries, loadIndicators, loadLegend, loadSources, loadValues } from "./data";
 import { compactNumber, formatNumber } from "./format";
+import { summaryPolicy } from "./indicatorSummary";
 import type { ChoroplethSpec, MapFeature } from "./mapImage";
-import { municipalityPeriods } from "./periods";
+import { municipalityPeriods, prefecturePeriods } from "./periods";
 import type { Indicator, Prefecture } from "./types";
 import { mapHref } from "./urlstate";
 
@@ -29,16 +30,30 @@ function latestMunicipalPeriod(ind: Indicator) {
   return null;
 }
 
+/** 都道府県の値があるいちばん新しい時点（市区町村の値がない指標の寄り道の画像に使う。#185） */
+function latestPrefecturePeriod(ind: Indicator) {
+  for (const period of [...prefecturePeriods(ind)].sort().reverse()) {
+    const rows = loadValues(ind.id, period, "prefectures")?.rows;
+    const legend = loadLegend(ind.id, period)?.levels.prefecture;
+    const p = ind.periods.find((x) => x.period === period);
+    if (p && rows?.some((r) => r.value !== null) && legend) return { period: p, rows, legend };
+  }
+  return null;
+}
+
 const municipalityFeatures = (prefCodes: string[]): MapFeature[] =>
   prefCodes.flatMap((code) => (loadBoundaries(`municipalities/${code}`)?.features ?? [])
     .map((f) => ({ id: f.properties.id, geometry: f.geometry })));
 
-/** 出典の提供者（同じ名前は1つに） */
+/** 出典の提供者（同じ名前は1つに。「総務省統計局・経済産業省」のような連名は分けて数え、境界の「総務省統計局」と重ねない） */
 function providersOf(ind: Indicator, period: string): string[] {
   const ids = ind.periods.find((p) => p.period === period)?.source_ids ?? [];
   const sources = new Map(loadSources().map((s) => [s.source_id, s]));
-  return [...new Set(ids.map((id) => sources.get(id)?.provider).filter((p): p is string => !!p))];
+  return [...new Set(ids.flatMap((id) => sources.get(id)?.provider?.split("・") ?? []).filter((p) => !!p))];
 }
+
+/** 画像のフォント（M PLUS Rounded 1c）にない「㎡」を「m²」に書き換える（地価・農地の区画の面積の単位） */
+const imageText = (s: string) => s.replace(/㎡/g, "m²");
 
 /** 増減率の区切り（増加に「+」を付ける） */
 const signedPercent = (v: number) => `${v > 0 ? "+" : ""}${formatNumber(v, Number.isInteger(v) ? 0 : 1).replace("-", "−")}%`;
@@ -81,28 +96,51 @@ export function prefectureImage(pref: Prefecture): ShareImage | null {
 
 /**
  * 寄り道の画像: 記事の主な指標の、全国の市区町村別の地図（区切りは全国で1つ）。
- * 1つの都道府県だけの指標（東京都の街路樹など）は、全国の図では小さすぎるので、その都道府県の形に合わせた図にする（#168）
+ * 1つの都道府県だけの指標（東京都の街路樹など）は、全国の図では小さすぎるので、その都道府県の形に合わせた図にする（#168）。
+ * 都道府県の値しかない指標（外国人宿泊者の割合など）は、全国の都道府県別の地図にする（#185）
  */
 export function articleImage(article: Article): ShareImage | null {
   const id = article.mapIndicator ?? article.indicators[0];
   const ind = id ? loadIndicators().find((i) => i.id === id) : undefined;
-  const latest = ind && latestMunicipalPeriod(ind);
-  if (!ind || !latest) return null;
+  return ind ? nationalMapImage(ind, article.title, `/images/articles/${article.slug}.png`) : null;
+}
+
+/**
+ * 指標ページの画像: その指標の全国の市区町村別（なければ都道府県別）の地図。寄り道の画像と同じ作り方で、題名は指標の名前。
+ * 冒頭の「データから分かること」を出す指標だけ作る（設計変更記録 #190）
+ */
+export function indicatorImage(ind: Indicator): ShareImage | null {
+  return nationalMapImage(ind, ind.name, `/images/indicators/${ind.id}.png`);
+}
+
+/** 指標ページに置く画像（画像を作る処理・指標ページ・地図を表示できないときの案内 #196 で同じ条件にする） */
+export function indicatorPageImage(ind: Indicator): ShareImage | null {
+  return summaryPolicy(ind) === "none" ? null : indicatorImage(ind);
+}
+
+/** 指標の全国の地図の画像（寄り道・指標ページで共通） */
+function nationalMapImage(ind: Indicator, title: string, path: string): ShareImage | null {
+  const muni = latestMunicipalPeriod(ind);
+  const latest = muni ?? latestPrefecturePeriod(ind);
+  if (!latest) return null;
+  const byPref = !muni;
   const legend = loadLegend(ind.id, latest.period.period)!;
   const change = ind.kind === "change";
   const unit = ind.unit === "%" ? "" : ind.unit;
   const prefs = loadAreas().prefectures;
-  const only = ind.prefectures?.length === 1 ? prefs.find((p) => p.code === ind.prefectures![0]) : undefined;
-  const what = `${only ? only.name : "全国"}の市区町村別の${ind.name}（${latest.period.label}）`;
+  const only = !byPref && ind.prefectures?.length === 1 ? prefs.find((p) => p.code === ind.prefectures![0]) : undefined;
+  const what = `${only ? only.name : "全国"}の${byPref ? "都道府県" : "市区町村"}別の${ind.name}（${latest.period.label}）`;
   return {
-    path: `/images/articles/${article.slug}.png`,
+    path,
     alt: `${what}を色分けした地図`,
-    // 地図も市区町村別の色分けで開く（縮尺に任せると都道府県別になるため。#146）
-    mapHref: mapHref({ indicator: ind.id, period: latest.period.period, level: "municipality", ...(only ? { area: `pref-${only.code}` } : {}) }),
+    // 地図も画像と同じ単位の色分けで開く（縮尺に任せると都道府県別になるため。#146）
+    mapHref: mapHref({ indicator: ind.id, period: latest.period.period, level: byPref ? "prefecture" : "municipality", ...(only ? { area: `pref-${only.code}` } : {}) }),
     spec: () => ({
-      title: article.title,
-      subtitle: what,
-      features: municipalityFeatures(only ? [only.code] : prefs.map((p) => p.code)),
+      title: imageText(title),
+      subtitle: imageText(what),
+      features: byPref
+        ? (loadBoundaries("prefectures")?.features ?? []).map((f) => ({ id: f.properties.id, geometry: f.geometry }))
+        : municipalityFeatures(only ? [only.code] : prefs.map((p) => p.code)),
       ...(only ? {
         frameGeometries: (loadBoundaries("prefectures")?.features ?? [])
           .filter((f) => f.properties.id === `pref-${only.code}`).map((f) => f.geometry),
@@ -113,7 +151,7 @@ export function articleImage(article: Article): ShareImage | null {
       zeroBlank: legend.zero_blank,
       formatBreak: change ? signedPercent
         : (v) => `${compactNumber(v, Number.isInteger(v) ? 0 : ind.digits)}${ind.unit === "%" ? "%" : ""}`,
-      unitLabel: unit ? `単位：${unit}` : undefined,
+      unitLabel: unit ? `単位：${imageText(unit)}` : undefined,
       // 地図の境界は総務省統計局（国勢調査の境界データ）
       source: `出典：${[...new Set([...providersOf(ind, latest.period.period), "総務省統計局"])].join("・")}の公開データ（統計・境界）をもとにデータさんぽが作成（data-sanpo.com）`,
       frame: only ? "fit" : "japan",

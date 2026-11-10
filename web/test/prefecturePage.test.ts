@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   prefRanking, prefectureDescription, prefectureFocus, prefectureGrowth, prefectureHistory, prefectureLead, prefectureNeighbors, wardCitiesOf,
 } from "../src/lib/prefecturePage";
-import { DESCRIPTION_MAX, areaDescription, formerWard } from "../src/lib/areaSummary";
+import { DESCRIPTION_MAX, areaDescription, fiveYearChange, formerWard } from "../src/lib/areaSummary";
 import { breadcrumbList, indicatorDataset } from "../src/lib/structured";
 import type { Indicator, Municipality, Source, ValueRow } from "../src/lib/types";
 
@@ -74,28 +74,34 @@ describe("wardCitiesOf", () => {
 
 describe("areaDescription", () => {
   const base = { name: "飛島村", pref: "愛知県", population: { text: "4,000人", label: "2025年10月1日現在" }, statCount: 120 };
-  const tail = "人口・暮らし・産業など120の指標の全国順位を、となりのまちと比べられます。";
-  it("特徴の一言と、いちばん目立つ考察の数字から始め、人口と締めを付ける", () => {
-    expect(areaDescription({ ...base, title: "財政の豊かなまち", insights: ["財政力指数は2.10で、全国1,700市区町村のうち1位です（2023年度、3市区町村が同じ値）。豊かなまちと考えられます。"] }))
-      .toBe(`飛島村（愛知県）をデータで見ると「財政の豊かなまち」。財政力指数は2.10で、全国1位です（2023年度）。人口4,000人（2025年）。${tail}`);
+  const fact = "財政力指数は2.10で、全国1,700市区町村のうち1位です（2023年度、3市区町村が同じ値）。豊かなまちと考えられます。";
+  it("人口・5年前からの増減・人口密度の順位から始め、特徴の一言と締めを付ける（考察の数字は書かない）", () => {
+    expect(areaDescription({ ...base, title: "財政の豊かなまち", insights: [fact], historyFrom: "2010年",
+      population: { ...base.population, change: -0.53, densityRank: 1234 } }))
+      .toBe("飛島村（愛知県）の人口は4,000人（2025年国勢調査）で、5年前より0.5%減、人口密度は全国1,234位。"
+        + "データで見ると「財政の豊かなまち」。2010年からの人口の移り変わりと、120の指標の全国順位を紹介。");
+    expect(areaDescription({ ...base, title: null, insights: [fact], population: { ...base.population, change: 2.04 } }))
+      .toBe("飛島村（愛知県）の人口は4,000人（2025年国勢調査）で、5年前より2.0%増。120の指標の全国順位を紹介。");
+    expect(fiveYearChange(0.04)).toBe("5年前とほぼ同じ");
+    expect(fiveYearChange(null)).toBeNull();
   });
-  it("特徴の一言がないときは名前から始め、日付は年だけにする", () => {
-    expect(areaDescription({ ...base, title: null, insights: ["大学・大学院卒の割合は67.1%で、全国1,895市区町村の中で低い方から3番目です（2020年10月1日現在）。"] }))
-      .toBe(`飛島村（愛知県）のデータ。大学・大学院卒の割合は67.1%で、全国で低い方から3番目です（2020年）。人口4,000人（2025年）。${tail}`);
-  });
-  it("同じ値が10以上ある順位の考察は使わず、次の考察から始める", () => {
-    const tie = "交通事故の件数は0.00件/100人で、全国1,895市区町村の中で最も低い値です（2025年、70市区町村が同じ値）。";
-    expect(areaDescription({ ...base, title: null, insights: [tie, "面積は全国で最も小さい方です。"] }))
-      .toBe(`飛島村（愛知県）のデータ。面積は全国で最も小さい方です。人口4,000人（2025年）。${tail}`);
-  });
-  it("締めは120字に収まるものを選び、どれも収まらなければ付けない。今はない区は注記を入れる", () => {
-    const d = areaDescription({ ...base, title: "財政の豊かなまち", insights: [`${"あ".repeat(48)}です。`] });
-    expect(d.endsWith("人口4,000人（2025年）。120の指標の全国順位を紹介。")).toBe(true);
+  it("120字に収まらないときは、人口密度・増減の順に省き、締めは収まるものを選ぶ", () => {
+    const d = areaDescription({ ...base, title: "あ".repeat(40), insights: [], historyFrom: "2010年",
+      population: { ...base.population, change: -0.53, densityRank: 1234 } });
     expect(d.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
-    const long = areaDescription({ ...base, title: "財政の豊かなまち", insights: [`${"あ".repeat(80)}です。`] });
-    expect(long.endsWith("人口4,000人（2025年）。")).toBe(true);
-    expect(areaDescription({ ...base, name: "浜松市中区", pref: "静岡県", title: null, insights: [], note: formerWard("muni-22131")!.note }))
-      .toBe(`浜松市中区（静岡県）のデータ。2024年1月の区の再編の前の区です。人口4,000人（2025年）。${tail}`);
+    expect(d.startsWith("飛島村（愛知県）の人口は4,000人（2025年国勢調査）で、5年前より0.5%減。データで見ると「")).toBe(true);
+    expect(d.endsWith("120の指標の全国順位を紹介。")).toBe(true);
+  });
+  it("今はない区は注記を入れ、人口のない地域は特徴の一言と考察の数字から始める（#144 のまま）", () => {
+    expect(areaDescription({ ...base, name: "浜松市中区", pref: "静岡県", title: null, insights: [], note: formerWard("muni-22131")!.note,
+      population: { text: "4,000人", label: "2020年10月1日現在" } }))
+      .toBe("浜松市中区（静岡県）の人口は4,000人（2020年国勢調査）。2024年1月の区の再編の前の区です。120の指標の全国順位を紹介。");
+    expect(areaDescription({ ...base, population: null, title: "財政の豊かなまち", insights: [fact] }))
+      .toBe("飛島村（愛知県）をデータで見ると「財政の豊かなまち」。財政力指数は2.10で、全国1位です（2023年度）。"
+        + "人口・暮らし・産業など120の指標の全国順位を、となりのまちと比べられます。");
+    const tie = "交通事故の件数は0.00件/100人で、全国1,895市区町村の中で最も低い値です（2025年、70市区町村が同じ値）。";
+    expect(areaDescription({ ...base, population: null, title: null, insights: [tie, "面積は全国で最も小さい方です。"] }))
+      .toBe("飛島村（愛知県）のデータ。面積は全国で最も小さい方です。人口・暮らし・産業など120の指標の全国順位を、となりのまちと比べられます。");
     expect(formerWard("muni-22138")).toBeNull();
   });
 });

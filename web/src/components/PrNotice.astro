@@ -1,0 +1,8 @@
+---
+// 「このページには広告を含みます」の表示（ステマ規制に合わせ、ページを開いてすぐ見える位置に置く。設計変更記録 #189）。
+// 楽天アフィリエイトの ID がないときは、リンクも出さないのでこの表示も出さない
+import { RAKUTEN_AFFILIATE_ID } from "../lib/rakuten";
+---
+{RAKUTEN_AFFILIATE_ID && (
+  <p class="pr-notice muted">このページには広告のリンクを含みます。</p>
+)}

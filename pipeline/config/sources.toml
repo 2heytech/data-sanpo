@@ -3779,6 +3779,11 @@ cache = true
 columns = { "総数15歳未満" = "人口/R1_（再掲）15歳未満", "総数15~64歳" = "人口/R2_（再掲）15～64歳", "総数65歳以上" = "人口/R3_（再掲）65歳以上" }
 filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" }
 replace_municipal_values = true
+# 子ども女性比（#203）: 同じ表の0〜4歳（男女総数）と、女の行の15〜49歳を別の表として読む
+extra_tables = [
+  { table = "age_young", columns = { "総数0~4歳" = "人口/01_0～4歳" }, filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" } },
+  { table = "age_female", columns = { "女15~19歳" = "人口/04_15～19歳", "女20~24歳" = "人口/05_20～24歳", "女25~29歳" = "人口/06_25～29歳", "女30~34歳" = "人口/07_30～34歳", "女35~39歳" = "人口/08_35～39歳", "女40~44歳" = "人口/09_40～44歳", "女45~49歳" = "人口/10_45～49歳" }, filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "2_女" } },
+]
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
 attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査に関する不詳補完値（参考表）"
@@ -3800,6 +3805,11 @@ cache = true
 columns = { "総数15歳未満" = "人口/R1_（再掲）15歳未満", "総数15~64歳" = "人口/R2_（再掲）15～64歳", "総数65歳以上" = "人口/R3_（再掲）65歳以上" }
 filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" }
 replace_municipal_values = true
+# 子ども女性比（#203）: 同じ表の0〜4歳（男女総数）と、女の行の15〜49歳を別の表として読む
+extra_tables = [
+  { table = "age_young", columns = { "総数0~4歳" = "人口/01_0～4歳" }, filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" } },
+  { table = "age_female", columns = { "女15~19歳" = "人口/04_15～19歳", "女20~24歳" = "人口/05_20～24歳", "女25~29歳" = "人口/06_25～29歳", "女30~34歳" = "人口/07_30～34歳", "女35~39歳" = "人口/08_35～39歳", "女40~44歳" = "人口/09_40～44歳", "女45~49歳" = "人口/10_45～49歳" }, filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "2_女" } },
+]
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
 attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 令和2年国勢調査に関する不詳補完値（遡及集計）（参考表）"
@@ -3821,6 +3831,11 @@ cache = true
 columns = { "総数15歳未満" = "人口/R1_（再掲）15歳未満", "総数15~64歳" = "人口/R2_（再掲）15～64歳", "総数65歳以上" = "人口/R3_（再掲）65歳以上" }
 filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" }
 replace_municipal_values = true
+# 子ども女性比（#203）: 同じ表の0〜4歳（男女総数）と、女の行の15〜49歳を別の表として読む
+extra_tables = [
+  { table = "age_young", columns = { "総数0~4歳" = "人口/01_0～4歳" }, filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "0_総数" } },
+  { table = "age_female", columns = { "女15~19歳" = "人口/04_15～19歳", "女20~24歳" = "人口/05_20～24歳", "女25~29歳" = "人口/06_25～29歳", "女30~34歳" = "人口/07_30～34歳", "女35~39歳" = "人口/08_35～39歳", "女40~44歳" = "人口/09_40～44歳", "女45~49歳" = "人口/10_45～49歳" }, filters = { "国籍総数か日本人" = "0_国籍総数", "男女" = "2_女" } },
+]
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
 attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和2年国勢調査 平成27年国勢調査に関する不詳補完結果（遡及集計）（参考表）"
@@ -6620,17 +6635,251 @@ period = "2021-06-01"
 title = "令和3年経済センサス‐活動調査 産業横断的集計 第9-1A表 産業(小分類)別全事業所数－全国、都道府県、市区町村"
 provider = "総務省統計局・経済産業省"
 url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200553&tstat=000001145590&tclass1=000001145649&tclass2=000001145667"
-download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040067884&fileKind=0"
+# 残す列を足したとき（#204 で飲食料品小売業・飲食店）は、取得済みのファイルを使わず取り直すよう URL の引数の順を変えている
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=0&statInfId=000040067884"
 download_filename = "t9-1a.csv"
-reduce_xlsx = { columns = ["75_宿泊業", "751_旅館，ホテル", "752_簡易宿所"], measures = ["事業所数"], label_columns = 2 }
+reduce_xlsx = { columns = ["58_飲食料品小売業", "75_宿泊業", "751_旅館，ホテル", "752_簡易宿所", "76_飲食店"], measures = ["事業所数"], label_columns = 2 }
 files = ["t9-1a.csv"]
 cache = true
 license = "政府標準利用規約（第2.0版）"
 license_url = "https://www.e-stat.go.jp/terms-of-use"
 attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省・経済産業省「令和3年経済センサス‐活動調査」"
-modification_note = "市区町村・都道府県別の旅館・ホテル、簡易宿所の事業所数（全事業所）を抜き出して作成"
+modification_note = "市区町村・都道府県別の旅館・ホテル、簡易宿所、飲食料品小売業、飲食店の事業所数（全事業所）を抜き出して作成"
 redistributable = true
 
+
+# 社会・人口統計体系「統計でみる市区町村のすがた」の基礎データ（総務省統計局、分野ごとの .xls）。形式は
+# pipeline/tdm/ingest/ssds_municipal.py を参照（#206。2026-11-06 に GitHub Actions から取得して確認）。
+[ssds_municipal_2026_b]
+kind = "ssds_municipal"
+period = "2024-10-01"
+title = "統計でみる市区町村のすがた2026 基礎データ B 自然環境"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200502&layout=dataset"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040463585&fileKind=0"
+download_filename = "ssds_2026_b.xls"
+files = ["ssds_2026_b.xls*"]   # 見本（fixture）は .xlsx
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省統計局「統計でみる市区町村のすがた」"
+modification_note = "市区町村・都道府県の可住地面積を抜き出し、可住地面積あたりの事業所数を算出して作成"
+redistributable = true
+
+[ssds_municipal_2026_h]
+kind = "ssds_municipal"
+period = "2023-10-01"
+title = "統計でみる市区町村のすがた2026 基礎データ H 居住"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00200502&layout=dataset"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040463591&fileKind=0"
+download_filename = "ssds_2026_h.xls"
+files = ["ssds_2026_h.xls*"]   # 見本（fixture）は .xlsx
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省統計局「統計でみる市区町村のすがた」"
+modification_note = "市区町村・都道府県の居住世帯あり住宅数と1住宅当たり延べ面積から延べ面積の合計を求め、世帯人員1人あたりの延べ面積を算出して作成"
+redistributable = true
+
+# 住宅・土地統計調査 第2表（主世帯の世帯人員。1人あたり延べ面積の分母、#208）
+[housing_members_2023]
+kind = "estat_housing_members"
+period = "2023-10-01"
+title = "令和5年住宅・土地統計調査 第2表 住宅の種類(2区分)別住宅数並びに世帯の種類(3区分)別世帯数及び世帯人員－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?toukei=00200522&tstat=000001207800&tclass1=000001207808&tclass2=000001207809"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040209844&fileKind=0"
+download_filename = "housing_members_2023.xlsx"
+files = ["*.xlsx"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 総務省「住宅・土地統計調査」"
+modification_note = "主世帯の世帯人員を抜き出し、世帯人員1人あたりの延べ面積の分母に使用"
+redistributable = true
+
+# 医療施設（動態）調査（厚生労働省、各年10月1日現在）の二次医療圏・市区町村編。形式は pipeline/tdm/ingest/mhlw_medical.py を
+# 参照（#207。2026-11-06 に GitHub Actions から取得して確認）。CSV は fileKind=1
+[mhlw_medical_2025]
+kind = "mhlw_medical_facilities"
+period = "2025-10-01"
+title = "令和7年医療施設（動態）調査 二次医療圏・市区町村編 第1表 病院数；病床数、第2表 一般診療所数；歯科診療所数；病床数"
+provider = "厚生労働省"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&toukei=00450021&layout=dataset"
+files = ["n1.csv", "n2.csv"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 厚生労働省「医療施設調査」"
+modification_note = "市区町村・都道府県の病院と一般診療所の病床数を抜き出し、合計して人口10万人あたりの病床数を算出して作成"
+redistributable = true
+
+[mhlw_medical_2025.download_files]
+"n1.csv" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040501271&fileKind=1"
+"n2.csv" = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040501272&fileKind=1"
+
+# 介護保険施設の定員（#209）。介護サービス施設・事業所調査 基本票 閲覧表 第1表（e-Stat の CSV、cp932）。形式は pipeline/tdm/ingest/mhlw_care.py
+[mhlw_care_2024]
+kind = "mhlw_care_facilities"
+period = "2024-10-01"
+title = "令和6年介護サービス施設・事業所調査 基本票 閲覧表 第1表 介護保険施設数－定員，市区町村、施設の種類別"
+provider = "厚生労働省"
+url = "https://www.e-stat.go.jp/stat-search/files?layout=dataset&stat_infid=000040386470&toukei=00450042&tstat=000001029805"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?fileKind=1&statInfId=000040386470"
+download_filename = "care_facilities_2024.csv"
+files = ["care_facilities_2024.csv"]
+cache = true
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 厚生労働省「介護サービス施設・事業所調査」"
+modification_note = "市区町村・都道府県の介護老人福祉施設・介護老人保健施設・介護医療院の定員を合計し、65歳以上の人口1,000人あたりの定員を算出して作成"
+redistributable = true
+
+# 都市公園の面積（#210）。国土交通省「都市公園データベース」の都市公園整備現況一覧表（Excel）の「市町村別」シート。
+# 形式は pipeline/tdm/ingest/mlit_parks.py。国土交通省のコンテンツは公共データ利用規約（第1.0版）に準拠（https://www.mlit.go.jp/link.html）
+[mlit_parks_2025]
+kind = "mlit_city_parks"
+period = "2025-03-31"
+title = "都市公園整備現況一覧表（令和6年度末）市町村別"
+provider = "国土交通省"
+url = "https://www.mlit.go.jp/toshi/park/toshi_parkgreen_tk_000156.html"
+download_url = "https://www.mlit.go.jp/toshi/park/content/05_R06.xlsx"
+download_filename = "city_parks_2025.xlsx"
+files = ["city_parks_2025.xlsx"]
+cache = true
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠（国土交通省ウェブサイトの利用規約）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「都市公園データベース」"
+modification_note = "市町村別の都市公園の面積からカントリーパークの面積を引き、都市計画区域の人口で割って1人あたりの面積を算出して作成"
+redistributable = true
+
+# 汚水処理人口普及率（#211）。国土交通省「下水道データ室」の市町村別汚水処理及び下水道処理人口普及率（PDF）。
+# 形式は pipeline/tdm/ingest/mlit_sewerage.py（pdftotext -bbox で読む）
+[mlit_sewerage_2026]
+kind = "mlit_sewerage"
+period = "2026-03-31"
+title = "市町村別汚水処理及び下水道処理人口普及率（令和7年度末）"
+provider = "国土交通省・農林水産省・環境省"
+url = "https://www.mlit.go.jp/mizukokudo/sewerage/crd_sewerage_tk_000104.html"
+download_url = "https://www.mlit.go.jp/mizukokudo/sewerage/content/002026897.pdf"
+download_filename = "sewerage_2026.pdf"
+files = ["sewerage_2026.pdf", "sewerage_2026.html"]   # 見本（fixture）は .html
+cache = true
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠（国土交通省ウェブサイトの利用規約）"
+license_url = "https://www.mlit.go.jp/link.html"
+attribution = "出典：国土交通省「下水道データ室」（汚水処理人口普及状況）"
+modification_note = "PDF の表から市町村・都道府県の汚水処理人口普及率を抜き出して作成"
+redistributable = true
+
+# 子どもの医療費の助成（#212）。こども家庭庁「こどもに係る医療費の助成についての調査」別紙3（PDF）。
+# 形式は pipeline/tdm/ingest/cfa_child_medical.py（pdftotext -layout で読む）
+[cfa_child_medical_2025]
+kind = "cfa_child_medical"
+period = "2025-04-01"
+title = "令和7年度 こどもに係る医療費の助成についての調査 別紙3 こども医療費に対する助成の実施状況（市区町村）"
+provider = "こども家庭庁"
+url = "https://www.cfa.go.jp/policies/boshihoken/kodomoiryouhityousa-r7"
+download_url = "https://www.cfa.go.jp/assets/contents/node/basic_page/field_ref_resources/6a9b8926-411c-4044-81aa-d8c26b21aaf5/12ae0d40/20251224policies-boshihoken-kodomoiryouhityousa-r7-03.pdf"
+download_filename = "child_medical_2025.pdf"
+files = ["child_medical_2025.pdf", "child_medical_2025.txt"]   # 見本（fixture）は .txt
+cache = true
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠（こども家庭庁コピーライトポリシー）"
+license_url = "https://www.cfa.go.jp/copyright-policy"
+attribution = "出典：こども家庭庁「こどもに係る医療費の助成についての調査」"
+modification_note = "PDF の表から市区町村ごとの医療費の助成の対象年齢・所得制限・一部自己負担を抜き出して作成"
+redistributable = true
+
+# 家庭用の水道料金（#213）。デジタル庁「水道事業等の経営状況に関するダッシュボード」の公開データ（縦持ちデータテーブル CSV の ZIP、
+# 元は総務省「地方公営企業決算状況調査」）。形式と市区町村への当て方は pipeline/tdm/ingest/digital_water.py。
+# デジタル庁のコンテンツは公共データ利用規約（第1.0版）に準拠（https://www.digital.go.jp/copyright-policy）
+[digital_water_2024]
+kind = "digital_water_supply"
+fiscal_year = 2024
+title = "水道事業等の経営状況に関するダッシュボード 公開データ（縦持ちデータテーブル）2024年度"
+provider = "デジタル庁（元データは総務省「地方公営企業決算状況調査」）"
+url = "https://www.digital.go.jp/resources/govdashboard/watersupply"
+download_url = "https://www.digital.go.jp/assets/contents/node/basic_page/field_ref_resources/9112b58e-556c-429e-906f-45be48b63fd9/db7e75fb/20260703_resources_govdashboard_watersupply_table_02.zip"
+download_filename = "water_supply_table_02.zip"
+extract = false
+files = ["water_supply_table_02.zip"]
+cache = true
+license = "公共データ利用規約（第1.0版）（PDL1.0）準拠（デジタル庁コピーライトポリシー）"
+license_url = "https://www.digital.go.jp/copyright-policy"
+attribution = "出典：デジタル庁「水道事業等の経営状況に関するダッシュボード」（総務省「地方公営企業決算状況調査」）"
+modification_note = "水道事業者ごとの家庭用1か月20m³当たり料金（口径20mm）を、給水する市区町村に当てて作成"
+redistributable = true
+main_supplier_share = 0.5
+
+# 主に給水する市区町村（水道事業者のコード → 市区町村のコード。5桁はその市の水道事業）。企業団・県営水道・隣の市の水道が
+# 給水する市区町村。2026-11-07 に、事業者の給水人口と市区町村の人口（住民基本台帳）の合計が合うことを確かめた。
+# 東京都は23区と多摩の26市町（武蔵野市・昭島市・羽村市・檜原村は自前の水道）。政令指定都市は市のコード（区に広げる）
+[digital_water_2024.suppliers]
+"130001" = ["13101", "13102", "13103", "13104", "13105", "13106", "13107", "13108", "13109", "13110", "13111", "13112", "13113", "13114", "13115", "13116", "13117", "13118", "13119", "13120", "13121", "13122", "13123", "13201", "13202", "13204", "13205", "13206", "13208", "13209", "13210", "13211", "13212", "13213", "13214", "13215", "13218", "13219", "13220", "13221", "13222", "13223", "13224", "13225", "13228", "13229", "13303", "13305", "13308"]   # 東京都
+"140007" = ["14150", "14203", "14204", "14205", "14207", "14208", "14212", "14213", "14214", "14215", "14218", "14301", "14321", "14341", "14342"]   # 神奈川県
+"120006" = ["12100", "12203", "12204", "12207", "12219", "12224", "12227", "12231", "12232"]   # 千葉県
+"200000" = ["20218", "20521"]   # 長野県
+"018457" = ["01423", "01428"]   # 長幌上水道企業団
+"019097" = ["01431", "01432", "01436"]   # 西空知広域水道企業団
+"019623" = ["01304", "01430"]   # 月新水道企業団
+"019895" = ["01225", "01226", "01227", "01424"]   # 中空知広域水道企業団
+"028681" = ["02362"]   # 久吉ダム水道企業団
+"028665" = ["02209"]   # 津軽広域水道企業団
+"028711" = ["02203", "02405", "02412", "02441", "02442", "02445", "02446"]   # 八戸圏域水道企業団
+"049646" = ["04202", "04214"]   # 石巻地方広域水道企業団
+"069027" = ["06301", "06302"]   # 最上川中部水道企業団
+"069663" = ["06212", "06341"]   # 尾花沢市大石田町環境衛生事業組合
+"078883" = ["07541", "07542", "07543", "07544", "07545", "07546"]   # 双葉地方水道企業団
+"078891" = ["07209", "07561"]   # 相馬地方広域水道企業団
+"088412" = ["08208", "08217", "08219", "08564"]   # 茨城県南水道企業団
+"088421" = ["08205"]   # 湖北水道企業団
+"098329" = ["09342", "09344", "09345"]   # 芳賀中部上水道企業団
+"118362" = ["11222", "11465"]   # 越谷・松伏水道企業団
+"118389" = ["11231", "11233"]   # 桶川北本水道企業団
+"118532" = ["11239", "11241"]   # 坂戸、鶴ケ島水道企業団
+"128015" = ["12205"]   # 三芳水道企業団
+"128023" = ["12329"]   # 長門川水道企業団
+"128791" = ["12235"]   # 八匝水道企業団
+"128805" = ["12213", "12237", "12239", "12403", "12409", "12410"]   # 山武郡市広域水道企業団
+"128821" = ["12210", "12421", "12422", "12423", "12424", "12426", "12427"]   # 長生郡市広域市町村圏組合
+"159000" = ["15213", "15342"]   # 燕・弥彦総合事務組合
+"208400" = ["20217"]   # 佐久水道企業団
+"238325" = ["23235", "23427"]   # 海部南部水道企業団
+"238635" = ["23234", "23342"]   # 北名古屋水道企業団
+"238732" = ["23361", "23362"]   # 丹羽広域事務組合
+"238902" = ["23229", "23230", "23236", "23238", "23302"]   # 愛知中部水道企業団
+"258211" = ["25203"]   # 長浜水道企業団
+"258601" = ["25425"]   # 愛知郡広域行政組合
+"289086" = ["28208"]   # 西播磨水道企業団
+"298581" = ["29361", "29362", "29363"]   # 磯城郡水道企業団
+"358321" = ["35343", "35344"]   # 田布施・平生水道企業団
+"409251" = ["40220", "40224"]   # 宗像地区事務組合
+"409260" = ["40216", "40503"]   # 三井水道企業団
+"409286" = ["40218", "40231"]   # 春日那珂川水道企業団
+"409481" = ["40206", "40604", "40605", "40610"]   # 田川広域水道企業団
+"418374" = ["41210", "41327", "41341", "41345", "41346"]   # 佐賀東部水道企業団
+"438715" = ["43403", "43404"]   # 大津菊陽水道企業団
+"439754" = ["43468"]   # 八代生活環境事務組合
+"478016" = ["47350", "47362"]   # 南部水道企業団
+"15205" = ["15504"]   # 柏崎市
+"19201" = ["19384"]   # 甲府市
+"22203" = ["22341"]   # 沼津市
+"23100" = ["23424"]   # 名古屋市
+"31202" = ["31204", "31384"]   # 米子市
+"40100" = ["40381", "40382"]   # 北九州市
+"40215" = ["40384"]   # 中間市
+
+# 統合した市町村ごとに料金が違うか、統一を確かめられない企業団（給水する市区町村は値なし）
+[digital_water_2024.area_tariffs]
+"038873" = ["03205", "03206", "03321"]   # 岩手中部水道企業団
+"109193" = ["10205", "10207", "10212", "10521", "10522", "10523", "10524", "10525"]   # 群馬東部水道企業団
+"119059" = ["11207", "11361", "11362", "11363", "11365"]   # 秩父広域市町村圏組合
+"128911" = ["12206", "12225", "12226", "12229"]   # かずさ水道広域連合企業団
+"278688" = ["27226", "27228", "27229", "27231", "27232", "27321", "27322", "27341", "27361", "27362", "27366", "27381", "27382", "27383"]   # 大阪広域水道企業団
+"289272" = ["28205", "28224", "28226"]   # 淡路広域水道企業団
+"349194" = ["34203", "34204", "34208", "34209", "34210", "34212", "34213", "34214", "34215", "34307", "34369", "34431", "34462", "34545"]   # 広島県水道広域連合企業団
+"378887" = ["37201", "37202", "37203", "37204", "37205", "37206", "37207", "37208", "37322", "37324", "37341", "37386", "37387", "37403", "37404", "37406"]   # 香川県広域水道企業団
+"418480" = ["41204", "41206", "41209", "41423", "41424", "41425"]   # 佐賀西部広域水道企業団
 
 # 市町村別農業産出額（推計）の詳細品目別データ（農林水産省、1年1ファイルの xlsx）。形式は pipeline/tdm/ingest/maff_agri_output.py を参照。
 # 農林水産省ホームページのコンテンツは「公共データ利用規約（第1.0版）」に準拠（商用利用・加工・再配布可、出典と加工の記載が必要）。
@@ -7661,6 +7910,9 @@ redistributable = true
 [slope_land_use_towns]
 kind = "town_slope_land_use"
 fiscal_year = 2021
+land_points = "slope_towns"   # 町丁・字等のすべての点の数を読む出典（指標の min_land_share に使う。#182）
+# 指標の min_population に使う人口（取込済みの国勢調査の指標と時点。#186）
+population = { indicator = "population_total", period = "2020-10-01", label = "2020年国勢調査" }
 title = "国土数値情報 土地利用細分メッシュ（令和3年度）と地理院タイル 標高タイルから計算した土地利用別の傾斜"
 provider = "国土交通省・国土地理院"
 url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L03-b-2021.html"
