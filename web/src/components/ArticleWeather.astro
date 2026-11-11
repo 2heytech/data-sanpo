@@ -3,6 +3,7 @@
 // 観測所の名前から、その観測所を選んだ地図（月ごとの平年値の表つき）を開く。本文で挙げた観測所（expect）が表に入るかを確かめる。
 // also に指標を渡すと、同じ観測所のその指標の値も並べる（値のない観測所は「—」。0 にしない）
 import { weatherElement, weatherRanking, weatherValue } from "../lib/articleData";
+import { collectTable } from "../lib/articleLinks";
 import { loadAreas } from "../lib/data";
 import { formatNumber } from "../lib/format";
 import type { WeatherStation } from "../lib/types";
@@ -18,6 +19,8 @@ const { element, also, n = 10, expect = [], caption } = Astro.props;
 const el = weatherElement(element);
 const other = also ? weatherElement(also) : null;
 const list = el ? weatherRanking(element, n, expect) : [];
+// 観測所のある市区町村を、表に出てくる地域として数える（#234）
+collectTable(Astro.locals, caption, list.map((r) => ({ id: r.station.municipality_id, rank: r.rank, via: r.station.name })));
 const areas = loadAreas();
 const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
 const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));

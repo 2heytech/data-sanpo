@@ -5,4 +5,5 @@
 - データの原則: 欠測・秘匿を 0 にしない／元データより細かく割り振らない／率は分子・分母から計算。
 - 公開する HTML にコメントを出さない: .astro では `<!-- -->` でなく `{/* */}` かフロントマターに書き、`is:inline` のスクリプト・スタイルにはコメントを書かない。ビルドの最後に web/src/integrations/publicHtml.ts が `<!-- -->` を消し、スクリプト・スタイルのコメントがあればビルドを止める（設計変更記録 #143・#147）。
 - 指標を追加するときは pipeline/config/indicators.toml に定義し、取込処理と fixture（tdm/fixture.py）にも例を足す。読みや近い意味の言葉で探してほしい言葉は web/src/lib/indicatorSearch.ts の辞書に足す（#201）。
+- 寄り道の記事を足すときは web/src/lib/articles.ts にテーマ（theme）を1つ付ける。順位の表を出す部品を足すときは collectTable（web/src/lib/articleLinks.ts）を呼び、表の地域を一覧の検索・地域のページに出す（#232・#234）。
 - 確認: `cd pipeline && python3 -m pytest`、`cd web && npm run fixture && npm run check && npm test && npm run build`。

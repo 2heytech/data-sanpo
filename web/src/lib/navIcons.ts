@@ -6,3 +6,5 @@ export const ICON_INDICATOR = '<path d="M4 3.5v17h16.5"/><path d="M8.5 16.5v-4M1
 export const ICON_PREFECTURE = '<g fill="currentColor" stroke-width="1"><path d="M18.6 8 19 11.2 17.6 14 14.6 15.6 11 16.2 7.4 16.6 5.4 16.4 5.4 14 8.2 13.4 11.4 12.6 13.6 11.2 15.2 9.6 16 7.6z"/><path d="M15.8 4.2 18.8 1.8 22 3.6 21 6 18 6.8z"/><path d="M8 17.8 11.6 17.6 11 19.4 8.6 19.6z"/><path d="M2.6 17.4 5.6 17.6 5.8 20.4 4 22 2.4 20.4z"/></g>';
 /** 町の建物 */
 export const ICON_MUNICIPALITY = '<path d="M3 20.5h18"/><path d="M5 20.5V10h5"/><path d="M10 20.5V4h9v16.5"/><path d="M7.5 13.5v.1M7.5 17v.1M13.5 8h2M13.5 11.5h2M13.5 15h2"/>';
+/** 新聞（記事）。メニューの「記事」（layouts/Base.astro）と同じ絵。地図の欄の寄り道へのリンク（#235）に使う */
+export const ICON_ARTICLE = '<path d="M7.5 17.5V5.5a1 1 0 0 1 1-1h10.5a1 1 0 0 1 1 1V18a2.5 2.5 0 0 1-2.5 2.5H5"/><path d="M7.5 9H4.5a1 1 0 0 0-1 1v8a2.5 2.5 0 0 0 5 0"/><path d="M11 8h6M11 11.5h6M11 15h4"/>';

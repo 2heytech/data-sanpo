@@ -10,7 +10,7 @@ import { indicatorPageText } from "../../lib/indicatorPage";
 import { descriptionLeaders, indicatorSummary, shortPeriodLabel, type SummaryArea, type SummaryInput } from "../../lib/indicatorSummary";
 import { genreOfCategory } from "../../lib/indicatorCatalog";
 import { cityValues, designatedCities } from "../../lib/designatedCities";
-import { indicatorPageImage } from "../../lib/shareImages";
+import { articleImage, indicatorPageImage } from "../../lib/shareImages";
 import { formerWard } from "../../lib/areaSummary";
 import { publishedArticles } from "../../lib/articles";
 import { latestPeriod } from "../../lib/periods";
@@ -148,7 +148,7 @@ const structured = [
   indicatorDataset(Astro.site, ind, `/indicators/${ind.id}/`, sourceList, dataUrl, levels),
 ];
 const image = indicatorPageImage(ind);
-const related = publishedArticles().filter((a) => a.indicators.includes(ind.id));
+const related = publishedArticles().filter((a) => a.indicators.includes(ind.id)).map((a) => ({ article: a, image: articleImage(a) }));
 const cityValueText = (v: number | null) => formatValue({ value: v, status: v === null ? "missing" : "derived" }, ind);
 // 値の横棒の目盛り（#226）。市区町村は上位・中位・下位の表で同じ目盛りを使う
 const prefScale = barScale(prefRows.map((r) => r.value));
@@ -185,8 +185,24 @@ const toc = [
       <h2 id="findings">データから分かること（{shortPeriodLabel(period.label)}）</h2>
       {summary.length > 0 && <ul class="findings-list">{summary.map((line) => <li>{line}</li>)}</ul>}
       {image && <MapFigure image={image} eager />}
+      {/* この指標を使った寄り道を、記事の地図の画像つきのカードで案内する（設計変更記録 #235） */}
       {related.length > 0 && (
-        <p class="related">この指標を使った記事: {related.map((a, i) => <>{i > 0 && "・"}<a href={`/articles/${a.slug}/`}>{a.title}</a></>)}</p>
+        <ul class="ind-articles">
+          {related.map(({ article: a, image: thumb }) => (
+            <li>
+              <a href={`/articles/${a.slug}/`}>
+                {thumb
+                  ? <img src={thumb.path} alt="" width="1200" height="630" loading="lazy" decoding="async" />
+                  : <span class="none"><img src="/logo-mark.svg" alt="" width="36" height="36" loading="lazy" decoding="async" /></span>}
+                <span class="ia-body">
+                  <span class="ia-kind">この指標の寄り道（分析記事）</span>
+                  <span class="ia-title">{a.title}</span>
+                  <span class="ia-desc">{a.description}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
       )}
       <p class="muted small">下の表と同じ公開データから数えた事実です。値の大きい順の順位で、大きいほど良い・悪いという意味ではありません。</p>
     </section>
@@ -404,7 +420,30 @@ const toc = [
   .findings h2 { margin-top: 0; }
   .findings-list { margin: 0 0 12px; padding-left: 1.2em; line-height: 1.9; }
   .findings-list li + li { margin-top: 4px; }
-  .findings .related { margin: 0 0 8px; }
+  .ind-articles { list-style: none; padding: 0; margin: 16px 0 10px; display: grid; gap: 10px; max-width: 840px; }
+  .ind-articles a {
+    display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; align-items: center; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 12px; text-decoration: none; color: var(--fg); background: var(--surface);
+  }
+  .ind-articles a:hover { border-color: #b9d0ea; background: #fafcfe; }
+  .ind-articles a > img, .ind-articles .none {
+    display: block; width: 220px; height: 100%; min-height: 116px; aspect-ratio: auto; object-fit: cover; border-right: 1px solid var(--line);
+  }
+  .ind-articles .none { display: grid; place-items: center; background: linear-gradient(135deg, #eef4fb, #e3edf8); }
+  .ia-body { display: grid; gap: 2px; padding: 8px 12px 8px 0; }
+  .ia-kind { font-size: 0.8rem; font-weight: 700; color: var(--accent-ink); letter-spacing: .04em; }
+  .ia-title { font-weight: 700; color: var(--ink); line-height: 1.5; }
+  .ind-articles a:hover .ia-title { color: var(--accent-ink); text-decoration: underline; }
+  .ia-desc {
+    font-size: 0.85rem; color: #2c3a4a; line-height: 1.55;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  @media (max-width: 720px) {
+    .ind-articles a { grid-template-columns: 112px minmax(0, 1fr); gap: 10px; }
+    .ind-articles a > img, .ind-articles .none { width: 112px; min-height: 92px; object-position: 100% 50%; }
+    .ia-title { font-size: 0.92rem; }
+    .ia-desc { display: none; }
+  }
   /* 市区町村を名前で探す欄（#225）。候補は欄のすぐ下に重ねて出す */
   .rank-find { margin: 14px 0 12px; padding: 12px 14px; border: 1px solid #c9d8ea; border-radius: 10px; background: var(--accent-soft); }
   .rank-find[hidden], .rank-find-list[hidden] { display: none; }

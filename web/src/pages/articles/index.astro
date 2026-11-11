@@ -1,27 +1,167 @@
 ---
-// 寄り道の一覧（設計変更記録 #126）
+// 寄り道の一覧（設計変更記録 #126・#232）。記事の地図の画像つきのカードを新しい順に並べ、
+// テーマの札と検索欄（題名・説明文・指標の名前・表に出てくる地域の名前）で絞り込む。
+// 絞り込みは画面の中だけで行い、テーマ別のページは作らない（公開するファイルを増やさない）。
+// スクリプトが動かないときは、全部の記事のカードがそのまま見える
 import Base from "../../layouts/Base.astro";
-import { formatDate, publishedArticles } from "../../lib/articles";
+import ArticleCard from "../../components/ArticleCard.astro";
+import { newestFirst, publishedArticles, themeCounts, themeHref } from "../../lib/articles";
+import { articleMentions } from "../../lib/articleMentions";
+import { articleSearchData } from "../../lib/articleSearch";
+import { loadAreas, loadIndicators } from "../../lib/data";
 
-const list = publishedArticles().sort((a, b) => (b.updated ?? b.published).localeCompare(a.updated ?? a.published));
+const list = newestFirst(publishedArticles());
+const themes = themeCounts(list);
+const areas = loadAreas();
+const searchData = articleSearchData(list, await articleMentions(), {
+  indicators: loadIndicators(), municipalities: areas.municipalities, prefectures: areas.prefectures,
+});
+const searchJson = JSON.stringify(searchData).replace(/</g, "\\u003c");
 ---
 <Base menu="寄り道・分析記事" description="人口が増え続けたまち、日本一広い市、標高の高いまち…。公開データの数字と地図から、全国の都道府県・市区町村の意外な姿を読み解く記事の一覧です。">
   <header class="page-head">
     <h1>寄り道・分析記事</h1>
     <p class="lead">地図から少し寄り道して、公開データの数字から地域の特徴を読み解く分析記事です。</p>
-    <div class="actions">
-      <a class="button secondary" href="/guide/">データさんぽの使い方</a>
-    </div>
   </header>
   <section class="sheet">
-    <ul class="article-list">
-      {list.map((a) => (
-        <li>
-          <a href={`/articles/${a.slug}/`}>{a.title}</a>
-          <p>{a.description}</p>
-          <p class="muted"><time datetime={a.updated ?? a.published}>{formatDate(a.updated ?? a.published)}</time></p>
-        </li>
-      ))}
+    <div class="article-find">
+      <div class="article-search" role="search" hidden>
+        <label for="article-search-input">記事を探す</label>
+        <input id="article-search-input" type="search" placeholder="例: 人口、空き家、年収、白馬村、長野県" autocomplete="off"
+          enterkeyhint="search" aria-controls="article-cards" aria-describedby="article-status" />
+      </div>
+      <nav class="theme-nav" aria-label="テーマで絞り込む">
+        <ul class="theme-chips" id="article-themes">
+          <li><a class="theme-chip" href="/articles/" data-theme="" aria-current="true">すべて<span class="n">{list.length}</span></a></li>
+          {themes.map((t) => (
+            <li><a class="theme-chip" href={themeHref(t.id)} data-theme={t.id}>{t.name}<span class="n">{t.count}</span></a></li>
+          ))}
+        </ul>
+      </nav>
+      <p id="article-status" class="muted small" aria-live="polite">新しい順に{list.length}本</p>
+    </div>
+    <ul class="acards" id="article-cards">
+      {list.map((a) => <ArticleCard article={a} description />)}
     </ul>
+    <p id="article-empty" class="article-empty" hidden>
+      見つかりませんでした。ほかの言葉（「人口」「空き家」「年収」や、市区町村・都道府県の名前）でも探してみてください。
+    </p>
+    <p class="muted article-guide">地図や順位の表の見方は、<a href="/guide/">データさんぽの使い方</a>にまとめています。</p>
   </section>
+  <script type="application/json" id="article-search-data" set:html={searchJson}></script>
 </Base>
+
+<script>
+  // テーマの札と検索欄で、カードを絞り込む（#232）。
+  // 選んだテーマと入れた言葉はアドレス（?theme=…&q=…）に入れ、ほかのページの札や「〇〇が登場する寄り道をすべて見る」から同じ絞り込みで開けるようにする。
+  // 探す処理（読み・近い意味の言葉の辞書を含む）は、検索欄を初めて使うときに読む
+  import type { ArticleSearch, ArticleSearchData } from "../../lib/articleSearch";
+
+  const cardList = document.querySelector<HTMLUListElement>("#article-cards");
+  const box = document.querySelector<HTMLElement>(".article-search");
+  const input = document.querySelector<HTMLInputElement>("#article-search-input");
+  const status = document.querySelector<HTMLElement>("#article-status");
+  const empty = document.querySelector<HTMLElement>("#article-empty");
+  const chips = [...document.querySelectorAll<HTMLAnchorElement>("#article-themes .theme-chip")];
+  if (cardList && box && input && status && empty) {
+    const cards = [...cardList.querySelectorAll<HTMLLIElement>(":scope > .acard")];
+    const text = (card: HTMLElement, selector: string) => card.querySelector(selector)?.textContent?.trim() ?? "";
+    const themeNames = new Map(chips.map((c) => [c.dataset.theme ?? "", c.firstChild?.textContent?.trim() ?? ""]));
+    const params = new URLSearchParams(location.search);
+    const state = { theme: themeNames.has(params.get("theme") ?? "") ? params.get("theme") ?? "" : "", q: (params.get("q") ?? "").trim() };
+    type Module = typeof import("../../lib/articleSearch");
+    let loading: Promise<{ module: Module; searcher: ArticleSearch }> | null = null;
+    const load = () => loading ??= import("../../lib/articleSearch").then((module) => {
+      const data = JSON.parse(document.querySelector("#article-search-data")?.textContent || "{}") as ArticleSearchData;
+      const docs = cards.map((card) => ({
+        slug: card.dataset.slug ?? "", title: text(card, ".acard-title"), description: text(card, ".acard-desc"), theme: text(card, ".acard-theme"),
+      }));
+      return { module, searcher: new module.ArticleSearch(docs, data) };
+    });
+    const setHit = (card: HTMLElement, label: string) => {
+      let hit = card.querySelector<HTMLElement>(".acard-hit");
+      if (!label) {
+        hit?.remove();
+        return;
+      }
+      if (!hit) {
+        hit = document.createElement("span");
+        hit.className = "acard-hit";
+        card.querySelector(".acard-body")?.append(hit);
+      }
+      hit.textContent = label;
+    };
+    const render = async () => {
+      const q = state.q;
+      const found = q ? await load().then(({ module, searcher }) => ({ module, hits: searcher.search(q) })) : null;
+      if (q !== state.q) return;
+      const hitOf = new Map(found?.hits.map((h, order) => [h.slug, { order, areas: h.areas }]));
+      let shown = 0;
+      for (const card of cards) {
+        const hit = hitOf.get(card.dataset.slug ?? "");
+        const visible = (!state.theme || card.dataset.theme === state.theme) && (!found || !!hit);
+        card.hidden = !visible;
+        if (visible) shown++;
+        setHit(card, found && hit ? found.module.hitLabel(hit.areas) : "");
+      }
+      const order = found
+        ? [...cards].sort((a, b) => (hitOf.get(a.dataset.slug ?? "")?.order ?? 1e9) - (hitOf.get(b.dataset.slug ?? "")?.order ?? 1e9))
+        : cards;
+      cardList.replaceChildren(...order);
+      for (const chip of chips) {
+        if ((chip.dataset.theme ?? "") === state.theme) chip.setAttribute("aria-current", "true");
+        else chip.removeAttribute("aria-current");
+      }
+      const conditions = [state.theme && `テーマ「${themeNames.get(state.theme)}」`, q && `「${q}」`].filter(Boolean).join("・");
+      status.textContent = !conditions ? `新しい順に${shown}本` : shown ? `${conditions}の記事: ${shown}本` : `${conditions}の記事はありません`;
+      empty.hidden = shown > 0;
+      const next = new URLSearchParams();
+      if (state.theme) next.set("theme", state.theme);
+      if (q) next.set("q", q);
+      const query = next.toString();
+      history.replaceState(history.state, "", `${location.pathname}${query ? `?${query}` : ""}${location.hash}`);
+    };
+    box.hidden = false;
+    input.value = state.q;
+    input.addEventListener("focus", () => void load(), { once: true });
+    input.addEventListener("input", () => {
+      state.q = input.value.trim();
+      void render();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && input.value) {
+        input.value = "";
+        state.q = "";
+        void render();
+      }
+    });
+    for (const chip of chips) {
+      chip.addEventListener("click", (e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        state.theme = chip.dataset.theme ?? "";
+        void render();
+      });
+    }
+    if (state.theme || state.q) void render();
+  }
+</script>
+
+<style>
+  .article-find { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0 0 16px; }
+  .article-search { display: grid; gap: 4px; }
+  .article-search[hidden] { display: none; }
+  .article-search label { font-weight: 700; color: var(--ink); font-size: 0.92rem; }
+  .article-search input {
+    font: inherit; width: 100%; max-width: 420px; padding: 9px 16px; border: 1px solid var(--line-strong); border-radius: 999px;
+    background: var(--surface);
+  }
+  #article-status { margin: 0; }
+  .article-empty { margin: 4px 0 0; }
+  .article-guide { margin: 18px 0 0; }
+  @media (max-width: 720px) {
+    .article-find .theme-nav { margin: 0 -16px; }
+    .article-find .theme-chips { flex-wrap: nowrap; overflow-x: auto; padding: 0 16px 4px; scrollbar-width: none; }
+    .article-find .theme-chips::-webkit-scrollbar { display: none; }
+  }
+</style>
