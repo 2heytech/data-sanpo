@@ -2,8 +2,10 @@
 // 指標ページのランキングの表（順位・地域・値）。地域の列は呼び出し側で決める。
 // mapHref があれば、地域名の横に、その地域を選んだ地図へのリンク「地図」を置く（設計変更記録 #200）。
 // 検索結果に表の文字が抜き出されても「1位, 嵐山町 埼玉県, 63.2%」と読めるよう、都道府県などは地域名の下に1回だけ書き
-// （別の列にしない）、「地図」の文字は CSS で出す（#216）
+// （別の列にしない）、「地図」の文字は CSS で出す（#216）。
+// scale を渡すと、値の列に値の大きさの横棒を出す（#226。同じ目盛りを上位・中位・下位の表で使う）
 import { formatValue, STATUS_LABEL } from "../lib/format";
+import { barStyle, barZero, type BarScale } from "../lib/valueBars";
 import type { Indicator, ValueRow } from "../lib/types";
 
 export interface RankingRow extends ValueRow {
@@ -21,11 +23,13 @@ interface Props {
   areaLabel: string;
   note?: boolean;
   caption?: string;
+  /** 値の横棒の目盛り（lib/valueBars.ts）。渡さなければ棒を出さない */
+  scale?: BarScale | null;
 }
-const { ind, rows, areaLabel, note = true, caption } = Astro.props;
+const { ind, rows, areaLabel, note = true, caption, scale = null } = Astro.props;
 ---
 <div class="table-scroll">
-  <table class="ranking">
+  <table class:list={["ranking", scale && "bars"]} style={barZero(scale)}>
     {caption && <caption>{caption}</caption>}
     <thead><tr>
       <th class="num col-rank">順位</th><th>{areaLabel}</th>
@@ -34,10 +38,10 @@ const { ind, rows, areaLabel, note = true, caption } = Astro.props;
     <tbody>
       {rows.map((r) => (
         <tr>
-          <td class="num">{r.rank === null ? "—" : `${r.rank.toLocaleString("ja-JP")}位`}</td>
+          <td class="num rank">{r.rank === null ? "—" : `${r.rank.toLocaleString("ja-JP")}位`}</td>
           <td><a href={r.href}>{r.name}</a>{r.mapHref && <a class="to-map" href={r.mapHref} aria-label={`${r.name}を地図で見る`}></a>}
             {r.extra.some(Boolean) && <div class="muted ranking-place">{r.extra.filter(Boolean).join("・")}</div>}</td>
-          <td class="num">{formatValue(r, ind)}</td>
+          <td class:list={["num", scale && r.value !== null && "vcell"]} style={barStyle(r.value, scale)}>{formatValue(r, ind)}</td>
           {note && <td class="muted col-note">{r.value === null ? "" : STATUS_LABEL[r.status]}</td>}
         </tr>
       ))}

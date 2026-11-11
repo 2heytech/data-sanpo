@@ -42,6 +42,9 @@ const PREF_ZOOM = 8; // これ未満では都道府県の値で色分けする�
 const AREA_ZOOM = 13; // これ以上で町丁目を表示
 const FINE_MUNI_ZOOM = 8; // これ以上で市区町村界を都道府県ごとの細かい形に差し替える（初回は全国の粗い形）
 const MAX_PREFS_PER_MOVE = 6;
+const MUNI_SHAPES_PER_STEP = 200; // 後から読んだ全国の市区町村の形を、地図へ1回に渡す数（#221）
+// 都道府県・市区町村の値のファイル名（町丁目は都道府県ごとのファイルなので、ここにはない）
+const LEVEL_FILE: Record<Level, string> = { prefecture: "prefectures", municipality: "municipalities", small_area: "municipalities" };
 const MAX_CHUNKS_PER_MOVE = 8;
 // 色分けの単位で「町丁目」を選んだときは、自動より手前の縮尺から町丁目で塗る（全国の町丁目の境界は大きすぎて
 // 一度に読めないので、これより縮小したときは市区町村で塗る）。一度に読む市区町村の数も増やす（#146）
@@ -128,9 +131,19 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   if (!supportsWebGL2()) return showMapFallback(root, "webgl");
   // スマホでは検索を地図の上に、条件と地域の情報を地図の下端のパネルに置く（#194）。地図を読む前に並べ替えて、画面がずれないようにする
   const sheet = initMapSheet(root);
-  // MapLibre は public/vendor から読み込む（Worker を同じ場所から読み込ませるため）。読み込めない（古いブラウザ・通信の途切れ）ときも案内を出す
-  const maplibregl = (await import(/* @vite-ignore */ maplibreUrl).catch(() => null)) as typeof MapLibre | null;
-  if (!maplibregl) return showMapFallback(root, "load");
+  // 読み込みの進み具合（地図の上の端の線。設計変更記録 #224）。色分けが地図に出たら消す
+  const loadingEl = root.querySelector<HTMLElement>("#map-loading");
+  const progress = (p: number) => {
+    loadingEl?.classList.add("stepped");
+    loadingEl?.style.setProperty("--p", String(p));
+  };
+  const endLoading = () => {
+    if (!loadingEl || loadingEl.classList.contains("done")) return;
+    progress(1);
+    loadingEl.classList.add("done");
+    window.setTimeout(() => loadingEl.remove(), 500);
+  };
+  progress(0.3);
   const cache = new Map<string, Promise<unknown>>();
   const fetchJSON = <T>(rel: string): Promise<T> => {
     if (!cache.has(rel)) {
@@ -141,6 +154,19 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     }
     return cache.get(rel) as Promise<T>;
   };
+  // 先に読み始めておくだけのとき用（結果は後で同じ fetchJSON から受け取る。ここでは失敗を「捕まえていない失敗」にしない）
+  const warm = (rel: string) => void fetchJSON(rel).catch(() => {});
+  // 指標・地域・出典の一覧は、MapLibre の読み込みと同時に取りに行く。1つ終わってから次へと順番に待つと、
+  // 遅い回線ではその分だけ色分けが出るのが遅れる（設計変更記録 #221）
+  const firstData = Promise.all([
+    fetchJSON<IndicatorCatalog>("indicators.json"),
+    fetchJSON<AreasFile>("areas.json"),
+    fetchJSON<{ sources: Source[] }>("sources.json"),
+  ]).catch(() => null);
+  // MapLibre は public/vendor から読み込む（Worker を同じ場所から読み込ませるため）。読み込めない（古いブラウザ・通信の途切れ）ときも案内を出す
+  const maplibregl = (await import(/* @vite-ignore */ maplibreUrl).catch(() => null)) as typeof MapLibre | null;
+  if (!maplibregl) return showMapFallback(root, "load");
+  progress(0.5);
 
   // 都道府県・市区町村の公式サイト（Wikidata から集めた URL、設計変更記録 #135）。初めて地域を選んだときに読む。
   // 開発用の架空データでは地名が実在しないので読まない（地図のページが data-official-sites を空にする）
@@ -177,12 +203,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   // 何も選んでいないときの案内（ページに書いた見出しと説明。#192）
   const detailIntro = detailEl.innerHTML;
 
-  const loaded = await Promise.all([
-    fetchJSON<IndicatorCatalog>("indicators.json"),
-    fetchJSON<AreasFile>("areas.json"),
-    fetchJSON<{ sources: Source[] }>("sources.json"),
-  ]).catch(() => null);
+  const loaded = await firstData;
   if (!loaded) return showMapFallback(root, "load");
+  progress(0.65);
   const [catalog, areas, sourcesFile] = loaded;
   const indicators = catalog.indicators;
   const sources = new Map(sourcesFile.sources.map((s) => [s.source_id, s]));
@@ -202,7 +225,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const smallAreas = new Map<string, SmallArea>();
   const loadedChunks = new Set<string>();
   const loadingChunks = new Map<string, Promise<void>>();
-  const areaFeatures: FeatureCollection = { type: "FeatureCollection", features: [] };
+  // 読んだ町丁目の ID（市区町村ごと）。値を塗るときに、その市区町村の分だけを塗る
+  const chunkIds = new Map<string, string[]>();
+  const emptyShapes = (): FeatureCollection => ({ type: "FeatureCollection", features: [] });
 
   const initial = parseState(location.search);
   let indicator: Indicator = indicators.find((i) => i.id === initial.indicator) ?? indicators[0];
@@ -221,6 +246,28 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   type LevelMode = "auto" | Level;
   const LEVEL_MODES: LevelMode[] = ["auto", "prefecture", "municipality", "small_area"];
   let levelMode: LevelMode = LEVEL_MODES.find((m) => m !== "auto" && m === initial.level) ?? "auto";
+
+  // --- 形のデータを読む順番（#221） ---------------------------------------------------
+  // 全国の市区町村の形（粗い形、約700KB）は、最初の色分けには要らないことが多い。全国を見渡して開いたときは
+  // 都道府県で塗る（都道府県の形は約110KB）。拡大した位置や、市区町村を選んで開いたときは、見えている都道府県の
+  // 細かい形（1県数十KB）で塗る。そこで、全国の市区町村の形は最初の色分けが出た後に読む（loadMuniShapesLater）。
+  // 先に読むのは、全国を見渡して市区町村で塗るとき（単位に市区町村を選んだ共有リンク、都道府県の値がない指標）と、
+  // 都道府県が1つだけの公開版（プレビュー用）
+  const boundaryPath = (name: string) => `boundaries/${areas.boundary_version}/${name}.geojson`;
+  const boundaryFile = (name: string) => fetchJSON<FeatureCollection>(boundaryPath(name));
+  const startZoom = initial.view ? initial.view.zoom : 0;
+  const munisAtNationalScale = levelMode === "municipality" || levelMode === "small_area" || !hasLevel(indicator, period, "prefecture");
+  const muniShapesFirst = !nationwide || (startZoom < FINE_MUNI_ZOOM && munisAtNationalScale);
+  const prefShapes = nationwide ? boundaryFile("prefectures").catch(() => null) : Promise.resolve(null);
+  const muniShapes = muniShapesFirst ? boundaryFile("municipalities") : null;
+  muniShapes?.catch(() => {});
+  // 凡例と、最初に塗る単位の値も、地図の準備と同時に読み始める
+  const firstLevel: Level = !nationwide || startZoom >= PREF_ZOOM || munisAtNationalScale ? "municipality" : "prefecture";
+  warm(`values/${indicator.id}/${period}/legend.json`);
+  if (hasLevel(indicator, period, firstLevel)) warm(`values/${indicator.id}/${period}/${LEVEL_FILE[firstLevel]}.json`);
+  // 市区町村・町丁目を選んで開いたとき（ランキングの「地図」や地域のページから）は、その都道府県の細かい形も読み始める
+  const areaPref = initial.area && !isPref(initial.area) ? prefectureCodeOf(initial.area) : null;
+  if (!muniShapesFirst && areaPref && prefectures.has(areaPref)) warm(boundaryPath(`municipalities/${areaPref}`));
 
   // --- 地図 ---------------------------------------------------------------------
   registerSlopeProtocol(maplibregl);
@@ -270,33 +317,49 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     showAccuracyCircle: true,
   });
   map.addControl(geolocate, "bottom-right");
+  // 現在地を使えないときの知らせは、地図の上に数秒出す。ブラウザの警告の窓（alert）は、閉じるまで地図を操作できず、
+  // どのサイトが出したのかも分かりにくいので使わない（#224）
+  const noticeEl = $("#map-notice");
+  let noticeTimer: number | undefined;
+  const notify = (text: string) => {
+    noticeEl.textContent = text;
+    noticeEl.hidden = false;
+    window.clearTimeout(noticeTimer);
+    noticeTimer = window.setTimeout(() => { noticeEl.hidden = true; }, 8000);
+  };
   geolocate.on("error", (e) => {
-    alert(e.code === 1 /* PERMISSION_DENIED */
+    notify(e.code === 1 /* PERMISSION_DENIED */
       ? "位置情報の利用が許可されていません。ブラウザの設定でこのサイトの位置情報を許可してください。"
       : "現在地を取得できませんでした。");
   });
   map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
-  await new Promise<void>((resolve) => map.once("load", () => resolve()));
+  // 形と色分けは、地図の書式の準備ができたらすぐ足す。以前は背景地図の画像が出そろう（load）のを待っていて、
+  // 遅い回線ではその分（1〜2秒）色分けが遅れていた（#221）
+  await new Promise<void>((resolve) => map.once("style.load", () => resolve()));
+  progress(0.75);
 
-  const muniBoundaries = await fetchJSON<FeatureCollection>(
-    `boundaries/${areas.boundary_version}/municipalities.geojson`,
-  );
-  map.addSource("munis", { type: "geojson", data: muniBoundaries as never, promoteId: "id" });
-  // 市区町村界は全国の粗い形で始め、拡大したら表示範囲の都道府県の細かい形に差し替える
-  const muniFeatures = new Map(muniBoundaries.features.map((f) => [f.properties.id, f]));
-  map.addSource("areas", { type: "geojson", data: areaFeatures as never, promoteId: "id" });
-  // 都道府県界: 縮小したときに都道府県の値で色分けする（市区町村の形を合わせたもの）
-  const prefBoundaries = nationwide
-    ? await fetchJSON<FeatureCollection>(`boundaries/${areas.boundary_version}/prefectures.geojson`).catch(() => null)
-    : null;
-  for (const f of [...muniBoundaries.features, ...(prefBoundaries?.features ?? [])]) {
-    const b = mainPartBbox(f.geometry as never);
-    if (b) labelBoxes.set(f.properties.id, b);
+  const noteShapes = (shapes: FeatureCollection | null) => {
+    for (const f of shapes?.features ?? []) {
+      const b = mainPartBbox(f.geometry as never);
+      if (b) labelBoxes.set(f.properties.id, b);
+    }
+  };
+  // 拡大した位置から開いたときは、見えている都道府県の細かい形を、地図の準備と同時に読み始める
+  if (!muniShapesFirst && map.getZoom() >= FINE_MUNI_ZOOM) {
+    for (const p of visiblePrefectures().slice(0, MAX_PREFS_PER_MOVE)) warm(boundaryPath(`municipalities/${p.code}`));
   }
-  map.addSource("prefs", {
-    type: "geojson", promoteId: "id",
-    data: (prefBoundaries ?? { type: "FeatureCollection", features: [] }) as never,
-  });
+  // 都道府県界: 縮小したときに都道府県の値で色分けする（市区町村の形を合わせたもの）
+  const prefBoundaries = await prefShapes;
+  const muniBoundaries = muniShapes ? await muniShapes : null;
+  noteShapes(prefBoundaries);
+  noteShapes(muniBoundaries);
+  // 全国の市区町村の形を地図に渡したか
+  let muniShapesReady = !!muniBoundaries;
+  // 市区町村界は全国の粗い形で始め、拡大したら表示範囲の都道府県の細かい形に差し替える
+  map.addSource("munis", { type: "geojson", data: (muniBoundaries ?? emptyShapes()) as never, promoteId: "id" });
+  map.addSource("areas", { type: "geojson", data: emptyShapes() as never, promoteId: "id" });
+  map.addSource("prefs", { type: "geojson", data: (prefBoundaries ?? emptyShapes()) as never, promoteId: "id" });
+  progress(0.85);
   map.addLayer({
     id: "muni-fill", type: "fill", source: "munis", maxzoom: AREA_ZOOM,
     paint: { "fill-color": NO_DATA_COLOR, "fill-opacity": MUNI_OPACITY },
@@ -330,7 +393,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
 
   // 地名: 市区町村名は常に、町丁目名は拡大したときに表示する（位置は地域の内側の代表点）
   map.addSource("pref-labels", { type: "geojson", data: pointFeatures(nationwide ? areas.prefectures : []) as never });
-  map.addSource("muni-labels", { type: "geojson", data: pointFeatures(areas.municipalities) as never });
+  map.addSource("muni-labels", {
+    type: "geojson", data: (muniShapesReady ? pointFeatures(areas.municipalities) : emptyShapes()) as never,
+  });
   map.addSource("area-labels", { type: "geojson", data: pointFeatures([]) as never });
   // 地名の下に、表示中の指標の値を小さく添える（値がない地域は地名だけ）
   const labelValues = new Map<string, string>();
@@ -424,8 +489,16 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     }
   }
 
+  // 値の行を ID で引く表。町丁目の値は都道府県ごとに1ファイルなので、市区町村を1つ塗るたびに作り直さない（#222）
+  const rowIndex = new WeakMap<ValueRow[], Map<string, ValueRow>>();
+  const rowsById = (rows: ValueRow[] | undefined) => {
+    if (!rows) return new Map<string, ValueRow>();
+    let byId = rowIndex.get(rows);
+    if (!byId) rowIndex.set(rows, (byId = new Map(rows.map((r) => [r.entity_id, r]))));
+    return byId;
+  };
   function applyRows(source: "prefs" | "munis" | "areas", ids: Iterable<string>, rows: ValueRow[] | undefined) {
-    const byId = new Map((rows ?? []).map((r) => [r.entity_id, r]));
+    const byId = rowsById(rows);
     for (const id of ids) {
       const r = byId.get(id);
       map.setFeatureState({ source, id }, { v: r?.value ?? null, s: r?.status ?? "missing" });
@@ -433,14 +506,32 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     }
   }
 
-  function refreshLabels(source: "prefs" | "munis" | "areas") {
-    if (source === "prefs") {
-      (map.getSource("pref-labels") as GeoJSONSource).setData(pointFeatures(areas.prefectures, labelValues) as never);
-    } else if (source === "munis") {
-      (map.getSource("muni-labels") as GeoJSONSource).setData(pointFeatures(areas.municipalities, labelValues) as never);
-    } else {
-      (map.getSource("area-labels") as GeoJSONSource).setData(pointFeatures([...smallAreas.values()], labelValues) as never);
+  // 地名（と、その下の値）を作り直す。続けて頼まれた分はまとめて1回で作る（町丁目を市区町村ごとに読むたび・塗るたびに
+  // 全部の地名を作り直すと、読んだ数だけ重くなる。#222）
+  type LabelSource = "prefs" | "munis" | "areas";
+  const staleLabels = new Set<LabelSource>();
+  let labelTimer: number | undefined;
+  function flushLabels() {
+    labelTimer = undefined;
+    const stale = [...staleLabels];
+    staleLabels.clear();
+    for (const source of stale) {
+      if (source === "prefs") {
+        (map.getSource("pref-labels") as GeoJSONSource).setData(pointFeatures(areas.prefectures, labelValues) as never);
+      } else if (source === "munis") {
+        // 全国の市区町村の形を後から読むとき（#221）は、市区町村名が見えない縮尺の間は作らない（約1,900の地名を作る分、
+        // 最初の色分けが遅れるため）。形が届いたとき・拡大して細かい形を読んだときに作る
+        if (muniShapesReady || map.getZoom() >= MUNI_LABEL_ZOOM - 1) {
+          (map.getSource("muni-labels") as GeoJSONSource).setData(pointFeatures(areas.municipalities, labelValues) as never);
+        }
+      } else {
+        (map.getSource("area-labels") as GeoJSONSource).setData(pointFeatures([...smallAreas.values()], labelValues) as never);
+      }
     }
+  }
+  function refreshLabels(source: LabelSource) {
+    staleLabels.add(source);
+    labelTimer ??= window.setTimeout(flushLabels, 30);
   }
 
   // 値を読んでいる間に指標・時点が変わったか（変わっていたら、古い値で塗ったり一覧を書いたりしない）
@@ -468,10 +559,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     // 町丁目の値がない時点（国勢調査の外国人の2010年など）は、ないファイルを読みにいかない
     const v = hasLevel(indicator, period, "small_area") ? await loadValues(code.slice(0, 2)) : null;
     if (key !== shownKey()) return;
-    const ids = areaFeatures.features
-      .filter((f) => municipalityCodeOf(f.properties.id) === code)
-      .map((f) => f.properties.id);
-    applyRows("areas", ids, v?.rows);
+    applyRows("areas", chunkIds.get(code) ?? [], v?.rows);
     refreshLabels("areas");
   }
 
@@ -522,6 +610,31 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     syncLabels();
   }
 
+  // 読み込み中の表示は、色分けが実際に地図に描かれたら消す（値を読んでから形が描かれるまでに少し間がある）。
+  // 色分けを消して開いたとき・描くものがないときのために、長くても数秒で消す
+  const FILL_LAYER: Record<Level, string> = { prefecture: "pref-fill", municipality: "muni-fill", small_area: "area-fill" };
+  function endLoadingWhenPainted(level: Level) {
+    if (!loadingEl || loadingEl.classList.contains("done") || loadingEl.dataset.waiting) return;
+    if (!colorsToggle.checked) return endLoading();
+    loadingEl.dataset.waiting = "1";
+    progress(0.93);
+    let last = 0;
+    const finish = () => {
+      map.off("render", check);
+      window.clearTimeout(limit);
+      endLoading();
+    };
+    const check = () => {
+      const t = performance.now();
+      if (t - last < 150) return;
+      last = t;
+      if (map.queryRenderedFeatures({ layers: [FILL_LAYER[level]] }).length) finish();
+    };
+    const limit = window.setTimeout(finish, 6000);
+    map.on("render", check);
+    map.triggerRepaint();
+  }
+
   let colorsToken = 0;
   async function refreshColors() {
     // 凡例を読んでいる間に指標・時点が変わったら（続けて切り替えた・再生中など）、古い凡例で塗らない
@@ -535,7 +648,20 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       map.setPaintProperty(layer, "fill-color",
         fillColorExpression(legend.scheme, legend.levels[level]?.breaks ?? [], legend.zero_blank) as never);
     }
-    await Promise.all([paintPrefectures(), paintMunicipalities(), ...[...loadedChunks].map(paintChunk)]);
+    // いま塗っている単位の値を先に読んで塗り、凡例を出す。見えていない単位の値は、その後に読む（#221）
+    const paints: Record<Level, () => Promise<unknown>> = {
+      prefecture: paintPrefectures,
+      municipality: paintMunicipalities,
+      small_area: () => Promise.all([...loadedChunks].map(paintChunk)),
+    };
+    const now = levelNow();
+    await paints[now]();
+    if (token !== colorsToken) return;
+    renderLegend();
+    syncLevelButtons();
+    endLoadingWhenPainted(now);
+    await Promise.all((Object.keys(paints) as Level[]).filter((l) => l !== now).map((l) => paints[l]()));
+    if (token !== colorsToken) return;
     loadVisibleChunks();
     renderLegend();
     syncLevelButtons();
@@ -554,11 +680,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
           smallAreas.set(rest.id, { ...rest, bbox, center });
           f.properties = rest as never;
         }
-        areaFeatures.features.push(...gj.features);
-        (map.getSource("areas") as GeoJSONSource).setData(areaFeatures as never);
+        chunkIds.set(code, gj.features.map((f) => f.properties.id));
+        // この市区町村の分だけを地図へ足し、この市区町村の分だけを塗る。以前は、1つ読むたびに読んだ町丁目を
+        // 全部渡し直して全部塗り直していて、動かすほど重くなっていた（#222）
+        void (map.getSource("areas") as GeoJSONSource).updateData({ add: gj.features as never });
         loadedChunks.add(code);
-        // setData 後は全チャンクの feature-state を付け直す
-        await Promise.all([...loadedChunks].map(paintChunk));
+        await paintChunk(code);
       })());
     }
     return loadingChunks.get(code)!;
@@ -572,18 +699,56 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
 
   // --- 市区町村界（細かい形）の追加読み込み ------------------------------------------------
+  // 届いた都道府県の分だけを地図へ渡す（同じ ID の形は置き換わる）。以前は1県届くたびに全国の市区町村の形を
+  // まるごと渡し直して塗り直していて、拡大したときに数秒引っかかっていた。色（feature-state）は形を差し替えても残る（#222）
   const finePrefs = new Map<string, Promise<void>>();
+  const fineMuniIds = new Set<string>();
+  let fineQueue: FeatureCollection["features"] = [];
+  let fineTimer: number | undefined;
+  const addMuniShapes = (features: FeatureCollection["features"]) => {
+    if (features.length) void (map.getSource("munis") as GeoJSONSource).updateData({ add: features as never });
+  };
+  function flushFineMunis() {
+    fineTimer = undefined;
+    const features = fineQueue;
+    fineQueue = [];
+    addMuniShapes(features);
+  }
   function ensureFineMunis(code: string): Promise<void> {
     if (!finePrefs.has(code)) {
       finePrefs.set(code, (async () => {
-        const gj = await fetchJSON<FeatureCollection>(`boundaries/${areas.boundary_version}/municipalities/${code}.geojson`);
-        for (const f of gj.features) muniFeatures.set(f.properties.id, f);
-        (map.getSource("munis") as GeoJSONSource).setData(
-          { type: "FeatureCollection", features: [...muniFeatures.values()] } as never);
-        await paintMunicipalities();
+        const gj = await boundaryFile(`municipalities/${code}`);
+        for (const f of gj.features) fineMuniIds.add(f.properties.id);
+        // 全国の形がまだ届いていないときは、地名の文字の大きさをこの細かい形から決める
+        if (!muniShapesReady) {
+          noteShapes(gj);
+          refreshLabels("munis");
+        }
+        // 続けて届いた都道府県は、まとめて1回で渡す
+        fineQueue.push(...gj.features);
+        fineTimer ??= window.setTimeout(flushFineMunis, 80);
       })().catch(() => {}));
     }
     return finePrefs.get(code)!;
+  }
+
+  // 全国を都道府県で塗って開いたときに、後回しにした市区町村の形を読む（#221）。最初の色分けが出てから呼ぶ
+  const nextTask = () => new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+  async function loadMuniShapesLater() {
+    if (muniShapesReady) return;
+    const shapes = await boundaryFile("municipalities").catch(() => null);
+    // 全国の約1,900市区町村を一度に渡すと、その間（スマホでは1秒近く）地図の操作が止まるので、少しずつ渡す
+    const all = shapes?.features ?? [];
+    for (let i = 0; i < all.length; i += MUNI_SHAPES_PER_STEP) {
+      await nextTask();
+      const part = all.slice(i, i + MUNI_SHAPES_PER_STEP);
+      noteShapes({ type: "FeatureCollection", features: part });
+      // 先に拡大して細かい形を読んだ都道府県の分は、粗い形で上書きしない
+      addMuniShapes(part.filter((f) => !fineMuniIds.has(f.properties.id)));
+    }
+    await nextTask();
+    muniShapesReady = true;
+    refreshLabels("munis");
   }
 
   function visiblePrefectures() {
@@ -604,11 +769,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       .slice(0, chosenLevel() === "small_area" ? MAX_CHUNKS_MANUAL : MAX_CHUNKS_PER_MOVE)
       .forEach((m) => void ensureChunk(m.id.slice(5)));
   }
+  // 市区町村で塗る縮尺なら、地図の中心に近い都道府県から市区町村の細かい形を読む
+  function loadVisibleFineMunis() {
+    if (map.getZoom() < FINE_MUNI_ZOOM) return;
+    visiblePrefectures().slice(0, MAX_PREFS_PER_MOVE).forEach((p) => void ensureFineMunis(p.code));
+  }
   map.on("moveend", () => {
     followZoomPeriod();
-    if (map.getZoom() >= FINE_MUNI_ZOOM) {
-      visiblePrefectures().slice(0, MAX_PREFS_PER_MOVE).forEach((p) => void ensureFineMunis(p.code));
-    }
+    loadVisibleFineMunis();
     loadVisibleChunks();
     renderLegend();
     syncLevelButtons();
@@ -1790,7 +1958,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   });
   // 条件の欄の「現在地へ移動」も地図の現在地ボタンと同じ動き（マークを出して移動する）
   $<HTMLButtonElement>("#locate").addEventListener("click", () => {
-    if (!navigator.geolocation) return alert("このブラウザでは現在地を使えません。");
+    if (!navigator.geolocation) return notify("このブラウザでは現在地を使えません。");
     geolocate.trigger();
   });
 
@@ -1937,7 +2105,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   }
   if (initial.hide?.includes("labels")) labelsToggle.checked = false;
   if (initial.hide?.includes("values")) valuesToggle.checked = false;
+  // 拡大した位置から開いたときは、動かさなくても細かい形にする（以前は、地図を動かすまで全国用の粗い形のままだった）
+  loadVisibleFineMunis();
   await refreshColors();
+  void loadMuniShapesLater();
   if (initial.area && (munis.has(initial.area) || municipalityCodeOf(initial.area) ||
       (isPref(initial.area) && prefectures.has(prefectureCodeOf(initial.area)!)))) {
     // 地図の位置が URL にあるときは、地域を選ぶだけで地図は動かさない。

@@ -2598,6 +2598,17 @@ def test_prefecture_values_are_summed_from_municipalities(built):
     assert all(len(p["center"]) == 2 for p in areas["prefectures"])
     gj = load(built, f"boundaries/{areas['boundary_version']}/prefectures.geojson")
     assert sorted(f["properties"]["id"] for f in gj["features"]) == ["pref-13", "pref-14"]
+    # 地図が最初に読むファイルなので、座標は全国の区市町村界と同じ小数3桁に丸めてある（#221）
+    def numbers(obj):
+        if isinstance(obj, list):
+            for o in obj:
+                yield from numbers(o)
+        else:
+            yield obj
+    for f in gj["features"]:
+        assert f["geometry"]["type"] in ("Polygon", "MultiPolygon")
+        coords = list(numbers(f["geometry"]["coordinates"]))
+        assert coords and all(x == round(x, 3) for x in coords)
     munis = load(built, "values/population_total/2020-10-01/municipalities.json")["rows"]
     prefs = {r["entity_id"]: r for r in load(built, "values/population_total/2020-10-01/prefectures.json")["rows"]}
     tokyo = [r for r in munis if r["entity_id"].startswith("muni-13")]

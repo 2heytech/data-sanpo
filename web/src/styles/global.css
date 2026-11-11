@@ -123,6 +123,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 /* 都道府県の表は、順位の列を中身の幅にし、都道府県名と「地図」を折り返さずに1行に収める（#216） */
 .pref-table .col-rank { width: 1%; white-space: nowrap; }
 .pref-table .to-map { float: none; margin: 0 0 0 8px; vertical-align: 1px; }
+@media (max-width: 640px) { .pref-table .to-map { vertical-align: middle; } }
 .table-scroll + .table-scroll, .table-scroll + .ranking-more, .ranking-more + .table-scroll, .ranking-more + .ranking-more { margin-top: 12px; }
 .ranking { table-layout: fixed; min-width: 600px; }  /* 上位・下位などの表で列の幅をそろえる */
 .ranking .col-rank { width: 6.5em; }
@@ -139,6 +140,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   /* 「83,422.27 km²」など長い値は、数字と単位の間で折り返す（右端で切れて見えないようにする） */
   .ranking td.num { white-space: normal; }
   .ranking .col-note { display: none; }
+  /* 順位（「1,896位」まで）と6桁の値（「954,737 人」）が1行に収まるよう、順位の字を少し小さくし、列の間の余白を詰める（#228。
+     これまでは100位より後の順位と10万以上の値が2行に折り返していた） */
+  .ranking td.rank { padding-left: 4px; padding-right: 4px; font-size: 0.82rem; line-height: 1.6625rem; white-space: nowrap; }
+  .ranking td.rank ~ td.num { padding-left: 2px; }
 }
 /* 表の地域名の横の「地図」: その指標の色分けで、その地域を選んだ地図へのリンク（#200）。地域名のリンク（地域のページ）とは別に置く */
 .to-map {
@@ -154,9 +159,30 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 /* 「地図」の文字は CSS で出す（リンクの名前は aria-label。検索結果に抜き出される表の文字に「地図」を混ぜない。#216） */
 .to-map::after { content: "地図"; }
 .to-map:hover { background: var(--accent-soft); border-color: #b9d0ea; text-decoration: none; }
-@media (max-width: 640px) { .to-map { padding: 2px 9px 2px 7px; } }
+/* スマホでは指で押しやすい高さ（36px）にする（#228） */
+@media (max-width: 640px) { .to-map { padding: 8px 9px 8px 7px; line-height: 20px; } }
 /* 広い画面のランキングの表では、地域名の列が広いので「地図」を名前のすぐ後ろに置く（右端に離れて値の横に見えないように） */
 @media (min-width: 641px) { .ranking .to-map { float: none; margin: 0 0 0 10px; vertical-align: 1px; } }
+/* 値の横棒（#226。長さは lib/valueBars.ts がページを作るときに決めて、値のセルの --a・--b に書く）。
+   広い画面では値の列を広げて数字の左に、スマホでは数字の下に細く出す。--z は 0 の位置（負の値がある表だけ） */
+.bars td.vcell { position: relative; z-index: 0; }
+.bars td.vcell::after, .vbar-under::after {
+  content: ""; position: absolute; z-index: -1; left: 12px; right: 11.5em; top: 18px; top: calc(9px + (1lh - 8px) / 2);
+  height: 8px; border-radius: 4px;
+  background:
+    linear-gradient(to right, transparent calc(var(--z, -9px) - 1px), #6f7d8c 0 calc(var(--z, -9px) + 1px), transparent 0),
+    linear-gradient(to right, #edf1f6 var(--a, 0%), #8fb8e3 0 var(--b, 0%), #edf1f6 0);
+}
+/* 数字のすぐ下に細く出す形（都道府県ページの市区町村の表の人口。どの幅でも数字の下） */
+.vbar-under { display: block; }
+.vbar-under::after { position: static; display: block; height: 4px; margin-top: 3px; border-radius: 2px; }
+.ranking.bars .col-value { width: 46%; }
+.pref-table.bars .col-value { width: 56%; }
+@media (max-width: 640px) {
+  .ranking.bars .col-value { width: 7.5em; }
+  .pref-table.bars .col-value { width: auto; }
+  .bars td.vcell::after { position: static; display: block; height: 4px; margin-top: 4px; border-radius: 2px; }
+}
 .ranking caption { text-align: left; font-weight: 700; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .ranking-more > summary { cursor: pointer; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: 10px;
   color: var(--accent); font-weight: 600; }
@@ -255,12 +281,42 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
   h2 { font-size: 1.15rem; }
   .site-footer .inner { grid-template-columns: 1fr; gap: 16px; }
 }
+/* スマホのヘッダーを薄くする（#227）。
+   読み物のページ: 下へ送っている間はヘッダーを画面の外へ上げ、上へ戻すと出す（印 html.header-away は Base.astro のスクリプトが付ける。
+   キーボードでヘッダーの中に移ったときは出す）。
+   地図の画面: 1行（足あとのマーク・都道府県名・メニュー）にして地図を広げる。「地図をひらく」は今いる画面なので出さない */
+@media (max-width: 720px) {
+  .site-header { transition: transform .2s ease; }
+  .header-away body:not(.wide) .site-header:not(:focus-within) { transform: translateY(-102%); }
+  body.wide .site-header { flex-wrap: nowrap; padding: 4px 8px; gap: 6px; }
+  body.wide .brand { flex: none; width: 30px; overflow: hidden; }
+  body.wide .brand img { flex: none; max-width: none; }
+  body.wide .area-chip { flex: none; padding: 2px 8px; font-size: 0.75rem; }
+  body.wide .site-header .nav-cta { display: none; }
+  body.wide .site-header nav { order: 0; flex: 1; width: auto; min-width: 0; }
+  body.wide .site-header nav a { padding: 2px 3px; font-size: 0.66rem; }
+}
+@media (prefers-reduced-motion: reduce) { .site-header { transition: none; } }
+/* 長いページを上へ戻り始めると出す「上へ戻る」（#227） */
+.to-top {
+  position: fixed; right: 14px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 9;
+  display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  border: 1px solid var(--line-strong); border-radius: 50%; background: rgba(255, 255, 255, .96); color: var(--accent-ink);
+  box-shadow: 0 2px 8px rgba(15, 42, 74, .18); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.to-top[hidden] { display: none; }
+.to-top svg { width: 22px; height: 22px; }
+.to-top:hover { background: var(--accent-soft); }
 /* 幅の狭いスマホでも、ロゴ・都道府県名（4文字まで）・「地図をひらく」を1行に収める */
 @media (max-width: 380px) {
   .site-header { gap: 6px 8px; }
   .brand img { height: 26px; }
   .app-back-on .brand { width: 26px; }
   .site-header nav a { padding: 3px 3px; }
+  body.wide .site-header { gap: 4px; }
+  body.wide .brand { width: 26px; }
+  body.wide .site-header nav a { padding: 2px 1px; }
+  body.wide .area-chip { padding: 2px 6px; }
 }
 h2[id], h3[id] { scroll-margin-top: 100px; }
 

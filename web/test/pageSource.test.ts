@@ -36,6 +36,14 @@ describe("ページに出るソース", () => {
     }
   });
 
+  it("リンクの先読みは HTML を読むだけにする（設計変更記録 #229）", () => {
+    // prerender（画面の組み立てまで進める）を使うと、開いていないページがアクセス数に数えられる
+    const base = readFileSync(join(SRC, "layouts/Base.astro"), "utf-8");
+    expect(base).toContain('type="speculationrules"');
+    expect(base).toMatch(/prefetch:\s*\[/);
+    expect(base).not.toMatch(/prerender:\s*\[/);
+  });
+
   it("運営者のアカウント名を載せない", () => {
     for (const f of files) {
       expect(readFileSync(f, "utf-8"), f).not.toContain("2heytech");

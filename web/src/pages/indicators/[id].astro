@@ -15,6 +15,7 @@ import { formerWard } from "../../lib/areaSummary";
 import { publishedArticles } from "../../lib/articles";
 import { latestPeriod } from "../../lib/periods";
 import { mapHref } from "../../lib/urlstate";
+import { barScale, barStyle, barZero } from "../../lib/valueBars";
 import type { Indicator } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -149,6 +150,21 @@ const structured = [
 const image = indicatorPageImage(ind);
 const related = publishedArticles().filter((a) => a.indicators.includes(ind.id));
 const cityValueText = (v: number | null) => formatValue({ value: v, status: v === null ? "missing" : "derived" }, ind);
+// 値の横棒の目盛り（#226）。市区町村は上位・中位・下位の表で同じ目盛りを使う
+const prefScale = barScale(prefRows.map((r) => r.value));
+const muniScale = barScale(muniValues.map((r) => r.value));
+const smallScale = barScale(smallAreaRanked.map((r) => r.value));
+// 名前で探す欄は、目で探すには長い表（上位と下位に分かれる・畳まれた行がある）のときだけ出す（#225）
+const FIND_MIN_ROWS = 50;
+const showFind = muniValues.length >= FIND_MIN_ROWS;
+// ページの先頭の目次（#225）。長いページで、ランキングと計算方法へすぐ移れるようにする
+const toc = [
+  ...(summary.length > 0 || image ? [{ href: "#findings", label: "データから分かること" }] : []),
+  ...(prefRows.length > 0 ? [{ href: "#pref-ranking", label: "都道府県ランキング" }] : []),
+  ...(muniValues.length > 0 ? [{ href: "#muni-ranking", label: "市区町村ランキング" }] : []),
+  ...(smallAreaTop.length > 0 ? [{ href: "#small-ranking", label: "町丁・字等ランキング" }] : []),
+  { href: "#method", label: "計算方法と出典" },
+];
 ---
 <Base title={pageText.title} description={pageText.description} structuredData={structured} image={image ?? undefined}>
   <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/#indicators">指標の一覧</a>{genre && <> › <a href={`/#${genre.anchor}`}>{genre.title}</a></>}</nav>
@@ -162,9 +178,11 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
     </div>
   </header>
 
+  <nav class="toc" aria-label="このページの内容">{toc.map((t) => <a href={t.href}>{t.label}</a>)}</nav>
+
   {(summary.length > 0 || image) && (
     <section class="sheet findings">
-      <h2>データから分かること（{shortPeriodLabel(period.label)}）</h2>
+      <h2 id="findings">データから分かること（{shortPeriodLabel(period.label)}）</h2>
       {summary.length > 0 && <ul class="findings-list">{summary.map((line) => <li>{line}</li>)}</ul>}
       {image && <MapFigure image={image} eager />}
       {related.length > 0 && (
@@ -180,20 +198,20 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
   )}
   {prefRows.length > 0 && (
     <>
-      <h2>{pageText.heading.main}の都道府県ランキング（{period.label}）</h2>
+      <h2 id="pref-ranking">{pageText.heading.main}の都道府県ランキング（{period.label}）</h2>
       <p class="muted">値の大きい順です（同じ値は同じ順位）。都道府県名から、その都道府県のページを開きます。「地図」を押すと、その都道府県を選んだ地図を開きます。
         <a href={mapHref({ indicator: ind.id, level: "prefecture" })}>都道府県別の色分けで地図を見る</a></p>
       {prefCommonNote && <p class="muted small">備考: どの都道府県も「{prefCommonNote}」です。</p>}
       <div class="table-scroll">
-        <table class="pref-table">
-          <thead><tr><th class="num col-rank">順位</th><th class="col-name">都道府県</th><th class="num">{ind.name}</th>{prefCommonNote === null && <th>備考</th>}</tr></thead>
+        <table class:list={["pref-table", prefScale && "bars"]} style={barZero(prefScale)}>
+          <thead><tr><th class="num col-rank">順位</th><th class="col-name">都道府県</th><th class="num col-value">{ind.name}</th>{prefCommonNote === null && <th>備考</th>}</tr></thead>
           <tbody>
             {prefRows.map((r) => (
               <tr>
                 <td class="num">{prefRanks.has(r.entity_id) ? `${prefRanks.get(r.entity_id)}位` : "—"}</td>
                 <td class="col-name"><a href={`/prefectures/${r.entity_id.slice(5)}/`}>{prefNames.get(r.entity_id.slice(5))}</a>
                   {r.value !== null && <a class="to-map" href={toMap(r.entity_id)} aria-label={`${prefNames.get(r.entity_id.slice(5))}を地図で見る`}></a>}</td>
-                <td class="num">{formatValue(r, ind)}</td>
+                <td class:list={["num", prefScale && r.value !== null && "vcell"]} style={barStyle(r.value, prefScale)}>{formatValue(r, ind)}</td>
                 {prefCommonNote === null && <td class="muted">{prefNote(r)}</td>}
               </tr>
             ))}
@@ -204,7 +222,7 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
   )}
   {muniValues.length > 0 && (
   <>
-  <h2>{pageText.heading.main}の市区町村ランキング（{period.label}）</h2>
+  <h2 id="muni-ranking">{pageText.heading.main}の市区町村ランキング（{period.label}）</h2>
   <p class="muted">値の大きい順です（同じ値は同じ順位）。大きいほど良い・悪いという意味ではありません。
     {muniCount > RANKING_SIZE * 2 && `${muniCount.toLocaleString("ja-JP")}市区町村のうち、上位と下位の${RANKING_SIZE}位までを出し、その間は畳んでいます。`}
     市区町村名から、その市区町村のページを開きます。「地図」を押すと、その市区町村を選んだ地図を開きます。
@@ -214,15 +232,26 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
     <p class="note">政令指定都市（{cities.length}市）は、市全体ではなく区ごとに並べています。{cityTable && <>市全体の値は、この表の下の<a href="#cities">政令指定都市（市全体）</a>にあります。</>}
       {formerMissing.length > 0 && `浜松市は2024年1月に区を再編したため、この時点の区の値はありません。`}</p>
   )}
-  <RankingTable ind={ind} rows={muniRanking.top} areaLabel="市区町村" note={muniCommonNote === null}
+  {showFind && (
+    <form class="rank-find" id="rank-find" role="search" hidden>
+      <label for="rank-find-q">市区町村の名前で探す</label>
+      <div class="rank-find-box">
+        <input id="rank-find-q" type="search" enterkeyhint="search" autocomplete="off" placeholder={`例: ${muniRanking.top[0]?.name ?? "新宿区"}`} aria-controls="rank-find-list" />
+        <ul id="rank-find-list" class="rank-find-list" hidden></ul>
+      </div>
+      <p class="rank-find-status" aria-live="polite"></p>
+    </form>
+  )}
+  <div id="muni-tables">
+  <RankingTable ind={ind} rows={muniRanking.top} areaLabel="市区町村" note={muniCommonNote === null} scale={muniScale}
     caption={muniRanking.middle.length ? `上位${RANKING_SIZE}位` : undefined} />
   {muniRanking.middle.length > 0 && (
     <>
       <details class="ranking-more">
         <summary>{`${muniRanking.middle[0].rank!.toLocaleString("ja-JP")}位〜${muniRanking.middle.at(-1)!.rank!.toLocaleString("ja-JP")}位（${muniRanking.middle.length.toLocaleString("ja-JP")}市区町村）を表示`}</summary>
-        <RankingTable ind={ind} rows={muniRanking.middle} areaLabel="市区町村" note={muniCommonNote === null} />
+        <RankingTable ind={ind} rows={muniRanking.middle} areaLabel="市区町村" note={muniCommonNote === null} scale={muniScale} />
       </details>
-      <RankingTable ind={ind} rows={muniRanking.bottom} areaLabel="市区町村" note={muniCommonNote === null}
+      <RankingTable ind={ind} rows={muniRanking.bottom} areaLabel="市区町村" note={muniCommonNote === null} scale={muniScale}
         caption={`下位${RANKING_SIZE}位`} />
     </>
   )}
@@ -232,6 +261,7 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
       <RankingTable ind={ind} rows={muniMissing} areaLabel="市区町村" note={muniCommonNote === null} />
     </details>
   )}
+  </div>
   {cityTable && (
     <>
       <h3 id="cities">政令指定都市（市全体、{period.label}）</h3>
@@ -258,7 +288,7 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
 
   {smallAreaTop.length > 0 && (
     <>
-      <h2>町丁・字等のランキング（{smallPeriod!.label}）</h2>
+      <h2 id="small-ranking">町丁・字等のランキング（{smallPeriod!.label}）</h2>
       {smallPeriod!.period !== period.period && (
         <p class="note">町丁・字等の値は{shortPeriodLabel(smallPeriod!.label)}が最新です（{shortPeriodLabel(period.label)}は都道府県・市区町村の値だけが公表されています）。</p>
       )}
@@ -267,10 +297,10 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
         {smallAreaRanked.length > RANKING_SIZE && !smallAreaBottom.length &&
           `値が0の地域が${zeroCount.toLocaleString("ja-JP")}あり、下位は0が並ぶだけなので出していません。`}
         地域名を押すと地図で開きます。</p>
-      <RankingTable ind={ind} rows={smallAreaTop} areaLabel="町丁・字等" note={false}
+      <RankingTable ind={ind} rows={smallAreaTop} areaLabel="町丁・字等" note={false} scale={smallScale}
         caption={smallAreaRanked.length > RANKING_SIZE ? `上位${RANKING_SIZE}位` : undefined} />
       {smallAreaBottom.length > 0 && (
-        <RankingTable ind={ind} rows={smallAreaBottom} areaLabel="町丁・字等" note={false}
+        <RankingTable ind={ind} rows={smallAreaBottom} areaLabel="町丁・字等" note={false} scale={smallScale}
           caption={`下位${smallAreaBottom.length}位`} />
       )}
     </>
@@ -278,7 +308,7 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
   </section>
 
   <section class="sheet">
-  <h2>計算方法</h2>
+  <h2 id="method">計算方法</h2>
   <p>{ind.method}</p>
   {ind.caveats.length > 0 && (
     <div class="note">
@@ -307,10 +337,95 @@ const cityValueText = (v: number | null) => formatValue({ value: v, status: v ==
   <ShareButtons title={pageText.title} />
 </Base>
 
+<script>
+  // 市区町村を名前で探して、その行へ移る（設計変更記録 #225）。
+  // 名前は表の行から読むので、ページに名前の一覧を重ねて持たない。畳まれた行（中位・値のない市区町村）も探し、見つけたら開く
+  const form = document.getElementById("rank-find");
+  const tables = document.getElementById("muni-tables");
+  if (form && tables) {
+    interface Row { tr: HTMLTableRowElement; name: string; place: string; key: string }
+    const input = form.querySelector("input")!;
+    const list = form.querySelector("ul")!;
+    const status = form.querySelector("p")!;
+    const MAX_SHOWN = 8;
+    const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, "");
+    let rows: Row[] | null = null;
+    const load = () => rows ??= [...tables.querySelectorAll<HTMLTableRowElement>("tbody tr")].map((tr) => {
+      const name = tr.cells[1]?.querySelector("a")?.textContent ?? "";
+      const place = tr.cells[1]?.querySelector(".ranking-place")?.textContent ?? "";
+      return { tr, name, place, key: norm(place + name) };
+    });
+    let found: Row[] = [];
+    const go = (r: Row) => {
+      const folded = r.tr.closest("details");
+      if (folded) folded.open = true;
+      tables.querySelector("tr.found")?.classList.remove("found");
+      r.tr.classList.add("found");
+      list.hidden = true;
+      input.blur();
+      const rank = r.tr.cells[0].textContent ?? "";
+      status.textContent = rank.includes("位")
+        ? `${r.place}${r.name}は ${rank}（${r.tr.cells[2].textContent}）です。下の表のその行に色を付けました。`
+        : `${r.place}${r.name}は、この時点の値がありません。`;
+      r.tr.scrollIntoView({ block: "center" });
+    };
+    const show = () => {
+      const q = norm(input.value);
+      // 名前が入力した文字から始まるものを先に、その中では表の順（順位の高い順）に並べる
+      found = q ? load().filter((r) => r.key.includes(q)).sort((a, b) => Number(norm(b.name).startsWith(q)) - Number(norm(a.name).startsWith(q))) : [];
+      list.replaceChildren(...found.slice(0, MAX_SHOWN).map((r) => {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = `${r.name}${r.place ? `（${r.place}）` : ""}`;
+        const rank = document.createElement("span");
+        rank.textContent = r.tr.cells[0].textContent;
+        button.append(rank);
+        button.addEventListener("click", () => go(r));
+        item.append(button);
+        return item;
+      }));
+      list.hidden = !found.length;
+      status.textContent = !q ? "" : !found.length ? "その名前の市区町村は、この表にありません。"
+        : found.length > MAX_SHOWN ? `${found.length}件あります。続けて入力すると絞れます。` : "";
+    };
+    input.addEventListener("input", show);
+    input.addEventListener("focus", () => { if (found.length) list.hidden = false; });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (found.length) go(found[0]);
+    });
+    form.hidden = false;
+  }
+</script>
+
 <style>
   .page-head h1 .h1-sub { display: block; margin-top: 2px; font-size: 1.05rem; font-weight: 600; color: var(--muted); }
   .findings h2 { margin-top: 0; }
   .findings-list { margin: 0 0 12px; padding-left: 1.2em; line-height: 1.9; }
   .findings-list li + li { margin-top: 4px; }
   .findings .related { margin: 0 0 8px; }
+  /* 市区町村を名前で探す欄（#225）。候補は欄のすぐ下に重ねて出す */
+  .rank-find { margin: 14px 0 12px; padding: 12px 14px; border: 1px solid #c9d8ea; border-radius: 10px; background: var(--accent-soft); }
+  .rank-find[hidden], .rank-find-list[hidden] { display: none; }
+  .rank-find label { display: block; margin-bottom: 4px; color: var(--accent-ink); font-size: 0.9rem; font-weight: 700; }
+  .rank-find-box { position: relative; max-width: 26em; }
+  .rank-find input {
+    width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px;
+    background: var(--surface); color: var(--fg); font: inherit; font-size: 1rem;
+  }
+  .rank-find-list {
+    position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none;
+    border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); box-shadow: 0 6px 20px rgba(15, 42, 74, .18);
+  }
+  .rank-find-list :global(button) {
+    display: flex; justify-content: space-between; gap: 12px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 6px;
+    background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer;
+  }
+  .rank-find-list :global(button:hover), .rank-find-list :global(button:focus-visible) { background: var(--accent-soft); }
+  .rank-find-list :global(button span) { flex: none; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  .rank-find-status { min-height: 1.6em; margin: 6px 0 0; font-size: 0.9rem; }
+  .rank-find-status:empty { display: none; }
+  #muni-tables :global(tr.found td) { background: #fff3bf; }
+  #muni-tables :global(tr.found td:first-child) { box-shadow: inset 4px 0 0 var(--accent); }
 </style>
