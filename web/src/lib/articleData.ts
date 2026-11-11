@@ -49,7 +49,7 @@ export function areaName(entityId: string, withPref = true): string {
   return withPref ? `${m.name}（${pref}）` : m.name;
 }
 
-/** 地域の値を表示の形（単位つき）で。値がない・地域がないときは実データなら止める。町丁・字等（area-）も使える */
+/** 地域の値を、本文に書く形（単位つき。「64件」のように数と単位を詰める）で。値がない・地域がないときは実データなら止める。町丁・字等（area-）も使える */
 export function value(id: string, period: string, entityId: string): string {
   const ind = indicator(id);
   if (!ind) return "—";
@@ -57,7 +57,7 @@ export function value(id: string, period: string, entityId: string): string {
     ? loadValues(id, period, entityId.slice(5, 7))?.rows.find((r) => r.entity_id === entityId)
     : rows(id, period, entityId.startsWith("pref-") ? "prefecture" : "municipality").find((r) => r.entity_id === entityId);
   if (!row || row.value === null) return fail(`${id} の ${period} に ${entityId} の値がありません`) ?? "—";
-  return formatValue(row, ind);
+  return formatValue(row, ind, { inText: true });
 }
 
 /**
@@ -66,18 +66,24 @@ export function value(id: string, period: string, entityId: string): string {
  */
 export function nationalValue(id: string, period: string): string {
   const ind = indicator(id);
-  if (!ind) return "—";
+  const v = nationalRaw(id, period);
+  if (!ind || v === null) return "—";
+  return formatValue({ value: v, status: "derived" }, ind, { inText: true });
+}
+
+/** 全国の値そのもの（nationalValue と同じ計算。本文で単位を変えて書くとき）。出せないときは実データなら止める */
+export function nationalRaw(id: string, period: string): number | null {
+  const ind = indicator(id);
+  if (!ind) return null;
   const prefs = rows(id, period, "prefecture");
-  if (prefs.length === 0 || prefs.some((r) => r.value === null)) return fail(`${id} の ${period} に値のない都道府県があります`) ?? "—";
-  if (ind.kind === "count") {
-    return formatValue({ value: prefs.reduce((s, r) => s + (r.value as number), 0), status: "derived" }, ind);
-  }
+  if (prefs.length === 0 || prefs.some((r) => r.value === null)) return fail(`${id} の ${period} に値のない都道府県があります`);
+  if (ind.kind === "count") return prefs.reduce((s, r) => s + (r.value as number), 0);
   if (prefs.some((r) => r.numerator === undefined || r.denominator === undefined)) {
-    return fail(`${id} の ${period} の都道府県に分子・分母がありません`) ?? "—";
+    return fail(`${id} の ${period} の都道府県に分子・分母がありません`);
   }
   const num = prefs.reduce((s, r) => s + r.numerator!, 0);
   const den = prefs.reduce((s, r) => s + r.denominator!, 0);
-  return formatValue({ value: (num / den) * (ind.scale ?? 1), status: "derived" }, ind);
+  return (num / den) * (ind.scale ?? 1);
 }
 
 /** 値のある地域の数と、条件に当てはまる地域の数（prefCode を渡すと、その都道府県の市区町村だけで数える） */
@@ -134,6 +140,48 @@ export function raw(id: string, period: string, entityId: string): number | null
 export function oku(millionYen: number | null): string {
   if (millionYen === null) return "—";
   return millionYen >= 100 ? `約${formatNumber(Math.round(millionYen / 100), 0)}億円` : `${formatNumber(millionYen, 0)}百万円`;
+}
+
+/** 円の値を「約1,810万円」の形に（本文で読みやすく書くため。表は元の値のまま） */
+export function manYen(yen: number | null): string {
+  if (yen === null) return "—";
+  return `約${formatNumber(Math.round(yen / 10000), 0)}万円`;
+}
+
+/** 数を「6万6,680」「1億2,297万」の形に（1万未満は「4,575」のまま）。本文で人数や戸数を書くとき */
+export function man(n: number | null): string {
+  if (n === null) return "—";
+  const r = Math.round(n);
+  if (r < 10000) return formatNumber(r, 0);
+  const oku = Math.floor(r / 1e8);
+  const man = Math.floor((r % 1e8) / 10000);
+  const rest = r % 10000;
+  return `${oku ? `${formatNumber(oku, 0)}億` : ""}${man ? `${formatNumber(man, 0)}万` : ""}${rest ? formatNumber(rest, 0) : ""}`;
+}
+
+/** 数を「約117万」「約1万4,700」「約5,800」の形に丸める（10万以上は万、千以上は百の位まで）。step を渡すと、その位で丸める（1000 なら「約18万9,000」） */
+export function about(n: number | null, step?: number): string {
+  if (n === null) return "—";
+  const unit = step ?? (n >= 100000 ? 10000 : n >= 1000 ? 100 : 1);
+  return `約${man(Math.round(n / unit) * unit)}`;
+}
+
+/** 率の分子・分母（例: 空き家率の空き家の数と住宅の数）。ないときは実データなら止める */
+export function parts(id: string, period: string, entityId: string): { numerator: number | null; denominator: number | null } {
+  const row = rows(id, period, entityId.startsWith("pref-") ? "prefecture" : "municipality").find((r) => r.entity_id === entityId);
+  if (!row || row.numerator === undefined || row.denominator === undefined) {
+    fail(`${id} の ${period} に ${entityId} の分子・分母がありません`);
+    return { numerator: null, denominator: null };
+  }
+  return { numerator: row.numerator, denominator: row.denominator };
+}
+
+/** 順位の数（大きい方から。同じ値は同じ順位）。順位がないときは実データなら止める */
+export function rankNumber(id: string, period: string, entityId: string): number | null {
+  const level: ArticleLevel = entityId.startsWith("pref-") ? "prefecture" : "municipality";
+  const r = ranked(rows(id, period, level)).find((x) => x.entity_id === entityId);
+  if (!r || r.value === null) return fail(`${id} の ${period} に ${entityId} の順位がありません`);
+  return r.rank;
 }
 
 /** 本文の前提（「AはBより広い」など）を確かめる。崩れていれば実データでは止める */

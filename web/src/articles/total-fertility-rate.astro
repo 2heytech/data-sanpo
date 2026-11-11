@@ -1,7 +1,8 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, count, ranking, rankOf, raw, rows } from "../lib/articleData";
+import { check, count, ranking, rankNumber, rankOf, raw, rows } from "../lib/articleData";
 import { formatNumber } from "../lib/format";
 
 const ID = "total_fertility_rate";
@@ -24,7 +25,7 @@ const AKASHI = "muni-28203";
 const KURUME = "muni-40203";
 
 const ids = (list: { entity_id: string }[]) => list.map((r) => r.entity_id).join();
-// 本文の値は単位（人）をつけずに小数第2位まで（厚生労働省の公表の書き方と同じ）
+// 本文の値は小数第2位まで（厚生労働省の公表の書き方と同じ）
 const tfr = (period: string, entity: string) => { const v = raw(ID, period, entity); return v === null ? "—" : formatNumber(v, 2); };
 
 // 1〜3位は徳之島町・天城町・宜野座村
@@ -53,23 +54,43 @@ check(bigTop[0]?.entity_id === SASEBO && [bigTop[1], bigTop[2]].map((r) => r?.en
 check(ids(ranking(ID, P, "prefecture", "high", 4)) === ["pref-47", "pref-45", "pref-46", "pref-42"].join(), "都道府県の1〜4位が沖縄県・宮崎県・鹿児島県・長崎県ではありません");
 check(ranking(ID, P13, "prefecture", "high", 1)[0]?.entity_id === "pref-47", "2013〜2017年の都道府県の1位が沖縄県ではありません");
 check((raw(ID, P, ISEN) ?? 0) < 2, "伊仙町が2.0未満ではありません");
+
+// 結びの「2013〜2017年と比べると、市区町村の9割近くで下がった」「徳之島町も下がった」
+const before = new Map(rows(ID, P13, "municipality").map((r) => [r.entity_id, r.value]));
+const pairs = rows(ID, P, "municipality").flatMap((r) => {
+  const b = before.get(r.entity_id);
+  return r.value === null || b === null || b === undefined ? [] : [[b, r.value]];
+});
+const fell = pairs.length ? pairs.filter(([b, a]) => a < b).length / pairs.length : NaN;
+check(Number.isNaN(fell) || (fell >= 0.85 && fell < 0.9), "2013〜2017年より出生率が下がった市区町村が9割近くではありません");
+check((raw(ID, P, TOKUNOSHIMA) ?? 0) < (raw(ID, P13, TOKUNOSHIMA) ?? Infinity), "徳之島町の出生率が2013〜2017年より下がっていません");
+// 結びの「沖縄県は、子どものいる世帯の割合でも都道府県で1位」「南風原町と八重瀬町は、子どものいる世帯の割合でも全国の上位10」
+const HC = "households_with_children_share";
+const HAEBARU = "muni-47350";
+const YAESE = "muni-47362";
+check(rankNumber(HC, PP, "pref-47") === 1, "沖縄県の子どものいる世帯の割合が都道府県で1位ではありません");
+check([HAEBARU, YAESE].every((id) => (rankNumber(HC, PP, id) ?? 99) <= 10 && (rankNumber(ID, P, id) ?? 99) <= 10),
+  "南風原町・八重瀬町が、出生率と子どものいる世帯の割合の両方で上位10に入っていません");
 ---
 <Article slug="total-fertility-rate">
   <p>
-    合計特殊出生率は、15〜49歳の女性の年齢ごとの出生率を合計したもので、1人の女性が一生のうちに産む子どもの数の目安です。
-    厚生労働省は5年分をまとめて市区町村ごとの値を出していて、最新は2018〜2022年の値です。この値で、出生率が高い市区町村を見てみます。
-    同じ統計で、全国は1.33です。
+    合計特殊出生率が最も高い市区町村は、鹿児島県徳之島町の{tfr(P, TOKUNOSHIMA)}です（2018〜2022年）。
+    2位は同じ徳之島にある天城町の{tfr(P, AMAGI)}で、どちらも全国の1.33を大きく上回ります。
   </p>
-
-  <h2>1位は鹿児島県徳之島町</h2>
   <p>
-    1位は鹿児島県徳之島町の{tfr(P, TOKUNOSHIMA)}で、2位は同じ島にある天城町（{tfr(P, AMAGI)}）、3位は沖縄県宜野座村（{tfr(P, GINOZA)}）です。
-    2.0以上は{count(ID, P, "municipality", (v) => v >= 2)}市町村で、どれも鹿児島県と沖縄県の市町村です。
-    厚生労働省によると、市区町村の約6割は1.2以上1.5未満の値です。
+    合計特殊出生率は、15〜49歳の女性の年齢ごとの出生率を合計したもので、1人の女性が一生のうちに産む子どもの数の目安です。
+    厚生労働省は5年分をまとめて市区町村ごとの値を出していて、最新は2018〜2022年の値です。
   </p>
   <ArticleRanking id={ID} period={P} n={15} expect={[TOKUNOSHIMA, AMAGI, GINOZA]} caption="合計特殊出生率が高い市区町村（2018〜2022年）" />
 
-  <h2>徳之島の町は4回のうち3回1位</h2>
+  <h2>2.0以上の{count(ID, P, "municipality", (v) => v >= 2)}市町村は、どれも鹿児島県と沖縄県</h2>
+  <p>
+    3位は沖縄県宜野座村（{tfr(P, GINOZA)}）です。2.0以上の{count(ID, P, "municipality", (v) => v >= 2)}市町村のうち、
+    {over2.filter((r) => r.entity_id.startsWith("muni-46")).length}つが鹿児島県、{over2.filter((r) => r.entity_id.startsWith("muni-47")).length}つが沖縄県の市町村です。
+    厚生労働省によると、市区町村の約6割は1.2以上1.5未満の値で、2.0以上はごく一部です。
+  </p>
+
+  <h2>徳之島の町は、4回のうち3回1位</h2>
   <p>
     徳之島は奄美群島の島で、徳之島町・天城町・伊仙町の3つの町があります。伊仙町も{tfr(P, ISEN)}（{rankOf(ID, P, ISEN)}）と高い値です。
     厚生労働省が市区町村別の値を公表した直近の4回の1位を並べると、4回のうち3回は徳之島の町が1位になっています。
@@ -96,21 +117,33 @@ check((raw(ID, P, ISEN) ?? 0) < 2, "伊仙町が2.0未満ではありません")
 
   <h2>市では沖縄県宮古島市</h2>
   <p>
-    市だけで比べると、1位は沖縄県宮古島市（{tfr(P, MIYAKOJIMA)}）で、糸満市（{tfr(P, ITOMAN)}）、豊見城市（{tfr(P, TOMIGUSUKU)}）と沖縄県の市が続きます。
+    市だけで比べると、1位は沖縄県宮古島市（{tfr(P, MIYAKOJIMA)}）で、2位は糸満市（{tfr(P, ITOMAN)}）、3位は豊見城市（{tfr(P, TOMIGUSUKU)}）と、沖縄県の市が上位に入ります。
     沖縄県のほかでは、滋賀県栗東市と長崎県平戸市（{tfr(P, RITTO)}）が最も高い市です。
   </p>
   <p>
     人口20万人以上の市区町村（2025年国勢調査、政令指定都市は区ごと）に限ると、1位は長崎県佐世保市（{tfr(P, SASEBO)}）で、
-    兵庫県明石市と福岡県久留米市（{tfr(P, AKASHI)}）が続きます。
+    2位は兵庫県明石市と福岡県久留米市（{tfr(P, AKASHI)}）です。
   </p>
   <ArticleRanking id={ID} period={P} kind="市" n={10} expect={[MIYAKOJIMA, ITOMAN, TOMIGUSUKU, RITTO, HIRADO]} caption="合計特殊出生率が高い市（2018〜2022年）" />
 
   <h2>都道府県では沖縄県</h2>
   <p>
-    都道府県では、沖縄県（{tfr(P, "pref-47")}）が1位で、宮崎県（{tfr(P, "pref-45")}）、鹿児島県（{tfr(P, "pref-46")}）、長崎県（{tfr(P, "pref-42")}）が続きます。
+    都道府県では、沖縄県（{tfr(P, "pref-47")}）が1位で、宮崎県（{tfr(P, "pref-45")}）、鹿児島県（{tfr(P, "pref-46")}）、長崎県（{tfr(P, "pref-42")}）の順です。
     上位には九州・沖縄の県が多く入ります。沖縄県は2013〜2017年（{tfr(P13, "pref-47")}）も1位でした。
   </p>
   <ArticleRanking id={ID} period={P} level="prefecture" n={8} expect={["pref-47", "pref-45", "pref-46", "pref-42"]} caption="合計特殊出生率が高い都道府県（2018〜2022年）" />
+
+  <h2>出生率の高いまちでも、値は下がっている</h2>
+  <p>
+    出生率が最も高いのは徳之島の町で、上位は鹿児島県と沖縄県の市町村が占めていました。
+    沖縄県の南風原町と八重瀬町は、子どものいる世帯の割合でも全国の上位10に入っています（2025年国勢調査）。
+    <ArticleLink slug="households-with-children">沖縄県が子どものいる世帯の割合でも都道府県の1位であること</ArticleLink>
+  </p>
+  <p>
+    ただ、値そのものは下がってきています。2013〜2017年と比べると、全国の市区町村の9割近くで出生率が下がり、
+    徳之島町も{tfr(P13, TOKUNOSHIMA)}から{tfr(P, TOKUNOSHIMA)}になりました。
+    地図の時点を切り替えると、2013〜2017年の値と見比べられます。
+  </p>
   <p class="map-links">
     <a class="button" href={`/map/?i=${ID}&p=${P}&a=${TOKUNOSHIMA}&l=municipality`}>合計特殊出生率を地図で見る</a>
   </p>

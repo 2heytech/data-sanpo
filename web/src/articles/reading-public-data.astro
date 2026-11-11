@@ -1,5 +1,6 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import { areaName, ranking, rankOf, value } from "../lib/articleData";
 
 const TA = "2025-01-01";
@@ -22,6 +23,7 @@ ranking("population_change_rate", "2025-10-01", "municipality", "high", 1, ["mun
     外国人住民の数が最も多い市区町村は埼玉県川口市で{value("foreign_residents", F, "muni-11203")}です。
     一方、外国人住民の<em>割合</em>が最も高いのは北海道赤井川村（{value("foreign_residents_share", F, "muni-01409")}）で、人数は{value("foreign_residents", F, "muni-01409")}です。
     数は人口の多いまちほど大きくなりやすく、割合は人口の少ないまちで極端な値になりやすい。どちらが正しいということではなく、何を知りたいかで使い分けます。
+    <ArticleLink slug="foreign-residents">赤井川村で外国人住民の割合が高い理由</ArticleLink>
   </p>
 
   <h2>2. 何で割るかで、同じ件数がまったく違って見える</h2>
@@ -30,6 +32,7 @@ ranking("population_change_rate", "2025-10-01", "municipality", "high", 1, ["mun
     ところが、同じ件数を昼間人口100人当たりにすると{rankOf("traffic_accidents_per_100_daytime", TA, "muni-13101")}です。
     千代田区は住んでいる人が少なく、昼間に通勤・通学で多くの人が集まるまちだからです。
     データさんぽでは、交通事故などの件数に「住民100人当たり」と「昼間人口100人当たり」の両方を載せています。
+    <ArticleLink slug="daytime-population">千代田区に昼間どれだけの人が集まるか</ArticleLink>
   </p>
 
   <h2>3. 小さな地域の割合は、少しの人数で大きく動く</h2>
@@ -37,6 +40,7 @@ ranking("population_change_rate", "2025-10-01", "municipality", "high", 1, ["mun
     2025年の国勢調査で人口増加率が全国で最も高かったのは福島県大熊町（{value("population_change_rate", "2025-10-01", "muni-07545")}）ですが、
     増えた人数は数百人です。人口の少ない地域では、数人・数十人の違いで割合が大きく動きます。
     データさんぽでは、分母（対象の人数や世帯数）が50未満の地域の割合は、偶然の変動が大きいため表示していません。
+    <ArticleLink slug="population-change-2025">大熊町の人口が増えた事情</ArticleLink>
   </p>
 
   <h2>4. 市区町村の値は、中の地域の違いを隠す</h2>
@@ -45,6 +49,7 @@ ranking("population_change_rate", "2025-10-01", "municipality", "high", 1, ["mun
     {areaName(TAMA_HIGH)}は{value("aged_65_plus_share", "2020-10-01", TAMA_HIGH)}、{areaName(TAMA_LOW)}は{value("aged_65_plus_share", "2020-10-01", TAMA_LOW)}と、
     同じ市の中でも大きく違います。逆に、町丁目の値がない統計を、人口などで町丁目に割り振って細かく見せることはしていません。
     元のデータより細かい地域の値を作ると、実際にはない違いを見せてしまうからです。
+    <ArticleLink slug="aging-rate">多摩市の町丁目ごとの65歳以上の割合の違い</ArticleLink>
   </p>
 
   <h2>5. 「値なし」は0ではない</h2>

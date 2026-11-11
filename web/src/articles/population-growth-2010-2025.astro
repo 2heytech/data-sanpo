@@ -1,12 +1,19 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleGrowthRanking from "../components/ArticleGrowthRanking.astro";
-import { check, nationalValue, ranking, raw, steadyGrowth, value } from "../lib/articleData";
+import { about, areaName, check, man, nationalRaw, rankNumber, ranking, raw, steadyGrowth } from "../lib/articleData";
 import { formatNumber } from "../lib/format";
 
 const ID = "population_total";
 const CENSUS = ["2010-10-01", "2015-10-01", "2020-10-01", "2025-10-01"];
+const P10 = "2010-10-01";
 const P = "2025-10-01";
+const OSAKA_CHUO = "muni-27128";
+const NAGAREYAMA = "muni-12220";
+const NAGAKUTE = "muni-23238";
+const NAKAGUSUKU = "muni-47328";
+const YAESE = "muni-47362";
 const munis = steadyGrowth(ID, CENSUS, "municipality");
 const prefs = steadyGrowth(ID, CENSUS, "prefecture");
 // 本文の「都道府県で増え続けたのは東京都だけ」を確かめる
@@ -17,47 +24,79 @@ if (kumamoto.every((v) => v !== null)) check(kumamoto[1]! < kumamoto[0]!, "熊�
 // 「全国の1割ほど」「沖縄県は子どもの割合が高い」を確かめる
 check(munis.total === 0 || (munis.rows.length / munis.total > 0.07 && munis.rows.length / munis.total < 0.13), "増え続けた市区町村が1割ほどではありません");
 ranking("children_0_14_share", P, "prefecture", "high", 1, ["pref-47"]);
+// 2010年から2025年までに人口が何倍になったか
+const times = (id: string) => (raw(ID, P, id) ?? NaN) / (raw(ID, P10, id) ?? NaN);
+// 書き出しの「増え方がいちばん大きい大阪市中央区は、15年で1.5倍」
+const top20 = munis.rows.slice(0, 20);
+check(munis.total === 0 || (top20[0]?.entity_id === OSAKA_CHUO && formatNumber(times(OSAKA_CHUO), 1) === "1.5"),
+  "増え方がいちばん大きいのが大阪市中央区（1.5倍）ではありません");
+// 「上位20のうち〇は大都市の区」
+const wards = top20.filter((r) => areaName(r.entity_id, false).endsWith("区")).length;
+check(munis.total === 0 || wards > 10, "増加率の上位20のうち、大都市の区が半分を超えていません");
+// 「流山市は15年で3割、長久手市・中城村は2割以上増えた」
+check(munis.total === 0 || (times(NAGAREYAMA) >= 1.3 && times(NAGAKUTE) >= 1.2 && times(NAKAGUSUKU) >= 1.2), "流山市・長久手市・中城村の増え方が本文と合いません");
+// 「八重瀬町は子どものいる世帯の割合でも全国3位」
+const yaeseRank = rankNumber("households_with_children_share", P, YAESE);
+check(yaeseRank !== null && yaeseRank <= 5, "八重瀬町の子どものいる世帯の割合が全国の上位5位に入っていません");
 ---
 <Article slug="population-growth-2010-2025">
   <p>
-    日本の人口は、国勢調査で2015年の{nationalValue(ID, "2015-10-01")}から2025年は{nationalValue(ID, P)}に減りました。
-    そのなかで、2010年・2015年・2020年・2025年と、国勢調査のたびに人口が増え続けた市区町村があります。
-    どんなまちが増え続けたのかを見ていきます。
+    2010年から2025年までの4回の国勢調査で、毎回人口が増えた市区町村は{formatNumber(munis.rows.length, 0)}あります。
+    全国のおよそ1割です。増え方がいちばん大きい大阪市中央区は、15年で人口が{formatNumber(times(OSAKA_CHUO), 1)}倍になりました。
   </p>
-
-  <h2>15年間増え続けたのは、全国の1割ほど</h2>
   <p>
-    4回の国勢調査のどれにも値のある{formatNumber(munis.total, 0)}市区町村のうち、毎回増えたのは{formatNumber(munis.rows.length, 0)}です。
-    都道府県では、増え続けたのは東京都だけでした。
+    この間、全国の人口は2015年の{about(nationalRaw(ID, "2015-10-01"))}人から2025年は{about(nationalRaw(ID, P))}人に減っています。
+    人口が減るなかで増え続けたのは、どんなまちだったのでしょうか。上位の顔ぶれは、大きく4つに分けられます。
   </p>
   <ArticleGrowthRanking id={ID} periods={CENSUS} n={20} valueLabel="2010→2025年の増加率"
-    expect={["muni-27128", "muni-13102", "muni-27111", "muni-27106", "muni-23106", "muni-13103", "muni-12220", "muni-47328", "muni-08220", "muni-12231", "muni-40224", "muni-19384", "muni-47362", "muni-23238"]}
+    expect={[OSAKA_CHUO, "muni-13102", "muni-27111", "muni-27106", "muni-23106", "muni-13103", NAGAREYAMA, NAKAGUSUKU, "muni-08220", "muni-12231", "muni-40224", "muni-19384", YAESE, NAGAKUTE]}
     caption="2010年から人口が増え続けた市区町村（2010→2025年の増加率の大きい順）" />
 
   <h2>大都市の真ん中</h2>
   <p>
-    増加率の上位には、大阪市中央区、東京都中央区、大阪市浪速区・西区、名古屋市中区、東京都港区など、大都市の中心部が並びます。
-    大阪市中央区は2010年の{value(ID, "2010-10-01", "muni-27128")}から2025年は{value(ID, P, "muni-27128")}になりました。
+    増加率の上位20のうち{wards}は、大阪市・東京都・名古屋市・福岡市の中心部の区です。
+    1位の大阪市中央区は、2010年の{man(raw(ID, P10, OSAKA_CHUO))}人から2025年は{man(raw(ID, P, OSAKA_CHUO))}人になりました。
+    2位の東京都中央区も{man(raw(ID, P10, "muni-13102"))}人から{man(raw(ID, P, "muni-13102"))}人へ増えています。
     都心に高層のマンションが多く建ち、職場の近くに住む人が増えたと考えられます。
   </p>
 
   <h2>新しい鉄道や住宅地のある郊外</h2>
   <p>
-    千葉県流山市、茨城県つくば市は、2005年に開業したつくばエクスプレスの沿線です。千葉県印西市には、千葉ニュータウンの住宅地が広がります。
+    千葉県流山市と茨城県つくば市は、2005年に開業したつくばエクスプレスの沿線です。流山市の人口は15年で3割増え、{man(raw(ID, P, NAGAREYAMA))}人になりました。
+    千葉県印西市には、千葉ニュータウンの住宅地が広がります。
     都心へ通いやすい新しい住宅地に、子育て中の家族などが移り住んできたと考えられます。
   </p>
 
   <h2>大きな都市に近いまち</h2>
   <p>
     名古屋市の東どなりの愛知県長久手市、甲府市のとなりの山梨県昭和町、福岡市と北九州市の間にある福岡県福津市など、
-    大きな都市に近いまちも増え続けています。都市へ通いやすく、住宅地として選ばれているようです。
+    大きな都市に近いまちも増え続けています。どのまちも、15年で人口が2割以上増えました。
+    都市へ通いやすく、住宅地として選ばれているようです。
   </p>
 
   <h2>沖縄県のまち</h2>
   <p>
     沖縄県中城村・八重瀬町など、那覇市から通える沖縄本島南部・中部の町村も上位に入ります。沖縄県は15歳未満の割合が全国で最も高く、
     生まれる子どもの多さと、移り住む人の両方で増えてきたと考えられます。
+    八重瀬町は、子どものいる世帯の割合でも全国{yaeseRank}位です。
+    <ArticleLink slug="households-with-children">子どものいる世帯の割合が高いまち</ArticleLink>
   </p>
+
+  <h2>都道府県で増え続けたのは、東京都だけ</h2>
+  <p>
+    都道府県で見ると、4回の国勢調査で毎回人口が増えたのは東京都だけでした。
+    東京都の人口は2010年の{about(raw(ID, P10, "pref-13"))}人から2025年は{about(raw(ID, P, "pref-13"))}人になっています。
+    <ArticleLink slug="population-change-2025">2025年の国勢調査で人口が増えた都道府県も東京都だけだったこと</ArticleLink>
+  </p>
+
+  <h2>増え続けるまちは、大都市とその近くに集まる</h2>
+  <p>
+    15年間増え続けたまちは、大都市の真ん中か、そこへ通いやすい場所に集まっていました。
+    沖縄県のまちは、子どもの多さでも増えています。
+    全国の9割のまちでは、この15年のどこかで人口が減りました。
+    自分のまちがどちらに入るのか、地図で時点のスライドバーを動かして確かめてみてください。
+  </p>
+  <p><a class="button" href={`/map/?i=population_change_rate&p=${P}&l=municipality`}>人口増加率を地図で見る</a></p>
 
   <h2>読むときの注意</h2>
   <ul>
@@ -65,5 +104,4 @@ ranking("children_0_14_share", P, "prefecture", "high", 1, ["pref-47"]);
     <li>2024年に区を再編した浜松市の旧区（2025年の値がない）と、2012年に区ができた熊本市の区（2010年の値がない）は数に入れていません。</li>
     <li>増加率は2010年と2025年の人口から計算した値です。途中の年は「前の回より増えたか」だけを見ています。</li>
   </ul>
-  <p><a class="button" href={`/map/?i=population_change_rate&p=${P}&l=municipality`}>人口増加率を地図で見る</a></p>
 </Article>

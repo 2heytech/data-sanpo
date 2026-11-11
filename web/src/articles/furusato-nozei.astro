@@ -1,16 +1,46 @@
 ---
 import { RAKUTEN_FURUSATO_TOP, rakutenAffiliateUrl } from "../lib/rakuten";
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
 import { formatNumber } from "../lib/format";
-import { check, oku, ranking, raw, rows, value } from "../lib/articleData";
+import { check, man, manYen, oku, parts, rankNumber, ranking, raw, rows } from "../lib/articleData";
 
 const P = "2025-04-01";
 const ID = "furusato_amount";
 const PC = "furusato_amount_per_capita";
+const SHIRANUKA = "muni-01668";
+const BETSUKAI = "muni-01691";
+const KITAYAMA = "muni-30427";
+const IZUMISANO = "muni-27213";
 // 題名の「住民1人あたり300万円を超える町」: 1人あたりの1位が白糠町で、300万円を超える
-ranking(PC, P, "municipality", "high", 1, ["muni-01668"]);
-check((raw(PC, P, "muni-01668") ?? 0) > 3000000, "白糠町の住民1人あたりの受入額が300万円を超えていません");
+ranking(PC, P, "municipality", "high", 1, [SHIRANUKA]);
+check((raw(PC, P, SHIRANUKA) ?? 0) > 3000000, "白糠町の住民1人あたりの受入額が300万円を超えていません");
+// 「2位の別海町の2倍以上」
+check((raw(PC, P, SHIRANUKA) ?? 0) > 2 * (raw(PC, P, BETSUKAI) ?? Infinity) && rankNumber(PC, P, BETSUKAI) === 2,
+  "白糠町の1人あたりの額が、2位の別海町の2倍以上ではありません");
+// 白糠町の人口（1人あたりの額の分母）と、それがどの年の国勢調査の人口か。分母の人口の年が変わっても本文が合うように、値から確かめて書く
+const shiranukaPop = parts(PC, P, SHIRANUKA).denominator;
+const censusYear = ["2025", "2020"].find((y) => raw("population_total", `${y}-10-01`, SHIRANUKA) === shiranukaPop);
+check(censusYear !== undefined, "住民1人あたりの額の分母が、2020年・2025年の国勢調査の人口のどちらでもありません");
+const thousands = Math.floor((shiranukaPop ?? 0) / 1000);
+// 「1人あたりの1位は2023年度から3年続けて白糠町、その前の3年は北山村」
+check(["2023-04-01", "2024-04-01", P].every((p) => rankNumber(PC, p, SHIRANUKA) === 1)
+  && ["2020-04-01", "2021-04-01", "2022-04-01"].every((p) => rankNumber(PC, p, KITAYAMA) === 1),
+  "住民1人あたりの受入額の1位の移り変わりが本文と合いません");
+// 「白糠町の受入額は、2015年度から10年で100倍以上」
+const P10 = "2015-04-01";
+check((raw(ID, P, SHIRANUKA) ?? 0) > 100 * (raw(ID, P10, SHIRANUKA) ?? Infinity), "白糠町の受入額が10年で100倍以上になっていません");
+// 「金額の合計でも全国2位」
+check(rankNumber(ID, P, SHIRANUKA) === 2 && rankNumber(ID, P, IZUMISANO) === 1, "受入額の1位・2位が泉佐野市・白糠町ではありません");
+// 「別海町は農業産出額が全国3位」
+check(rankNumber("agri_output", "2024-01-01", BETSUKAI) === 3, "別海町の農業産出額が全国3位ではありません");
+// 「上位10のうち4つが北海道」
+const top10 = ranking(ID, P, "municipality", "high", 10, [IZUMISANO, SHIRANUKA, "muni-45202", BETSUKAI]);
+const hokkaido = top10.filter((r) => r.entity_id.startsWith("muni-01")).length;
+// 「上位4つが200億円を超える」「人口〇千人あまりの町」
+check(top10.filter((r) => (r.value ?? 0) > 20000).length === 4, "受入額が200億円を超える市区町村が4つではありません");
+check(thousands >= 5 && thousands <= 8, "白糠町の人口が5千〜8千人台ではありません");
 // 全国の合計（都道府県の値＝県と県内の市区町村の受入の合計、を足したもの）。値のない県があれば出さない
 const prefRows = rows(ID, P, "prefecture");
 const total = prefRows.length && prefRows.every((r) => r.value !== null) ? prefRows.reduce((s, r) => s + (r.value as number), 0) : null;
@@ -19,35 +49,57 @@ const rakuten = rakutenAffiliateUrl(RAKUTEN_FURUSATO_TOP);
 ---
 <Article slug="furusato-nozei">
   <p>
+    北海道白糠町の人口は{man(shiranukaPop)}人です（{censusYear}年国勢調査）。この町に、2025年度の1年間で{oku(raw(ID, P, SHIRANUKA))}のふるさと納税が集まりました。
+    住民1人あたりにすると{manYen(raw(PC, P, SHIRANUKA))}で、全国の市区町村でいちばん多い額です。
+  </p>
+  <p>
     ふるさと納税は、住んでいる自治体以外にも寄附ができ、その分が住民税などから差し引かれる仕組みです。
     2025年度（2025年4月〜2026年3月）に全国の自治体が受け入れた額は、合わせて{cho}でした。
-    どの自治体に多く集まっているのかを、金額と、住民1人あたりの額の両方で見てみます。
+    これを住民1人あたりの額で比べると、人口の少ない町や村が上位に入ります。
+  </p>
+  <ArticleRanking id={PC} period={P} n={10} expect={[SHIRANUKA, BETSUKAI]} caption="ふるさと納税の受入額（住民1人あたり）が多い市区町村（2025年度）" />
+
+  <h2>白糠町は、3年続けて1位</h2>
+  <p>
+    白糠町は北海道の東部、太平洋に面した町です。住民1人あたりの額は、2位の別海町（{manYen(raw(PC, P, BETSUKAI))}）の2倍を超えています。
+    町の受入額は2015年度には{oku(raw(ID, P10, SHIRANUKA))}でしたが、10年で100倍以上に増えました。
+    金額の合計でも、大阪府泉佐野市に次ぐ全国2位です。
+  </p>
+  <p>
+    住民1人あたりの額の1位は、2023年度から3年続けて白糠町です。その前の3年は、和歌山県北山村でした。
+    北山村は人口{man(parts(PC, P, KITAYAMA).denominator)}人の村で、2025年度も{rankNumber(PC, P, KITAYAMA)}位に入っています。
+    人口の少ない町や村では、寄附が集まると、1人あたりの額がとても大きくなります。
+  </p>
+  <p>
+    2位の別海町は、酪農のさかんな町です。
+    <ArticleLink slug="agri-output-2024">別海町の農業産出額が全国3位であること</ArticleLink>
   </p>
 
-  <h2>受入額の多い自治体</h2>
-  <ArticleRanking id={ID} period={P} n={10} expect={["muni-27213", "muni-01668", "muni-45202", "muni-01691"]} caption="ふるさと納税の受入額が多い市区町村（2025年度）" />
+  <h2>金額の合計では、泉佐野市が1位</h2>
+  <ArticleRanking id={ID} period={P} n={10} expect={[IZUMISANO, SHIRANUKA, "muni-45202", BETSUKAI]} caption="ふるさと納税の受入額が多い市区町村（2025年度）" />
   <p>
-    1位は大阪府泉佐野市で{oku(raw(ID, P, "muni-27213"))}、北海道白糠町（{oku(raw(ID, P, "muni-01668"))}）、
-    宮崎県都城市（{oku(raw(ID, P, "muni-45202"))}）、北海道別海町（{oku(raw(ID, P, "muni-01691"))}）が続きます。
-    上位には、肉や魚介などの特産品を返礼品にしている自治体が多いようで、北海道の自治体が目立ちます。
+    受入額の合計では、大阪府泉佐野市が{oku(raw(ID, P, IZUMISANO))}で1位です。白糠町、宮崎県都城市（{oku(raw(ID, P, "muni-45202"))}）、別海町と、
+    上位4つが200億円を超えています。上位10のうち{hokkaido}つは北海道の自治体で、肉や魚介などの特産品を返礼品にしている自治体が多いようです。
+  </p>
+  <p>
     都道府県ごとに県と県内の市区町村の受入額を合計すると、北海道が{oku(raw(ID, P, "pref-01"))}で、2位の県を大きく引き離しています。
   </p>
   <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-01"]} caption="ふるさと納税の受入額が多い都道府県（県と県内の市区町村の合計、2025年度）" />
 
-  <h2>住民1人あたりで見ると</h2>
+  <h2>順位は、年度によって入れ替わる</h2>
   <p>
-    自治体の規模をならすため、受入額を住民の数（2020年国勢調査の人口）で割ると、顔ぶれが変わります。
-    白糠町は住民1人あたり{value(PC, P, "muni-01668")}で、町の人口の小ささに比べて非常に多くの寄附が集まっています。
-    北海道別海町、福岡県赤村、和歌山県北山村など、人口の少ない町村が上位に並びます。
+    住民1人あたり300万円を超える町は、北海道の白糠町でした。人口{thousands}千人あまりの町に、1年で200億円を超える寄附が集まっています。
+    ただ、1人あたりの1位が北山村から白糠町に入れ替わったように、ふるさと納税の順位は年度によって大きく動きます。
+    地図の時点のスライドバーを動かすと、2008年度からの移り変わりを見られます。
   </p>
-  <ArticleRanking id={PC} period={P} n={10} expect={["muni-01668", "muni-01691"]} caption="ふるさと納税の受入額（住民1人あたり）が多い市区町村（2025年度）" />
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>ふるさと納税の受入額を地図で見る</a></p>
 
   <h2>読むときの注意</h2>
   <ul>
     <li>受入額は、返礼品の調達や送料、事務の経費を差し引く前の額です。自治体の手元に残る額はこれより少なくなります。</li>
     <li>寄附を受けた側の額です。住民がほかの自治体に寄附したことで減った住民税は含みません。都市部の自治体では、受け入れより流出の方が大きいところもあります。</li>
+    <li>住民1人あたりの額は、受入額を{censusYear}年国勢調査の人口で割った値です。</li>
     <li>政令指定都市は市全体の値しか公表されていないため、区ごとの値はありません。</li>
-    <li>返礼品の基準の見直しなどで、年度によって順位が大きく入れ替わることがあります。地図の時点のスライドバーで、過去の年度と比べられます。</li>
   </ul>
   {rakuten && (
     <>
@@ -61,5 +113,4 @@ const rakuten = rakutenAffiliateUrl(RAKUTEN_FURUSATO_TOP);
       </p>
     </>
   )}
-  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>ふるさと納税の受入額を地図で見る</a></p>
 </Article>

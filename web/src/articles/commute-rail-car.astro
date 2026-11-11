@@ -1,28 +1,49 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, nationalValue, ranking, raw, value } from "../lib/articleData";
+import { check, count, nationalRaw, nationalValue, ranking, raw, value } from "../lib/articleData";
 
 const P = "2020-10-01";
 const CAR = "commute_car_share";
 const RAIL = "commute_rail_share";
 const BIKE = "commute_bicycle_share";
-// 題名の「車で通う人が8割を超える県」: 自家用車の割合が最も高いのが山形県で、80%を超える
+const IKUNO = "muni-27116";
+// 題名の「車で通う人が8割を超える県」: 自家用車の割合が最も高いのが山形県で、80%を超える。最も低いのは東京都
 ranking(CAR, P, "prefecture", "high", 1, ["pref-06"]);
+ranking(CAR, P, "prefecture", "low", 1, ["pref-13"]);
 check((raw(CAR, P, "pref-06") ?? 0) > 80, "山形県の自家用車の割合が8割を超えていません");
+// 「山形県と東京都で8倍近い差」
+const gap = (raw(CAR, P, "pref-06") ?? 0) / (raw(CAR, P, "pref-13") ?? Infinity);
+check(gap >= 7.5 && gap < 8, "山形県と東京都の自家用車の割合の差が「8倍近く」ではありません");
+// 「8割を超える県は4つ」
+const over80 = count(CAR, P, "prefecture", (v) => v > 80);
+// 「自転車は大阪市生野区が市区町村で最も高く、都道府県では大阪府が最も高い。最も低いのは長崎県」
+ranking(BIKE, P, "municipality", "high", 1, [IKUNO]);
+ranking(BIKE, P, "prefecture", "high", 1, ["pref-27"]);
+ranking(BIKE, P, "prefecture", "low", 1, ["pref-42"]);
+// 「生野区の自転車の割合は、全国のおよそ3倍」
+const bikeTimes = (raw(BIKE, P, IKUNO) ?? 0) / (nationalRaw(BIKE, P) ?? Infinity);
+check(bikeTimes >= 2.7 && bikeTimes < 3.3, "生野区の自転車の割合が全国のおよそ3倍ではありません");
+// 「千代田区・中央区の鉄道の割合は、杉並区より低い」
+check(["muni-13101", "muni-13102"].every((id) => (raw(RAIL, P, id) ?? Infinity) < (raw(RAIL, P, "muni-13115") ?? 0)),
+  "千代田区・中央区の鉄道の割合が杉並区より低くありません");
 ---
 <Article slug="commute-rail-car">
   <p>
-    国勢調査では、ふだんの通勤・通学に使う交通手段を尋ねています。2020年の調査で、15歳以上の通勤者・通学者のうち
+    通勤・通学に自家用車を使う人は、山形県では{value(CAR, P, "pref-06")}、東京都では{value(CAR, P, "pref-13")}です。
+    同じ国の中で、8倍近い差があります（2020年国勢調査）。
+  </p>
+  <p>
+    国勢調査では、ふだんの通勤・通学に使う交通手段を尋ねています。15歳以上の通勤者・通学者のうち、
     自家用車を使う人は全国で{nationalValue(CAR, P)}、鉄道・電車を使う人は{nationalValue(RAIL, P)}でした。
     全国では車の方が多いものの、どちらが多いかは地域によって正反対です。
   </p>
 
-  <h2>車の県、電車の都府県</h2>
+  <h2>車が8割を超える県は{over80}つ</h2>
   <p>
-    自家用車の割合が最も高いのは山形県（{value(CAR, P, "pref-06")}）で、秋田県、富山県、福井県、福島県が続きます。
-    いずれも8割前後の人が車で通勤・通学しています。最も低いのは東京都（{value(CAR, P, "pref-13")}）で、
-    神奈川県、大阪府も2割ほどです。
+    自家用車の割合が8割を超えるのは、山形県、秋田県（{value(CAR, P, "pref-05")}）、富山県、福井県の{over80}県です。
+    5位の福島県も8割近くあります。反対に最も低いのは東京都で、神奈川県と大阪府も2割ほどです。
   </p>
   <ArticleRanking id={CAR} period={P} level="prefecture" n={5} expect={["pref-06"]} caption="通勤・通学に自家用車を使う人の割合が高い都道府県（2020年）" />
   <ArticleRanking id={CAR} period={P} level="prefecture" order="low" n={5} expect={["pref-13"]} caption="通勤・通学に自家用車を使う人の割合が低い都道府県（2020年）" />
@@ -32,23 +53,44 @@ check((raw(CAR, P, "pref-06") ?? 0) > 80, "山形県の自家用車の割合が8
     沖縄県の鉄道は那覇市などを走るモノレール（ゆいレール）だけで、通勤・通学は車が中心です。
   </p>
 
-  <h2>市区町村で見ると</h2>
+  <h2>電車で通う人が多いのは、都心の少し外側</h2>
   <p>
-    市区町村では、自家用車の割合が9割を超えるまちが東北や北関東を中心にあります。
-    鉄道の割合が高いのは、東京都の杉並区（{value(RAIL, P, "muni-13115")}）や川崎市中原区（{value(RAIL, P, "muni-14133")}）のような、
-    都心へ電車で通う人が多い住宅のまちです。都心の千代田区や中央区は、職場まで歩いて通える人も多いため、鉄道の割合はこれらのまちより低くなります。
+    市区町村で鉄道の割合が高いのは、東京都の杉並区（{value(RAIL, P, "muni-13115")}）や川崎市中原区（{value(RAIL, P, "muni-14133")}）のような、
+    都心へ電車で通う人が多い住宅のまちです。都心そのものである千代田区（{value(RAIL, P, "muni-13101")}）や中央区は、これらのまちより低くなります。
+    職場まで歩いて通える人も多いためと考えられます。
   </p>
   <ArticleRanking id={RAIL} period={P} n={6} expect={["muni-13115", "muni-14133"]} caption="通勤・通学に鉄道・電車を使う人の割合が高い市区町村（2020年）" />
+  <p>
+    自家用車の割合が9割を超える市区町村は{count(CAR, P, "municipality", (v) => v > 90)}あり、東北や北関東の町や村が中心です。
+  </p>
   <ArticleRanking id={CAR} period={P} n={6} caption="通勤・通学に自家用車を使う人の割合が高い市区町村（2020年）" />
 
   <h2>自転車のまち、大阪</h2>
   <p>
-    自転車で通勤・通学する人の割合は、大阪府（{value(BIKE, P, "pref-27")}）が都道府県で最も高く、
-    市区町村の上位にも大阪市生野区・平野区や門真市・守口市など大阪府のまちが並びます。
+    車でも電車でもなく、自転車が目立つ地域もあります。大阪市生野区では、通勤・通学する人の{value(BIKE, P, IKUNO)}が自転車を使います。
+    全国の{nationalValue(BIKE, P)}のおよそ3倍です。上位には大阪市平野区や門真市・守口市など、大阪府のまちが多く入り、
+    都道府県でも大阪府（{value(BIKE, P, "pref-27")}）が最も高くなっています。
+  </p>
+  <p>
     平らな土地に住宅と工場・商店が近く集まり、自転車で行ける距離に職場や駅があるためと考えられます。
     京都市上京区のように、大学や職場が近い京都の中心部も高めです。
+    反対に、都道府県で最も低いのは長崎県（{value(BIKE, P, "pref-42")}）でした。
+    坂の多い土地では、自転車が使いにくいためと思われます。
+    <ArticleLink slug="slope-building">長崎市のように坂の多いまち</ArticleLink>
   </p>
-  <ArticleRanking id={BIKE} period={P} n={6} expect={["muni-27116", "muni-27126", "muni-27223", "muni-27209"]} caption="通勤・通学に自転車を使う人の割合が高い市区町村（2020年）" />
+  <ArticleRanking id={BIKE} period={P} n={6} expect={[IKUNO, "muni-27126", "muni-27223", "muni-27209"]} caption="通勤・通学に自転車を使う人の割合が高い市区町村（2020年）" />
+
+  <h2>通い方には、まちのつくりが表れる</h2>
+  <p>
+    車で通う人が8割を超える県は、山形県をはじめとする東北と北陸の{over80}県でした。
+    鉄道の網が細かい東京のまわりでは電車、平らな土地に職場と住宅が集まる大阪では自転車、それ以外の多くの地域では車と、
+    通い方にはそのまちのつくりが表れます。
+    自分のまちでは車と電車のどちらが多いか、地図で確かめてみてください。
+  </p>
+  <p>
+    <a class="button" href={`/map/?i=${CAR}&p=${P}&l=municipality`}>自家用車の割合を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${RAIL}&p=${P}&l=municipality`}>鉄道・電車の割合を地図で見る</a>
+  </p>
 
   <h2>読むときの注意</h2>
   <ul>
@@ -56,8 +98,4 @@ check((raw(CAR, P, "pref-06") ?? 0) > 80, "山形県の自家用車の割合が8
     <li>住んでいる地域で数えた値です。勤め先や学校のある地域の値ではありません。</li>
     <li>15歳以上の通勤者・通学者だけが対象で、買い物や通院などの移動は含みません。</li>
   </ul>
-  <p>
-    <a class="button" href={`/map/?i=${CAR}&p=${P}&l=municipality`}>自家用車の割合を地図で見る</a>
-    <a class="button secondary" href={`/map/?i=${RAIL}&p=${P}&l=municipality`}>鉄道・電車の割合を地図で見る</a>
-  </p>
 </Article>

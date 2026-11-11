@@ -1,7 +1,8 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { areaName, check, ranking, raw, value } from "../lib/articleData";
+import { areaName, check, rankNumber, ranking, raw, value } from "../lib/articleData";
 import { formatNumber } from "../lib/format";
 
 const ID = "agri_output";
@@ -21,7 +22,11 @@ const DAISEN = "muni-05212";
 
 const ids = (id: string, period: string, n: number, level: "municipality" | "prefecture" = "municipality") =>
   ranking(id, period, level, "high", n).map((r) => r.entity_id).join();
-const oku1 = (v: number | null) => (v === null ? "—" : `約${formatNumber(Math.round(v), 0)}億円`);
+const oku1 = (v: number | null) => {
+  if (v === null) return "—";
+  const r = Math.round(v);
+  return r >= 10000 ? `約${formatNumber(Math.floor(r / 10000), 0)}兆${formatNumber(r % 10000, 0)}億円` : `約${formatNumber(r, 0)}億円`;
+};
 
 // 題名: 2024年の1位は北海道でも九州（福岡〜沖縄）でもない田原市。2位は都城市（宮崎県）、政令指定都市を除いた3位は別海町（北海道）
 // （政令指定都市は区の値がなく表に入らない。農林水産省の公表では、市全体の新潟市が3位、浜松市が7位、熊本市が9位）
@@ -64,21 +69,20 @@ check(ids(ID, P, 3, "prefecture") === ["pref-01", "pref-46", "pref-08"].join(), 
 check(ranking(ID, P, "prefecture", "high", 8)[7]?.entity_id === "pref-23", "愛知県が都道府県の8位ではありません");
 const aichiShare = (raw(ID, P, TAHARA) ?? NaN) / (raw(ID, P, "pref-23") ?? NaN);
 check(aichiShare > 0.25 && aichiShare < 0.3, "田原市が愛知県の農業産出額の4分の1あまりではありません");
+// 書き出しの「鹿児島県・熊本県・宮崎県も上位10に入る」
+check(["pref-46", "pref-43", "pref-45"].every((id) => (rankNumber(ID, P, id) ?? 99) <= 10), "鹿児島県・熊本県・宮崎県が都道府県の上位10に入っていません");
+// 「都城市と別海町は、ふるさと納税の受入額でも全国の上位4つに入る」
+check([MIYAKONOJO, BETSUKAI].every((id) => (rankNumber("furusato_amount", "2025-04-01", id) ?? 99) <= 4),
+  "都城市・別海町が、2025年度のふるさと納税の受入額の上位4つに入っていません");
 ---
 <Article slug="agri-output-2024">
   <p>
-    米や野菜、くだもの、牛乳や肉など、そのまちで生まれた農産物の額を「農業産出額」といいます。
-    農林水産省の「市町村別農業産出額（推計）」で、2024年の市町村を比べてみます。
+    2024年の農業産出額がいちばん多い市町村は、愛知県田原市です。{value(ID, P, TAHARA)}で、2位の宮崎県都城市（{value(ID, P, MIYAKONOJO)}）を上回りました。
+    都道府県では北海道が飛び抜けて多く、鹿児島県・熊本県・宮崎県の九州の3県も上位10に入りますが、市町村の1位は北海道でも九州でもありません。
   </p>
   <p>
-    都道府県では北海道が飛び抜けて多く、鹿児島県・熊本県・宮崎県の九州の3県も上位10に入ります。
-    ところが市町村の1位は、北海道でも九州でもなく、愛知県田原市の{value(ID, P, TAHARA)}でした。
-    2位は宮崎県都城市（{value(ID, P, MIYAKONOJO)}）です。
-    農林水産省の公表では3位は新潟県新潟市（市全体）で、北海道別海町（{value(ID, P, BETSUKAI)}）が4位に続きます。
-  </p>
-  <p>
-    このサイトの地図と表は区ごとの値なので、市全体の値しかない政令指定都市（新潟市・浜松市・熊本市など）は入っていません。
-    下の表の順位は、政令指定都市を除いた順位です。
+    農業産出額は、米や野菜、くだもの、牛乳や肉など、そのまちで生まれた農産物の額です。農林水産省の「市町村別農業産出額（推計）」で比べました。
+    下の表は、区ごとの値がない政令指定都市を除いた順位で、3位は北海道別海町（{value(ID, P, BETSUKAI)}）です。
   </p>
   <ArticleRanking id={ID} period={P} n={10} expect={[TAHARA, MIYAKONOJO, BETSUKAI, HOKOTA, HIROSAKI]} caption="農業産出額が多い市町村（2024年、政令指定都市を除く）" />
 
@@ -104,9 +108,6 @@ check(aichiShare > 0.25 && aichiShare < 0.3, "田原市が愛知県の農業産�
       </table>
     </div>
   </figure>
-  <p class="map-links">
-    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${TAHARA}&l=municipality`}>田原市の農業産出額を地図で見る</a>
-  </p>
 
   <h2>田原市は、野菜と花の渥美半島</h2>
   <p>
@@ -129,27 +130,42 @@ check(aichiShare > 0.25 && aichiShare < 0.3, "田原市が愛知県の農業産�
     別海町も畜産が{value(LIVE, P, BETSUKAI)}と多く、乳用牛の産出額が全国の市町村で1位の、酪農のまちです。
     同じ上位でも、野菜と花の田原市と、畜産の都城市・別海町では、中身がまったく違います。
   </p>
+  <p>
+    都城市と別海町は、2025年度のふるさと納税の受入額でも、全国の上位4つに入っています。肉や乳製品などの特産品が、返礼品として選ばれているためと思われます。
+    <ArticleLink slug="furusato-nozei">ふるさと納税の受入額が多いまち</ArticleLink>
+  </p>
   <ArticleRanking id={LIVE} period={P} n={5} expect={[MIYAKONOJO, BETSUKAI]} caption="畜産の産出額が多い市町村（2024年、政令指定都市を除く）" />
 
   <h2>米と果実が多いまち</h2>
   <p>
-    米は、農林水産省の公表では新潟県新潟市（市全体）が最も多く、政令指定都市を除くと秋田県大仙市（{value(RICE, P, DAISEN)}）が1位で、
-    山形県・宮城県・秋田県・新潟県の米どころのまちが続きます。
-    果実の1位は、りんごの産地の青森県弘前市（{value(FRUIT, P, HIROSAKI)}）です。政令指定都市を除くと、2〜4位には山梨県のぶどうや桃のまちが並びます。
+    米は、農林水産省の公表では新潟県新潟市（市全体）が最も多く、政令指定都市を除くと秋田県大仙市（{value(RICE, P, DAISEN)}）が1位です。
+    2〜5位にも、山形県・宮城県・秋田県・新潟県の米どころのまちが入ります。
+    果実の1位は、りんごの産地の青森県弘前市（{value(FRUIT, P, HIROSAKI)}）です。政令指定都市を除くと、2〜4位は山梨県のぶどうや桃のまちです。
   </p>
   <ArticleRanking id={RICE} period={P} n={5} expect={[DAISEN, "muni-06203", "muni-04212", "muni-05203", "muni-15202"]} caption="米の産出額が多い市町村（2024年、政令指定都市を除く）" />
   <ArticleRanking id={FRUIT} period={P} n={5} expect={[HIROSAKI, "muni-19211", "muni-19213", "muni-19205"]} caption="果実の産出額が多い市町村（2024年、政令指定都市を除く）" />
   <p class="map-links">
-    <a class="button" href={`/map/?i=${RICE}&p=${P}&a=${DAISEN}&l=municipality`}>米の産出額を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${RICE}&p=${P}&a=${DAISEN}&l=municipality`}>米の産出額を地図で見る</a>
     <a class="button secondary" href={`/map/?i=${FRUIT}&p=${P}&a=${HIROSAKI}&l=municipality`}>果実の産出額を地図で見る</a>
   </p>
 
   <h2>都道府県では愛知県は8位</h2>
   <p>
-    都道府県の1位は北海道（{value(ID, P, "pref-01")}）で、鹿児島県、茨城県が続きます。愛知県は{value(ID, P, "pref-23")}で8位です。
+    都道府県の1位は北海道（{oku1(raw(ID, P, "pref-01"))}）で、2位は鹿児島県、3位は茨城県です。愛知県は{oku1(raw(ID, P, "pref-23"))}で8位です。
     田原市1つで、愛知県の農業産出額の4分の1あまりにあたります。
   </p>
   <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={["pref-01", "pref-46", "pref-08", "pref-43", "pref-45", "pref-23"]} caption="農業産出額が多い都道府県（2024年）" />
+
+  <h2>同じ「農業のまち」でも、作るものは違う</h2>
+  <p>
+    農業産出額の日本一は、野菜と花の田原市でした。2位の都城市と3位の別海町は畜産、大仙市は米、弘前市はりんごと、
+    上位のまちには、それぞれ柱になる品目があります。
+    合計の額だけでなく、米・野菜・果実・畜産の品目ごとの地図も見ると、そのまちの農業の姿が分かります。
+    地元や、よく買う野菜やくだものの産地を探してみてください。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${TAHARA}&l=municipality`}>田原市の農業産出額を地図で見る</a>
+  </p>
 
   <h2>読むときの注意</h2>
   <ul>
