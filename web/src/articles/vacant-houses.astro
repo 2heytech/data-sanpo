@@ -1,19 +1,42 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, count, nationalValue, ranking, raw, value } from "../lib/articleData";
+import { about, check, count, man, nationalValue, parts, rankNumber, ranking, raw, value } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
 
 const P = "2023-10-01";
+const P0 = "2018-10-01";
 const ID = "vacant_house_rate";
+const FISCAL = "fiscal_strength_index";
+const FP = "2024-04-01";
+const KARUIZAWA = "muni-20321";
 // 題名の「空き家率70%の町」: 1位が軽井沢町で、70%台
-ranking(ID, P, "municipality", "high", 1, ["muni-20321"]);
-check(Math.floor(raw(ID, P, "muni-20321") ?? 0) === 70, "軽井沢町の空き家率が70%台ではありません");
+ranking(ID, P, "municipality", "high", 1, [KARUIZAWA]);
+check(Math.floor(raw(ID, P, KARUIZAWA) ?? 0) === 70, "軽井沢町の空き家率が70%台ではありません");
+// 「5年前の調査でも1位」
+ranking(ID, P0, "municipality", "high", 1, [KARUIZAWA]);
+// 軽井沢町の住宅の数と、空き家の数
+const houses = parts(ID, P, KARUIZAWA);
+// 「全国の5倍」: 軽井沢町の空き家率 ÷ 全国の空き家率
+const national = Number(nationalValue(ID, P).replace("%", ""));
+const times = formatNumber((raw(ID, P, KARUIZAWA) ?? 0) / national, 0);
+check(times === "5", "軽井沢町の空き家率が全国の約5倍ではありません");
+// 「財政力指数は全国の市町村で4位」
+const fiscalRank = rankNumber(FISCAL, FP, KARUIZAWA);
+check(fiscalRank !== null && fiscalRank <= 5, "軽井沢町の財政力指数が全国の上位5位に入っていません");
+// 「高い方の〇位には山梨県」
+const yamanashiRank = rankNumber(ID, P, "pref-19");
 ---
 <Article slug="vacant-houses">
   <p>
-    総務省の住宅・土地統計調査（2023年）によると、全国の住宅のうち空き家の割合（空き家率）は{nationalValue(ID, P)}で、
-    2018年の{nationalValue(ID, "2018-10-01")}からさらに上がりました。空き家の問題はよく話題になりますが、
-    「空き家」には住む人のいなくなった家だけでなく、入居者を募集中の賃貸住宅や別荘も含まれます。この点に注意しながら、地域ごとの違いを見ていきます。
+    長野県軽井沢町の空き家率は{value(ID, P, KARUIZAWA)}です。町にある住宅{man(houses.denominator)}戸のうち、
+    {about(houses.numerator)}戸が「空き家」に数えられています（総務省の住宅・土地統計調査、2023年）。
+    全国の空き家率は{nationalValue(ID, P)}なので、およそ{times}倍です。
+  </p>
+  <p>
+    といっても、軽井沢町の家の7割が使われなくなったわけではなさそうです。
+    統計の「空き家」には、住む人のいなくなった家だけでなく、ふだん人が住んでいない別荘も含まれるからです。
   </p>
   <div class="note">
     <strong>統計上の「空き家」に含まれるもの</strong>
@@ -25,34 +48,56 @@ check(Math.floor(raw(ID, P, "muni-20321") ?? 0) === 70, "軽井沢町の空き�
     </ul>
   </div>
 
-  <h2>都道府県：西日本と山梨県で高く、首都圏と沖縄県で低い</h2>
+  <h2>上位に入るのは、別荘地と温泉地</h2>
+  <ArticleRanking id={ID} period={P} n={8} expect={[KARUIZAWA, "muni-09407", "muni-22205", "muni-19209", "muni-30401", "muni-20214", "muni-12218", "muni-22208"]} caption="空き家率が高い市区町村（2023年）" />
   <p>
-    空き家率が最も高いのは徳島県（{value(ID, P, "pref-36")}）で、和歌山県、鹿児島県、山梨県、高知県が続きます。
-    低いのは埼玉県（{value(ID, P, "pref-11")}）、沖縄県、神奈川県、東京都で、人口が増えている、または減り方が小さい地域では、
-    住宅が使われ続けやすいと考えられます。
+    空き家率の高い市区町村を並べると、軽井沢町のあとは栃木県那須町（{value(ID, P, "muni-09407")}）、静岡県熱海市（{value(ID, P, "muni-22205")}）、
+    山梨県北杜市、和歌山県白浜町です。長野県茅野市、千葉県勝浦市、静岡県伊東市まで、上位の8つはどれも、別荘地や温泉地、海辺のリゾートとして知られるまちです。
+    これらのまちの「空き家」の多くは、週末や夏だけ使われる別荘など（二次的住宅）と考えられ、使われずに傷んでいく空き家とは事情が違います。
   </p>
-  <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-36"]} caption="空き家率が高い都道府県（2023年）" />
-  <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-11"]} caption="空き家率が低い都道府県（2023年）" />
+  <p>
+    軽井沢町は、5年前の2018年の調査でも{value(ID, P0, KARUIZAWA)}で1位でした。別荘が多いことは、以前から続く町の特徴のようです。
+  </p>
 
-  <h2>市区町村：上位は別荘地</h2>
-  <ArticleRanking id={ID} period={P} n={8} expect={["muni-20321", "muni-09407", "muni-22205", "muni-19209", "muni-30401"]} caption="空き家率が高い市区町村（2023年）" />
+  <h2>別荘は、町の財政も支えている</h2>
   <p>
-    市区町村で空き家率が最も高いのは長野県軽井沢町で{value(ID, P, "muni-20321")}です。栃木県那須町、静岡県熱海市、山梨県北杜市、
-    和歌山県白浜町と、上位は別荘地やリゾート地として知られるまちが占めます。これらのまちの「空き家」の多くは、
-    ふだん住んでいない別荘（二次的住宅）と考えられ、使われずに傷んでいく空き家とは事情が違います。
+    軽井沢町は、財政力指数でも全国の市町村で{fiscalRank}位（{value(FISCAL, FP, KARUIZAWA)}、2024年度）です。
+    財政力指数は、行政サービスに必要な費用を自前の収入でどれだけまかなえるかを表す目安で、1を超える市町村は全国の1割に届きません。
+    別荘やホテルにかかる固定資産税の収入が多いためと考えられます。
+    空き家率の高さが、ここでは町の収入の多さと結びついているようです。
+    <ArticleLink slug="fiscal-strength">財政力指数の高いまち</ArticleLink>
   </p>
+
+  <h2>空き家率が低いまち</h2>
   <p>
-    反対に空き家率が低い方には、さいたま市緑区や横浜市泉区、宮城県富谷市など、大都市の近くで比較的新しい住宅地が広がるまちが並びます。
-    ただし標本調査の推計値なので、住宅の数が少ないまちでは、値が実際より大きく・小さく出ることもあります。
+    反対に空き家率が低い方には、横浜市泉区（{value(ID, P, "muni-14116")}）やさいたま市緑区、宮城県富谷市、沖縄県の中城村・南風原町など、
+    大きな市の中や近くにある住宅のまちが多く入ります。最も低い秋田県美郷町（{value(ID, P, "muni-05434")}）のように、それに当てはまらないまちもあります。
+    標本調査の推計値なので、住宅の数が少ないまちでは、値が実際より大きく・小さく出ることもあります。
   </p>
-  <ArticleRanking id={ID} period={P} order="low" n={8} expect={["muni-11109", "muni-14116", "muni-04216"]} caption="空き家率が低い市区町村（2023年）" />
+  <ArticleRanking id={ID} period={P} order="low" n={8} expect={["muni-05434", "muni-47328", "muni-11109", "muni-14116", "muni-04216", "muni-47350"]} caption="空き家率が低い市区町村（2023年）" />
+
+  <h2>都道府県：別荘の多い山梨県も上位に</h2>
+  <p>
+    都道府県で空き家率が最も高いのは徳島県（{value(ID, P, "pref-36")}）、最も低いのは埼玉県（{value(ID, P, "pref-11")}）です。
+    高い方の{yamanashiRank}位には、北杜市のように別荘の多い地域がある山梨県（{value(ID, P, "pref-19")}）が入っています。
+    低い方は埼玉県・沖縄県・神奈川県・東京都の順で、人口が増えている、または減り方が小さい都県です。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-36", "pref-19"]} caption="空き家率が高い都道府県（2023年）" />
+  <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-11", "pref-47", "pref-14", "pref-13"]} caption="空き家率が低い都道府県（2023年）" />
+
+  <h2>空き家率は、中身とあわせて読む</h2>
+  <p>
+    空き家率70%の町の正体は、別荘のまちでした。空き家率の高さは、そのまま「放置された家の多さ」を表すわけではありません。
+    別荘が多いのか、入居者を募集中の賃貸住宅が多いのか、長く使われていない家が多いのかで、まちの様子はまったく違います。
+    地図で気になるまちの空き家率を見るときは、そこがどんなまちかを思い浮かべながら見てみてください。
+  </p>
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>空き家率を地図で見る</a></p>
 
   <h2>読むときの注意</h2>
   <ul>
     <li>住宅・土地統計調査は標本調査です。市区町村の値は推計値で、10戸単位に丸められています。</li>
     <li>市・区と、人口1万5千人以上の町村だけの値です。それより小さい町村の値は公表されていません
       （値のある市区町村は{count(ID, P, "municipality")}です）。</li>
-    <li>空き家の内訳（賃貸用・別荘など）は、データさんぽではまだ市区町村ごとに載せていません。空き家率が高いことが、すぐに「放置された家が多い」ことを意味するわけではありません。</li>
+    <li>空き家の内訳（賃貸用・別荘など）は、データさんぽではまだ市区町村ごとに載せていません。</li>
   </ul>
-  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>空き家率を地図で見る</a></p>
 </Article>

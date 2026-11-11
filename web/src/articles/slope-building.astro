@@ -1,7 +1,8 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, ranking, raw, rows, value } from "../lib/articleData";
+import { check, nationalValue, rankNumber, ranking, raw, rows, value } from "../lib/articleData";
 
 const ID = "slope_building_mean";
 const STEEP = "slope_building_steep_share";
@@ -58,24 +59,37 @@ check(ranking(ID, P, "prefecture", "low", 1)[0]?.entity_id === "pref-11", "建�
 // 地面全体の平均傾斜は、大川村・熱海市・長崎市とも建物用地より大きい。地面全体の1位は早川町
 check([OKAWA, ATAMI, NAGASAKI].every((e) => (raw(ALL, PA, e) ?? 0) > (raw(ID, P, e) ?? Infinity)), "地面全体の平均傾斜が建物用地より大きくない市町村があります");
 check(ranking(ALL, PA, "municipality", "high", 1)[0]?.entity_id === HAYAKAWA, "平均傾斜（地面全体）の1位が早川町ではありません");
+// 「熱海市は、空き家率でも入湯税の収入でも全国3位」
+const VACANT = "vacant_house_rate";
+const PV = "2023-10-01";
+check(rankNumber(VACANT, PV, ATAMI) === 3 && rankNumber("onsen_tax", "2024-04-01", ATAMI) === 3, "熱海市の空き家率・入湯税の収入が全国3位ではありません");
+// 「長崎県は、自転車で通勤・通学する人の割合が都道府県で最も低い」「長崎市は全国の値の5分の1に届かない」
+const BIKE = "commute_bicycle_share";
+const PB = "2020-10-01";
+check(ranking(BIKE, PB, "prefecture", "low", 1)[0]?.entity_id === "pref-42", "自転車で通勤・通学する人の割合が最も低い都道府県が長崎県ではありません");
+check((raw(BIKE, PB, NAGASAKI) ?? Infinity) * 5 < Number(nationalValue(BIKE, PB).replace(/[^0-9.]/g, "")), "長崎市の自転車の割合が全国の5分の1より小さくありません");
 ---
 <Article slug="slope-building">
   <p>
-    坂の多いまちはどこでしょうか。家や店、工場などが建っている土地（建物用地）の地面の傾きの平均を、市区町村ごとに比べてみます。
+    家や店の建つ土地が、平均していちばん急な坂にあるまちは、高知県大川村です。
+    建物の建つ土地の傾きは平均{value(ID, P, OKAWA)}で、その4分の3近くが、傾き15度以上の急な斜面にあります。
+  </p>
+  <p>
+    ここでは、家や店、工場などが建っている土地（建物用地）の地面の傾きの平均を、市区町村ごとに比べます。
     国土交通省の土地利用のデータ（2021年度、100m四方のマスごと）と、国土地理院の標高のデータ（約10m間隔）から、このサイトで計算した値です。
     山や森の斜面は数えず、人が住んだり働いたりしている土地の傾きだけを見るので、坂の上に家が並ぶまちほど値が大きくなります。
   </p>
+  <ArticleRanking id={ID} period={P} n={10} expect={[OKAWA, TOTSUKAWA, OKUTAMA]} caption="建物用地の平均傾斜が大きい市区町村（2021年度）" />
 
-  <h2>1位は高知県大川村</h2>
+  <h2>1位の大川村は、平地のほとんどない村</h2>
   <p>
-    1位は高知県大川村の{value(ID, P, OKAWA)}で、奈良県十津川村（{value(ID, P, TOTSUKAWA)}）、東京都奥多摩町（{value(ID, P, OKUTAMA)}）が続きます。上位10は、どれも山あいの町村です。
+    2位は奈良県十津川村（{value(ID, P, TOTSUKAWA)}）、3位は東京都奥多摩町（{value(ID, P, OKUTAMA)}）で、上位10はどれも山あいの町村です。
   </p>
   <p>
     大川村は高知県の最北端にあり、1,000m以上の山に囲まれた村です。集落は村の中央を流れる吉野川の両岸に点在し、
     高知県と大川村の資料では「平地のほとんどない」村と紹介されています。
-    建物用地のうち、傾きが15度以上の急な斜面にある土地の割合は{value(STEEP, P, OKAWA)}で、4分の3近くになります。
+    建物用地のうち、傾きが15度以上の急な斜面にある土地の割合は{value(STEEP, P, OKAWA)}です。
   </p>
-  <ArticleRanking id={ID} period={P} n={10} expect={[OKAWA, TOTSUKAWA, OKUTAMA]} caption="建物用地の平均傾斜が大きい市区町村（2021年度）" />
 
   <h2>市の1位は熱海市</h2>
   <p>
@@ -84,41 +98,55 @@ check(ranking(ALL, PA, "municipality", "high", 1)[0]?.entity_id === HAYAKAWA, "�
   </p>
   <p>
     熱海市は、火山がつくった急な斜面が相模灘に面したまちです。静岡県の地形の資料では、山腹の傾斜地にも市街地が広がったと説明されています。
-    2位の下田市のほか、伊東市（{value(ID, P, ITO)}）や伊豆市（{value(ID, P, IZU)}）も市の上位15に入り、伊豆半島の市が多く並びます。
+    2位の下田市のほか、伊東市（{value(ID, P, ITO)}）や伊豆市（{value(ID, P, IZU)}）も市の上位15に入り、伊豆半島の市が目立ちます。
+  </p>
+  <p>
+    熱海市は、空き家率でも全国3位（{value(VACANT, PV, ATAMI)}）、入湯税の収入でも全国3位です。海を見下ろす斜面に、別荘や温泉の宿が建つまちのようです。
+    <ArticleLink slug="vacant-houses">空き家率の高いまちに別荘地や温泉地が多いこと</ArticleLink>
   </p>
   <ArticleRanking id={ID} period={P} kind="市" n={10} expect={[ATAMI, SHIMODA, TSUSHIMA, NAGASAKI]} caption="建物用地の平均傾斜が大きい市（2021年度）" />
 
   <h2>大きな市では長崎市</h2>
   <p>
-    人口20万人以上の市区町村（2025年国勢調査、政令指定都市は区ごと）に限ると、1位は長崎市（{value(ID, P, NAGASAKI)}）で、
-    長崎県佐世保市（{value(ID, P, SASEBO)}）、神奈川県横須賀市（{value(ID, P, YOKOSUKA)}）、横浜市保土ケ谷区（{value(ID, P, HODOGAYA)}）、神戸市垂水区（{value(ID, P, TARUMI)}）が続きます。
+    人口20万人以上の市区町村（2025年国勢調査、政令指定都市は区ごと）に限ると、1位は長崎市（{value(ID, P, NAGASAKI)}）です。
+    2位からは、長崎県佐世保市（{value(ID, P, SASEBO)}）、神奈川県横須賀市（{value(ID, P, YOKOSUKA)}）、横浜市保土ケ谷区（{value(ID, P, HODOGAYA)}）、神戸市垂水区（{value(ID, P, TARUMI)}）の順です。
   </p>
   <p>
     長崎市のページ「『さかんまち』長崎のなりたち」によると、長崎の市街地は、港に注ぐ2本の川沿いのわずかな平地と、そこから続く斜面にできています。
     住宅を建てるには費用がかかりすぎるといわれる15度以上の所にまで、まちが広がっているとも書かれています。
     このサイトの「急な斜面」も15度以上で、長崎市の建物用地のうち急な斜面にある土地は{value(STEEP, P, NAGASAKI)}です。
   </p>
+  <p>
+    坂の多さは、暮らし方にも表れているようです。通勤・通学に自転車を使う人の割合は、長崎市では{value(BIKE, PB, NAGASAKI)}で、全国の{nationalValue(BIKE, PB)}を大きく下回ります（2020年国勢調査）。
+    都道府県で比べても、長崎県が最も低くなっています。
+    <ArticleLink slug="commute-rail-car">通勤・通学の交通手段の違い</ArticleLink>
+  </p>
   <p class="map-links">
-    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${NAGASAKI}&l=small_area`}>長崎市の町丁目を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${ID}&p=${P}&a=${NAGASAKI}&l=small_area`}>長崎市の町丁目を地図で見る</a>
     <a class="button secondary" href={`/map/?i=${ID}&p=${P}&a=${ATAMI}&l=small_area`}>熱海市の町丁目を地図で見る</a>
   </p>
 
   <h2>都道府県では長崎県</h2>
   <p>
-    都道府県で比べると、1位は長崎県の{value(ID, P, "pref-42")}で、高知県（{value(ID, P, "pref-39")}）、広島県（{value(ID, P, "pref-34")}）が続きます。
+    都道府県で比べると、1位は長崎県の{value(ID, P, "pref-42")}で、2位は高知県（{value(ID, P, "pref-39")}）、3位は広島県（{value(ID, P, "pref-34")}）です。
     急な斜面にある割合も長崎県（{value(STEEP, P, "pref-42")}）が1位で、市の上位10にも長崎県の市が長崎市・対馬市・西海市・平戸市の4つ入っています。
     反対に、最もなだらかなのは埼玉県（{value(ID, P, "pref-11")}）です。
   </p>
   <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={["pref-42", "pref-39", "pref-34"]} caption="建物用地の平均傾斜が大きい都道府県（2021年度）" />
 
-  <h2>家が建つ所は、まわりよりなだらか</h2>
+  <h2>坂のまちでも、家が建つのはなだらかな所</h2>
   <p>
-    建物用地に限らない、地面全体の平均傾斜も比べてみます。大川村は{value(ALL, PA, OKAWA)}、熱海市は{value(ALL, PA, ATAMI)}、長崎市は{value(ALL, PA, NAGASAKI)}で、
+    坂の多いまちは、山あいの大川村、海に面した温泉のまちの熱海市、港のまちの長崎市でした。
+    ただ、建物用地に限らない地面全体の平均傾斜は、大川村が{value(ALL, PA, OKAWA)}、熱海市が{value(ALL, PA, ATAMI)}、長崎市が{value(ALL, PA, NAGASAKI)}で、
     どれも建物用地の値より大きくなります。坂のまちでも、家や店は、まちの中では比べてなだらかな所に建っていることが分かります。
     地面全体の平均傾斜の1位は、山梨県早川町（{value(ALL, PA, HAYAKAWA)}）です。
   </p>
+  <p>
+    地図の背景を「傾斜」に切り替えると、坂のようすを色で見られます。自分のまちの坂を確かめてみてください。
+  </p>
   <p class="map-links">
-    <a class="button" href={`/map/?i=${ALL}&p=${PA}&a=${OKAWA}&l=municipality`}>地面全体の平均傾斜を地図で見る</a>
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${OKAWA}&l=municipality`}>建物用地の平均傾斜を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${ALL}&p=${PA}&a=${OKAWA}&l=municipality`}>地面全体の平均傾斜を地図で見る</a>
   </p>
 
   <h2>読むときの注意</h2>
