@@ -1351,6 +1351,12 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   const pickerSearch = $<HTMLInputElement>("#picker-search");
   const openButton = $<HTMLButtonElement>("#indicator-open");
   const indicatorPageLink = $<HTMLAnchorElement>("#indicator-page");
+  // 選んだ指標を使った寄り道（#235）。寄り道ごとの [slug, 題名, 使った指標] は、新しい順にページに書いてある
+  const indicatorArticleLink = root.querySelector<HTMLAnchorElement>("#indicator-article");
+  const articleOfIndicator = new Map<string, [string, string]>();
+  for (const [slug, title, ids] of JSON.parse(root.querySelector("#indicator-articles")?.textContent || "[]") as [string, string, string[]][]) {
+    for (const id of ids) if (!articleOfIndicator.has(id)) articleOfIndicator.set(id, [slug, title]);
+  }
   const iconTemplate = root.querySelector<HTMLTemplateElement>("#category-icons");
   const catIcon = (c: string, bubble = true) => {
     const el = iconTemplate?.content.querySelector(`[data-category="${CSS.escape(c)}"]`);
@@ -1427,6 +1433,14 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     // 凡例の下の、この指標のランキングのページへのリンク（#218）
     indicatorPageLink.href = `/indicators/${indicator.id}/`;
     indicatorPageLink.querySelector("span")!.textContent = `「${indicator.name}」のランキングと解説`;
+    if (indicatorArticleLink) {
+      const article = articleOfIndicator.get(indicator.id);
+      indicatorArticleLink.hidden = !article;
+      if (article) {
+        indicatorArticleLink.href = `/articles/${article[0]}/`;
+        indicatorArticleLink.querySelector(".ia-title")!.textContent = article[1];
+      }
+    }
   }
   let pickerHits: PickerDoc[] = [];
   function filterPicker() {

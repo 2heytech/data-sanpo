@@ -3,6 +3,7 @@
 // as="share" では、2つの指標の割合（例: 宿泊業で働く人÷働く人）を % で並べる。
 // 値は公開データから出し、本文で挙げた地域（expect）が表に入るかを確かめる（ArticleRanking と同じ）
 import { compareRanking, indicator, type ArticleLevel } from "../lib/articleData";
+import { collectTable } from "../lib/articleLinks";
 import { loadAreas } from "../lib/data";
 import { formatNumber, formatValue } from "../lib/format";
 
@@ -30,6 +31,7 @@ const list = fromInd && toInd ? compareRanking(from, to, level, order, n, expect
 const place = (id: string) => level === "prefecture"
   ? { name: prefs.get(id.slice(5)) ?? id, href: `/prefectures/${id.slice(5)}/`, pref: "" }
   : { name: munis.get(id)?.name ?? id, href: `/areas/${id}/`, pref: prefs.get(munis.get(id)?.prefecture ?? "") ?? "" };
+collectTable(Astro.locals, caption, list.map((r) => ({ id: r.entity_id, rank: r.rank })));
 const ratioLabel = as === "share" ? "割合" : "倍率";
 const ratioText = (r: number) => (as === "share" ? `${formatNumber(r * 100, 1)}%` : `${formatNumber(r, 2)}倍`);
 ---

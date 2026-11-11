@@ -8,7 +8,8 @@ import { RELIEF_GRADIENT, RELIEF_STOPS, reliefAt } from "../../map/relief";
 import { SLOPE_CLASSES } from "../../map/slope";
 import { fallbackView } from "../../lib/mapFallback";
 import { mapFallbackData } from "../../lib/mapFallbackData";
-import { ICON_INDICATOR } from "../../lib/navIcons";
+import { ICON_ARTICLE, ICON_INDICATOR } from "../../lib/navIcons";
+import { newestFirst, publishedArticles } from "../../lib/articles";
 import { pageLinksHtml } from "../../map/pageLinks";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl-${version}/maplibre-gl.mjs`;
@@ -75,6 +76,9 @@ const indicatorCount = loadIndicators().length;
 const fallbackData = mapFallbackData();
 const fallback = fallbackView({}, fallbackData);
 const ICON_NEXT = '<path d="m6 3.5 4.5 4.5L6 12.5"/>';
+// 寄り道ごとの [slug, 題名, 使った指標]（新しい順）。左の欄の「寄り道」のボタンに使う（#235）
+const indicatorArticles = JSON.stringify(newestFirst(publishedArticles()).filter((a) => a.indicators.length > 0)
+  .map((a) => [a.slug, a.title, a.indicators])).replace(/</g, "\\u003c");
 // 何も選んでいないときの欄の、指標・都道府県・市区町村の一覧へのリンク（地域を選んだときと同じ形。#218）
 const introPages = pageLinksHtml([
   { href: "/#indicators", kind: "indicator", title: "指標の一覧", note: `${indicatorCount}の指標の意味とランキング` },
@@ -168,6 +172,13 @@ const FALLBACK_LINKS = [
         <svg class="ip-icon" viewBox="0 0 24 24" aria-hidden="true" set:html={ICON_INDICATOR} /><span>指標のランキングと解説</span>
         <svg class="ip-next" viewBox="0 0 16 16" aria-hidden="true" set:html={ICON_NEXT} />
       </a>
+      {/* 選んだ指標を使った寄り道があるときだけ出す（#235）。下の一覧（寄り道ごとの指標）から、地図の処理が行き先と題名を入れる */}
+      <a id="indicator-article" class="indicator-page indicator-article" href="/articles/" hidden>
+        <svg class="ip-icon" viewBox="0 0 24 24" aria-hidden="true" set:html={ICON_ARTICLE} />
+        <span><small>寄り道（分析記事）</small><span class="ia-title"></span></span>
+        <svg class="ip-next" viewBox="0 0 16 16" aria-hidden="true" set:html={ICON_NEXT} />
+      </a>
+      <script type="application/json" id="indicator-articles" set:html={indicatorArticles}></script>
       {/* 表示に関する切替（色分け・地名・数値）は1行のアイコン、地図に重ねるものはアイコンの並び。
            細かい説明は地図の右上の凡例に出す（#97・#139）。チェックボックスは見えないだけで、id と動きはそのまま */}
       <fieldset class="field view-options">
@@ -943,6 +954,9 @@ const FALLBACK_LINKS = [
   .indicator-page svg { flex: none; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
   .indicator-page .ip-icon { width: 18px; height: 18px; color: var(--accent); stroke-width: 1.8; }
   .indicator-page .ip-next { width: 14px; height: 14px; stroke-width: 2.2; }
+  .indicator-article { margin-top: 6px; }
+  .indicator-article small, .indicator-article .ia-title { display: block; }
+  .indicator-article small { font-size: 0.72rem; color: var(--muted); }
   .detail-sources { margin: 10px 0 0; font-size: 0.75rem; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
   .detail-sources a { color: inherit; }
   .detail-sources > span { margin: 0 2px; }

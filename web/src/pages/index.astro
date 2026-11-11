@@ -7,6 +7,7 @@
 import Base from "../layouts/Base.astro";
 import CategoryIcon from "../components/CategoryIcon.astro";
 import IndicatorChips from "../components/IndicatorChips.astro";
+import ThemeChips from "../components/ThemeChips.astro";
 import { DATA_BASE, loadAreas, loadIndicators } from "../lib/data";
 import { indicatorCatalog } from "../lib/indicatorCatalog";
 import { formatDate, publishedArticles } from "../lib/articles";
@@ -76,7 +77,8 @@ const examples = [
           </li>
         ))}
       </ul>
-      <p><a href="/articles/">分析記事をすべて見る（{articles.length}本）</a></p>
+      {/* テーマの札から、絞り込んだ一覧へ（設計変更記録 #232）。「すべての寄り道（〇本）」もこの中にある */}
+      <ThemeChips label="テーマから記事を探す" />
     </section>
   )}
 

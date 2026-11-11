@@ -8,6 +8,10 @@ import MapFigure from "../../components/MapFigure.astro";
 import NeighborCompare from "../../components/NeighborCompare.astro";
 import ProfileIntro from "../../components/ProfileIntro.astro";
 import StatList from "../../components/StatList.astro";
+import AreaArticles from "../../components/AreaArticles.astro";
+import { publishedArticles } from "../../lib/articles";
+import { articlesForPrefecture } from "../../lib/articleLinks";
+import { articleMentions } from "../../lib/articleMentions";
 import { RELEASE, loadAreas, loadIndicators, loadValues } from "../../lib/data";
 import { aramashiOf } from "../../lib/aramashi";
 import { formatValue, rankIfVaried, ranked } from "../../lib/format";
@@ -136,6 +140,10 @@ const rankings = PREF_RANKING_IDS.map((id) => indicators.get(id)).filter((i) => 
 // 市区町村別の人口増加率の地図の画像（設計変更記録 #142）。市区町村の表の前に置き、共有画像にも使う
 const image = prefectureImage(pref);
 const others = areas.prefectures.filter((p) => p.code !== pref.code);
+// この都道府県や、その市区町村が順位の表に出てくる寄り道（設計変更記録 #234）
+const muniNames = new Map(munis.map((m) => [m.id, m.name]));
+const prefArticles = articlesForPrefecture(pref.code, publishedArticles(), await articleMentions())
+  .map((p) => ({ article: p.article, tables: p.tables, places: p.municipalities.flatMap((m) => muniNames.get(m.id) ?? []) }));
 const title = `${pref.name}の市区町村 人口ランキングと統計データ`;
 const top3 = table.filter((t) => t.rank !== null).slice(0, 3).map((t) => t.muni.name).join("・");
 const description = prefectureDescription({
@@ -160,12 +168,17 @@ const structured = breadcrumbList(Astro.site, [
     {statCount > 0 && <a href="#stats">主な指標と全国の順位</a>}
     {neighborPrefs.length > 0 && statCount > 0 && <a href="#compare">隣の都道府県と比べる</a>}
     <a href="#munis">市区町村（人口の多い順）</a>
+    {prefArticles.length > 0 && <a href="#articles">登場する寄り道（{prefArticles.length}）</a>}
     {rankings.length > 0 && <a href="#pref-top">{pref.name}内の上位</a>}
   </nav>
 
   <section class="sheet pref-intro">
     <ProfileIntro name={pref.name} profile={profile} summary={summary} aramashi={aramashi} />
   </section>
+
+  <AreaArticles id="articles" name={pref.name} items={prefArticles}
+    lead={`${pref.name}や、${pref.name}の市区町村が順位の表に出てくる分析記事です。`}
+    more={{ href: `/articles/?q=${encodeURIComponent(pref.name)}`, label: `${pref.name}が登場する寄り道を一覧で見る` }} />
 
   {statCount > 0 && (
     <section class="sheet" id="stats">

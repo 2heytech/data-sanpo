@@ -2,6 +2,7 @@
 // 寄り道の中の順位の表（上位・下位の数件）。値は公開データから出し、本文で挙げた地域（expect）が表に入るかを確かめる。
 import RankingTable, { type RankingRow } from "./RankingTable.astro";
 import { indicator, ranking, type ArticleLevel, type MuniKind } from "../lib/articleData";
+import { collectTable } from "../lib/articleLinks";
 import { loadAreas } from "../lib/data";
 
 interface Props {
@@ -32,6 +33,8 @@ const rows: RankingRow[] = ind
       return { ...r, name: m.name, href: `/areas/${r.entity_id}/`, extra: [prefs.get(m.prefecture) ?? ""] };
     })
   : [];
+// 一覧の検索・あわせて読みたい・地域のページに使う「この表に出てくる地域」（#234）
+collectTable(Astro.locals, caption, rows.map((r) => ({ id: r.entity_id, rank: r.rank })));
 ---
 {ind && rows.length > 0 && (
   <figure class="article-ranking">
