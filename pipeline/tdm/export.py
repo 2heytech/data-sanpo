@@ -60,12 +60,15 @@ def _simplified(geom, tolerance: float, digits: int = COORD_DIGITS) -> dict:
     return {"type": g["type"], "coordinates": _round_coords(g["coordinates"], digits)}
 
 
-def _prefecture_outline(geom) -> MultiPolygon:
+def _prefecture_outline(geom) -> dict:
     """全国を見渡すとき用の都道府県の形。区市町村の形を合わせると、境の細いすき間や水面が数千の穴になり
-    （全国で14MB）、そのままでは初回表示が重いので、穴と小さな島を除いてから簡略化する。"""
+    （全国で14MB）、そのままでは初回表示が重いので、穴と小さな島を除いてから簡略化する。
+    座標は全国の区市町村界と同じ桁（NATION_DIGITS）に丸める。以前は丸めが効かず15桁のまま書き出していて、
+    地図が最初に読むこのファイルが必要な大きさの約4倍あった（#221）。"""
     polygons = [Polygon(p.exterior) for p in getattr(geom, "geoms", [geom]) if p.geom_type == "Polygon"]
     kept = [p for p in polygons if p.area >= PREF_MIN_PART_AREA] or polygons
-    return MultiPolygon(kept).simplify(PREF_TOLERANCE, preserve_topology=True)
+    g = mapping(MultiPolygon(kept).simplify(PREF_TOLERANCE, preserve_topology=True))
+    return {"type": g["type"], "coordinates": _round_coords(g["coordinates"], NATION_DIGITS)}
 
 
 def _neighbors(shapes: dict[str, object]) -> dict[str, list[str]]:
@@ -249,7 +252,7 @@ def export_release(conn: sqlite3.Connection, catalog: dict[str, dict], out_root:
         "features": [{"type": "Feature",
                       "properties": {"id": prefecture_entity_id(pref),
                                      "name": pref_names.get(prefecture_entity_id(pref), PREFECTURES.get(pref, pref))},
-                      "geometry": _round_coords(mapping(_prefecture_outline(g)), NATION_DIGITS)}
+                      "geometry": _prefecture_outline(g)}
                      for pref, g in sorted(pref_shapes.items())]})
     by_muni: dict[str, list] = defaultdict(list)
     for r in area_rows:

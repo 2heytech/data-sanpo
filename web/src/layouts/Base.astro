@@ -13,7 +13,10 @@ interface Props {
   menu?: string;
   description: string;
   wide?: boolean;
-  preload?: string;
+  /** 先に読み始めるプログラム（地図の MapLibre）。modulepreload にする */
+  preload?: string | string[];
+  /** 先に読み始めるデータ（地図が最初に読む JSON）。ページのプログラムが fetch で読むものと同じ URL を書く（設計変更記録 #221） */
+  preloadData?: string[];
   /** 見ている都道府県の名前（地域ページなど）。ロゴの横に出す */
   prefecture?: string;
   /** title をそのまま使う（サイト名を後ろに付けない）。トップページ用 */
@@ -27,7 +30,7 @@ interface Props {
   /** 検索に出さないページ（見つからないページ）。noindex にし、canonical と og:url を付けない（#144） */
   noindex?: boolean;
 }
-const { title = "", menu, description, wide = false, preload, prefecture, titleIsFull = false, structuredData, image, ogType = "website", noindex = false } = Astro.props;
+const { title = "", menu, description, wide = false, preload, preloadData = [], prefecture, titleIsFull = false, structuredData, image, ogType = "website", noindex = false } = Astro.props;
 const SITE_NAME = "データさんぽ";
 const fullTitle = menu ? `${SITE_NAME} | ${menu}` : titleIsFull || title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
 // SNS で共有されたときの画像（1200×630）。ページの画像がなければ全ページ共通の画像（作り方は scripts/og-image.mjs）
@@ -55,6 +58,17 @@ const nav: { href: string; label: string; wide?: string; icon: string }[] = [
   { href: "/about/", label: "サイトについて", wide: "この", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/>' },
 ];
 const onMap = Astro.url.pathname.startsWith("/map/");
+// リンクの先読み（設計変更記録 #229）: リンクにマウスを乗せたとき・指で触れたときに、行き先のページの HTML だけを先に読んでおく。
+// ブラウザの Speculation Rules の prefetch を使う（Chrome・Edge。対応していないブラウザは何もしない）。
+// 画面の組み立て（prerender）までは進めないので、アクセス数の集計は増えない。通信量の節約や省電力の設定の端末では、ブラウザが先読みをやめる。
+// <link rel="prefetch"> は、HTML を「毎回確かめ直す」設定で配っているこのサイトでは読んだものが使われなかったので使わない。
+// データと画像へのリンクは、ページではないので先読みしない
+const speculationRules = JSON.stringify({
+  prefetch: [{
+    where: { and: [{ href_matches: "/*" }, { not: { href_matches: "/data/*" } }, { not: { href_matches: "/images/*" } }] },
+    eagerness: "moderate",
+  }],
+});
 // 検索結果のサイト名に「データさんぽ」を使ってもらうため、トップページにだけ WebSite の構造化データを置く（設計変更記録 #85）。
 // 別名にドメイン（data-sanpo.com）を書くと、Google がそれをサイト名に選ぶことがあるので書かない（#216）
 const websiteLd = Astro.url.pathname === "/" && Astro.site
@@ -131,7 +145,10 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
       })();
     </script>
     <link rel="sitemap" href="/sitemap-index.xml" />
-    {preload && <link rel="modulepreload" href={preload} />}
+    {/* リンクの先読み（設計変更記録 #229。中身はフロントマターの speculationRules） */}
+    <script type="speculationrules" set:html={speculationRules} />
+    {[preload ?? []].flat().map((href) => <link rel="modulepreload" href={href} />)}
+    {preloadData.map((href) => <link rel="preload" as="fetch" crossorigin="anonymous" href={href} />)}
     <script>
       // ホーム画面から開いたときの「戻る」（設計変更記録 #199。出すかどうかは上の is:inline のスクリプトが決める）
       document.getElementById("app-back")?.addEventListener("click", () => history.back());
@@ -146,6 +163,41 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
           a.rel = "noopener";
         }
       });
+      // 読み物のページ: スマホで下へ送っている間はヘッダーを隠し、上へ戻すと出す。長いページを上へ戻り始めたら「上へ戻る」を出す（設計変更記録 #227）。
+      // 隠す・出すは html の印（header-away）で CSS が行う（global.css。スマホの幅だけ）。地図の画面（body.wide）はページが動かないので何もしない
+      if (!document.body.classList.contains("wide")) {
+        const root = document.documentElement;
+        const toTop = document.getElementById("to-top");
+        let last = Math.max(0, scrollY);
+        let turn = last;
+        let down = false;
+        let waiting = false;
+        const update = () => {
+          waiting = false;
+          const y = Math.max(0, scrollY);
+          if (y !== last) {
+            // turn は送る向きが変わった位置。少し動いただけでは切り替えない（下へ 40px で隠し、上へ 12px で出す）。先頭の近くでは常に出す
+            if (y > last !== down) {
+              down = y > last;
+              turn = last;
+            }
+            last = y;
+            if (y < 120 || (!down && turn - y > 12)) root.classList.remove("header-away");
+            else if (down && y - turn > 40) root.classList.add("header-away");
+          }
+          // 「上へ戻る」は、先頭から離れた所で上へ送り始めたときだけ出す（下へ読み進めている間は、表の数字に重ならないよう出さない）
+          if (toTop) toTop.hidden = down || y < innerHeight * 1.5;
+        };
+        addEventListener("scroll", () => {
+          if (waiting) return;
+          waiting = true;
+          requestAnimationFrame(update);
+        }, { passive: true });
+        toTop?.addEventListener("click", () => {
+          scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+        });
+        update();
+      }
     </script>
     {CF_WEB_ANALYTICS_TOKEN && (
       <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js"
@@ -185,6 +237,13 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
       </p>
     )}
     <main id="main"><slot /></main>
+    {/* 長いページを上へ戻り始めると出す「上へ戻る」（設計変更記録 #227。出す・隠すは head のスクリプト） */}
+    {!wide && (
+      <button type="button" class="to-top" id="to-top" aria-label="ページの先頭へ戻る" title="ページの先頭へ戻る" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6M6 11.5l6-6 6 6" /></svg>
+      </button>
+    )}
     {!wide && (
       <footer class="site-footer">
         <div class="inner">

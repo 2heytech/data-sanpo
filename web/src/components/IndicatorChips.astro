@@ -58,6 +58,14 @@ const { entries } = Astro.props;
     border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg);
   }
   .chip-more details[open] summary { background: var(--accent-soft); border-color: #b9d0ea; color: var(--accent-ink); }
+  /* スマホでは指で押しやすい高さ（36px）にする（設計変更記録 #228。これまでは 29px） */
+  @media (max-width: 720px) {
+    .chip { padding: 7px 12px; }
+    .chip-split { padding: 0; }
+    .chip-split a { padding: 7px 4px 7px 12px; }
+    .chip-split .chip-sub { padding: 7px 9px; }
+    .chip-split .chip-sub:last-of-type { padding-right: 12px; }
+  }
   .chip-more details[open] summary::after { transform: rotate(-135deg); margin: 3px 0 0 2px; }
   .chip-more:has(details[open]) { flex-basis: 100%; }
   .more-links {

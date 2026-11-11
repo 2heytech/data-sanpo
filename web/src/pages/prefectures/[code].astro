@@ -21,6 +21,7 @@ import { prefectureImage } from "../../lib/shareImages";
 import { statGroups, type StatItem } from "../../lib/statList";
 import { breadcrumbList } from "../../lib/structured";
 import { mapHref } from "../../lib/urlstate";
+import { barScale, barStyle } from "../../lib/valueBars";
 import type { Prefecture } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -52,8 +53,8 @@ const byId = new Map(munis.map((m) => [m.id, m]));
 const rankedPop = ranked(popRows.filter((r) => byId.has(r.entity_id) && r.value !== null));
 const noPop = munis.filter((m) => !rankedPop.some((r) => r.entity_id === m.id));
 const table = [
-  ...rankedPop.map((r) => ({ muni: byId.get(r.entity_id)!, rank: r.rank as number | null, pop: formatValue(r, popInd!) })),
-  ...noPop.map((m) => ({ muni: m, rank: null, pop: "—" })),
+  ...rankedPop.map((r) => ({ muni: byId.get(r.entity_id)!, rank: r.rank as number | null, pop: formatValue(r, popInd!), value: r.value })),
+  ...noPop.map((m) => ({ muni: m, rank: null, pop: "—", value: null })),
 ].map((t) => ({
   ...t,
   change: changeInd ? (() => {
@@ -62,6 +63,9 @@ const table = [
   })() : "—",
   catch: loadAreaProfile(t.muni.id).title,
 }));
+// 人口の数字の下に出す横棒（設計変更記録 #226。その都道府県でいちばん人口の多い市区町村を幅いっぱいにする）
+const popScale = barScale(rankedPop.map((r) => r.value));
+const popBar = (value: number | null) => barStyle(value, popScale);
 
 // 都道府県の人口と全国の順位（都道府県の値は市区町村の合計。#45）
 const prefPopRows = popInd && popPeriod ? rows(popInd.id, popPeriod, "prefectures") : [];
@@ -193,7 +197,7 @@ const structured = breadcrumbList(Astro.site, [
               <td><a href={`/areas/${t.muni.id}/`}><strong>{t.muni.name}</strong></a>
                 {popInd && t.rank !== null && <a class="to-map" href={mapHref({ indicator: popInd.id, area: t.muni.id })} aria-label={`${t.muni.name}を地図で見る`}></a>}
                 {t.catch && <span class="catch-line">{t.catch}</span>}</td>
-              <td class="num">{t.pop}<span class="change-sm">{t.change}</span></td>
+              <td class="num"><span class:list={[popBar(t.value) && "vbar-under"]} style={popBar(t.value)}>{t.pop}</span><span class="change-sm">{t.change}</span></td>
               <td class="num col-change">{t.change}</td>
             </tr>
           ))}

@@ -3,7 +3,7 @@ import Base from "../../layouts/Base.astro";
 import FeedbackLink from "../../components/FeedbackLink.astro";
 import CategoryIcon from "../../components/CategoryIcon.astro";
 import { readFileSync } from "node:fs";
-import { DATA_BASE, RELEASE, loadIndicators } from "../../lib/data";
+import { DATA_BASE, RELEASE, loadAreas, loadIndicators } from "../../lib/data";
 import { RELIEF_GRADIENT, RELIEF_STOPS, reliefAt } from "../../map/relief";
 import { SLOPE_CLASSES } from "../../map/slope";
 import { fallbackView } from "../../lib/mapFallback";
@@ -12,6 +12,14 @@ import { ICON_INDICATOR } from "../../lib/navIcons";
 import { pageLinksHtml } from "../../map/pageLinks";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl-${version}/maplibre-gl.mjs`;
+// ページを読み始めたらすぐ取りに行くもの（設計変更記録 #221）。地図のプログラムが動き出してから1つずつ取りに行くと、
+// 遅い回線ではその分だけ色分けが出るのが遅れる。MapLibre は本体が共有部を、地図を作るときに Worker を読むので、どちらも並べておく。
+// データは、地図が最初に読む一覧3つと、最初に塗る単位の形（全国の公開版は都道府県）
+const maplibreModules = ["", "-shared", "-worker"].map((part) => maplibreUrl.replace(/\.mjs$/, `${part}.mjs`));
+const areasFile = loadAreas();
+const firstShapes = areasFile.prefectures.length > 1 ? "prefectures" : "municipalities";
+const firstData = ["indicators.json", "areas.json", "sources.json", `boundaries/${areasFile.boundary_version}/${firstShapes}.geojson`]
+  .map((f) => `${DATA_BASE}/${f}`);
 // 右の欄の「〇〇の公式サイト」の URL 一覧（pages/official-sites.json.ts）。架空の地名を使う開発用データでは出さない
 const officialSitesUrl = RELEASE.is_fixture ? "" : "/official-sites.json";
 // 指標の選択画面で使う分類のアイコン（地図の処理が複製して使う）。点レイヤーのカテゴリも含める
@@ -79,7 +87,7 @@ const FALLBACK_LINKS = [
   { href: "/areas/", text: "市区町村の一覧", note: "名前で探して、まちごとのデータを見る" },
 ];
 ---
-<Base menu="地図" preload={maplibreUrl} description="全国の市区町村・町丁目を、人口・高齢化・年収・地価などで色分けした地図。地名で探して拡大すれば、となりのまちとの違いや年ごとの移り変わりがひと目で分かります。" wide>
+<Base menu="地図" preload={maplibreModules} preloadData={firstData} description="全国の市区町村・町丁目を、人口・高齢化・年収・地価などで色分けした地図。地名で探して拡大すれば、となりのまちとの違いや年ごとの移り変わりがひと目で分かります。" wide>
   <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl} data-official-sites={officialSitesUrl}>
     {/* スマホ（幅 860px 以下）では、地域の検索を地図の上に常に出し（地図の処理が左の欄の検索欄をここへ移す）、
          条件の欄と情報の欄を地図の下端のパネルにまとめる（設計変更記録 #194）。パソコンでは .map-sheet は枠を持たず、今までどおり左右の欄になる */}
@@ -126,7 +134,7 @@ const FALLBACK_LINKS = [
         <label for="indicator-open">指標</label>
         {/* 押すと指標の選択画面を開く。選んだ指標は下の select に入れる（select は状態の保持用） */}
         <button type="button" id="indicator-open" class="indicator-open" aria-haspopup="dialog">
-          <span class="io-icon" aria-hidden="true"></span><span class="io-name"></span><span class="io-change">変更</span>
+          <span class="io-icon" aria-hidden="true"></span><span class="io-name">読み込み中…</span><span class="io-change">変更</span>
         </button>
         <select id="indicator-select" hidden aria-hidden="true" tabindex="-1"></select>
       </div>
@@ -151,7 +159,10 @@ const FALLBACK_LINKS = [
         <label id="aggregate-wrap" class="inline check" hidden><input type="checkbox" id="aggregate-toggle" />
           <span id="aggregate-label">直近5年の合計で見る</span></label>
       </div>
-      <div id="legend" class="legend" aria-live="polite"></div>
+      {/* 凡例が出るまでの間は、読み込み中であることを書いておく（地図の処理が凡例に差し替える。設計変更記録 #224） */}
+      <div id="legend" class="legend" aria-live="polite">
+        <p class="legend-wait muted small">色分けを読み込んでいます…<span aria-hidden="true"></span></p>
+      </div>
       {/* この指標のランキングのページ（#218）。指標を変えると、地図の処理が行き先と名前を替える */}
       <a id="indicator-page" class="indicator-page" href="/#indicators">
         <svg class="ip-icon" viewBox="0 0 24 24" aria-hidden="true" set:html={ICON_INDICATOR} /><span>指標のランキングと解説</span>
@@ -201,6 +212,13 @@ const FALLBACK_LINKS = [
     </div>
     <div class="map-wrap">
       <div id="map" role="region" aria-label="地図"></div>
+      {/* 色分けが出るまでの間、地図の上の端に進み具合の線と「地図を読み込んでいます」を出す（地図の処理が進めて、色分けが出たら消す。#224） */}
+      <div id="map-loading" class="map-loading" role="status">
+        <span class="ml-track" aria-hidden="true"><span class="ml-fill"></span></span>
+        <span class="ml-text">地図を読み込んでいます</span>
+      </div>
+      {/* 地図の上に短く出す知らせ（現在地を使えないときなど。ブラウザの警告の窓は使わない。#224） */}
+      <p id="map-notice" class="map-notice" role="alert" hidden></p>
       {/* 背景: 地図・航空写真（昔の写真も）・標高・傾斜・土地利用のどれか1つを地図の左上で選ぶ。航空写真の撮影年代・土地利用の年度・
            標高と傾斜の色の見本は、選んだものだけ地図の上のパネルに出す（ふだんは地図の下側、地図の幅が狭いときは切替のすぐ下。#128） */}
       <div class="base-switch" role="group" aria-label="背景">
@@ -393,7 +411,11 @@ const FALLBACK_LINKS = [
 <script>
   import { initMapApp } from "../../map/app";
   const root = document.querySelector<HTMLElement>(".map-app")!;
-  void initMapApp(root, root.dataset.base!, root.dataset.maplibre!);
+  // 途中で止まったとき（通信の途切れなど）に「地図を読み込んでいます」を出したままにしない（#224）
+  initMapApp(root, root.dataset.base!, root.dataset.maplibre!).catch((e: unknown) => {
+    root.querySelector("#map-loading")?.remove();
+    throw e;
+  });
 </script>
 
 <style is:global>
@@ -429,6 +451,35 @@ const FALLBACK_LINKS = [
   }
   .pick-list button:hover { background: var(--panel); }
   #map { position: absolute; inset: 0; }
+  /* 読み込み中の表示（#224）。進み具合の線は、地図の処理が動き出すまではゆっくり伸ばし、動き出したら段階ごとに進める */
+  .map-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; pointer-events: none; transition: opacity .3s; }
+  .map-loading.done { opacity: 0; }
+  .ml-track { position: absolute; top: 0; left: 0; right: 0; height: 4px; background: rgb(11 92 173 / 14%); overflow: hidden; }
+  .ml-fill {
+    display: block; width: 100%; height: 100%; background: var(--accent); transform-origin: left center;
+    transform: scaleX(.3); animation: ml-creep 6s ease-out;
+  }
+  .map-loading.stepped .ml-fill { animation: none; transform: scaleX(var(--p, .3)); transition: transform .5s ease-out; }
+  @keyframes ml-creep { from { transform: scaleX(.03); } to { transform: scaleX(.3); } }
+  .ml-text {
+    padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; background: rgb(255 255 255 / 94%);
+    box-shadow: 0 1px 4px rgb(15 42 74 / 14%); font-size: 0.85rem; font-weight: 600; color: var(--muted);
+  }
+  .map-notice {
+    position: absolute; left: 50%; top: 64px; z-index: 4; transform: translateX(-50%); width: max-content; max-width: min(calc(100% - 24px), 440px);
+    margin: 0; padding: 9px 14px; border-radius: 8px; background: #1c2733; color: #fff; font-size: 0.85rem; line-height: 1.5;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+  }
+  .map-notice[hidden] { display: none; }
+  .legend-wait span {
+    display: block; height: 14px; margin-top: 8px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--line) 25%, #eef1f5 50%, var(--line) 75%) 0 0 / 200% 100%; animation: legend-wait 1.4s linear infinite;
+  }
+  @keyframes legend-wait { to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ml-fill, .legend-wait span { animation: none; }
+    .map-loading.stepped .ml-fill { transition: none; }
+  }
   .panel { overflow-y: auto; padding: 14px 16px; background: var(--surface); min-width: 0; }
   .panel-conditions { border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; background: #fbfcfe; }
   .panel-info { border-left: 1px solid var(--line); }
@@ -509,6 +560,11 @@ const FALLBACK_LINKS = [
      ズームのボタンの下に置く（狭い地図では左。下の @container） */
   .map-wrap .external-ctrl a { display: grid; place-items: center; width: 29px; height: 29px; color: var(--fg); }
   .map-wrap .external-ctrl a + a { border-top: 1px solid #ddd; }
+  /* 指で操作する画面では、地図の右下のボタン（拡大・縮小・現在地・Google マップ・共有）を 36px にする（#228。MapLibre の既定は 29px） */
+  @media (pointer: coarse) {
+    .map-wrap .maplibregl-ctrl-group button, .map-wrap .external-ctrl a { width: 36px; height: 36px; }
+    .map-wrap .share-ctrl button { width: auto; }
+  }
   .map-wrap .external-ctrl a:hover { background: rgb(0 0 0 / 5%); }
   .map-wrap .external-ctrl a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .map-wrap .external-ctrl svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -774,10 +830,11 @@ const FALLBACK_LINKS = [
      （地図の下側は縮尺・出典・ズームのボタンで混むため）。幅は landuse.ts の NARROW_MAP_PX と同じ */
   @container (max-width: 560px) {
     .base-switch { left: 10px; max-width: calc(100% - 20px); }
-    .base-switch button { gap: 3px; padding: 5px 7px; font-size: 0.8rem; }
+    /* 高さは指で押しやすい 36px（#228。これまでは 27px） */
+    .base-switch button { gap: 3px; min-height: 36px; padding: 5px 7px; font-size: 0.8rem; }
     .base-switch svg { width: 15px; height: 15px; }
     .base-caption { display: none; }
-    .base-panel { top: 52px; bottom: auto; left: 10px; right: 10px; width: auto; transform: none; padding: 6px 10px 4px; }
+    .base-panel { top: 60px; bottom: auto; left: 10px; right: 10px; width: auto; transform: none; padding: 6px 10px 4px; }
     .base-panel-head output, .base-panel-title { font-size: 1rem; }
     /* 凡例は左下（縮尺の上）に置き、上に向かって開く。右下のズームのボタンには重ねない */
     .overlay-notes { top: auto; bottom: 34px; right: auto; left: 10px; width: min(290px, calc(100% - 64px)); max-height: calc(100% - 110px); }
@@ -937,8 +994,9 @@ const FALLBACK_LINKS = [
     }
     .panel-toggle { display: none; }
     .map-wrap { grid-column: 1; grid-row: 2; min-height: 0; }
-    /* 地域の検索（地図の上に常に出す）。文字は16px にして、iPhone で入力欄を押したときに画面が拡大しないようにする */
-    .map-search { display: block; grid-column: 1; grid-row: 1; position: relative; z-index: 6; padding: 6px 10px; background: var(--surface); border-bottom: 1px solid var(--line); }
+    /* 地域の検索（地図の上に常に出す）。文字は16px にして、iPhone で入力欄を押したときに画面が拡大しないようにする。
+       検索欄はスクリプトがここへ移すので、移す前から同じ高さ（59px）を空けておき、地図が後から下へずれないようにする（#224） */
+    .map-search { display: block; grid-column: 1; grid-row: 1; position: relative; z-index: 6; box-sizing: border-box; min-height: 59px; padding: 6px 10px; background: var(--surface); border-bottom: 1px solid var(--line); }
     .map-search label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     .map-search input[type="search"] {
       width: 100%; margin: 0; padding: 8px 12px 8px 34px; font: inherit; font-size: 16px;
