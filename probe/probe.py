@@ -66,6 +66,22 @@ print("top3% old", len(t_old), "new", len(t_new), "left:", [(e, name.get(e)) for
 import statistics
 ch = [(new[e] / old[e] - 1) * 100 for e in new if new.get(e) and old.get(e)]
 print("change % median", round(statistics.median(ch), 2), "min", round(min(ch), 1), "max", round(max(ch), 1))
+
+EV = ["07211", "07212", "07308", "07541", "07542", "07543", "07544", "07545", "07546", "07547", "07548", "07564"]
+ro = [x for _, x in top(old, 3000)]; rn = [x for _, x in top(new, 3000)]
+print("== evacuation 12 (cut old", int(n_old * 0.03), "new", int(n_new * 0.03), ")")
+for c in EV:
+    e = "muni-" + c
+    print(e, name.get(e), "amount", amt.get(e, {}).get("value"), "pop20", p20.get(e, {}).get("value"), "pop25", p25.get(e, {}).get("value"),
+          "old", round(old[e]) if old.get(e) is not None else None, "rank", ro.index(e) + 1 if e in ro else None, pc.get(e, {}).get("status"),
+          "new", round(new[e]) if new.get(e) is not None else None, "rank", rn.index(e) + 1 if e in rn else None)
+chg = sorted(((new[e] / old[e] - 1) * 100, e) for e in new if new.get(e) and old.get(e))
+print("== biggest decreases")
+for c, e in chg[:8]: print(round(c, 1), e, name.get(e), p20[e]["value"], p25[e]["value"])
+print("== biggest increases")
+for c, e in chg[-8:]: print(round(c, 1), e, name.get(e), p20[e]["value"], p25[e]["value"])
+print("no old value but amount:", [(e, name.get(e), pc[e].get("status"), pc[e].get("method_note")) for e in pc if pc[e]["value"] is None])
+import sys; sys.exit(0)
 # 都道府県
 ppc = rows("furusato_amount_per_capita", P, "prefectures")
 pam = rows("furusato_amount", P, "prefectures")
