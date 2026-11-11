@@ -3,6 +3,7 @@
 // 増加率は2つの時点の値から計算し、本文で挙げた地域（expect）が表に入るかを確かめる（ArticleRanking と同じ）
 import RankingTable, { type RankingRow } from "./RankingTable.astro";
 import { check, indicator, steadyGrowth } from "../lib/articleData";
+import { collectTable } from "../lib/articleLinks";
 import { loadAreas } from "../lib/data";
 import type { Indicator } from "../lib/types";
 
@@ -28,6 +29,7 @@ const rows: RankingRow[] = top.map((r) => {
   const m = munis.get(r.entity_id)!;
   return { ...r, name: m.name, href: `/areas/${r.entity_id}/`, extra: [prefs.get(m.prefecture) ?? ""] };
 });
+collectTable(Astro.locals, caption, rows.map((r) => ({ id: r.entity_id, rank: r.rank })));
 // 表の値の書き方（増加は「+」、小数1桁の%）だけに使う
 const growth = ind ? ({ ...ind, name: valueLabel, unit: "%", kind: "change", digits: 1, legend: { ...ind.legend, band: undefined } } as Indicator) : null;
 ---

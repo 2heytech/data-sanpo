@@ -1,11 +1,15 @@
 ---
-// 寄り道のページの枠。題名・日付・本文・関連する指標とほかの寄り道を並べる。
+// 寄り道のページの枠。題名・日付・本文・使った指標・あわせて読みたい寄り道（#233）を並べる。
 import Base from "./Base.astro";
+import ArticleCard from "../components/ArticleCard.astro";
+import ThemeChips from "../components/ThemeChips.astro";
 import ShareButtons from "../components/ShareButtons.astro";
 import PrNotice from "../components/PrNotice.astro";
 import MapFigure from "../components/MapFigure.astro";
-import { articleBySlug, formatDate, publishedArticles } from "../lib/articles";
-import { loadIndicators } from "../lib/data";
+import { articleBySlug, formatDate, publishedArticles, themeHref, themeName } from "../lib/articles";
+import { neighborsOf, relatedArticles, type Mentions } from "../lib/articleLinks";
+import { articleMentions } from "../lib/articleMentions";
+import { loadAreas, loadIndicators } from "../lib/data";
 import { articleImage } from "../lib/shareImages";
 
 interface Props { slug: string }
@@ -13,7 +17,22 @@ const article = articleBySlug(Astro.props.slug);
 if (!article) throw new Error(`寄り道 ${Astro.props.slug} が lib/articles.ts にありません`);
 const indicators = loadIndicators();
 const related = article.indicators.flatMap((id) => indicators.find((i) => i.id === id) ?? []);
-const others = publishedArticles().filter((a) => a.slug !== article.slug);
+// 本文の表に出てくる地域を集めているとき（lib/articleMentions.ts が本文だけを組み立てる）は、枠を出さずに本文だけを返す。
+// このときに articleMentions() を呼ぶと、自分の結果を自分で待つことになるので呼ばない（#234）
+const collecting = Boolean(Astro.locals.articleTables);
+const mentions: Mentions = collecting ? new Map() : await articleMentions();
+// あわせて読みたい: 同じテーマの記事と、同じ市区町村が表に出てくる記事を3本。その下に前後の記事とテーマの札（#233）
+const published = publishedArticles();
+const muniName = new Map(loadAreas().municipalities.map((m) => [m.id, m.name]));
+const recommended = relatedArticles(article, published, mentions).map((r) => {
+  const names = r.shared.flatMap((id) => muniName.get(id) ?? []).slice(0, 2);
+  return {
+    article: r.article,
+    why: names.length ? `${names.join("・")}も登場` : r.sameTheme ? `同じテーマ: ${themeName(r.article.theme)}` : undefined,
+    whyKind: names.length ? "area" as const : "theme" as const,
+  };
+});
+const { prev, next } = neighborsOf(article, published);
 const url = Astro.site ? new URL(`/articles/${article.slug}/`, Astro.site).href : undefined;
 // 記事の主な指標の全国の地図の画像（設計変更記録 #142）。本文の前に置き、共有画像にも使う
 const image = articleImage(article);
@@ -46,8 +65,11 @@ const structuredData = {
   ],
 };
 ---
+{collecting ? <slot /> : (
 <Base title={article.title} description={article.description} structuredData={structuredData} image={image ?? undefined} ogType="article">
-  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/articles/">寄り道・分析記事</a></nav>
+  <nav class="crumbs muted" aria-label="現在地">
+    <a href="/">トップ</a> › <a href="/articles/">寄り道・分析記事</a> › <a href={themeHref(article.theme)}>{themeName(article.theme)}</a>
+  </nav>
   <header class="page-head">
     <p class="eyebrow">寄り道</p>
     <h1>{article.title}</h1>
@@ -74,9 +96,19 @@ const structuredData = {
     </section>
   )}
   <section class="sheet">
-    <h2>ほかの寄り道</h2>
-    <ul class="article-links">
-      {others.map((a) => <li><a href={`/articles/${a.slug}/`}>{a.title}</a></li>)}
+    <h2>あわせて読みたい寄り道</h2>
+    <ul class="acards related">
+      {recommended.map((r) => <ArticleCard article={r.article} why={r.why} whyKind={r.whyKind} />)}
     </ul>
+    {(prev || next) && (
+      <nav class="prevnext" aria-label="前後の記事">
+        {prev
+          ? <a href={`/articles/${prev.slug}/`}><span class="dir">‹ 前の記事</span><span class="t">{prev.title}</span></a>
+          : <span></span>}
+        {next && <a class="next" href={`/articles/${next.slug}/`}><span class="dir">次の記事 ›</span><span class="t">{next.title}</span></a>}
+      </nav>
+    )}
+    <ThemeChips label="テーマから探す" />
   </section>
 </Base>
+)}

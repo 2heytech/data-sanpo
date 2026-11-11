@@ -3,6 +3,7 @@
 // 駅の名前から、その駅を選んだ地図（推移の表つき）を開く。本文で挙げた駅（expect）が表に入るかを確かめる。
 // スマートフォンでは表を横に動かして見るので、倍率を駅の名前のすぐ後に置く
 import { stationRanking, type StationChangeRow } from "../lib/articleData";
+import { collectTable } from "../lib/articleLinks";
 import { loadAreas } from "../lib/data";
 import { formatNumber } from "../lib/format";
 import type { Station } from "../lib/types";
@@ -18,6 +19,8 @@ interface Props {
 }
 const { from, to, opts, n = 20, expect = [], caption } = Astro.props;
 const list: StationChangeRow[] = stationRanking(from.period, to.period, opts, n, expect);
+// 駅のある市区町村を、表に出てくる地域として数える（#234）
+collectTable(Astro.locals, caption, list.map((r) => ({ id: r.station.municipality_id, rank: r.rank, via: r.station.name })));
 const areas = loadAreas();
 const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
 const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));
