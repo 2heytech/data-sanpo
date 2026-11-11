@@ -1,5 +1,6 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleStations from "../components/ArticleStations.astro";
 import { check, station, stationChanges, stationCount } from "../lib/articleData";
 import { articleBySlug } from "../lib/articles";
@@ -26,7 +27,7 @@ const median = sortedRatio.length
   : null;
 const pct = all.length ? formatNumber((grew / all.length) * 100, 0) : "—";
 // 本文は「2割ほど」「多くの駅は戻っていない」と書く
-check(all.length === 0 || (grew / all.length >= 0.15 && grew / all.length < 0.3 && median !== null && median < 1),
+check(all.length === 0 || (grew / all.length >= 0.15 && grew / all.length < 0.25 && median !== null && median < 1),
   "2019年度を上回った駅の割合が2割ほどではないか、中央値が2019年度以上です");
 
 const ai = station("愛・地球博記念公園", "愛知高速交通");
@@ -64,25 +65,31 @@ check(nanakuma.length === 0 || nanakumaGrew / nanakuma.length >= 0.8, "七隈線
 ---
 <Article slug={SLUG}>
   <p>
-    新型コロナウイルス感染症が広がる前の2019年度と、2024年度の駅の乗降客数（1日あたり、乗った人と降りた人の合計）を比べます。
-    2019年度に1日{formatNumber(MIN, 0)}人以上{formatNumber(MAX / 10000, 0)}万人未満だった全国の{formatNumber(all.length, 0)}駅のうち、
-    2024年度に2019年度を上回ったのは{formatNumber(grew, 0)}駅（{pct}%）で、真ん中の駅（中央値）は2019年度の{median === null ? "—" : formatNumber(median * 100, 0)}%です。
+    コロナ禍の前より、乗り降りする人が{times(ai)}に増えた駅があります。愛知県長久手市の愛・地球博記念公園駅（リニモ）です。
+    駅前の公園に、2022年11月、ジブリパークが開園しました。
+  </p>
+  <p>
+    新型コロナウイルス感染症が広がる前の2019年度と、2024年度の駅の乗降客数（1日あたり、乗った人と降りた人の合計）を比べると、
     多くの駅では、まだコロナ禍前の人数まで戻っていないようです。
-    その一方で、2019年度より大きく増えた駅もあります。どんな駅が並ぶかを見てみます。
+    2019年度に1日{formatNumber(MIN, 0)}人以上{formatNumber(MAX / 10000, 0)}万人未満だった全国の{formatNumber(all.length, 0)}駅のうち、
+    2024年度に2019年度を上回ったのは{formatNumber(grew, 0)}駅（{pct}%）でした。
+    増え方の順に並べると、ちょうど真ん中に来る駅は2019年度の{median === null ? "—" : formatNumber(median * 100, 0)}%です。
+    そのなかで大きく増えた駅には、はっきりした理由のある駅が多く入ります。
   </p>
   <ArticleStations from={FROM} to={TO} opts={OPTS} n={14} caption="2019年度より乗降客数が大きく増えた駅"
     expect={[ai, kawaguchiko, kamakura, bayside, tsuruga, tenjinMinami, yakuin, ariakeTennis, ariake, shinToyosu, shinTakashima]} />
 
   <h2>観光地の駅</h2>
   <p>
-    愛知県長久手市の愛・地球博記念公園駅（リニモ）は、2019年度の{count(ai, F)}から2024年度は{count(ai, T)}（{times(ai)}）になりました。
-    駅の前の愛・地球博記念公園には、2022年11月にジブリパークが開園していて、訪れる人が増えたことが大きいと考えられます。
+    愛・地球博記念公園駅は、2019年度の{count(ai, F)}から2024年度は{count(ai, T)}になりました。
+    ジブリパークを訪れる人が増えたことが大きいと考えられます。
   </p>
   <p>
     山梨県富士河口湖町の河口湖駅（富士山麓電気鉄道）は{count(kawaguchiko, F)}から{count(kawaguchiko, T)}（{times(kawaguchiko)}）、
     神奈川県鎌倉市の鎌倉高校前駅（江ノ島電鉄）は{count(kamakura, F)}から{count(kamakura, T)}（{times(kamakura)}）です。
     どちらも観光で訪れる人の多い駅で、海外から訪れる人が増えたことも影響していると考えられます。
     千葉県浦安市のベイサイド･ステーション駅（ディズニーリゾートライン）も{times(bayside)}になっています。
+    <ArticleLink slug="inbound-guest-share">宿泊者に占める外国人の割合が上がっていること</ArticleLink>
   </p>
   <p class="map-links">
     <a class="button" href={mapOf(ai)}>愛・地球博記念公園駅を地図で見る</a>
@@ -115,6 +122,13 @@ check(nanakuma.length === 0 || nanakumaGrew / nanakuma.length >= 0.8, "七隈線
   <p class="map-links">
     <a class="button" href={mapOf(ariakeTennis)}>有明テニスの森駅を地図で見る</a>
     <a class="button secondary" href={mapOf(shinTakashima)}>新高島駅を地図で見る</a>
+  </p>
+
+  <h2>駅が増えた理由は、駅の外にある</h2>
+  <p>
+    題名の「あのテーマパークの駅」は、ジブリパークのある愛・地球博記念公園駅でした。大きく増えた駅を並べると、観光地、新幹線や地下鉄の延伸、新しい施設の開業と、
+    駅のまわりで起きた変化がそのまま表れています。反対に、比べた駅のおよそ8割では、まだ2019年度の人数に戻っていません。
+    地図で駅を選ぶと、年度ごとの乗降客数の移り変わりを見られます。よく使う駅がどう変わったか、確かめてみてください。
   </p>
 
   <h2>読むときの注意</h2>

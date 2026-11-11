@@ -1,72 +1,112 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, count, rankOf, ranking, raw, steadyGrowth, value } from "../lib/articleData";
+import { check, count, man, rankNumber, ranking, raw, steadyGrowth, value } from "../lib/articleData";
 import { loadAreas } from "../lib/data";
 
 const P = "2025-10-01";
 const ID = "area";
+const POP = "population_total";
+const DENSITY = "population_density";
 const CENSUS = ["2010-10-01", "2015-10-01", "2020-10-01", "2025-10-01"];
+const TAKAYAMA = "muni-21203";
+const FUNAHASHI = "muni-16321";
+const ASHORO = "muni-01647";
+const TOTSUKAWA = "muni-29449";
+const TADAOKA = "muni-27341";
+const WARABI = "muni-11223";
+// 題名の「日本一広い市・いちばん小さい村」: いちばん広いのが高山市、いちばん小さいのが舟橋村
+ranking(ID, P, "municipality", "high", 1, [TAKAYAMA]);
+ranking(ID, P, "municipality", "low", 1, [FUNAHASHI]);
 // 本文で書いている比べ方を、実データで確かめる（崩れたらビルドを止める）
 const area = (id: string) => raw(ID, P, id) ?? NaN;
 const wards23 = loadAreas().municipalities.filter((m) => m.region === "区部").reduce((s, m) => s + area(m.id), 0);
-if (!Number.isNaN(area("muni-21203"))) {
+if (!Number.isNaN(area(TAKAYAMA))) {
   check(area("pref-01") > 5 * area("pref-03"), "北海道が岩手県の5倍以上ではありません");
-  check(Math.abs(area("muni-21203") / area("pref-13") - 1) < 0.05, "高山市と東京都の面積が「ほぼ同じ」ではありません");
-  check(area("muni-21203") > area("pref-27") && area("muni-21203") > area("pref-37"), "高山市が大阪府・香川県より広くありません");
-  check(area("muni-29449") > wards23, "十津川村が東京23区の合計より広くありません");
-  check(steadyGrowth("population_total", CENSUS, "municipality").rows.some((r) => r.entity_id === "muni-16321"), "舟橋村の人口が増え続けていません");
+  check(Math.abs(area(TAKAYAMA) / area("pref-13") - 1) < 0.05, "高山市と東京都の面積が「ほぼ同じ」ではありません");
+  check(area(TAKAYAMA) > area("pref-27") && area(TAKAYAMA) > area("pref-37"), "高山市が大阪府・香川県より広くありません");
+  // 「高山市の中に舟橋村が600個あまり入る」
+  check(area(TAKAYAMA) / area(FUNAHASHI) >= 600 && area(TAKAYAMA) / area(FUNAHASHI) < 700, "高山市が舟橋村の600倍あまりではありません");
+  check(area(TOTSUKAWA) > wards23, "十津川村が東京23区の合計より広くありません");
+  check(steadyGrowth(POP, CENSUS, "municipality").rows.some((r) => r.entity_id === FUNAHASHI), "舟橋村の人口が増え続けていません");
   check(ranking(ID, P, "municipality", "low", 2).at(-1)?.entity_id === "muni-47356", "渡名喜村が小さい方から2位ではありません");
+  // 「町でいちばん広いのは足寄町、村では十津川村、町でいちばん小さいのは忠岡町、市では蕨市」
+  ranking(ID, P, "municipality", "high", 1, [ASHORO], { kind: "町" });
+  ranking(ID, P, "municipality", "high", 1, [TOTSUKAWA], { kind: "村" });
+  ranking(ID, P, "municipality", "low", 1, [TADAOKA], { kind: "町" });
+  ranking(ID, P, "municipality", "low", 1, [WARABI], { kind: "市" });
+  // 「足寄町は市を含めても全国4位」「忠岡町は小さい方から3位、利島村は4位」
+  check(rankNumber(ID, P, ASHORO) === 4, "足寄町の面積が全国4位ではありません");
+  const small = ranking(ID, P, "municipality", "low", 4);
+  check(small[2]?.entity_id === TADAOKA && small[3]?.entity_id === "muni-13362", "忠岡町・利島村が小さい方から3位・4位ではありません");
+  // 「高山市の9割が森林」
+  check((raw("land_use_forest_share", "2021-04-01", TAKAYAMA) ?? 0) > 80, "高山市の森林の割合が8割を超えていません");
+  // 「蕨市は、市では日本一の人口密度」
+  ranking(DENSITY, P, "municipality", "high", 1, [WARABI], { kind: "市" });
+  // 「舟橋村は、子どものいる世帯の割合が全国1位」
+  check(rankNumber("households_with_children_share", P, FUNAHASHI) === 1, "舟橋村の子どものいる世帯の割合が全国1位ではありません");
+  // 「人口密度は、舟橋村の方が高山市の20倍以上」
+  check((raw(DENSITY, P, FUNAHASHI) ?? 0) > 20 * (raw(DENSITY, P, TAKAYAMA) ?? Infinity), "舟橋村の人口密度が高山市の20倍以上ではありません");
 }
 ---
 <Article slug="area-largest-smallest">
   <p>
-    日本でいちばん広い市区町村と、いちばん小さい市区町村はどこでしょうか。国土地理院の「全国都道府県市区町村別面積調」の面積
-    （2025年10月1日現在。川や湖などの水面も含みます）で、都道府県と市区町村を比べます。
+    日本一広い市は岐阜県高山市で、{value(ID, P, TAKAYAMA)}あります。東京都（{value(ID, P, "pref-13")}）とほぼ同じ広さです。
+    いちばん小さい市区町村は富山県舟橋村の{value(ID, P, FUNAHASHI)}で、高山市の中に舟橋村が600個あまり入る計算です。
   </p>
+  <p>
+    国土地理院の「全国都道府県市区町村別面積調」の面積（2025年10月1日現在。川や湖などの水面も含みます）で、
+    広いまちと小さいまちを見ていきます。
+  </p>
+  <ArticleRanking id={ID} period={P} n={10} expect={[TAKAYAMA, "muni-09206", "muni-01208", "muni-01206", "muni-06203", ASHORO]} caption="面積が広い市区町村（2025年）" />
+
+  <h2>広い市は、合併で広くなった</h2>
+  <p>
+    高山市は、大阪府や香川県よりも広い市です。2005年に周りの9町村と合併して、今の広さになりました。
+    2位以下にも、栃木県日光市、北海道北見市、北海道釧路市、山形県鶴岡市など、平成の合併で広くなった市が入ります。
+  </p>
+  <p>
+    町でいちばん広いのは北海道足寄町（{value(ID, P, ASHORO)}）で、市を含めても全国4位です。
+    村でいちばん広いのは奈良県十津川村（{value(ID, P, TOTSUKAWA)}）です。紀伊山地の山あいにある村で、東京23区を合わせたよりも広い面積があります。
+  </p>
+
+  <h2>いちばん小さい舟橋村は、人口が増え続けている</h2>
+  <p>
+    いちばん小さい舟橋村は、富山市のとなりにあって富山市へ通いやすい村です。
+    人口は2010年の{value(POP, "2010-10-01", FUNAHASHI)}から2025年は{value(POP, P, FUNAHASHI)}と、国勢調査のたびに増えています。
+    <ArticleLink slug="households-with-children">舟橋村が子どものいる世帯の割合で全国1位であること</ArticleLink>
+  </p>
+  <p>
+    2位の沖縄県渡名喜村と、4位の東京都利島村は島の村で、島の広さがほぼそのまま村の広さです。
+    町でいちばん小さいのは、3位の大阪府忠岡町（{value(ID, P, TADAOKA)}）です。
+    政令指定都市の区も1つの地域として数えているので、大阪市の区も小さい方に入ります。
+  </p>
+  <ArticleRanking id={ID} period={P} order="low" n={10} expect={[FUNAHASHI, "muni-47356", "muni-13362", TADAOKA]} caption="面積が小さい市区町村（2025年）" />
+
+  <h2>いちばん小さい市は、日本一人口密度の高い市</h2>
+  <p>
+    市でいちばん小さいのは埼玉県蕨市（{value(ID, P, WARABI)}）です。この広さに{man(raw(POP, P, WARABI))}人が住んでいて、
+    人口密度は{value(DENSITY, P, WARABI)}。市の中では日本一です（東京23区や政令指定都市の区には、これより高い区があります）。
+  </p>
+  <ArticleRanking id={ID} period={P} order="low" n={3} kind="市" expect={[WARABI]} caption="面積が小さい市（2025年）" />
 
   <h2>都道府県：北海道は2位の岩手県の5倍以上</h2>
   <p>
-    最も広いのは北海道（{value(ID, P, "pref-01")}）で、2位の岩手県（{value(ID, P, "pref-03")}）の5倍以上あります。
-    最も小さいのは香川県（{value(ID, P, "pref-37")}）で、大阪府、東京都が続きます。
+    都道府県で最も広いのは北海道（{value(ID, P, "pref-01")}）で、2位の岩手県（{value(ID, P, "pref-03")}）の5倍以上あります。
+    最も小さいのは香川県（{value(ID, P, "pref-37")}）で、次が大阪府、その次が東京都です。
   </p>
   <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-01", "pref-03"]} caption="面積が広い都道府県（2025年）" />
   <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-37", "pref-27", "pref-13"]} caption="面積が小さい都道府県（2025年）" />
 
-  <h2>いちばん広い市は、東京都とほぼ同じ広さの高山市</h2>
+  <h2>広さと人の多さは、別のもの</h2>
   <p>
-    市区町村で最も広いのは岐阜県高山市で、{value(ID, P, "muni-21203")}あります。東京都（{value(ID, P, "pref-13")}）とほぼ同じ広さで、
-    大阪府や香川県よりも広い市です。2005年に周りの9町村と合併して、今の広さになりました。
+    日本一広い高山市と、いちばん小さい舟橋村。広さは600倍あまり違いますが、人口密度は舟橋村の方が20倍以上高くなっています。
+    高山市は市の{value("land_use_forest_share", "2021-04-01", TAKAYAMA)}が森林で、舟橋村は富山平野にある田んぼと住宅地の村だからと考えられます。
+    広いまちに人が多いとは限らず、小さなまちに人が集まっていることもあります。
+    面積と人口密度を、地図で見比べてみてください。
   </p>
-  <p>
-    2位以下にも、栃木県日光市、北海道北見市、北海道釧路市、山形県鶴岡市など、平成の合併で広くなった市が並びます。
-    北海道足寄町は、町の中では最も広い町です。
-  </p>
-  <ArticleRanking id={ID} period={P} n={10} expect={["muni-21203", "muni-09206", "muni-01208", "muni-01206", "muni-06203", "muni-01647"]} caption="面積が広い市区町村（2025年）" />
-  <ArticleRanking id={ID} period={P} n={1} kind="町" expect={["muni-01647"]} caption="面積が最も広い町（2025年）" />
-  <p>
-    村で最も広いのは奈良県十津川村（{value(ID, P, "muni-29449")}）です。紀伊山地の山あいにある村で、東京23区を合わせたよりも広い面積があります。
-  </p>
-  <ArticleRanking id={ID} period={P} n={1} kind="村" expect={["muni-29449"]} caption="面積が最も広い村（2025年）" />
-
-  <h2>いちばん小さいのは富山県舟橋村</h2>
-  <p>
-    最も小さい市区町村は富山県舟橋村で、{value(ID, P, "muni-16321")}です。富山市のとなりにあって富山市へ通いやすく、
-    人口は2010年の{value("population_total", "2010-10-01", "muni-16321")}から2025年は{value("population_total", P, "muni-16321")}と、国勢調査のたびに増えています。
-  </p>
-  <p>
-    2位の沖縄県渡名喜村と、東京都利島村は島の村で、島の広さがほぼそのまま村の広さです。
-  </p>
-  <ArticleRanking id={ID} period={P} order="low" n={10} expect={["muni-16321", "muni-47356", "muni-13362", "muni-27341"]} caption="面積が小さい市区町村（2025年）" />
-  <p>
-    町で最も小さいのは大阪府忠岡町、市で最も小さいのは埼玉県蕨市（{value(ID, P, "muni-11223")}）です。
-    蕨市は小さな市に{value("population_total", P, "muni-11223")}が住み、人口密度は{rankOf("population_density", P, "muni-11223")}です。
-  </p>
-  <ArticleRanking id={ID} period={P} order="low" n={1} kind="町" expect={["muni-27341"]} caption="面積が最も小さい町（2025年）" />
-  <ArticleRanking id={ID} period={P} order="low" n={3} kind="市" expect={["muni-11223"]} caption="面積が小さい市（2025年）" />
-  <p>
-    政令指定都市の区も1つの地域として数えているので、大阪市の区など、大きな市の区も小さい方に並びます。
-  </p>
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>面積を地図で見る</a></p>
 
   <h2>読むときの注意</h2>
   <ul>
@@ -74,5 +114,4 @@ if (!Number.isNaN(area("muni-21203"))) {
     <li>川や湖などの水面も含む面積です。住める土地の広さとは違います。</li>
     <li>北海道の面積は北方領土の6村を含むため、地図の市区町村（値のある市区町村は{count(ID, P, "municipality")}）の合計とは一致しません。</li>
   </ul>
-  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>面積を地図で見る</a></p>
 </Article>

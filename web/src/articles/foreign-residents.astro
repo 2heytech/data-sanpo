@@ -1,47 +1,105 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, nationalValue, rankOf, ranking, value } from "../lib/articleData";
+import { check, man, nationalValue, parts, rankNumber, rankOf, ranking, raw, value } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
 
 const P = "2026-01-01";
 const ID = "foreign_residents_share";
 const C = "2025-10-01";
+const AKAIGAWA = "muni-01409";
+const SHIMUKAPPU = "muni-01463";
+const KUTCHAN = "muni-01400";
+const NISEKO = "muni-01395";
+const RUSUTSU = "muni-01397";
+const HAKUBA = "muni-20485";
+const OIZUMI = "muni-10524";
+const IKUNO = "muni-27116";
+const NANIWA = "muni-27111";
+const NISHINARI = "muni-27122";
+const SHINJUKU = "muni-13104";
 // 題名の「割合1位は東京でも大阪でもない」: 市区町村の1位が東京都・大阪府の外（北海道赤井川村）
-ranking(ID, P, "municipality", "high", 1, ["muni-01409"]);
+const top10 = ranking(ID, P, "municipality", "high", 10, [AKAIGAWA, SHIMUKAPPU, KUTCHAN, IKUNO, HAKUBA, RUSUTSU, OIZUMI, NISEKO, NANIWA, NISHINARI]);
+check(top10[0]?.entity_id === AKAIGAWA, "外国人住民の割合の1位が赤井川村ではありません");
+// 「住民の3人に1人あまり」: 赤井川村の割合が3分の1を少し超える
+const akaigawa = parts(ID, P, AKAIGAWA);
+check((raw(ID, P, AKAIGAWA) ?? 0) > 100 / 3 && (raw(ID, P, AKAIGAWA) ?? 0) < 40, "赤井川村の外国人住民が「3人に1人あまり」ではありません");
+// 「コロナ禍の2022年から4年で約7倍」
+const P22 = "2022-01-01";
+const akaigawa22 = parts(ID, P22, AKAIGAWA);
+const akaigawaTimes = formatNumber((akaigawa.numerator ?? 0) / (akaigawa22.numerator ?? Infinity), 0);
+check(akaigawaTimes === "7", "赤井川村の外国人住民が2022年の約7倍ではありません");
+// 「大阪市浪速区と西成区は、2021年より割合が上がった」
+check([NANIWA, NISHINARI].every((id) => (raw(ID, P, id) ?? 0) > (raw(ID, "2021-01-01", id) ?? Infinity)), "浪速区・西成区の割合が2021年より上がっていません");
+// 「東京都でいちばん高い新宿区」
+check(ranking(ID, P, "municipality", "high", 30).filter((r) => r.entity_id.startsWith("muni-13"))[0]?.entity_id === SHINJUKU,
+  "東京都でいちばん高い市区町村が新宿区ではありません");
+// 「上位10のうち6つはスキーリゾートのあるまち」
+check([AKAIGAWA, SHIMUKAPPU, KUTCHAN, HAKUBA, RUSUTSU, NISEKO].every((id) => top10.some((r) => r.entity_id === id)), "スキーリゾートのまち6つが上位10に入っていません");
+// 「大泉町の割合は、この5年ゆるやかに上がってきた」
+check((raw(ID, P, OIZUMI) ?? 0) > (raw(ID, "2021-01-01", OIZUMI) ?? Infinity), "大泉町の割合が2021年より上がっていません");
 ---
 <Article slug="foreign-residents">
   <p>
-    住民基本台帳には、日本に住む外国人も「外国人住民」として記録されています。2026年1月1日現在、
-    住民基本台帳の人口に占める外国人住民の割合は全国で{nationalValue(ID, P)}でした。
-    この割合は地域によって大きく違い、その背景もさまざまです。
+    外国人住民の割合が全国でいちばん高いのは、東京でも大阪でもなく、北海道の赤井川村です。
+    住民{man(akaigawa.denominator)}人のうち{man(akaigawa.numerator)}人、3人に1人あまりが外国人住民です（{value(ID, P, AKAIGAWA)}、2026年1月1日現在）。
+    全国の{nationalValue(ID, P)}を大きく上回ります。
+  </p>
+  <p>
+    上位10を見ると、6つはスキーリゾートのあるまちです。残りは、工場の集まる町と、大阪市の3つの区でした。
+    割合が高い背景は、大きく3つに分かれるようです。
+  </p>
+  <ArticleRanking id={ID} period={P} n={10} expect={[AKAIGAWA, SHIMUKAPPU, KUTCHAN, IKUNO, HAKUBA, OIZUMI, NISEKO]} caption="外国人住民の割合が高い市区町村（2026年1月1日現在）" />
+
+  <h2>スキーリゾートのまち：赤井川村は4年で約{akaigawaTimes}倍に</h2>
+  <p>
+    赤井川村、占冠村（{value(ID, P, SHIMUKAPPU)}）、倶知安町、留寿都村、ニセコ町と、長野県の白馬村（{value(ID, P, HAKUBA)}）は、
+    いずれも海外からのスキー客に人気のリゾートがあるまちです。ホテルや飲食店で働く人や、移り住んだ人が多いと考えられます。
+  </p>
+  <p>
+    この数年の伸びも目立ちます。赤井川村の外国人住民は、海外との行き来が難しかった2022年には{man(akaigawa22.numerator)}人（{value(ID, P22, AKAIGAWA)}）でした。
+    そこから4年で約{akaigawaTimes}倍に増えています。
+    住民基本台帳の値は毎年1月1日現在なので、冬に働きに来る人が多いまちでは、年間を通した値より高めに出ている可能性もあります。
+    <ArticleLink slug="lodging-hakuba">白馬村の旅館・ホテルの多さ</ArticleLink>
   </p>
 
-  <h2>都道府県：東京都、愛知県、群馬県が高い</h2>
+  <h2>工場のまち：群馬県大泉町</h2>
   <p>
-    最も高いのは東京都（{value(ID, P, "pref-13")}）で、愛知県（{value(ID, P, "pref-23")}）、群馬県、大阪府、三重県が続きます。
+    群馬県大泉町（{value(ID, P, OIZUMI)}）は、自動車や電機の工場が集まり、
+    1990年代から日系ブラジル人などが多く暮らしてきたまちです。2025年の国勢調査でも、ブラジル国籍の人の割合が
+    {value("census_foreign_brazil_share", C, OIZUMI)}で、全国の{rankOf("census_foreign_brazil_share", C, OIZUMI)}です。
+    リゾートのまちと違い、割合はこの5年、ゆるやかに上がってきました。
+  </p>
+
+  <h2>大阪市の区：古くから多くの人が暮らす生野区</h2>
+  <p>
+    大阪市生野区（{value(ID, P, IKUNO)}）は、古くから韓国・朝鮮籍の人が多く暮らすまちで、
+    国勢調査でも韓国・朝鮮籍の人の割合が{value("census_foreign_korea_share", C, IKUNO)}（全国の{rankOf("census_foreign_korea_share", C, IKUNO)}）です。
+    同じ大阪市の浪速区（{value(ID, P, NANIWA)}）と西成区（{value(ID, P, NISHINARI)}）も上位10に入り、どちらもこの5年で割合が上がっています。
+  </p>
+
+  <h2>都道府県で見ると、東京都が1位</h2>
+  <p>
+    都道府県では、東京都（{value(ID, P, "pref-13")}）が最も高く、愛知県（{value(ID, P, "pref-23")}）、群馬県、大阪府、三重県の順です。
     東京都と大阪府は大都市として、愛知県・群馬県・三重県は自動車などの製造業が盛んな県として、働く外国人が多いと考えられます。
+  </p>
+  <p>
+    ところが市区町村で見ると、東京都でいちばん高い新宿区（{value(ID, P, SHINJUKU)}）は{rankNumber(ID, P, SHINJUKU)}位です。
+    外国人住民の人数は大都市の方がずっと多いのですが、割合で比べると、人口の少ないリゾートの村が上に来ます。
   </p>
   <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-13", "pref-23"]} caption="外国人住民の割合が高い都道府県（2026年1月1日現在）" />
 
-  <h2>市区町村：割合が高いまちの3つの背景</h2>
-  <ArticleRanking id={ID} period={P} n={10} expect={["muni-01409", "muni-01463", "muni-01400", "muni-27116", "muni-20485", "muni-10524", "muni-01395"]} caption="外国人住民の割合が高い市区町村（2026年1月1日現在）" />
+  <h2>同じ「割合が高い」でも、背景は違う</h2>
   <p>
-    <strong>1. スキーリゾートのまち</strong>　上位には北海道の赤井川村（{value(ID, P, "muni-01409")}）、占冠村、倶知安町、ニセコ町や、
-    長野県白馬村が並びます。いずれも海外からのスキー客に人気のリゾートがあるまちで、ホテルや飲食店で働く人や、
-    移り住んだ人が多いと考えられます。冬に人が増えるまちでは、1月1日現在の値が年間を通した値より高めに出ている可能性もあります。
+    割合1位は、東京でも大阪でもなく、スキーリゾートのある北海道の村でした。
+    リゾートのまちではこの数年で急に増え、大泉町や生野区では、何十年も前から多くの人が暮らしてきました。
+    外国人住民の割合は、地域の産業や歴史、観光との結びつきを知る手がかりです。
+    数字だけで地域の良し悪しを判断するためのものではありません。
   </p>
-  <p>
-    <strong>2. 製造業のまち</strong>　群馬県大泉町（{value(ID, P, "muni-10524")}）は、自動車や電機の工場が集まり、
-    1990年代から日系ブラジル人などが多く暮らしてきたまちです。2025年の国勢調査でも、ブラジル国籍の人の割合が
-    {value("census_foreign_brazil_share", C, "muni-10524")}で、全国の{rankOf("census_foreign_brazil_share", C, "muni-10524")}です。
-  </p>
-  <p>
-    <strong>3. 大都市の古くからの集住地</strong>　大阪市生野区（{value(ID, P, "muni-27116")}）は、古くから韓国・朝鮮籍の人が多く暮らすまちで、
-    国勢調査でも韓国・朝鮮籍の人の割合が{value("census_foreign_korea_share", C, "muni-27116")}（全国の{rankOf("census_foreign_korea_share", C, "muni-27116")}）です。
-    大阪市浪速区・西成区のように、近年は留学生や働く人など、さまざまな国籍の人が増えている地域もあります。
-  </p>
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>外国人住民の割合を地図で見る</a></p>
 
-  <h2>国勢調査の「外国人」とは数え方が違う</h2>
+  <h2>読むときの注意</h2>
   <p>
     データさんぽには、住民基本台帳の外国人住民のほかに、国勢調査の外国人の数・割合や、法務省の在留外国人統計も載せています。
     調べ方と時点が違うため、値は一致しません。
@@ -51,8 +109,4 @@ ranking(ID, P, "municipality", "high", 1, ["muni-01409"]);
     <li>国勢調査：5年ごとの調査の時点（10月1日）に住んでいる外国人。町丁目の値もあります（2020年まで）。国籍別の値は市区町村まで。</li>
     <li>在留外国人統計：中長期在留者と特別永住者。国籍別の値が市区町村ごとにあります。</li>
   </ul>
-  <p>
-    外国人住民の割合は、地域の産業や歴史、観光との結びつきを知る手がかりです。数字だけで地域の良し悪しを判断するためのものではありません。
-  </p>
-  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>外国人住民の割合を地図で見る</a></p>
 </Article>
