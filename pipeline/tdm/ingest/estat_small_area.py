@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..db import insert_observation
-from ..regions import municipality_entity_id, prefecture_entity_id, small_area_entity_id
+from ..regions import municipality_entity_id, prefecture_entity_id
 
 ZERO_MARKS = {"-", "－"}
 SUPPRESSED_MARKS = {"X", "x", "Ｘ"}
@@ -130,20 +130,6 @@ def read_files_table(path: Path, encoding: str = "cp932") -> Table:
 READERS = {"estat_gis": read_table, "estat_files": read_files_table}
 
 
-def _entity_for(conn: sqlite3.Connection, key: str, filled: set[str]) -> str | None:
-    if len(key) == 5:
-        candidates = [municipality_entity_id(key)]  # 特別区部（13100）・政令指定都市の市全体（14100 等）は対象外
-    else:
-        candidates = [small_area_entity_id(key)]
-    if len(key) == 9:  # 丁目のない町・字は境界側で末尾 "00"
-        candidates.append(small_area_entity_id(key + "00"))
-    for c in candidates:
-        if c not in filled and conn.execute(
-                "SELECT 1 FROM entities WHERE entity_id = ?", (c,)).fetchone():
-            return c
-    return None
-
-
 def _has_municipalities(conn: sqlite3.Connection, pref: str) -> bool:
     """今回の対象の都道府県か（市区町村の地域がある）。"""
     return conn.execute("SELECT 1 FROM entities WHERE entity_id LIKE ? LIMIT 1",
@@ -175,40 +161,141 @@ def _notes(row: dict[str, str]) -> str | None:
     return None
 
 
-def match_rows(conn, table: Table) -> tuple[list[tuple[str, dict[str, str]]], list[str]]:
-    """各行を地域IDに対応付ける。対応先のないコードの一覧も返す。"""
-    filled: set[str] = set()
-    matched, unmatched = [], []
+def _boundary_key(key: str, keys: dict[str, str], filled: set[str]) -> str | None:
+    """表の地域コードにあたる境界の KEY_CODE。丁目のない町・字は境界側で末尾 "00" のことがある。"""
+    for k in ([key, key + "00"] if len(key) == 9 else [key]):
+        if k in keys and k not in filled:
+            return k
+    return None
+
+
+def match_rows(conn, table: Table, keys: dict[str, str] | None = None
+               ) -> tuple[list[tuple[str, dict[str, str]]], list[str]]:
+    """各行を地域IDに対応付ける。対応先のないコードの一覧も返す。
+
+    keys は境界の KEY_CODE → 町丁・字等の地域ID（estat_boundary.area_keys。省くと地域IDの KEY_CODE そのもの）。
+    同じ名前でまとめた地域（#183）に複数の行があたるときは、_combine で1行に合わせる。"""
+    if keys is None:
+        keys = {r[0].removeprefix("area-"): r[0] for r in conn.execute(
+            "SELECT entity_id FROM entities WHERE entity_type = 'small_area'")}
+    filled: set[str] = set()       # 行を対応付けた境界の KEY_CODE（同じ区域に2つの行を入れない）
+    filled_munis: set[str] = set()
+    others: list[tuple[str, dict[str, str]]] = []      # 都道府県・市区町村
+    by_area: dict[str, list[dict[str, str]]] = {}     # 町丁・字等の地域ID → 行
+    unmatched = []
     with_chome: set[str] = set()   # 丁目の行が対応した町・字（9桁）
     for row in _ordered_rows(table):
         key = row["KEY_CODE"].strip()
         if len(key) <= 2:
             if table.prefecture_rows and len(key) == 2 and _has_municipalities(conn, key):
-                matched.append((prefecture_entity_id(key), row))
+                others.append((prefecture_entity_id(key), row))
             continue  # 都道府県の行（小地域の表では市区町村の合計から作るので使わない）
+        if len(key) == 5:
+            # 特別区部（13100）・政令指定都市の市全体（14100 等）は対象外
+            entity_id = municipality_entity_id(key)
+            if entity_id in filled_munis or not conn.execute(
+                    "SELECT 1 FROM entities WHERE entity_id = ?", (entity_id,)).fetchone():
+                unmatched.append(key)
+                continue
+            filled_munis.add(entity_id)
+            others.append((entity_id, row))
+            continue
         if len(key) == 9 and key in with_chome:
             # 丁目に分かれた町・字の行はその丁目の合計。境界に丁目のない部分（末尾00）があっても、
             # そこに合計を入れると二重に数えるので使わない
             continue
-        entity_id = _entity_for(conn, key, filled)
-        if entity_id is None:
+        bkey = _boundary_key(key, keys, filled)
+        if bkey is None:
             unmatched.append(key)
             continue
-        filled.add(entity_id)
-        matched.append((entity_id, row))
+        filled.add(bkey)
+        by_area.setdefault(keys[bkey], []).append(row)
         if len(key) == 11 and not key.endswith("00"):
             with_chome.add(key[:9])
+    towns = _towns(table) if any(len(rows) > 1 for rows in by_area.values()) else ({}, {})
+    matched = others + [(entity_id, rows[0] if len(rows) == 1 else _combine(entity_id, rows, table, keys, towns))
+                        for entity_id, rows in by_area.items()]
     # 丁目に分かれた町・字の行（9桁）は、その丁目が対応していれば問題ない
-    prefixes = {e.removeprefix("area-")[:9] for e, _ in matched}
+    prefixes = {r["KEY_CODE"].strip()[:9] for rows in by_area.values() for r in rows}
     unmatched = [k for k in unmatched if not (len(k) == 9 and k in prefixes)]
     return matched, unmatched
 
 
+_META = {"KEY_CODE", "HTKSYORI", "HTKSAKI", "GASSAN"}
+
+
+def _towns(table: Table) -> tuple[dict[str, list[str]], dict[str, dict[str, str]]]:
+    """町・字（9桁） → 表にある丁目の行の地域コード（11桁）と、町・字の行（丁目の合計）。"""
+    children: dict[str, list[str]] = {}
+    totals: dict[str, dict[str, str]] = {}
+    for r in table.rows:
+        k = r["KEY_CODE"].strip()
+        if len(k) == 11:
+            children.setdefault(k[:9], []).append(k)
+        elif len(k) == 9:
+            totals[k] = r
+    return children, totals
+
+
+def _combine(entity_id: str, rows: list[dict[str, str]], table: Table, keys: dict[str, str],
+             towns: tuple[dict[str, list[str]], dict[str, dict[str, str]]]) -> dict[str, str]:
+    """同じ名前でまとめた地域（#183）にあたる複数の行を、1つの地域の行に合わせる。
+
+    - 町・字の丁目の行がすべてこの地域にあたるときは、丁目の行の代わりに町・字の行（9桁。丁目の合計）を使う
+      （丁目の値が秘匿されて町・字の行に含まれている場合も値が出せる）
+    - 秘匿された行（HTKSYORI=2）の値は合算先に含まれる。合算先がこの地域の中なら、その行は数えない。
+      合算先が地域の外なら、地域の値の一部が外に含まれているので、地域全体を秘匿（値なし）にする
+    - 合算先の行（HTKSYORI=1）は、合算された秘匿地域がすべてこの地域の中なら印を外し、外のものだけを残す
+    - 値は列ごとに足す（「X」が1つでもあれば「X」、空欄・「…」があれば空欄）。数でない列（名前など）は最初の行のまま。
+      小地域の表の列は人数・世帯数などの数だけで、割合・平均の列は指標に使っていない（足すと誤るので使わないこと）
+    """
+    city5 = rows[0]["KEY_CODE"].strip()[:5]
+    children, totals = towns
+
+    def inside(code: str) -> bool:
+        if keys.get(code) == entity_id or (len(code) == 9 and keys.get(code + "00") == entity_id):
+            return True
+        return len(code) == 9 and bool(children.get(code)) and all(
+            keys.get(c) == entity_id for c in children[code])
+
+    used: list[dict[str, str]] = []
+    whole = {k[:9] for r in rows if len(k := r["KEY_CODE"].strip()) == 11
+             and len(children.get(k[:9], [])) > 1 and k[:9] in totals and inside(k[:9])}
+    for town in sorted(whole):
+        used.append(totals[town])
+    used += [r for r in rows if r["KEY_CODE"].strip()[:9] not in whole or len(r["KEY_CODE"].strip()) != 11]
+    kept = [r for r in used if not (_is_secret(r) and inside(city5 + (r.get("HTKSAKI") or "").strip()))]
+    if not kept:
+        kept = used
+    secret = next((r for r in kept if _is_secret(r)), None)
+    if secret is not None:
+        return dict(secret)
+    out = dict(kept[0])
+    outside = [g.strip() for r in kept if (r.get("HTKSYORI") or "").strip() == MERGED_FLAG
+               for g in (r.get("GASSAN") or "").split(";") if g.strip() and not inside(city5 + g.strip())]
+    out.update(HTKSYORI=MERGED_FLAG if outside else "0", HTKSAKI="", GASSAN=";".join(outside))
+    for label in table.labels:
+        if label in _META:
+            continue
+        try:
+            cells = [parse_cell(r.get(label, "")) for r in kept]
+        except ValueError:
+            continue
+        if any(c.status == "suppressed" for c in cells):
+            out[label] = "X"
+        elif any(c.value is None for c in cells):
+            out[label] = ""
+        else:
+            out[label] = str(sum(c.value for c in cells))
+    return out
+
+
 def ingest_counts(conn: sqlite3.Connection, table: Table, source_id: str, indicator_id: str,
-                  definition: dict, period: tuple[str, str, str]) -> dict:
+                  definition: dict, period: tuple[str, str, str], keys: dict[str, str] | None = None) -> dict:
+    """keys: 境界の KEY_CODE → 町丁・字等の地域ID（match_rows）。"""
     # sum_columns: 複数の列の合計を件数にする（例: 大学＋大学院の在学者）
     cols = [table.column(c) for c in definition.get("sum_columns", [definition.get("column")])]
-    matched, unmatched = match_rows(conn, table)
+    matched, unmatched = match_rows(conn, table, keys)
     for entity_id, row in matched:
         cells = [parse_cell(row[c]) for c in cols]
         if any(c.status == "suppressed" for c in cells):
@@ -229,7 +316,8 @@ def ingest_counts(conn: sqlite3.Connection, table: Table, source_id: str, indica
 
 
 def ingest_ratio(conn: sqlite3.Connection, table: Table, source_id: str, indicator_id: str,
-                 definition: dict, period: tuple[str, str, str]) -> dict:
+                 definition: dict, period: tuple[str, str, str], keys: dict[str, str] | None = None) -> dict:
+    """keys: 境界の KEY_CODE → 町丁・字等の地域ID（match_rows）。"""
     # 分子・分母は列の合計にできる（例: 分母は年齢3区分の合計＝年齢判明人口）
     num_cols = ([table.column(c) for c in definition["numerator_sum_columns"]]
                 if "numerator_sum_columns" in definition
@@ -239,7 +327,7 @@ def ingest_ratio(conn: sqlite3.Connection, table: Table, source_id: str, indicat
     sub_cols = [table.column(c) for c in definition.get("denominator_subtract_columns", [])]
     scale = float(definition.get("scale", 1))
     min_den = float(definition.get("min_denominator", 0))
-    matched, unmatched = match_rows(conn, table)
+    matched, unmatched = match_rows(conn, table, keys)
     for entity_id, row in matched:
         nums = [parse_cell(row[c]) for c in num_cols]
         dens = [parse_cell(row[c]) for c in den_cols]

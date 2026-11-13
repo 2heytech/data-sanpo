@@ -7,6 +7,8 @@ per_prefecture = true の出典は都道府県ごとに download_url の {pref} 
 同じURLで取得済み（_fetch.json がある）なら取得し直さない（GitHub Actions のキャッシュから戻した元ファイルを使う）。
 keep_rows = { column = "列名", value = "値" } のあるCSVは、その列が値に一致する行（と1行目の列名）だけを
 残して保存する（例: 全国の交通事故から東京都の行だけ。sha256 は取得したままのファイルのもの）。
+reduce_xlsx = { columns = [...], ... } のある Excel は、見出しがその名前の列だけを残した CSV（UTF-8）にして保存する
+（例: 経済センサスの数百列・数十 MB の表から宿泊業の列だけ。reduce_xlsx の説明を参照）。
 """
 from __future__ import annotations
 
@@ -15,13 +17,18 @@ import hashlib
 import io
 import json
 import re
+import ssl
+import sys
 import time
+import http.cookiejar
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
 from .db import now_iso
+from .regions import PREFECTURES as PREFECTURES_BY_CODE
 
 USER_AGENT = "data-sanpo/0.1 (+https://github.com/2heytech/data-sanpo)"
 TIMEOUT = 120
@@ -65,6 +72,57 @@ def keep_rows(data: bytes, column: str, value: str, encoding: str = "cp932") -> 
     return "".join(kept).encode(encoding, errors="replace")
 
 
+def reduce_xlsx(data: bytes, rule: dict) -> bytes:
+    """Excel の表から必要な列だけを残して CSV（UTF-8）にする。e-Stat の経済センサスの表の形
+    （上に「産業」の見出しの行、その次の行に「事業所数」「従業者数_男女計」などの見出し、その下に地域の列名の行と
+    データの行）を想定する。
+      columns: 残す列の上の見出し（例: "75_宿泊業"）。measures: 残す列の下の見出し（省略すると全部）。
+      label_columns: 左から何列を地域の列として残すか。row_filter = { column = 列の番号（1から）, values = [...] }:
+      その列がどれかに一致するデータの行だけを残す。
+    1行目は地域の列名と「上の見出し|下の見出し」。値は表のまま（「-」もそのまま）。"""
+    from .xlsx import iter_sheet_rows
+    columns, measures = set(rule["columns"]), rule.get("measures")
+    n_labels = int(rule["label_columns"])
+    filt = rule.get("row_filter")
+    out = io.StringIO()
+    w = csv.writer(out, lineterminator="\n")
+    top = sub = keep = None
+    labels_seen = False
+
+    def text(c) -> str:
+        if isinstance(c, float):
+            return str(int(c)) if c.is_integer() else repr(c)
+        return "" if c is None else str(c).strip()
+
+    rows = iter_sheet_rows(io.BytesIO(data))
+    for r in rows:
+        if top is None:
+            if any(isinstance(c, str) and c.strip() in columns for c in r):
+                top = [text(c) for c in r]
+                sub = [text(c) for c in next(rows)]
+                keep = [j for j, t in enumerate(top) if t in columns
+                        and (measures is None or (j < len(sub) and sub[j] in measures))]
+                missing = columns - {top[j] for j in keep}
+                if missing:
+                    raise FetchError(f"reduce_xlsx の列 {sorted(missing)} がありません")
+            continue
+        if not labels_seen:
+            if r and text(r[0]):   # 地域の列名の行（「市区町村・町丁大字コード」など）
+                w.writerow([text(c) for c in (r + [None] * n_labels)[:n_labels]]
+                           + [f"{top[j]}|{sub[j]}" for j in keep])
+                labels_seen = True
+            continue
+        if not r or not text(r[0]):
+            continue
+        if filt and text(r[filt["column"] - 1] if len(r) >= filt["column"] else None) not in filt["values"]:
+            continue
+        w.writerow([text(c) for c in (r + [None] * n_labels)[:n_labels]]
+                   + [text(r[j]) if j < len(r) else "" for j in keep])
+    if top is None or not labels_seen:
+        raise FetchError("reduce_xlsx: 見出しの行が見つかりません")
+    return out.getvalue().encode("utf-8")
+
+
 def _is_office_file(data: bytes) -> bool:
     """Excel（.xlsx）などの Office のファイルも ZIP なので、展開せずにそのまま保存する。"""
     with zipfile.ZipFile(io.BytesIO(data)) as z:
@@ -74,18 +132,55 @@ def _is_office_file(data: bytes) -> bool:
 RETRIES = 3
 
 
+def _legacy_tls_context() -> ssl.SSLContext:
+    """古い TLS の再ネゴシエーションにしか対応していないサイト（国土地理院の www.gsi.go.jp。OpenSSL 3 の既定では
+    「unsafe legacy renegotiation disabled」で接続できない）に、証明書の検証は保ったままつなぐ設定。"""
+    ctx = ssl.create_default_context()
+    ctx.options |= getattr(ssl, "OP_LEGACY_SERVER_CONNECT", 0x4)
+    return ctx
+
+
+def _is_legacy_renegotiation(e: Exception) -> bool:
+    return "UNSAFE_LEGACY_RENEGOTIATION_DISABLED" in str(getattr(e, "reason", e))
+
+
 def download(url: str) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    context = None
     for attempt in range(RETRIES):
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+            with urllib.request.urlopen(req, timeout=TIMEOUT, context=context) as res:
                 return res.read()
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            if context is None and _is_legacy_renegotiation(e):
+                context = _legacy_tls_context()   # その接続のときだけ古い方式を許して、すぐにやり直す
+                continue
             # 404 などはやり直しても変わらない。一時的な失敗（5xx・接続断）だけ間をあけてやり直す
             if isinstance(e, urllib.error.HTTPError) and e.code < 500 or attempt == RETRIES - 1:
                 raise
             time.sleep(5 * (attempt + 1))
     raise AssertionError("unreachable")
+
+
+def cookie_downloader():
+    """クッキーを覚えて取得する（愛知県警察のサイトは最初の応答でクッキーを渡し、クッキーなしで来た要求を
+    同じ URL に転送し続ける）。最初の 403 もクッキーを受け取ったあとなら通るので、1回だけやり直す。"""
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def get(url: str) -> bytes:
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+        for attempt in range(RETRIES):
+            try:
+                with opener.open(req, timeout=TIMEOUT) as res:
+                    return res.read()
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+                retry = (not isinstance(e, urllib.error.HTTPError) or e.code >= 500
+                         or e.code in (302, 403) and attempt == 0)
+                if not retry or attempt == RETRIES - 1:
+                    raise
+                time.sleep(5 * (attempt + 1))
+        raise AssertionError("unreachable")
+    return get
 
 
 def source_prefectures(cfg: dict, prefs: list[str]) -> list[str]:
@@ -103,6 +198,19 @@ def _already_fetched(dest: Path, url: str) -> list[Path] | None:
     info = json.loads(meta.read_text(encoding="utf-8"))
     files = [dest / f for f in info.get("files", [])]
     if info.get("url") == url and files and all(f.exists() for f in files):
+        return files
+    return None
+
+
+def _already_fetched_files(dest: Path, urls: dict[str, str]) -> list[Path] | None:
+    """download_files の出典で、前回すべてのファイルを同じ URL から取得していればそのファイル。"""
+    meta = dest / "_fetch.json"
+    if not meta.exists():
+        return None
+    info = json.loads(meta.read_text(encoding="utf-8"))
+    got = {d.get("file"): d.get("url") for d in info.get("downloads", [])}
+    files = [dest / name for name in urls]
+    if all(got.get(name) == url for name, url in urls.items()) and all(f.exists() for f in files):
         return files
     return None
 
@@ -283,18 +391,102 @@ def resolve_file_ids(key: str, cfg: dict, dest: Path, prefs: list[str], download
     return ids
 
 
+KOKODE = "https://www.wam.go.jp/kokodesearch/"
+KOKODE_FILE = re.compile(r"公表施設情報_認可_(.+?)_(\d{8})\.csv$")
+
+
+def kokode_poster():
+    """ここdeサーチの画面と同じ順に要求を送る関数（クッキーを覚える）。post(画面のパス, フォームの値 | None) → 本文。"""
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def post(path: str, form: dict | None) -> bytes:
+        body = urllib.parse.urlencode(form).encode() if form is not None else None
+        req = urllib.request.Request(KOKODE + path, data=body, headers={
+            "User-Agent": USER_AGENT, "Referer": KOKODE + "ANN010100E00.do"})
+        with opener.open(req, timeout=600) as res:
+            return res.read()
+    return post
+
+
+def _kokode_form(page: bytes, form_id: str, extra: dict | None = None) -> dict:
+    """画面の隠しフィールド（_TOKEN は画面ごとに変わる）と同じ値を送る。"""
+    token = re.search(rb'name="_TOKEN" value="(\d+)"', page)
+    if token is None:
+        raise FetchError("ここdeサーチの画面に _TOKEN がありません（画面の作りが変わった可能性）")
+    return {"_FRAMEID": "root", "_TARGETID": "root", "_LUID": "", "_TOKEN": token.group(1).decode(),
+            "_FORMID": form_id, "_SUBINDEX": "", **(extra or {})}
+
+
+def fetch_kokode(key: str, cfg: dict, dest: Path, prefs: list[str], post=None) -> list[Path]:
+    """子ども・子育て支援情報公表システム「ここdeサーチ」の全国施設CSV（ZIP）。決まった URL がなく、画面の
+    「全国施設CSVファイルダウンロード」のボタン（フォームの POST）でしか取れないので、トップ画面 → ダウンロード画面
+    （ANN010104E00）→ ダウンロード（ANN010104E06）の順に送る（2026-10-17 に確認）。
+    ZIP の中のファイル名は cp932 なので、認可施設のファイルだけを <都道府県コード>/ninka_<取得日>.csv として保存する。
+    中身は毎日更新されるので毎回取り直し、取れないときは前回の取得分を使う。"""
+    post = post or kokode_poster()
+    codes = {name: code for code, name in PREFECTURES_BY_CODE.items()}
+    targets = source_prefectures(cfg, prefs)
+    try:
+        top = post("ANN010100E00.do", None)
+        page = post("ANN010104E00.do", _kokode_form(top, "ANN010100", {
+            "vo_headVO_keyword": "", "vo_headVO_lat": "", "vo_headVO_lng": ""}))
+        data = post("ANN010104E06.do", _kokode_form(page, "ANN010104"))
+        if not zipfile.is_zipfile(io.BytesIO(data)):
+            raise FetchError("ここdeサーチから ZIP ではない応答が返されました")
+    except (FetchError, OSError) as e:
+        prior = sorted(dest.glob("*/ninka_*.csv"))
+        if not prior:
+            raise
+        print(f"[{key}] 取得できないため前回の取得分を使います（{e}）", file=sys.stderr)
+        return [p for p in prior if p.parent.name in targets]
+    files = []
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        for info in z.infolist():
+            name = info.filename if info.flag_bits & 0x800 else info.filename.encode("cp437").decode("cp932")
+            m = KOKODE_FILE.search(name)
+            if not m or codes.get(m.group(1)) not in targets:
+                continue
+            sub = dest / codes[m.group(1)]
+            sub.mkdir(parents=True, exist_ok=True)
+            for old in sub.glob("ninka_*.csv"):
+                old.unlink()
+            target = sub / f"ninka_{m.group(2)}.csv"
+            target.write_bytes(z.read(info))
+            files.append(target)
+    if not files:
+        raise FetchError("ここdeサーチの ZIP に認可施設の CSV がありません")
+    (dest / "_fetch.json").write_text(json.dumps({
+        "url": KOKODE, "retrieved_at": now_iso(), "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "files": [f.relative_to(dest).as_posix() for f in files],
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    return files
+
+
 def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
                  prefs: list[str] | None = None) -> list[Path]:
+    if cfg.get("fetch") == "kokode":
+        return fetch_kokode(key, cfg, dest, prefs or [], None if downloader is download else downloader)
     if cfg.get("per_prefecture"):
         files: list[Path] = []
         targets = source_prefectures(cfg, prefs or [])
-        ids = resolve_file_ids(key, cfg, dest, targets, downloader) if cfg.get("estat_lookup") else {}
+        # statInfId を都道府県ごとに書いた出典（known_ids だけで estat_lookup のないもの）は一覧を探さない
+        ids = (resolve_file_ids(key, cfg, dest, targets, downloader) if cfg.get("estat_lookup")
+               else dict(cfg.get("known_ids", {})))
+        if cfg.get("download_files"):
+            # 都道府県の機関ごとにファイルの一覧を書く出典（犯罪オープンデータなど）。取れないファイルがあっても止めない
+            for pref in targets:
+                get = cookie_downloader() if downloader is download else downloader
+                files += _fetch_files_lenient(f"{key}/{pref}", cfg["download_files"], dest / pref, get)
+            return files
         for pref in targets:
-            if cfg.get("estat_lookup") and pref not in ids:
+            if (cfg.get("estat_lookup") or "{id}" in cfg["download_url"]) and pref not in ids:
                 continue
             # {pref_dir} は都道府県ごとのフォルダ名（例: 国立教育政策研究所の 13_tokyo）。pref_dirs に書く
+            # {pref_n} は先頭の0を付けない番号（例: 文部科学省の 1〜47）、{pref3} は3桁（001〜047）
             url = (cfg["download_url"].replace("{pref}", pref).replace("{id}", ids.get(pref, ""))
-                   .replace("{pref_dir}", cfg.get("pref_dirs", {}).get(pref, "")))
+                   .replace("{pref_dir}", cfg.get("pref_dirs", {}).get(pref, ""))
+                   .replace("{pref_n}", str(int(pref))).replace("{pref3}", pref.zfill(3)))
             sub = dest / pref
             cached = _already_fetched(sub, url)
             if cached is None:
@@ -305,25 +497,44 @@ def fetch_source(key: str, cfg: dict, dest: Path, downloader=download,
             files += cached
         return files
     if cfg.get("download_files"):
+        if cfg.get("lenient"):   # 一部のファイルが取れなくても止めない出典（港の地名検索など）
+            return _fetch_files_lenient(key, cfg["download_files"], dest, downloader)
         return _fetch_files(key, cfg["download_files"], dest, downloader)
     url = cfg.get("download_url")
     if url and cfg.get("cache") and (cached := _already_fetched(dest, url)):
         return cached  # 変わらないファイル（過去の年の統計など）は取得済みのものを使う
     if not url:
         raise FetchError(f"[{key}] download_url が未設定です。手動で取得してください: {cfg['url']}")
-    data = downloader(url)
+    try:
+        data = downloader(url)
+    except (FetchError, OSError) as e:
+        # 配布元が一時的に（または GitHub Actions からの接続を）拒んだとき、前回の取得分（キャッシュ）があれば使う
+        prior = _already_fetched(dest, url)
+        if prior is None and cfg.get("optional") and isinstance(e, urllib.error.HTTPError) and e.code == 404:
+            # まだ置いていない集計（derived-sources の Release、#123）。この出典を除いて公開版を作る
+            print(f"[{key}] まだ置かれていないため飛ばします: {url}", file=sys.stderr)
+            return []
+        if prior is None:
+            raise
+        print(f"[{key}] 取得できないため前回の取得分を使います（{e}）", file=sys.stderr)
+        return prior
     if _looks_like_html(data):
         raise FetchError(f"[{key}] ファイルではなくHTMLが返されました。URLを確認してください: {url}")
     dest.mkdir(parents=True, exist_ok=True)
-    if zipfile.is_zipfile(io.BytesIO(data)) and not _is_office_file(data):
+    # extract = false の出典（全国の位置参照情報など大きな CSV の ZIP）は展開せずに置き、読むときに ZIP の中を読む
+    if zipfile.is_zipfile(io.BytesIO(data)) and not _is_office_file(data) and cfg.get("extract", True):
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             files = _safe_extract(z, dest)
     else:
         name = cfg.get("download_filename") or Path(url.split("?")[0]).name or "download.bin"
         target = dest / name
         rule = cfg.get("keep_rows")
-        target.write_bytes(keep_rows(data, rule["column"], str(rule["value"]), cfg.get("encoding", "cp932"))
-                           if rule else data)
+        if cfg.get("reduce_xlsx"):
+            target.write_bytes(reduce_xlsx(data, cfg["reduce_xlsx"]))
+        elif rule:
+            target.write_bytes(keep_rows(data, rule["column"], str(rule["value"]), cfg.get("encoding", "cp932")))
+        else:
+            target.write_bytes(data)
         files = [target]
     (dest / "_fetch.json").write_text(json.dumps({
         "url": url, "retrieved_at": now_iso(), "bytes": len(data),
@@ -338,7 +549,14 @@ def _fetch_files(key: str, urls: dict[str, str], dest: Path, downloader) -> list
     dest.mkdir(parents=True, exist_ok=True)
     files, meta = [], []
     for name, url in urls.items():
-        data = downloader(url)
+        try:
+            data = downloader(url)
+        except (FetchError, OSError) as e:
+            prior = _already_fetched_files(dest, urls)
+            if prior is None:
+                raise
+            print(f"[{key}] 取得できないため前回の取得分を使います（{e}）", file=sys.stderr)
+            return prior
         if _looks_like_html(data):
             raise FetchError(f"[{key}] {name}: ファイルではなくHTMLが返されました。URLを確認してください: {url}")
         target = dest / name
@@ -349,5 +567,43 @@ def _fetch_files(key: str, urls: dict[str, str], dest: Path, downloader) -> list
     (dest / "_fetch.json").write_text(json.dumps({
         "retrieved_at": now_iso(), "downloads": meta,
         "files": [f.relative_to(dest).as_posix() for f in files],
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    return files
+
+
+def _fetch_files_lenient(key: str, urls: dict[str, str], dest: Path, downloader) -> list[Path]:
+    """download_files の各ファイルを取得する。同じ URL で取得済みのファイルは取り直さない（過去の年の表は変わらない）。
+    取れない・HTML が返ったファイルは、前回の取得分があればそれを使い、なければ飛ばして警告だけ出す
+    （都道府県警察の47のサイトのうち1つが一時的に開けないだけで、全体の公開を止めないため）。"""
+    dest.mkdir(parents=True, exist_ok=True)
+    meta_path = dest / "_fetch.json"
+    prior = {d["file"]: d for d in (json.loads(meta_path.read_text(encoding="utf-8")).get("downloads", [])
+                                    if meta_path.exists() else [])}
+    files, meta = [], []
+    for name, url in urls.items():
+        target = dest / name
+        old = prior.get(name)
+        if old and old.get("url") == url and target.exists():
+            files.append(target)
+            meta.append(old)
+            continue
+        try:
+            data = downloader(url)
+            if _looks_like_html(data):
+                raise FetchError("ファイルではなくHTMLが返されました")
+        except (FetchError, OSError) as e:
+            if old and target.exists():
+                print(f"[{key}] {name}: 取得できないため前回の取得分を使います（{e}）", file=sys.stderr)
+                files.append(target)
+                meta.append(old)
+            else:
+                print(f"[{key}] {name}: 取得できないため飛ばします（{e}）: {url}", file=sys.stderr)
+            continue
+        target.write_bytes(data)
+        files.append(target)
+        meta.append({"url": url, "file": name, "bytes": len(data), "retrieved_at": now_iso(),
+                     "sha256": hashlib.sha256(data).hexdigest()})
+    meta_path.write_text(json.dumps({
+        "downloads": meta, "files": [f.relative_to(dest).as_posix() for f in files],
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     return files

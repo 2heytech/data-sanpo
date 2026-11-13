@@ -15,9 +15,6 @@ PREFECTURES = {
     "43": "熊本県", "44": "大分県", "45": "宮崎県", "46": "鹿児島県", "47": "沖縄県",
 }
 TOKYO = "13"
-# 旧来の名前（東京都だけを扱っていたころの定数）。都の機関のデータの取込で使う
-PREF_CODE = TOKYO
-PREF_ENTITY = "pref-13"
 
 
 def selected_prefectures(value: str | None = None) -> list[str]:
@@ -30,6 +27,32 @@ def selected_prefectures(value: str | None = None) -> list[str]:
     if unknown:
         raise ValueError(f"都道府県コードが不正です: {unknown}")
     return sorted(set(codes))
+
+
+# 町村が市になるなどして団体コードが変わった市区町村（古いコード → 地図の地域のコード）。総務省の年度ごとの表で、
+# 変わる前の年度の行を地図の市区町村に合わせる（福岡県那珂川町は2018年10月に市になった。2016〜2018年度の表は町のコード）
+CODE_CHANGES = {"40305": "40231"}
+
+
+def current_code(city_code5: str) -> str:
+    return CODE_CHANGES.get(city_code5, city_code5)
+
+
+def designated_city_wards(conn, city_code5: str) -> list[str]:
+    """政令指定都市（市全体のコード。例: 横浜市 14100）の区の地域ID。政令指定都市でなければ空。
+    区のコードは市のコードのすぐ後ろ（横浜市は 14101〜14118、浜松市 22130 は 22131〜22140）。次の政令指定都市までの
+    間隔は区の数より狭いことがある（川崎市 14130 と相模原市 14150）ので、市のすぐ後ろの区の地域区分（市の名前）で集める。"""
+    if city_code5[:2] == TOKYO:
+        return []   # 東京都の地域区分（区部・多摩・島しょ）は政令指定都市ではない
+    first = conn.execute(
+        """SELECT region FROM entities WHERE entity_type = 'municipality' AND region IS NOT NULL
+             AND entity_id > ? AND entity_id <= ? ORDER BY entity_id LIMIT 1""",
+        (municipality_entity_id(city_code5), municipality_entity_id(f"{int(city_code5) + 10:05d}"))).fetchone()
+    if first is None:
+        return []
+    return [r[0] for r in conn.execute(
+        """SELECT entity_id FROM entities WHERE entity_type = 'municipality' AND region = ? AND entity_id LIKE ?
+           ORDER BY entity_id""", (first[0], f"muni-{city_code5[:2]}%"))]
 
 
 def prefecture_entity_id(pref_code: str) -> str:
@@ -59,3 +82,26 @@ def region_of(city_code5: str, designated_city: str | None = None) -> str | None
             return "多摩"
         return "島しょ"
     return designated_city or None
+
+
+def map_municipalities(conn) -> list:
+    """地図の市区町村（最新の国勢調査の境界がある市区町村）の entity_id・name・region。
+    過去の境界で作った、今はない市区町村（2012年に政令指定都市になる前の熊本市 43201、合併した町村など）を
+    名前で取り違えないように使う。境界がまだない（テストの小さな DB）ときは全部の市区町村。"""
+    from .config import load_censuses
+    version = load_censuses()[-1]["boundary_version"]
+    rows = conn.execute(
+        """SELECT e.entity_id, e.name, e.region FROM entities e JOIN boundaries b ON b.entity_id = e.entity_id
+             WHERE e.entity_type = 'municipality' AND b.boundary_version = ? ORDER BY e.entity_id""", (version,)).fetchall()
+    return rows or conn.execute(
+        "SELECT entity_id, name, region FROM entities WHERE entity_type = 'municipality' ORDER BY entity_id").fetchall()
+
+
+REORGANIZED_WARD_NOTE = "区の再編で、表の区が地図の区（2020年国勢調査の区）と合わないため値なし"
+
+
+def wards_without_rows(conn, written: set[str]) -> list[str]:
+    """政令指定都市の区（地図の区）のうち、表に行のなかった地域ID。区を再編した市（浜松市は2024年1月）の
+    古い区は、新しい区の表に行がない。値なし（0 にしない）にして理由を書くのに使う。"""
+    return [r["entity_id"] for r in map_municipalities(conn)
+            if r["region"] and r["entity_id"][5:7] != TOKYO and r["entity_id"] not in written]

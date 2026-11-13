@@ -15,6 +15,18 @@ NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
       "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 Cell = str | float | None
+# 書き出す .xlsx（見本データ）の中のファイルの日時（固定）
+FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
+# 「Strict Open XML」形式で保存されたファイルは名前空間が違う（e-Stat の一部の表。2026-10-10 確認）
+STRICT_NS = {b"http://purl.oclc.org/ooxml/spreadsheetml/main": NS["m"].encode(),
+             b"http://purl.oclc.org/ooxml/officeDocument/relationships": NS["r"].encode()}
+
+
+def _xml(z: zipfile.ZipFile, name: str):
+    data = z.read(name)
+    for strict, transitional in STRICT_NS.items():
+        data = data.replace(strict, transitional)
+    return ET.fromstring(data)
 
 
 def _text(el) -> str:
@@ -38,14 +50,60 @@ def _col_index(ref: str) -> int:
 
 def sheet_names(path: Path) -> list[str]:
     with zipfile.ZipFile(path) as z:
-        wb = ET.fromstring(z.read("xl/workbook.xml"))
+        wb = _xml(z, "xl/workbook.xml")
     return [s.get("name") for s in wb.iter(f"{{{NS['m']}}}sheet")]
+
+
+def iter_sheet_rows(source, sheet: int = 0):
+    """シートの行を順に返す（大きなファイル用。全体を読み込まずに1行ずつ XML を読む）。
+    source はファイルのパスか、バイト列を読めるファイルのようなもの。行の番号の飛び（空の行）は詰める。"""
+    def local(tag: str) -> str:
+        return tag.rsplit("}", 1)[-1]
+
+    with zipfile.ZipFile(source) as z:
+        wb = _xml(z, "xl/workbook.xml")
+        el = list(wb.iter(f"{{{NS['m']}}}sheet"))[sheet]
+        rid = el.get(f"{{{NS['r']}}}id")
+        rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
+        target = next(r.get("Target") for r in rels if r.get("Id") == rid).lstrip("/")
+        target = target if target.startswith("xl/") else f"xl/{target}"
+        shared = []
+        if "xl/sharedStrings.xml" in z.namelist():
+            shared = [_text(si) for si in _xml(z, "xl/sharedStrings.xml")]
+        with z.open(target) as f:
+            # Strict Open XML の名前空間でも読めるよう、タグは名前空間を除いた名前で見る
+            for _, row in ET.iterparse(f, events=("end",)):
+                if local(row.tag) != "row":
+                    continue
+                values: list[Cell] = []
+                for c in row:
+                    if local(c.tag) != "c":
+                        continue
+                    i = _col_index(c.get("r")) if c.get("r") else len(values)
+                    values += [None] * (i - len(values))
+                    kind = c.get("t")
+                    v = next((x for x in c if local(x.tag) == "v"), None)
+                    if kind == "inlineStr":   # ふりがな（rPh）の文字は含めない
+                        box = next((x for x in c if local(x.tag) == "is"), [])
+                        cell: Cell = "".join(t.text or "" for x in box for t in ([x] if local(x.tag) == "t" else
+                                             [y for y in x if local(y.tag) == "t"] if local(x.tag) == "r" else []))
+                    elif v is None or v.text is None:
+                        cell = None
+                    elif kind == "s":
+                        cell = shared[int(v.text)]
+                    elif kind in ("str", "e"):
+                        cell = v.text
+                    else:
+                        cell = float(v.text)
+                    values.append(cell)
+                row.clear()
+                yield values
 
 
 def read_sheet(path: Path, sheet: int | str = 0) -> list[list[Cell]]:
     """シートの各行をセルの値のリストで返す（空のセルは None、数値は float、文字列は str）。"""
     with zipfile.ZipFile(path) as z:
-        wb = ET.fromstring(z.read("xl/workbook.xml"))
+        wb = _xml(z, "xl/workbook.xml")
         sheets = list(wb.iter(f"{{{NS['m']}}}sheet"))
         el = sheets[sheet] if isinstance(sheet, int) else next(s for s in sheets if s.get("name") == sheet)
         rid = el.get(f"{{{NS['r']}}}id")
@@ -55,8 +113,8 @@ def read_sheet(path: Path, sheet: int | str = 0) -> list[list[Cell]]:
         target = target if target.startswith("xl/") else f"xl/{target}"
         shared = []
         if "xl/sharedStrings.xml" in z.namelist():
-            shared = [_text(si) for si in ET.fromstring(z.read("xl/sharedStrings.xml"))]
-        root = ET.fromstring(z.read(target))
+            shared = [_text(si) for si in _xml(z, "xl/sharedStrings.xml")]
+        root = _xml(z, target)
     rows: list[list[Cell]] = []
     for row in root.iter(f"{{{NS['m']}}}row"):
         values: list[Cell] = []
@@ -116,27 +174,31 @@ def write_sheets(path: Path, sheets: dict[str, list[list[Cell]]]) -> None:
 
     names = list(sheets)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("[Content_Types].xml",
-                   '<?xml version="1.0" encoding="UTF-8"?>'
-                   '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-                   '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-                   '<Default Extension="xml" ContentType="application/xml"/>'
-                   '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-                   + "".join(f'<Override PartName="/xl/worksheets/sheet{k}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-                             for k in range(1, len(names) + 1)) +
-                   '</Types>')
-        z.writestr("_rels/.rels",
-                   f'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="{NS["rel"]}">'
-                   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-                   '</Relationships>')
-        z.writestr("xl/workbook.xml",
-                   f'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="{NS["m"]}" xmlns:r="{NS["r"]}"><sheets>'
-                   + "".join(f'<sheet name="{escape(n)}" sheetId="{k}" r:id="rId{k}"/>' for k, n in enumerate(names, 1))
-                   + '</sheets></workbook>')
-        z.writestr("xl/_rels/workbook.xml.rels",
-                   f'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="{NS["rel"]}">'
-                   + "".join(f'<Relationship Id="rId{k}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{k}.xml"/>'
-                             for k in range(1, len(names) + 1))
-                   + '</Relationships>')
+        def put(name: str, text: str) -> None:
+            # 日時を固定する（架空データの元ファイルの hash、つまり出典IDが、作り直すたびに変わらないように）
+            z.writestr(zipfile.ZipInfo(name, FIXED_ZIP_TIME), text, zipfile.ZIP_DEFLATED)
+
+        put("[Content_Types].xml",
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            + "".join(f'<Override PartName="/xl/worksheets/sheet{k}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                      for k in range(1, len(names) + 1)) +
+            '</Types>')
+        put("_rels/.rels",
+            f'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="{NS["rel"]}">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>')
+        put("xl/workbook.xml",
+            f'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="{NS["m"]}" xmlns:r="{NS["r"]}"><sheets>'
+            + "".join(f'<sheet name="{escape(n)}" sheetId="{k}" r:id="rId{k}"/>' for k, n in enumerate(names, 1))
+            + '</sheets></workbook>')
+        put("xl/_rels/workbook.xml.rels",
+            f'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="{NS["rel"]}">'
+            + "".join(f'<Relationship Id="rId{k}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{k}.xml"/>'
+                      for k in range(1, len(names) + 1))
+            + '</Relationships>')
         for k, n in enumerate(names, 1):
-            z.writestr(f"xl/worksheets/sheet{k}.xml", sheet_xml(sheets[n]))
+            put(f"xl/worksheets/sheet{k}.xml", sheet_xml(sheets[n]))

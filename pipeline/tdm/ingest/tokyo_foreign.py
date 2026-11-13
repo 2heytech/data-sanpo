@@ -25,6 +25,9 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
     rows = list(csv.DictReader(io.StringIO(text)))
     header = {c.strip(): c for c in rows[0] if c}
     targets = {i: d for i, d in catalog.items() if d.get("source_kind") == "tokyo_foreign"}
+    # 全国の出典がない古い年だけ東京都の表で補う指標（外国人住民の数: 全国の住民基本台帳は2021年から）
+    targets.update({i: {**d, "column": d["tokyo_foreign_column"]} for i, d in catalog.items()
+                    if d.get("tokyo_foreign_column") and period[0] < d["tokyo_foreign_before"]})
     missing = [d["column"] for d in targets.values() if d["column"] not in header]
     if missing:
         raise KeyError(f"{path.name}: 列 {missing} が見つかりません")
