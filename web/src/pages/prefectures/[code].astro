@@ -22,6 +22,7 @@ import {
 } from "../../lib/prefecturePage";
 import { loadAreaProfile, loadPrefectureProfile } from "../../lib/profiles";
 import { prefectureImage } from "../../lib/shareImages";
+import { PREF_INDICATOR_PAGES, hasPrefIndicatorPage, prefIndicatorName, prefIndicatorPath } from "../../lib/prefectureRanking";
 import { statGroups, type StatItem } from "../../lib/statList";
 import { breadcrumbList } from "../../lib/structured";
 import { mapHref } from "../../lib/urlstate";
@@ -137,6 +138,14 @@ const rankings = PREF_RANKING_IDS.map((id) => indicators.get(id)).filter((i) => 
     return [{ ...r, mapHref: mapHref({ indicator: r.ind.id, area: `pref-${pref.code}`, period }) }];
   });
 
+// 県内のすべての市区町村を指標の順に並べたページ（設計変更記録 #237）
+const prefIndicatorLinks = PREF_INDICATOR_PAGES.flatMap((p) => {
+  const ind = indicators.get(p.id);
+  return ind && hasPrefIndicatorPage(ind, pref.code, munis, rows, areas.prefectures.length)
+    ? [{ id: ind.id, href: prefIndicatorPath(pref.code, ind.id), label: prefIndicatorName(ind, p) }] : [];
+});
+const allRanksHref = new Map(prefIndicatorLinks.map((l) => [l.id, l.href]));
+
 // 市区町村別の人口増加率の地図の画像（設計変更記録 #142）。市区町村の表の前に置き、共有画像にも使う
 const image = prefectureImage(pref);
 const others = areas.prefectures.filter((p) => p.code !== pref.code);
@@ -169,6 +178,7 @@ const structured = breadcrumbList(Astro.site, [
     {neighborPrefs.length > 0 && statCount > 0 && <a href="#compare">隣の都道府県と比べる</a>}
     <a href="#munis">市区町村（人口の多い順）</a>
     {prefArticles.length > 0 && <a href="#articles">登場する寄り道（{prefArticles.length}）</a>}
+    {prefIndicatorLinks.length > 0 && <a href="#pref-indicator-rankings">市区町村ランキング（{prefIndicatorLinks.length}）</a>}
     {rankings.length > 0 && <a href="#pref-top">{pref.name}内の上位</a>}
   </nav>
 
@@ -221,6 +231,14 @@ const structured = breadcrumbList(Astro.site, [
       特徴の一言は、各市区町村のページの「データで見る」と同じで、全国の中で目立つ指標から作った推測です。</p>
   </section>
 
+  {prefIndicatorLinks.length > 0 && (
+    <section class="sheet" id="pref-indicator-rankings">
+      <h2>{pref.name}の市区町村ランキング</h2>
+      <p>{pref.name}のすべての市区町村を、指標の値の大きい順に並べたページです。全国の市区町村の中の順位も見られます。</p>
+      <ul class="pref-links">{prefIndicatorLinks.map((l) => <li><a href={l.href}>{l.label}</a></li>)}</ul>
+    </section>
+  )}
+
   {rankings.length > 0 && (
     <section class="sheet" id="pref-top">
       <h2>{pref.name}内の上位の市区町村</h2>
@@ -235,6 +253,7 @@ const structured = breadcrumbList(Astro.site, [
                 <li value={it.rank}><a href={`/areas/${it.muni.id}/`}>{it.muni.name}</a><span class="v">{it.text}</span></li>
               ))}
             </ol>
+            {allRanksHref.has(r.ind.id) && <p class="all-ranks small"><a href={allRanksHref.get(r.ind.id)}>{pref.name}のすべての市区町村の順位</a></p>}
           </section>
         ))}
       </div>
@@ -268,6 +287,7 @@ const structured = breadcrumbList(Astro.site, [
   .pref-ranking li { padding: 2px 0; }
   .pref-ranking li::marker { color: var(--muted); }
   .pref-ranking .v { float: right; margin-left: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink); font-weight: 600; }
+  .all-ranks { margin: 6px 0 0; }
   .pref-links { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .pref-links a {
     display: inline-block; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px;
