@@ -760,11 +760,11 @@ def test_foreign_residents(built):
         built, "values/foreign_residents/2026-01-01/prefectures.json")["rows"]}
     tokyo = sum(v for c, v in juki.items() if c[:2] == "13")
     assert prefs["pref-13"]["value"] == tokyo + 7   # 出典の都道府県の行を使う
-    # 外国人住民の割合: 分母は同じ調査の【総計】の人口。分母の指標そのものは公開しない
+    # 外国人住民の割合: 分母は同じ調査の【総計】の人口（分母の人口も #238 から「人口・世帯」の指標として公開する）
     share = by["foreign_residents_share"]
     assert share["facets"] == {"type": "総数", "basis": "割合"} and share["family"] == "foreign"
     assert [p["period"] for p in share["periods"]] == ["2025-01-01", "2026-01-01"]   # 2020年以前は分母がない
-    assert "juki_population" not in by
+    assert by["juki_population"]["category"] == "人口・世帯"
     tot = fixture.juki_total_values(2026)
     srows = {r["entity_id"]: r for r in load(
         built, "values/foreign_residents_share/2026-01-01/municipalities.json")["rows"]}
@@ -805,6 +805,33 @@ def test_juki_migration(built):
     prefs = {r["entity_id"]: r for r in load(
         built, "values/in_migration_rate/2025-01-01/prefectures.json")["rows"]}
     assert prefs["pref-13"]["value"] is not None   # 都道府県は出典の都道府県の行（県外からの転入）を使う
+
+
+def test_juki_population_and_vitals(built):
+    """住民基本台帳の人口・世帯数（1月1日）と、前の年の1年間の出生・死亡・自然増減・社会増減（#238）。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert by["juki_population"]["category"] == "人口・世帯"
+    assert [p["period"] for p in by["juki_population"]["periods"]] == ["2025-01-01", "2026-01-01"]
+    assert [p["label"] for p in by["juki_households"]["periods"]][-1] == "2026年1月1日現在"
+    # 令和8年1月1日のファイルの人口動態は2025年の1年間の値
+    assert [(p["period"], p["period_end"]) for p in by["juki_births"]["periods"]] == [
+        ("2024-01-01", "2024-12-31"), ("2025-01-01", "2025-12-31")]
+
+    def rows(indicator, period):
+        return {r["entity_id"]: r for r in load(built, f"values/{indicator}/{period}/municipalities.json")["rows"]}
+
+    pop = fixture.juki_total_values(2026)
+    births, deaths = fixture.juki_vitals(2026)["13199"]
+    moved_in, moved_out = fixture.juki_moves(2026)["13199"]
+    assert rows("juki_population", "2026-01-01")["muni-13199"]["value"] == pop["13199"]
+    assert rows("juki_households", "2026-01-01")["muni-13199"]["value"] == round(pop["13199"] * 0.6)
+    assert rows("juki_births", "2025-01-01")["muni-13199"]["value"] == births
+    assert rows("juki_deaths", "2025-01-01")["muni-13199"]["value"] == deaths
+    # 自然増減・社会増減は負の値をそのまま出す（0 にしない）
+    assert rows("juki_natural_change", "2025-01-01")["muni-13199"]["value"] == births - deaths < 0
+    assert rows("juki_social_change", "2025-01-01")["muni-13199"]["value"] == moved_in - moved_out
+    legend = load(built, "values/juki_natural_change/2025-01-01/legend.json")
+    assert legend["method"] == "diverging" and 0.0 in legend["levels"]["municipality"]["breaks"]   # 0 を境に増減で色を分ける
 
 
 def test_census_foreign_by_nationality(built):
