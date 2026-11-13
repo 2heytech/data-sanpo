@@ -1,0 +1,169 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, man, ranking, raw, rows } from "../lib/articleData";
+import { loadAreas } from "../lib/data";
+import { formatNumber } from "../lib/format";
+
+const ID = "water_fee_household";
+const P = "2024-04-01";
+const POP = "population_total";
+const PP = "2025-10-01";
+const TABAYAMA = "muni-19443";
+const NARUSAWA = "muni-19429";
+const AKO = "muni-28212";
+const YUSUHARA = "muni-39405";
+const INUYAMA = "muni-23215";
+const KUDAMATSU = "muni-35207";
+const AKISHIMA = "muni-13207";
+const OKUTAMA = "muni-13308";
+const CHICHIBU = "muni-11207";
+
+const areas = loadAreas();
+const muni = new Map(areas.municipalities.map((m) => [m.id, m]));
+const yen = (v: number | null | undefined) => (v === null || v === undefined ? "—" : `${formatNumber(v, 0)}円`);
+const fee = (id: string) => yen(raw(ID, P, id));
+const feeRows = rows(ID, P, "municipality");
+const all = feeRows.filter((r) => r.value !== null).map((r) => ({ id: r.entity_id, v: r.value as number }));
+const feeOf = new Map(all.map((r) => [r.id, r.v]));
+const sorted = all.map((r) => r.v).sort((a, b) => a - b);
+const half = Math.floor(sorted.length / 2);
+const median = sorted.length === 0 ? null : sorted.length % 2 ? sorted[half] : (sorted[half - 1] + sorted[half]) / 2;
+const pop = new Map(rows(POP, PP, "municipality").map((r) => [r.entity_id, r.value]));
+const popOf = (id: string) => pop.get(id) ?? null;
+
+// 書き出し: 最も安いのは丹波山村（同じ値のまちはない）で、値のある市区町村の真ん中の値のおよそ5分の1。1,000円未満は4つだけ
+ranking(ID, P, "municipality", "low", 1, [TABAYAMA]);
+check(sorted.length > 1 && sorted[0] < sorted[1], "水道料金が最も安い市区町村が1つではありません");
+const fifth = median === null ? NaN : (feeOf.get(TABAYAMA) ?? NaN) / median;
+check(fifth >= 0.18 && fifth < 0.22, "丹波山村の料金が、真ん中の値のおよそ5分の1ではありません");
+const under1000 = all.filter((r) => r.v < 1000);
+check(under1000.length === 4, "水道料金が1,000円未満の市区町村が4つではありません");
+// 1,000円未満の4つ: 赤穂市のほかは人口3,000人未満の村・町。丹波山村は東京都（奥多摩町）・埼玉県（秩父市）と接する
+check([TABAYAMA, NARUSAWA, YUSUHARA].every((id) => (popOf(id) ?? Infinity) < 3000) && (popOf(AKO) ?? 0) >= 3000,
+  "丹波山村・鳴沢村・檮原町が人口3,000人未満で、赤穂市がそれ以上ではありません");
+const neighbors = muni.get(TABAYAMA)?.neighbors ?? [];
+check(neighbors.includes(OKUTAMA) && neighbors.includes(CHICHIBU), "丹波山村が奥多摩町・秩父市と接していません");
+
+// 市では赤穂市が1位、2位の犬山市より450円ほど安い。昭島市は市の中で7位
+const cityLow = ranking(ID, P, "municipality", "low", 10, [], { kind: "市" });
+check(cityLow[0]?.entity_id === AKO && cityLow[1]?.entity_id === INUYAMA && cityLow[1].rank === 2, "市の1・2位が赤穂市・犬山市ではありません");
+const akoGap = (feeOf.get(INUYAMA) ?? NaN) - (feeOf.get(AKO) ?? NaN);
+check(Math.abs(akoGap - 450) < 25, "赤穂市が犬山市より450円ほど安くありません");
+check(cityLow.find((r) => r.entity_id === AKISHIMA)?.rank === 7, "昭島市が市の中で7位ではありません");
+// 東京23区と多摩地域の多くは東京都の水道の料金で、昭島市は違う
+const TOKYO_WATER = "東京都の水道の料金";
+const tokyoNote = new Map(feeRows.map((r) => [r.entity_id, r.note]));
+const wards23 = areas.municipalities.filter((m) => m.region === "区部");
+const tama = areas.municipalities.filter((m) => m.region === "多摩");
+const tokyoFee = feeOf.get(wards23[0]?.id ?? "") ?? null;
+check(wards23.length === 23 && wards23.every((m) => tokyoNote.get(m.id) === TOKYO_WATER && feeOf.get(m.id) === tokyoFee),
+  "東京23区がすべて東京都の水道の料金ではありません");
+check(tama.filter((m) => tokyoNote.get(m.id) === TOKYO_WATER).length > tama.length * 0.8 && tokyoNote.get(AKISHIMA) !== TOKYO_WATER,
+  "多摩地域の多くが東京都の水道ではないか、昭島市が東京都の水道になっています");
+
+// 人口20万人以上の市（政令指定都市は区をまとめた市全体。区の料金は市全体の料金で、どの区も同じ）で最も安いのは大阪市。政令指定都市では大阪市・浜松市・川崎市の順
+const wardsOf = new Map<string, string[]>();
+for (const m of areas.municipalities) {
+  if (m.region?.endsWith("市") && m.name.startsWith(m.region)) wardsOf.set(m.region, [...(wardsOf.get(m.region) ?? []), m.id]);
+}
+const popSum = (ids: string[]) => (ids.some((i) => popOf(i) === null) ? null : ids.reduce((s, i) => s + (popOf(i) as number), 0));
+const designated = [...wardsOf].map(([name, ids]) => {
+  const fees = new Set(ids.map((i) => feeOf.get(i) ?? null));
+  return { name, fee: fees.size === 1 ? [...fees][0] : null, pop: popSum(ids) };
+}).sort((a, b) => (a.fee ?? Infinity) - (b.fee ?? Infinity));
+check(designated.length === 20 && designated.every((c) => c.fee !== null), "政令指定都市が20市でないか、区によって料金が違う市があります");
+check(designated.slice(0, 3).map((c) => c.name).join() === "大阪市,浜松市,川崎市", "政令指定都市の安い順が大阪市・浜松市・川崎市ではありません");
+const cities = [...designated, ...areas.municipalities.filter((m) => m.name.endsWith("市")).map((m) => ({ name: m.name, fee: feeOf.get(m.id) ?? null, pop: popOf(m.id) }))];
+// 政令指定都市は、区割りが変わって人口を区の合計で出せない市（浜松市）も、人口20万人以上として数える
+const big = cities.filter((c, i) => c.fee !== null && (i < designated.length || (c.pop !== null && c.pop >= 200000))).sort((a, b) => a.fee! - b.fee!);
+check(big[0]?.name === "大阪市" && big[0].fee! < (big[1]?.fee ?? Infinity), "人口20万人以上の市で最も安いのが大阪市ではありません");
+const cityFee = (name: string) => yen(designated.find((c) => c.name === name)?.fee);
+
+// 5,000円以上の市区町村の7割あまりが北海道・東北6県（値のある市区町村では2割あまり）
+const north = (id: string) => (muni.get(id)?.prefecture ?? "99") <= "07";
+const over5000 = all.filter((r) => r.v >= 5000);
+const northOver = over5000.filter((r) => north(r.id)).length;
+const northShare = all.length ? all.filter((r) => north(r.id)).length / all.length : NaN;
+check(northOver / over5000.length > 0.7 && northOver / over5000.length < 0.8, "5,000円以上の市区町村の7割あまりが北海道・東北ではありません");
+check(northShare >= 0.2 && northShare < 0.25, "値のある市区町村のうち北海道・東北が2割あまりではありません");
+// 結び: いちばん高いまちと安いまちで10倍以上違う
+check(sorted.length > 0 && sorted[sorted.length - 1] / sorted[0] >= 10, "いちばん高い料金が、いちばん安い料金の10倍以上ではありません");
+---
+<Article slug="water-fee">
+  <p>
+    家庭で1か月に20m³の水道水を使ったときの料金がいちばん安いのは、山梨県丹波山村の{fee(TABAYAMA)}です（2024年度、税抜き）。
+    値のある{formatNumber(all.length, 0)}市区町村の真ん中の値（{yen(median)}）の、およそ5分の1です。
+    1,000円を下回るのは4つのまちだけで、市では兵庫県赤穂市（{fee(AKO)}）が最も安くなっています。
+  </p>
+  <p>
+    デジタル庁は、総務省の「地方公営企業決算状況調査」をもとに、水道事業ごとの料金を公開しています。
+    家庭用の料金は1か月に10m³と20m³を使ったときの2つがあり、この寄り道では、口径20mmの水道で20m³を使ったときの料金を、市区町村ごとに比べます。
+  </p>
+  <ArticleRanking id={ID} period={P} order="low" n={4} expect={[TABAYAMA, NARUSAWA, AKO, YUSUHARA]} caption="水道料金が1,000円未満の市区町村（2024年度）" />
+
+  <h2>1,000円未満は4つのまち</h2>
+  <p>
+    1,000円を下回るのは、丹波山村、同じ山梨県の鳴沢村（{fee(NARUSAWA)}）、兵庫県の赤穂市（{fee(AKO)}）、高知県の檮原町（{fee(YUSUHARA)}）の4つです。
+    赤穂市のほかの3つは、人口3,000人に満たない村や町です（2025年国勢調査）。
+    1位の丹波山村は、東京都の奥多摩町や埼玉県の秩父市と接する、人口{man(popOf(TABAYAMA))}人の村です。
+  </p>
+
+  <h2>市では赤穂市がいちばん安い</h2>
+  <p>
+    市だけで比べると、1位は赤穂市の{fee(AKO)}で、2位の愛知県犬山市（{fee(INUYAMA)}）より450円ほど安くなっています。
+    赤穂市によると、市の水道は千種川の水と地下水を水源にしています。
+  </p>
+  <ArticleRanking id={ID} period={P} order="low" n={10} kind="市" expect={[AKO, INUYAMA, KUDAMATSU, AKISHIMA]} caption="水道料金が安い市（2024年度）" />
+  <p>
+    東京都では、昭島市（{fee(AKISHIMA)}）が市の中で7位に入ります。
+    東京23区と多摩地域の多くの市町村は東京都の水道で、料金は{yen(tokyoFee)}ですが、昭島市は市の水道です。
+    東京都の資料によると、昭島市の水道は、すべて深い井戸からくみ上げた地下水を使っています。
+  </p>
+
+  <h2>人口の多い市では大阪市が安い</h2>
+  <p>
+    人口20万人以上の市（政令指定都市は市全体）で比べると、最も安いのは大阪市の{cityFee("大阪市")}です。
+    20の政令指定都市では、大阪市、浜松市（{cityFee("浜松市")}）、川崎市（{cityFee("川崎市")}）の順に安くなっています。
+    大阪市によると、市の水道はすべて淀川の水を使っています。
+  </p>
+
+  <h2>5,000円を超えるまちは北海道・東北に多い</h2>
+  <p>
+    1か月の料金が5,000円以上の市区町村は{formatNumber(over5000.length, 0)}あり、そのうち{formatNumber(northOver, 0)}が北海道と東北6県のまちで、7割を超えます。
+    値のある市区町村のうち北海道・東北のまちは2割あまりなので、料金の高いまちが多く集まっています。
+  </p>
+  <p>
+    内閣府の資料（2026年2月）は、日本水道協会の料金表で都道府県ごとの平均の料金をみると、人口密度の高い都市部で比較的安く、北海道や東北地方で高い傾向があるとしています。
+    その背景として、水源からの距離などの地理の条件や、利用者の数などの人口の条件を挙げています。
+  </p>
+
+  <h2>いちばん安いのは丹波山村の600円</h2>
+  <p>
+    家庭の水道料金がいちばん安いのは、山梨県丹波山村の{fee(TABAYAMA)}でした。
+    1,000円を下回るのは4つのまちだけで、市では赤穂市、人口の多い市では大阪市が最も安くなっています。
+    同じ量の水を使っても、まちによって料金は10倍以上違います。
+  </p>
+  <p>
+    地図では、全国の市区町村の水道料金を色分けで見られます。住んでいるまちの料金も確かめてみてください。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${TABAYAMA}&l=municipality`}>水道料金を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>税抜きの料金です。口径20mmの水道で、1か月に20m³を使ったときの料金で、下水道の使用料は含みません。</li>
+    <li>上水道のない市町村は、法の適用を受ける簡易水道の料金です。法の適用を受けない小さな簡易水道や井戸で暮らす地域の料金は含みません。</li>
+    <li>
+      企業団や都県（東京都など）の水道が給水する市区町村は、その水道の料金です。政令指定都市は市全体の料金なので、区にも市の値を表示しています。
+      <ArticleLink slug="reading-public-data">市区町村の値が、中の地域の違いを隠すこと</ArticleLink>
+    </li>
+    <li>元の表の値が料金表と合わなかった町村は、町村の料金表で確かめた値に直しています。確かめられなかった町村は、値を表示しません。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

@@ -39,6 +39,15 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "water-fee",
+    title: "水道料金が安いまちはどこ？：家庭用の水道料金の市区町村ランキング",
+    description: "家庭で1か月に20m³の水道水を使ったときの料金（2024年度）を、市区町村ごとに比べます。1,000円未満の4つのまち、市で最も安い市、人口の多い市や政令指定都市で安い市、料金の高いまちが多い地域も見ます。",
+    published: "2026-11-27",
+    theme: "life",
+    indicators: ["water_fee_household"],
+    mapHref: "/map/?i=water_fee_household&p=2024-04-01&a=muni-19443&l=municipality",
+  },
+  {
     slug: "port-passengers",
     title: "日本一、人が乗り降りする港はどこ？：港の乗降人員ランキング",
     description: "国土交通省の港湾統計（2024年）で、船に乗った人と降りた人の数を港ごとに比べます。1位の港と2位の差、上位に入る島へ渡る港、東京港・横浜港の順位、外国航路の多い港、2020年からの増え方も見ます。",
