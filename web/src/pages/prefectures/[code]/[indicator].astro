@@ -1,0 +1,150 @@
+---
+// 都道府県ごとの市区町村ランキング（設計変更記録 #237）。県内のすべての市区町村を、その指標の値の大きい順に並べ、
+// 全国の市区町村の中の順位を添える。「〇〇県 高齢化率 市町村」「北海道で一番広い市町村」などで探す人の入口にする
+import Base from "../../../layouts/Base.astro";
+import ShareButtons from "../../../components/ShareButtons.astro";
+import RankingTable, { type RankingRow } from "../../../components/RankingTable.astro";
+import { loadAreas, loadIndicators, loadSources, loadValues } from "../../../lib/data";
+import { periodYear } from "../../../lib/areaSummary";
+import { cityValues, designatedCities } from "../../../lib/designatedCities";
+import { formatValue, STATUS_LABEL } from "../../../lib/format";
+import { latestPeriod } from "../../../lib/periods";
+import {
+  PREF_INDICATOR_PAGES, hasPrefIndicatorPage, prefIndicatorDescription, prefIndicatorFacts, prefIndicatorName, prefIndicatorPath, prefIndicatorRanking,
+  prefIndicatorTitle, type PrefIndicatorPage, type PrefIndicatorRanking,
+} from "../../../lib/prefectureRanking";
+import { breadcrumbList } from "../../../lib/structured";
+import { mapHref } from "../../../lib/urlstate";
+import { barScale } from "../../../lib/valueBars";
+import type { Indicator, Prefecture } from "../../../lib/types";
+
+const rows = (id: string, period: string, chunk: "municipalities" | "prefectures") => loadValues(id, period, chunk)?.rows ?? [];
+
+export function getStaticPaths() {
+  const areas = loadAreas();
+  const indicators = new Map(loadIndicators().map((i) => [i.id, i]));
+  const values = (id: string, period: string, chunk: "municipalities" | "prefectures") => loadValues(id, period, chunk)?.rows ?? [];
+  // 全国の公開版だけで作る（1つの都道府県だけの公開版では、指標のページの市区町村ランキングと同じになる）
+  if (areas.prefectures.length < 2) return [];
+  return areas.prefectures.flatMap((pref) => {
+    const munis = areas.municipalities.filter((m) => m.prefecture === pref.code);
+    return PREF_INDICATOR_PAGES.flatMap((page) => {
+      const ind = indicators.get(page.id);
+      const ranking = ind ? prefIndicatorRanking(ind, pref.code, munis, values) : null;
+      return ind && ranking ? [{ params: { code: pref.code, indicator: ind.id }, props: { pref, ind, page, ranking } }] : [];
+    });
+  });
+}
+const { pref, ind, page, ranking } = Astro.props as { pref: Prefecture; ind: Indicator; page: PrefIndicatorPage; ranking: PrefIndicatorRanking };
+const areas = loadAreas();
+const indicators = new Map(loadIndicators().map((i) => [i.id, i]));
+const sources = new Map(loadSources().map((s) => [s.source_id, s]));
+const { period } = ranking;
+const name = prefIndicatorName(ind, page);
+const year = periodYear(period.label);
+
+// 政令指定都市の市全体の値（区の分子・分母の合計。区から計算できない指標は名前だけ。#191）
+const cities = designatedCities(areas.municipalities).filter((c) => c.prefecture === pref.code);
+const cityRows = cityValues(ind, cities, rows(ind.id, period.period, "municipalities"));
+const cityTexts = cities.map((c) => {
+  const v = cityRows?.find((x) => x.city === c)?.value ?? null;
+  return { name: c.name, text: v === null ? null : formatValue({ value: v, status: "derived" }, ind, { inText: true }) };
+});
+const facts = prefIndicatorFacts({ pref: pref.name, ind, page, ranking, cities: cityTexts });
+const title = prefIndicatorTitle(pref.name, ind, page, year);
+const description = prefIndicatorDescription({ pref: pref.name, ind, page, ranking, cities: cityTexts, year });
+
+// 表。地域名の下に全国の順位を書き、横に「地図」（この指標の色分けでその市区町村を選んだ地図。#200）を置く
+const atLatest = period.period === latestPeriod(ind);
+const toMap = (area: string) => mapHref({ indicator: ind.id, area, period: atLatest ? undefined : period.period });
+const tableRows: RankingRow[] = ranking.rows.map((r) => ({
+  ...r, name: r.muni.name, href: `/areas/${r.muni.id}/`, mapHref: toMap(r.muni.id),
+  extra: r.national ? [`全国${r.national.rank.toLocaleString("ja-JP")}位`] : [],
+}));
+const missingRows: RankingRow[] = ranking.missing.map((r) => ({ ...r, name: r.muni.name, href: `/areas/${r.muni.id}/`, extra: [] }));
+const scale = barScale(ranking.rows.map((r) => r.value));
+// 備考（算出値など）がどの行も同じなら、列にせず表の上に1回だけ書く（指標ページと同じ。#216）
+const notes = [...new Set(ranking.rows.map((r) => STATUS_LABEL[r.status]))];
+const commonNote = notes.length <= 1 ? notes[0] ?? "" : null;
+const nationalTotal = ranking.rows[0]?.national?.total ?? 0;
+const sourceTitles = [...new Set(period.source_ids.map((id) => sources.get(id)?.title ?? id))];
+
+// 同じ都道府県のほかの指標と、ほかの都道府県の同じ指標（どちらもページのあるものだけ）
+const prefCount = areas.prefectures.length;
+const munisOf = (code: string) => areas.municipalities.filter((m) => m.prefecture === code);
+const otherIndicators = PREF_INDICATOR_PAGES.filter((p) => p.id !== ind.id).flatMap((p) => {
+  const other = indicators.get(p.id);
+  return other && hasPrefIndicatorPage(other, pref.code, munisOf(pref.code), rows, prefCount)
+    ? [{ href: prefIndicatorPath(pref.code, other.id), label: prefIndicatorName(other, p) }] : [];
+});
+const otherPrefs = areas.prefectures.filter((p) => p.code !== pref.code).flatMap((p) =>
+  hasPrefIndicatorPage(ind, p.code, munisOf(p.code), rows, prefCount) ? [{ href: prefIndicatorPath(p.code, ind.id), label: p.name }] : []);
+const structured = breadcrumbList(Astro.site, [
+  { name: "データさんぽ", path: "/" }, { name: "都道府県の一覧", path: "/prefectures/" },
+  { name: pref.name, path: `/prefectures/${pref.code}/` }, { name: `${name} 市区町村ランキング` },
+]);
+---
+<Base title={title} description={description} prefecture={pref.name} structuredData={structured}>
+  <nav class="crumbs muted" aria-label="現在地"><a href="/">トップ</a> › <a href="/prefectures/">都道府県の一覧</a> › <a href={`/prefectures/${pref.code}/`}>{pref.name}</a></nav>
+  <header class="page-head">
+    <p class="eyebrow">{ind.category}</p>
+    <h1>{pref.name}の{name} <span class="h1-sub">市区町村ランキング（{period.label}）</span></h1>
+    <p class="lead">{ind.description}</p>
+    <div class="actions">
+      <a class="button" href={toMap(`pref-${pref.code}`)}>地図で{pref.name}を見る</a>
+      <a class="button secondary" href={`/indicators/${ind.id}/`}>全国のランキング</a>
+    </div>
+  </header>
+
+  <section class="sheet findings">
+    <h2>データから分かること（{year}）</h2>
+    <ul class="findings-list">{facts.map((line) => <li>{line}</li>)}</ul>
+    <p class="muted small">下の表と同じ公開データから数えた事実です。値の大きい順の順位で、大きいほど良い・悪いという意味ではありません。</p>
+  </section>
+
+  <section class="sheet" id="ranking">
+    <h2>{pref.name}の{name} 市区町村ランキング（{period.label}）</h2>
+    <p class="muted">{pref.name}の{(ranking.rows.length + ranking.missing.length).toLocaleString("ja-JP")}市区町村を、値の大きい順に並べています（同じ値は同じ順位）。
+      市区町村名の下は、全国{nationalTotal.toLocaleString("ja-JP")}市区町村の中の順位です。市区町村名から、その市区町村のページを開きます。
+      「地図」を押すと、その市区町村を選んだ地図を開きます。</p>
+    {commonNote && <p class="muted small">備考: どの市区町村も「{commonNote}」です。</p>}
+    <RankingTable ind={ind} rows={tableRows} areaLabel="市区町村" note={commonNote === null} scale={scale} />
+    {missingRows.length > 0 && (
+      <details class="ranking-more">
+        <summary>{`値のない市区町村（${missingRows.length.toLocaleString("ja-JP")}）`}</summary>
+        <RankingTable ind={ind} rows={missingRows} areaLabel="市区町村" note={false} />
+      </details>
+    )}
+    <p class="muted small">出典: {sourceTitles.join("／")}。意味・計算方法・注意点は<a href={`/indicators/${ind.id}/`}>{ind.name}のページ</a>にあります。</p>
+  </section>
+
+  {otherIndicators.length > 0 && (
+    <section class="sheet">
+      <h2>{pref.name}のほかの市区町村ランキング</h2>
+      <ul class="chip-links">{otherIndicators.map((l) => <li><a href={l.href}>{l.label}</a></li>)}</ul>
+      <p class="muted small"><a href={`/prefectures/${pref.code}/`}>{pref.name}のデータ</a>では、市区町村の人口の順と、主な指標の全国の順位をまとめています。</p>
+    </section>
+  )}
+
+  {otherPrefs.length > 0 && (
+    <section class="sheet">
+      <h2>ほかの都道府県の{name}ランキング</h2>
+      <ul class="chip-links">{otherPrefs.map((l) => <li><a href={l.href}>{l.label}</a></li>)}</ul>
+    </section>
+  )}
+
+  <ShareButtons title={title} />
+</Base>
+
+<style>
+  .page-head h1 .h1-sub { display: block; margin-top: 2px; font-size: 1.05rem; font-weight: 600; color: var(--muted); }
+  .findings h2 { margin-top: 0; }
+  .findings-list { margin: 0 0 12px; padding-left: 1.2em; line-height: 1.9; }
+  .findings-list li + li { margin-top: 4px; }
+  .chip-links { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip-links a {
+    display: inline-block; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px;
+    text-decoration: none; font-size: 0.92rem; background: var(--surface);
+  }
+  .chip-links a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
+</style>

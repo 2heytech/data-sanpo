@@ -16,6 +16,7 @@ import { publishedArticles } from "../../lib/articles";
 import { latestPeriod } from "../../lib/periods";
 import { mapHref } from "../../lib/urlstate";
 import { barScale, barStyle, barZero } from "../../lib/valueBars";
+import { hasPrefIndicatorPage, prefIndicatorPath } from "../../lib/prefectureRanking";
 import type { Indicator } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -77,6 +78,11 @@ const prefRows = areas.prefectures.length > 1 && period.levels.includes("prefect
   ? [...(loadValues(ind.id, period.period, "prefectures")?.rows ?? [])]
       .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   : [];
+// 都道府県ごとの市区町村ランキングのページ（設計変更記録 #237）。都道府県の表の後ろに、県名から開けるように並べる
+const valueRows = (id: string, p: string, chunk: "municipalities" | "prefectures") => loadValues(id, p, chunk)?.rows ?? [];
+const prefPages = areas.prefectures.filter((p) => hasPrefIndicatorPage(ind, p.code,
+  areas.municipalities.filter((m) => m.prefecture === p.code), valueRows, areas.prefectures.length))
+  .map((p) => ({ href: prefIndicatorPath(p.code, ind.id), label: p.name }));
 // 都道府県の表の順位（同じ値は同じ順位）と備考。備考がどの行も同じなら、表の上に1回だけ書き、列にしない（#216）
 const prefRanks = new Map(ranked(prefRows).map((r) => [r.entity_id, r.rank]));
 const prefNote = (r: typeof prefRows[number]) => r.note ?? (r.value === null ? "" : STATUS_LABEL[r.status]);
@@ -162,6 +168,7 @@ const toc = [
   ...(summary.length > 0 || image ? [{ href: "#findings", label: "データから分かること" }] : []),
   ...(prefRows.length > 0 ? [{ href: "#pref-ranking", label: "都道府県ランキング" }] : []),
   ...(muniValues.length > 0 ? [{ href: "#muni-ranking", label: "市区町村ランキング" }] : []),
+  ...(prefPages.length > 0 ? [{ href: "#pref-pages", label: "都道府県ごとの市区町村ランキング" }] : []),
   ...(smallAreaTop.length > 0 ? [{ href: "#small-ranking", label: "町丁・字等ランキング" }] : []),
   { href: "#method", label: "計算方法と出典" },
 ];
@@ -234,6 +241,13 @@ const toc = [
           </tbody>
         </table>
       </div>
+    </>
+  )}
+  {prefPages.length > 0 && (
+    <>
+      <h3 id="pref-pages">都道府県ごとの市区町村ランキング</h3>
+      <p class="muted small">都道府県名を押すと、その都道府県のすべての市区町村を{ind.name}の順に並べたページを開きます。</p>
+      <ul class="pref-pages">{prefPages.map((l) => <li><a href={l.href}>{l.label}</a></li>)}</ul>
     </>
   )}
   {muniValues.length > 0 && (
@@ -418,6 +432,12 @@ const toc = [
 <style>
   .page-head h1 .h1-sub { display: block; margin-top: 2px; font-size: 1.05rem; font-weight: 600; color: var(--muted); }
   .findings h2 { margin-top: 0; }
+  .pref-pages { list-style: none; padding: 0; margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .pref-pages a {
+    display: inline-block; padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px;
+    text-decoration: none; font-size: 0.92rem; background: var(--surface);
+  }
+  .pref-pages a:hover { background: var(--accent-soft); border-color: #b9d0ea; }
   .findings-list { margin: 0 0 12px; padding-left: 1.2em; line-height: 1.9; }
   .findings-list li + li { margin-top: 4px; }
   .ind-articles { list-style: none; padding: 0; margin: 16px 0 10px; display: grid; gap: 10px; max-width: 840px; }
