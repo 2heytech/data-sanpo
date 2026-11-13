@@ -54,6 +54,8 @@ function makeData(values: Record<string, Record<string, (number | null)[]>>, pla
     ["households_with_children_share", ind("households_with_children_share", "%", 1, ["2020-10-01"])],
     ["single_person_household_share", ind("single_person_household_share", "%", 1, ["2025-10-01"])],
     ["aged_65_plus_share", ind("aged_65_plus_share", "%", 1, ["2025-10-01"])],
+    // 避難指示などの対象になった市町村では書かない（設計変更記録 #231）
+    ["furusato_amount_per_capita", ind("furusato_amount_per_capita", "円", 0, ["2025-04-01"], "ratio", fiscalYear)],
   ]);
   const ids = Array.from({ length: count }, (_, i) => (i === 0 ? first : `muni-${i < 10 ? "01" : "02"}${String(i + 1).padStart(3, "0")}`));
   return {
@@ -209,6 +211,17 @@ describe("areaInsights", () => {
     expect(p.title ?? "").not.toMatch(/人口|人が集まる/);
     // ほかの市区町村は今までどおり
     expect(areaInsights("muni-01001", makeData(values)).join("")).toMatch(/住宅の開発.*|職場や学校の多い/);
+  });
+  it("避難指示などの対象になった12市町村は、住民1人あたりのふるさと納税が多くても返礼品の人気とは書かない（戻った人が少なく人口が小さいため）", () => {
+    const values = {
+      furusato_amount_per_capita: { "2025-04-01": fill(277028, 5000) },
+      population_total: { "2010-10-01": fill(6932, 1000), "2025-10-01": fill(211, 1000) },
+    };
+    const p = areaProfile("muni-07546", makeData(values, undefined, "muni-07546"));
+    expect(p.lines.join("")).not.toContain("ふるさと納税");
+    expect(p.title ?? "").not.toContain("ふるさと納税");
+    // ほかの市区町村は今までどおり
+    expect(areaInsights("muni-01001", makeData(values)).join("")).toContain("ふるさと納税の受入額が住民1人あたり");
   });
   it("能登半島地震と奥能登豪雨で大きな被害を受けた3市3町は、人口の移り変わりと地震の前の減り方を書き、若い世代の転出や高齢化とは読まない", () => {
     const values = {
