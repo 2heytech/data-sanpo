@@ -3,6 +3,7 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 cfg = tomllib.load(open("probe/sources.toml", "rb"))["digital_water_2024"]
 r = subprocess.run(["curl", "-sSL", "-A", UA, "--max-time", "300", "-o", "/tmp/w.zip", "-w", "%{http_code} %{size_download}", cfg["download_url"]], capture_output=True, text=True)
 print("####", r.stdout)
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-e", "pipeline"])
 sys.path.insert(0, "pipeline")
 import tdm.ingest  # noqa
 spec = importlib.util.spec_from_file_location("tdm.ingest.digital_water_new", "probe/digital_water_new.py")
