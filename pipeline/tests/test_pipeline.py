@@ -2730,9 +2730,14 @@ def test_furusato(built):
     assert abs(p["pref-14"]["value"] - (0.4 + 22.0)) < 0.01   # 政令指定都市の区に値はないが県の合計には入る
     assert pref("furusato_amount", "2023-04-01")["pref-13"]["value"] is None   # 空欄の市町村があれば値なし
     pc = pref("furusato_amount_per_capita", "2025-04-01")["pref-13"]
-    pop = sum(r["value"] for r in load(built, "values/population_total/2020-10-01/municipalities.json")["rows"]
-              if r["entity_id"].startswith("muni-13"))
-    assert abs(pc["denominator"] - pop) < 0.01 and abs(pc["numerator"] - p["pref-13"]["value"]) < 0.01
+    # 分母は2025年国勢調査の人口（最新の年度に合わせる。#231）。都道府県は国勢調査の表にある都道府県の人口
+    def population(period, level="municipalities"):
+        return {r["entity_id"]: r["value"] for r in load(built, f"values/population_total/{period}/{level}.json")["rows"]}
+    assert pc["denominator"] == population("2025-10-01", "prefectures")["pref-13"]
+    assert abs(pc["numerator"] - p["pref-13"]["value"]) < 0.01
+    assert abs(pc["value"] - pc["numerator"] / pc["denominator"] * 1e6) < 1
+    assert per["denominator"] == population("2025-10-01")["muni-13199"] != population("2020-10-01")["muni-13199"]
+    assert "2025年国勢調査の人口" in by["furusato_amount_per_capita"]["description"]
 
 
 def test_jhs_progress(built):
@@ -3142,6 +3147,7 @@ def test_fertility_and_life_expectancy(built):
     assert rows("total_fertility_rate", "2018-01-01", "prefectures")["pref-13"]["value"] == 1.11
     ind = next(i for i in load(built, "indicators.json")["indicators"] if i["id"] == "total_fertility_rate")
     assert any(p["label"] == "2018〜2022年" for p in ind["periods"])
+    assert ind["unit"] == ""   # 率なので単位を付けない（「2.25 人」と出さない。#231）
     male = rows("life_expectancy_male", "2020-01-01", "municipalities")
     female = rows("life_expectancy_female", "2020-01-01", "municipalities")
     assert male["muni-13199"]["value"] == 82.4 and female["muni-13199"]["value"] == 88.3

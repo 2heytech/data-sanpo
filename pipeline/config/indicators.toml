@@ -4253,13 +4253,13 @@ digits = 0
 scale = 1000000
 unbounded = true
 levels = ["municipality", "prefecture"]
-description = "ふるさと納税の受入額を、その自治体に住む人（2020年国勢調査の人口）1人あたりにした値。自治体の規模の違いをならして比べるための目安。"
-method = "ふるさと納税の受入額 ÷ 2020年の人口。総務省「ふるさと納税に関する現況調査結果」と国勢調査。"
-caveats = ["年度は4月から翌年3月まで（例: 2025年度は2025年4月〜2026年3月）。", "分母はどの年度も2020年の人口です。", "人口の少ない町村は値が極端に大きくなります。", "都道府県の値は、県と県内の市区町村の受入の合計 ÷ 県内の人口です。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "返礼品などの経費を差し引く前の額です。"]
+description = "ふるさと納税の受入額を、その自治体に住む人（2025年国勢調査の人口）1人あたりにした値。自治体の規模の違いをならして比べるための目安。"
+method = "ふるさと納税の受入額 ÷ 2025年の人口。総務省「ふるさと納税に関する現況調査結果」と国勢調査。"
+caveats = ["年度は4月から翌年3月まで（例: 2025年度は2025年4月〜2026年3月）。", "分母はどの年度も2025年の人口です。", "人口の少ない町村は値が極端に大きくなります。", "都道府県の値は、県と県内の市区町村の受入の合計 ÷ 県内の人口です。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "返礼品などの経費を差し引く前の額です。"]
 numerator_indicator = "furusato_amount"
 denominator_indicator = "population_total"
-denominator_period = "2020-10-01"
-denominator_label = "2020年の人口"
+denominator_period = "2025-10-01"
+denominator_label = "2025年の人口"
 fraction_units = ["百万円", "人"]
 compare_with = ["furusato_amount"]
 family = "furusato"
@@ -5762,7 +5762,7 @@ legend = { method = "nice", classes = 12, scheme = "oranges" }
 [total_fertility_rate]
 name = "合計特殊出生率"
 category = "子育て"
-unit = "人"
+unit = ""
 kind = "ratio"
 definition_version = "1"
 digits = 2
