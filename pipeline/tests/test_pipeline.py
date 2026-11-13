@@ -1,6 +1,7 @@
 import json
 import re
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -3970,6 +3971,77 @@ def test_water_fee_without_fee(tmp_path):
         "SELECT entity_id, value, method_note FROM observations")}
     assert got["muni-13299"] == got["muni-13499"] == (None, digital_water.NO_FEE_NOTE)
     assert result["no_fee"] == 2 and result["unmatched"] == []
+
+
+def _water_zip(tmp_path, years: dict[int, list[tuple]]) -> Path:
+    """水道ダッシュボードの公開データの見本。years: 年度 → [(事業者コード, 事業の区分, 経営主体, 20m³の料金, 10m³の料金)]"""
+    import csv
+    import io
+    import zipfile
+    from tdm.ingest import digital_water
+    path = tmp_path / "water.zip"
+    with zipfile.ZipFile(path, "w") as z:
+        for year, rows in years.items():
+            buf = io.StringIO()
+            w = csv.DictWriter(buf, fixture.WATER_COLUMNS)
+            w.writeheader()
+            for code, facility, entity, fee, fee10 in rows:
+                for item, value in ((digital_water.FEE_ITEM, fee), (digital_water.FEE10_ITEM, fee10),
+                                    (digital_water.POP_ITEM, 10_000_000)):
+                    w.writerow({k: "" for k in fixture.WATER_COLUMNS} | {
+                        "fiscal_year": str(year), "local_public_enterprise_code": code, "local_public_enterprise_name": f"見本{code}",
+                        "facility_code": facility, "cond_2_operating_entity": entity, "item_name": item, "item_value": str(value)})
+            z.writestr(f"data/{year}.csv", buf.getvalue().encode("utf-8-sig"))
+    return path
+
+
+def test_water_fee_fixes(tmp_path):
+    """元の表の誤り（1m³あたりの単価や、超過料金を1m³分しか足していない20m³の料金）は、設定の fee_fixes で直すか値なしにする。
+    安すぎる料金や、20m³と10m³の差が小さすぎる料金は、設定で確かめたものでなければ止める（#239）。"""
+    from tdm.ingest import digital_water
+    rows = [("132993", "005", "3:市営", 171, 102),      # 1m³あたりの単価が入っている → 直す
+            ("134996", "005", "4:町村営", 1228, 1100),  # 超過料金を1m³分しか足していない → 値なし
+            ("135992", "005", "4:町村営", 890, 440),    # 安いが料金表で確かめた
+            ("141909", "001", "2:指定市営", 3759, 3721)]  # 差は小さいが前の年度と同じ（毎年同じ値の報告）
+    path = _water_zip(tmp_path, {2023: [("141909", "001", "2:指定市営", 3759, 3721)], 2024: rows})
+    catalog = {k: d for k, d in load_indicators().items() if k == "water_fee_household"}
+    cfg = {"fiscal_year": 2024, "low_fee_floor": 1000, "min_step": 250,
+           "fee_fixes": {"132993": {"table": 171, "fee": 3875, "note": "元の表の料金は1m³あたりの単価のため直した料金です"},
+                         "134996": {"table": 1228, "note": "元の表の料金は誤りと見られるため、値を表示しません"},
+                         "999999": {"table": 100, "note": "表にない事業者"}},
+           "low_fees_checked": {"135992": 890}}
+
+    def run(c):
+        conn = connect(":memory:")
+        init_schema(conn)
+        conn.execute("PRAGMA foreign_keys = OFF")
+        upsert_indicators(conn, catalog)
+        for code in ("13299", "13499", "13599", "14190"):
+            conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'municipality', '見本')",
+                         (f"muni-{code}",))
+        result = digital_water.ingest(conn, path, "s", catalog, c)
+        return result, {r["entity_id"]: (r["value"], r["status"], r["method_note"]) for r in conn.execute(
+            "SELECT entity_id, value, status, method_note FROM observations")}
+    result, got = run(cfg)
+    assert got["muni-13299"] == (3875, "observed", "元の表の料金は1m³あたりの単価のため直した料金です")
+    assert got["muni-13499"] == (None, "missing", "元の表の料金は誤りと見られるため、値を表示しません")   # 0 にしない
+    assert got["muni-13599"][:2] == (890, "observed") and got["muni-14190"][:2] == (3759, "observed")
+    assert result["fixed"] == 2 and result["missing_fixes"] == ["999999"]
+    # 元の表の料金が設定の table と違えば止める（表が直ったら確かめ直す）
+    with pytest.raises(ValueError, match="設定の table"):
+        run(cfg | {"fee_fixes": {"132993": {"table": 170, "fee": 3875, "note": "x"}}})
+    # 確かめていない安い料金・差の小さい料金は止める
+    with pytest.raises(ValueError, match="見本132993.*見本134996"):
+        run(cfg | {"fee_fixes": {}})
+    with pytest.raises(ValueError, match="見本135992"):
+        run(cfg | {"low_fees_checked": {}})
+    with pytest.raises(ValueError, match="low_fees_checked"):
+        run(cfg | {"low_fees_checked": {"135992": 900}})
+    # 前の年度がなければ、差の小さい料金は毎年の報告とは言えないので止める
+    path.unlink()
+    path = _water_zip(tmp_path, {2024: rows})
+    with pytest.raises(ValueError, match="見本141909"):
+        run(cfg)
 
 
 def test_name_matching_uses_map_municipalities(built):
