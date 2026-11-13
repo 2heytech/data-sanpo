@@ -1,50 +1,33 @@
-import csv, io, json, subprocess, zipfile, collections, statistics
-URL = "https://www.digital.go.jp/assets/contents/node/basic_page/field_ref_resources/9112b58e-556c-429e-906f-45be48b63fd9/db7e75fb/20260703_resources_govdashboard_watersupply_table_02.zip"
-subprocess.run(["curl", "-sSL", "--max-time", "300", "-o", "/tmp/w.zip", URL], check=True)
-z = zipfile.ZipFile("/tmp/w.zip")
-print("files", z.namelist())
-items = collections.Counter()
-data = {}   # year -> (code, fac) -> dict
-for n in z.namelist():
-    if not n.endswith(".csv"):
+import subprocess, re, os, sys
+subprocess.run("sudo apt-get -qq install -y poppler-utils > /dev/null 2>&1", shell=True)
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+URLS = {
+  "izena_2020": "https://vill.izena.okinawa.jp/userfiles/files/autoupload/2020/04/1586940131.pdf",
+  "okinawa_suidou": "https://www.pref.okinawa.lg.jp/_res/projects/default_project/_page_/001/012/446/suidou.pdf",
+  "yamanashi_r6_houteki": "https://www.pref.yamanashi.jp/documents/28428/r6_houteki_kohai.pdf",
+  "yamanashi_ryokin_h31": "https://www.pref.yamanashi.jp/documents/96246/6suidoryokin.pdf",
+  "yamanashi_018": "https://www.pref.yamanashi.jp/documents/80968/018.pdf",
+  "yamanashi_6ryoukin": "https://www.pref.yamanashi.jp/documents/25450/6ryoukin.pdf",
+}
+KEYS = ["伊是名", "鳴沢", "丹波山", "道志", "西桂", "山中湖", "梼原", "檮原", "基本料金", "超過"]
+os.makedirs("/tmp/d", exist_ok=True)
+for k, u in URLS.items():
+    p = f"/tmp/d/{k}.pdf"
+    r = subprocess.run(["curl", "-sSL", "-A", UA, "--max-time", "120", "-o", p, "-w", "%{http_code} %{size_download}", u], capture_output=True, text=True)
+    print("####", k, r.stdout, u)
+    if not r.stdout.startswith("200"):
         continue
-    y = int(n.rsplit("/", 1)[-1][:4])
-    t = z.read(n).decode("utf-8-sig")
-    rd = csv.DictReader(io.StringIO(t))
-    if y == 2024:
-        print("columns", rd.fieldnames)
-    for r in rd:
-        if r["item_name"].startswith("6.料金") or r["item_name"].startswith("4.施設__(3)"):
-            items[r["item_name"]] += 1
-            u = data.setdefault(y, {}).setdefault((r["local_public_enterprise_code"], r["facility_code"]),
-                                                {"name": r["local_public_enterprise_name"], "ent": r["cond_2_operating_entity"]})
-            v = r["item_value"].replace(",", "").strip()
-            u[r["item_name"]] = float(v) if v else None
-for k, c in sorted(items.items()):
-    print("ITEM", c, k)
-F20 = "6.料金__(2)料金(家庭用)__1か月20㎥当たり料金__口径20mm"
-F10 = [k for k in items if "10㎥" in k]
-print("F10 items", F10)
-F10 = F10[0] if F10 else None
-POP = "4.施設__(3)現在給水人口(人)"
-d24 = data[2024]
-fees = [u.get(F20) for u in d24.values() if u.get(F20)]
-print("2024 rows with fee", len(fees), "median", statistics.median(fees))
-for fac in ("001", "005", "006"):
-    fs = sorted(u[F20] for (c, f), u in d24.items() if f == fac and u.get(F20))
-    print("fac", fac, "n", len(fs), "lowest 15", fs[:15])
-print("== 2024 fee20 < 1500 (all facilities)")
-def hist(code, fac):
-    return [(y, data[y].get((code, fac), {}).get(F20)) for y in sorted(data) if (code, fac) in data[y]]
-low = sorted(((u[F20], c, f) for (c, f), u in d24.items() if u.get(F20) and u[F20] < 1500))
-for fee, c, f in low:
-    u = d24[(c, f)]
-    print(c, f, u["name"], "ent", u["ent"][:12], "f20", fee, "f10", u.get(F10) if F10 else None, "pop", u.get(POP),
-          "hist", [(y, v) for y, v in hist(c, f) if y < 2024][-4:], "other fac", [ff for (cc, ff) in d24 if cc == c and ff != f])
-# 10m3 と 20m3 の差が小さい（単価の疑い）もの
-print("== 2024 f20 - f10 < 300 or f20 < f10")
-if F10:
-    for (c, f), u in sorted(d24.items()):
-        a, b = u.get(F10), u.get(F20)
-        if a and b and (b - a < 300 or b < a):
-            print(c, f, u["name"], "f10", a, "f20", b, "pop", u.get(POP), "hist", [(y, v) for y, v in hist(c, f) if y < 2024][-3:])
+    t = subprocess.run(["pdftotext", "-layout", p, "-"], capture_output=True, text=True).stdout
+    info = subprocess.run(["pdfinfo", p], capture_output=True, text=True).stdout
+    print("pages:", re.search(r"Pages:\s+(\d+)", info).group(1) if "Pages" in info else "?", "chars:", len(t))
+    lines = t.splitlines()
+    shown = set()
+    for i, l in enumerate(lines):
+        if any(x in l for x in KEYS[:8]):
+            for j in range(max(0, i - 2), min(len(lines), i + 4)):
+                if j not in shown:
+                    shown.add(j)
+                    print(f"{j:5d}| {lines[j][:260]}")
+            print("     ...")
+    if k == "izena_2020":
+        print("\n".join(l[:200] for l in lines[:80]))
