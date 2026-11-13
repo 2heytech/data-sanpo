@@ -39,6 +39,34 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "water-fee",
+    title: "水道料金が安いまちはどこ？：家庭用の水道料金の市区町村ランキング",
+    description: "家庭で1か月に20m³の水道水を使ったときの料金（2024年度）を、市区町村ごとに比べます。1,000円未満の4つのまち、市で最も安い市、人口の多い市や政令指定都市で安い市、料金の高いまちが多い地域も見ます。",
+    published: "2026-11-27",
+    theme: "life",
+    indicators: ["water_fee_household"],
+    mapHref: "/map/?i=water_fee_household&p=2024-04-01&a=muni-19443&l=municipality",
+  },
+  {
+    slug: "port-passengers",
+    title: "日本一、人が乗り降りする港はどこ？：港の乗降人員ランキング",
+    description: "国土交通省の港湾統計（2024年）で、船に乗った人と降りた人の数を港ごとに比べます。1位の港と2位の差、上位に入る島へ渡る港、東京港・横浜港の順位、外国航路の多い港、2020年からの増え方も見ます。",
+    published: "2026-11-25",
+    theme: "travel",
+    // 港の乗降人員は地図に重ねる港の点で、色分けの指標ではないので、記事の地図の画像はない。「データを地図で見る」は厳島港を選んだ地図
+    indicators: [],
+    mapHref: "/map/?pt=port-34-5f00d14e",
+  },
+  {
+    slug: "private-junior-high",
+    title: "私立中学への進学率が高い市区町村はどこ？：東京都の小学校卒業者の進学先",
+    description: "東京都の公立小学校を2025年3月に卒業した子どもの進学先を、市区町村ごとに比べます。私立中学への進学率が4割を超える4つの区、市の1位、国立や都外へ進む割合、都道府県別の私立中学校の生徒割合も見ます。",
+    published: "2026-11-23",
+    theme: "life",
+    indicators: ["jhs_progress_private", "jhs_progress_national", "jhs_students_private"],
+    mapHref: "/map/?i=jhs_progress_private&p=2025-03-31&a=muni-13105&l=municipality",
+  },
+  {
     slug: "snowfall-normals",
     title: "雪が1年に17m降る場所はどこ？：降雪量・最深積雪の平年値ランキング",
     description: "気象庁の平年値（1991〜2020年）で、雪がたくさん降る場所と深く積もる場所を観測所ごとに比べます。1年の降雪量が17mを超える観測所、積もる深さの1位、平地で2mを超える所、都道府県庁のある市も見ます。",
