@@ -1,0 +1,199 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { check, nationalRaw, nationalValue, rankNumber, ranking, raw, rows, value } from "../lib/articleData";
+import { loadAreas } from "../lib/data";
+
+const ID = "jhs_progress_private";
+const PUB = "jhs_progress_public";
+const NAT = "jhs_progress_national";
+const OUT = "jhs_progress_outside";
+const P = "2025-03-31";
+// 都道府県の比較に使う、学校の所在地で数えた私立中学校の生徒割合（学校基本調査）
+const JS = "jhs_students_private";
+const PS = "2025-05-01";
+const UG = "university_graduate_share";
+const PU = "2020-10-01";
+const INCOME = "taxable_income_per_taxpayer";
+const PI = "2025-04-01";
+const TOKYO = "pref-13";
+const BUNKYO = "muni-13105";
+const CHIYODA = "muni-13101";
+const CHUO = "muni-13102";
+const MINATO = "muni-13103";
+const MEGURO = "muni-13110";
+const SHIBUYA = "muni-13113";
+const SETAGAYA = "muni-13112";
+const SUGINAMI = "muni-13115";
+const MUSASHINO = "muni-13203";
+const MITAKA = "muni-13204";
+const CHOFU = "muni-13208";
+
+const v = (id: string, entity: string) => value(id, P, entity);
+const ids = (list: { entity_id: string }[]) => list.map((r) => r.entity_id).join();
+const same = (a: string[], b: string[]) => [...a].sort().join() === [...b].sort().join();
+const names = new Map(loadAreas().municipalities.map((m) => [m.id, m.name]));
+const isWard = (id: string) => !!names.get(id)?.endsWith("区");
+const list = rows(ID, P, "municipality").filter((r) => r.value !== null);
+const atLeast = (min: number) => list.filter((r) => (r.value as number) >= min);
+
+// 題名・書き出し: 1位は文京区で、ほぼ2人に1人。都全体はおよそ5人に1人
+check(ids(ranking(ID, P, "municipality", "high", 5)) === [BUNKYO, CHIYODA, MINATO, MEGURO, CHUO].join(), "私立への進学率の1〜5位が文京区・千代田区・港区・目黒区・中央区ではありません");
+check((raw(ID, P, BUNKYO) ?? 0) >= 47.5 && (raw(ID, P, BUNKYO) ?? 100) < 50, "文京区の私立への進学率がほぼ2人に1人ではありません");
+const tokyo = raw(ID, P, TOKYO) ?? NaN;
+check(Number.isNaN(tokyo) || (tokyo >= 19 && tokyo < 21), "東京都全体の私立への進学率がおよそ5人に1人ではありません");
+
+// 4割を超えるのは4つの区、5位の中央区はほぼ4割。3割を超えるのは13市区で、区でないのは武蔵野市だけ
+check(same(atLeast(40).map((r) => r.entity_id), [BUNKYO, CHIYODA, MINATO, MEGURO]), "4割を超えるのが文京区・千代田区・港区・目黒区の4つではありません");
+check((raw(ID, P, CHUO) ?? 0) >= 39 && (raw(ID, P, CHUO) ?? 100) < 40, "中央区がほぼ4割ではありません");
+const over30 = atLeast(30);
+check(over30.length === 13 && same(over30.filter((r) => !isWard(r.entity_id)).map((r) => r.entity_id), [MUSASHINO]), "3割を超えるのが13市区（うち市は武蔵野市だけ）ではありません");
+check([SETAGAYA, SUGINAMI, MUSASHINO].every((id) => over30.some((r) => r.entity_id === id)), "世田谷区・杉並区・武蔵野市が3割を超えていません");
+// 都全体を上回るのは19市区で、23区のうち17区
+const aboveTokyo = list.filter((r) => (r.value as number) > tokyo);
+check(Number.isNaN(tokyo) || (aboveTokyo.length === 19 && aboveTokyo.filter((r) => isWard(r.entity_id)).length === 17), "都全体を上回るのが19市区（うち17区）ではありません");
+
+// 文京区は私立が公立を上回る（都内で文京区だけ）。公立が半分を下回るのは文京区と港区
+const pub = new Map(rows(PUB, P, "municipality").map((r) => [r.entity_id, r.value]));
+const privateOverPublic = list.filter((r) => (pub.get(r.entity_id) ?? Infinity) < (r.value as number)).map((r) => r.entity_id);
+check(same(privateOverPublic, [BUNKYO]), "私立が公立を上回るのが文京区だけではありません");
+check(same([...pub].filter(([, x]) => x !== null && x < 50).map(([id]) => id), [BUNKYO, MINATO]), "公立が半分を下回るのが文京区・港区ではありません");
+// 国立は文京区が1位。都外は、23区では中央区・港区の順
+check(ranking(NAT, P, "municipality", "high", 1)[0]?.entity_id === BUNKYO, "国立への進学率の1位が文京区ではありません");
+check(ids(ranking(OUT, P, "municipality", "high", 2, [], { kind: "区" })) === [CHUO, MINATO].join(), "都外への進学率が、区では中央区・港区の順ではありません");
+
+// 市の1〜3位は武蔵野市・三鷹市・調布市。武蔵野市は区を含めて12位
+check(ids(ranking(ID, P, "municipality", "high", 3, [], { kind: "市" })) === [MUSASHINO, MITAKA, CHOFU].join(), "市の1〜3位が武蔵野市・三鷹市・調布市ではありません");
+check(rankNumber(ID, P, MUSASHINO) === 12, "武蔵野市が12位ではありません");
+
+// 大学・大学院卒の割合の全国1〜4位（千代田区・文京区・港区・中央区）は、どれも私立への進学率の上位5に入る
+const ugTop = ranking(UG, PU, "municipality", "high", 4).map((r) => r.entity_id);
+check(same(ugTop, [CHIYODA, BUNKYO, MINATO, CHUO]), "大学・大学院卒の割合の全国1〜4位が千代田区・文京区・港区・中央区ではありません");
+// 都内の市区町村では、大学・大学院卒の割合が高いほど私立への進学率も高い（相関係数 0.8 以上）
+const ug = new Map(rows(UG, PU, "municipality").map((r) => [r.entity_id, r.value]));
+const pairs = list.flatMap((r) => { const u = ug.get(r.entity_id); return u === null || u === undefined ? [] : [[u, r.value as number]]; });
+const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+const corr = (() => {
+  if (pairs.length < 10) return NaN;
+  const mx = mean(pairs.map(([x]) => x));
+  const my = mean(pairs.map(([, y]) => y));
+  const sxy = pairs.reduce((s, [x, y]) => s + (x - mx) * (y - my), 0);
+  const sx = Math.sqrt(pairs.reduce((s, [x]) => s + (x - mx) ** 2, 0));
+  const sy = Math.sqrt(pairs.reduce((s, [, y]) => s + (y - my) ** 2, 0));
+  return sxy / (sx * sy);
+})();
+check(Number.isNaN(corr) || corr >= 0.8, "都内で、大学・大学院卒の割合と私立への進学率の関係が強くありません");
+// 私立への進学率の上位6区は、納税者1人あたりの課税対象所得でも全国の上位6
+const top6 = ranking(ID, P, "municipality", "high", 6).map((r) => r.entity_id);
+check(same(top6, [BUNKYO, CHIYODA, MINATO, MEGURO, CHUO, SHIBUYA]) && same(top6, ranking(INCOME, PI, "municipality", "high", 6).map((r) => r.entity_id)),
+  "私立への進学率の上位6区が、納税者1人あたりの課税対象所得の全国の上位6と同じではありません");
+// 千代田区・港区・文京区にある中学校の生徒は、6割以上が私立の学校の生徒
+check([CHIYODA, MINATO, BUNKYO].every((id) => (raw(JS, PS, id) ?? 0) >= 60), "千代田区・港区・文京区の私立中学校の生徒割合が6割以上ではありません");
+
+// 都道府県: 私立中学校の生徒割合は東京都・高知県・京都府・奈良県の順。東京都は全国の3倍を超える
+check(ids(ranking(JS, PS, "prefecture", "high", 4)) === ["pref-13", "pref-39", "pref-26", "pref-29"].join(), "私立中学校の生徒割合の1〜4位が東京都・高知県・京都府・奈良県ではありません");
+const national = nationalRaw(JS, PS) ?? NaN;
+check(Number.isNaN(national) || (raw(JS, PS, TOKYO) ?? 0) > national * 3, "東京都の私立中学校の生徒割合が全国の3倍を超えていません");
+---
+<Article slug="private-junior-high">
+  <p>
+    私立中学への進学率が最も高い市区町村は、東京都文京区の{v(ID, BUNKYO)}です（2025年3月の卒業者）。
+    区内の公立小学校を卒業した子どもの、ほぼ2人に1人が私立の中学校に進みました。東京都全体は{v(ID, TOKYO)}で、およそ5人に1人です。
+  </p>
+  <p>
+    東京都教育委員会は、公立小学校を卒業した子どもの進学先を、小学校のある市区町村ごとに毎年まとめています。
+    進学先は、公立、都内の私立、都内の国立、都外の学校の4つに分かれます。この寄り道では、都内の私立の中学校に進んだ子どもの割合を比べます。
+  </p>
+  <ArticleRanking id={ID} period={P} n={15} expect={[BUNKYO, CHIYODA, MINATO, MEGURO, CHUO, MUSASHINO]} caption="私立中学への進学率が高い東京都の市区町村（2025年3月の卒業者）" />
+
+  <h2>4つの区で4割を超える</h2>
+  <p>
+    2位は千代田区（{v(ID, CHIYODA)}）、3位は港区（{v(ID, MINATO)}）、4位は目黒区（{v(ID, MEGURO)}）で、ここまでの4つの区が4割を超えます。
+    5位の中央区（{v(ID, CHUO)}）もほぼ4割です。
+  </p>
+  <p>
+    3割を超えるのは{over30.length}の市区で、そのうち{over30.filter((r) => isWard(r.entity_id)).length}が23区の区です。
+    都全体の{v(ID, TOKYO)}を上回るのは{aboveTokyo.length}の市区で、23区のうち{aboveTokyo.filter((r) => isWard(r.entity_id)).length}の区が入ります。
+    世田谷区や杉並区も3割を超えていて、地図で見ると、都心から西へ向かう区で高いようです。
+  </p>
+
+  <h2>文京区は、私立へ進む子どもが公立より多い</h2>
+  <p>
+    文京区では、公立の中学校に進んだ子どもは{v(PUB, BUNKYO)}で、私立の{v(ID, BUNKYO)}を下回りました。
+    私立が公立を上回るのは、都内で文京区だけです。港区も公立が{v(PUB, MINATO)}で、半分を下回ります。
+  </p>
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking">
+        <caption>公立小学校を卒業した子どもの進学先（2025年3月の卒業者）</caption>
+        <thead><tr><th>地域</th><th class="num">公立</th><th class="num">私立</th><th class="num">国立</th><th class="num">都外</th></tr></thead>
+        <tbody>
+          {[BUNKYO, CHIYODA, MINATO, MEGURO, CHUO].map((id) => (
+            <tr><td><a href={`/areas/${id}/`}>{names.get(id)}</a></td><td class="num">{v(PUB, id)}</td><td class="num">{v(ID, id)}</td><td class="num">{v(NAT, id)}</td><td class="num">{v(OUT, id)}</td></tr>
+          ))}
+          <tr><td>東京都全体</td><td class="num">{v(PUB, TOKYO)}</td><td class="num">{v(ID, TOKYO)}</td><td class="num">{v(NAT, TOKYO)}</td><td class="num">{v(OUT, TOKYO)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption class="muted">私立・国立は都内の学校、都外は東京都の外にある学校です。4つを足しても100%にならないのは、このほかの進路の人がわずかにいるためです。</figcaption>
+  </figure>
+  <p>
+    国立の中学校へ進んだ割合も、文京区（{v(NAT, BUNKYO)}）が最も高い値です。
+    文京区には国立大学の附属の中学校が3校あり、学校が近くにあることも関係していると思われます。
+    都外の学校へ進んだ割合は、23区では中央区（{v(OUT, CHUO)}）と港区（{v(OUT, MINATO)}）が高い値です。
+  </p>
+
+  <h2>市では武蔵野市</h2>
+  <p>
+    市だけで比べると、1位は武蔵野市（{v(ID, MUSASHINO)}）で、2位は三鷹市（{v(ID, MITAKA)}）、3位は調布市（{v(ID, CHOFU)}）です。
+    武蔵野市は23区のすぐ西にある市で、区を含めた順位でも12位に入ります。
+  </p>
+  <ArticleRanking id={ID} period={P} kind="市" n={8} expect={[MUSASHINO, MITAKA, CHOFU]} caption="私立中学への進学率が高い東京都の市（2025年3月の卒業者）" />
+
+  <h2>大学・大学院卒の割合や所得が高い区と重なる</h2>
+  <p>
+    進学率の上位5区のうち、千代田区・文京区・港区・中央区の4つは、大学・大学院卒の割合で全国の1〜4位に入る区です（2020年国勢調査）。
+    都内の市区町村で比べても、大学・大学院卒の割合が高いところほど、私立中学への進学率が高い傾向があります。
+  </p>
+  <p>
+    上位6区（文京区・千代田区・港区・目黒区・中央区・渋谷区）は、納税者1人あたりの課税対象所得でも全国の上位6に入ります。
+    また、千代田区にある中学校の生徒は{value(JS, PS, CHIYODA)}、港区は{value(JS, PS, MINATO)}、文京区は{value(JS, PS, BUNKYO)}が私立の学校の生徒で、私立の学校が多く集まる区でもあります。
+    所得の高い世帯が多く、通える範囲に学校も多いという条件が、都心の区でそろっていると考えられます。
+    <ArticleLink slug="taxable-income">納税者1人あたりの所得が高い市区町村</ArticleLink>
+  </p>
+
+  <h2>都道府県では東京都、2位は高知県</h2>
+  <p>
+    進学先の調査は東京都のものなので、ほかの道府県とは、中学校の生徒のうち私立の学校の生徒の割合で比べます（2025年5月、学校のある場所で数えた値）。
+    1位は東京都の{value(JS, PS, TOKYO)}で、全国の{nationalValue(JS, PS)}の3倍を超えます。
+    2位は高知県（{value(JS, PS, "pref-39")}）、3位は京都府（{value(JS, PS, "pref-26")}）、4位は奈良県（{value(JS, PS, "pref-29")}）です。
+  </p>
+  <ArticleRanking id={JS} period={PS} level="prefecture" n={8} expect={["pref-13", "pref-39", "pref-26", "pref-29"]} caption="私立中学校の生徒割合が高い都道府県（2025年5月1日現在）" />
+
+  <h2>文京区では、ほぼ2人に1人が私立へ</h2>
+  <p>
+    私立中学への進学率が最も高いのは文京区で、4つの区で4割を超えていました。
+    都全体ではおよそ5人に1人ですが、区や市によって値は大きく違い、大学・大学院卒の割合や所得が高い都心の区で高くなっています。
+  </p>
+  <p>
+    地図では、私立のほかに、公立・国立・都外へ進んだ割合にも切り替えられます。お住まいの区や市の値も確かめてみてください。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${BUNKYO}&l=municipality`}>私立中学への進学率を地図で見る</a>
+    <a class="button" href={`/map/?i=${JS}&p=${PS}&a=${TOKYO}&l=prefecture`}>私立中学校の生徒割合を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>公立小学校の卒業者だけを数えています。国立・私立の小学校を卒業した子どもは含みません。</li>
+    <li>地域は、卒業した小学校のある市区町村です（住んでいる場所ではありません）。</li>
+    <li>「私立」「国立」は都内の学校に進んだ人です。東京都の外の学校に進んだ人は、私立でも「都外」に入ります。</li>
+    <li>2025年3月の卒業者の1年分の値です。卒業者が10人未満の町村は値を表示しません。</li>
+    <li>都道府県の比較に使った「私立中学校の生徒割合」は、文部科学省「学校基本調査」の値で、学校のある場所で数えます。ほかの県から通う生徒も、学校のある都道府県に入ります。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

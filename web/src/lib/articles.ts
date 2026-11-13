@@ -39,6 +39,15 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "private-junior-high",
+    title: "私立中学への進学率が高い市区町村はどこ？：東京都の小学校卒業者の進学先",
+    description: "東京都の公立小学校を2025年3月に卒業した子どもの進学先を、市区町村ごとに比べます。私立中学への進学率が4割を超える4つの区、市の1位、国立や都外へ進む割合、都道府県別の私立中学校の生徒割合も見ます。",
+    published: "2026-11-23",
+    theme: "life",
+    indicators: ["jhs_progress_private", "jhs_progress_national", "jhs_students_private"],
+    mapHref: "/map/?i=jhs_progress_private&p=2025-03-31&a=muni-13105&l=municipality",
+  },
+  {
     slug: "snowfall-normals",
     title: "雪が1年に17m降る場所はどこ？：降雪量・最深積雪の平年値ランキング",
     description: "気象庁の平年値（1991〜2020年）で、雪がたくさん降る場所と深く積もる場所を観測所ごとに比べます。1年の降雪量が17mを超える観測所、積もる深さの1位、平地で2mを超える所、都道府県庁のある市も見ます。",
