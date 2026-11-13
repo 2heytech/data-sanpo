@@ -23,7 +23,8 @@ import { loadAreaProfile } from "../../lib/profiles";
 import { breadcrumbList } from "../../lib/structured";
 import { municipalityPeriods } from "../../lib/periods";
 import { statGroups } from "../../lib/statList";
-import { populationChangeIndicator, populationHistory } from "../../lib/populationHistory";
+import { jukiPopulation, populationChangeIndicator, populationHistory } from "../../lib/populationHistory";
+import { jukiLines, signed } from "../../lib/jukiPopulation";
 import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -77,6 +78,15 @@ const former = formerWard(muni.id);
 // 人口の移り変わり（国勢調査の各回。設計変更記録 #217）。新しい回を上にする
 const history = populationHistory(muni.id);
 const changeInd = populationChangeIndicator();
+// 住民基本台帳の1月1日の人口・世帯数と、1年間の出生・死亡・転入・転出（設計変更記録 #238）。国勢調査の表の下に置く
+const juki = jukiPopulation(muni.id);
+const jukiText = juki ? jukiLines(muni.name, juki) : [];
+// 人口の欄の最初の1文。「〇〇市 人口」で探した人に、表より先に答えの数を見せる（#238）
+const latestCensus = history.at(-1);
+const popAnswer = latestCensus
+  ? `${muni.name}の人口は${latestCensus.population.toLocaleString("ja-JP")}人（国勢調査、${latestCensus.label}）` +
+    `${juki ? `、住民基本台帳では${juki.population.toLocaleString("ja-JP")}人（${juki.label}）` : ""}です。`
+  : null;
 // 説明文は人口・5年前からの増減・人口密度の全国順位から始める（#217）。増減と順位は人口と同じ回のものだけ使う
 const samePeriod = (id: string) => stats.find((s) => s.ind.id === id && s.period.period === pop?.period.period);
 const description = areaDescription({
@@ -151,6 +161,7 @@ const toc = [
   {history.length > 0 && (
     <section class="sheet" id="population">
       <h2>{muni.name}の人口の移り変わり</h2>
+      {popAnswer && <p class="pop-answer">{popAnswer}</p>}
       <div class="table-scroll">
         <table class="pop-history">
           <thead><tr><th>調査年</th><th class="num">人口</th><th class="num">5年間の増減</th><th class="num">世帯数</th></tr></thead>
@@ -168,6 +179,34 @@ const toc = [
       </div>
       <p class="muted small">国勢調査の各回の10月1日現在の値です。5年間の増減は、前の回の国勢調査からの人口の増加率です。
         <a href="/indicators/population_total/">人口の全国ランキング</a>{changeInd && <>・<a href={`/indicators/${changeInd.id}/`}>人口増加率の全国ランキング</a></>}</p>
+      {juki && (
+        <>
+          <h3 id="juki">住民基本台帳の人口と1年間の動き</h3>
+          <div class="juki-text">{jukiText.map((line) => <p>{line}</p>)}</div>
+          {juki.years.length > 0 && (
+            <div class="table-scroll">
+              <table class="pop-history juki-history">
+                <thead><tr><th>年</th><th class="num">出生</th><th class="num">死亡</th><th class="num">自然増減</th><th class="num">社会増減</th><th class="num">年末の人口</th></tr></thead>
+                <tbody>
+                  {juki.years.map((y) => (
+                    <tr>
+                      <td>{y.year}</td>
+                      <td class="num">{y.births === null ? "—" : y.births.toLocaleString("ja-JP")}</td>
+                      <td class="num">{y.deaths === null ? "—" : y.deaths.toLocaleString("ja-JP")}</td>
+                      <td class="num">{y.natural === null ? "—" : signed(y.natural, "")}</td>
+                      <td class="num">{y.social === null ? "—" : signed(y.social, "")}</td>
+                      <td class="num">{y.populationAfter === null ? "—" : y.populationAfter.toLocaleString("ja-JP")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p class="muted small">総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の値で、表の数の単位は人です。出生・死亡は1年間（1月1日〜12月31日）に生まれた人・亡くなった人、自然増減はその差、社会増減は転入・転出と、住民票の職権による記載・消除などの差、年末の人口は次の年の1月1日の人口です。
+            住民票の数で数えるため、国勢調査の人口とは一致しません。
+            <a href="/indicators/juki_population/">住民基本台帳の人口の全国ランキング</a>・<a href="/indicators/juki_natural_change/">自然増減数</a>・<a href="/indicators/juki_social_change/">社会増減数</a></p>
+        </>
+      )}
     </section>
   )}
 
@@ -214,6 +253,10 @@ const toc = [
   :global(.sheet[id]) { scroll-margin-top: 100px; }
   .area-points h2 { margin-top: 0; }
   .pop-history td { white-space: nowrap; }
+  .pop-answer { margin: 0 0 12px; font-weight: 600; }
+  #juki { margin-top: 22px; }
+  .juki-text p { margin: 0 0 6px; }
+  .juki-text { margin-bottom: 10px; }
   .pop-history th.num { white-space: normal; }
   .points { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
   .points li {
@@ -242,6 +285,7 @@ const toc = [
     .area-intro:has(> figure) > div { grid-row: 2; }
     .points li { display: block; padding: 8px 10px; font-size: 0.95rem; line-height: 1.65; }
     .pop-history th, .pop-history td { padding: 8px 6px; font-size: 0.88rem; }
+    .juki-history th, .juki-history td { padding: 8px 4px; font-size: 0.82rem; }
     .point-theme { margin-right: 6px; }
   }
 </style>

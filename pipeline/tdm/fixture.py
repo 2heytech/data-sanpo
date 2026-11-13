@@ -2799,6 +2799,13 @@ def juki_total_values(year: int) -> dict[str, int]:
             for c, v in juki_foreign_values(year).items()}
 
 
+def juki_vitals(year: int) -> dict[str, tuple[int, int]]:
+    """見本の市区町村ごとの、year 年1月1日のファイルの出生者数・死亡者数（前の年の1年間、#238）。"""
+    rnd = random.Random(f"juki-vitals-{year}")
+    return {c: (round(v * rnd.uniform(0.004, 0.009)), round(v * rnd.uniform(0.008, 0.016)))
+            for c, v in juki_total_values(year).items()}
+
+
 def juki_moves(year: int) -> dict[str, tuple[int, int]]:
     """見本の市区町村ごとの、year 年1月1日のファイルの転入者数・転出者数（前の年の1年間）。島しょの村は転出者を50人未満にする。"""
     rnd = random.Random(f"juki-moves-{year}")
@@ -2816,19 +2823,25 @@ def _write_juki_foreign(directory: Path, year: int, rnd: random.Random, total: b
     vals = juki_total_values(year) if total else juki_foreign_values(year)
     names = {c: n for c, n, *_ in MUNICIPALITIES + OTHER_MUNICIPALITIES}
     era, prev = f"令和{year - 2018}年", f"令和{year - 2019}年"
-    # 【総計】には人口動態（前の年の1年間の転入者数・転出者数、#202）の列もある
-    flow = (["住民票記載数", "住民票消除数"], ["転入者数（計）", "転出者数（計）"]) if total else ([], [])
+    # 【総計】には人口動態（前の年の1年間の転入者数・転出者数、#202。出生者数・死亡者数・自然増減数・社会増減数、#238）の列もある
+    flow = (["住民票記載数", "住民票記載数", "住民票消除数", "住民票消除数", "自然増減数", "社会増減数"],
+            ["転入者数（計）", "出生者数", "転出者数（計）", "死亡者数", "自然増減数", "社会増減数"]) if total else ([], [])
     rows = [[f"{era}1月1日住民基本台帳人口・世帯数、{prev}（1月1日から同年12月31日まで）人口動態（市区町村別）【{label}】"],
             [None] * 3 + [era] * 4, [None] * 3 + [f"{year}年"] * 4,
             [None] * 3 + ["人口", "人口", "人口", "世帯数"] + flow[0],
             [None] * 3 + ["男", "女", "計", "世帯数"] + flow[1],
             ["団体コード", "都道府県名", "市区町村名", "人", "人", "人", "世帯"] + ["人"] * len(flow[1])]
     moves = juki_moves(year) if total else {}
+    vitals = juki_vitals(year) if total else {}
 
     def row(code5, pref, name, total):
         male = total // 2
         out = [_check_digit(code5), pref, name, male, total - male, total, round(total * 0.6)]
-        return out + list(moves.get(code5, (round(total * 0.03), round(total * 0.028)))) if moves else out
+        if not moves:
+            return out
+        moved_in, moved_out = moves.get(code5, (round(total * 0.03), round(total * 0.028)))
+        births, deaths = vitals.get(code5, (round(total * 0.006), round(total * 0.012)))
+        return out + [moved_in, births, moved_out, deaths, births - deaths, moved_in - moved_out]
 
     rows.append(["-", "合計", "-"] + [None] * 4)
     for pref in ("13", "14"):

@@ -926,7 +926,7 @@ unbounded = true
 levels = ["municipality"]
 description = "家庭で1か月に20m³の水道水を使ったときの料金（口径20mm、税抜き、2024年度）。"
 method = "デジタル庁「水道事業等の経営状況に関するダッシュボード」の公開データ（総務省「地方公営企業決算状況調査」）の、家庭用1か月20m³当たり料金（口径20mm）。上水道（末端給水事業）の料金で、上水道がない市町村は法適用の簡易水道事業の料金。"
-caveats = ["税抜きの料金です（ダッシュボードの定義）。", "企業団・都県（東京都・神奈川県・千葉県・長野県）や隣の市の水道が給水する市区町村は、その水道の料金です。", "市区町村の水道が住民の半分未満にしか給水していない市区町村や、統合した市町村ごとに料金が違う（または統一を確かめられない）企業団が給水する市区町村は、値を表示しません。", "法の適用を受けない小さな簡易水道や井戸で暮らす地域の料金は含みません。", "政令指定都市は市全体の料金なので、区にも市の値を表示しています。", "都道府県の値はありません。"]
+caveats = ["税抜きの料金です（ダッシュボードの定義）。", "企業団・都県（東京都・神奈川県・千葉県・長野県）や隣の市の水道が給水する市区町村は、その水道の料金です。", "市区町村の水道が住民の半分未満にしか給水していない市区町村や、統合した市町村ごとに料金が違う（または統一を確かめられない）企業団が給水する市区町村は、値を表示しません。", "法の適用を受けない小さな簡易水道や井戸で暮らす地域の料金は含みません。", "元の表の料金に誤り（1m³あたりの単価や、超過料金の足し漏れなど）が見つかった町村は、町村の料金表から求めた料金にするか、値を表示しません（地域ごとの注記に書いています）。", "政令指定都市は市全体の料金なので、区にも市の値を表示しています。", "都道府県の値はありません。"]
 source_kind = "digital_water_supply"
 legend = { method = "nice", classes = 12, scheme = "oranges" }
 
@@ -2346,19 +2346,103 @@ family = "foreign"
 facets = { type = "総数", basis = "割合" }
 legend = { method = "nice", classes = 12, scheme = "bupu" }
 
+# 住民基本台帳の人口・世帯数と1年間の人口動態（#238）。地域ページの「人口の移り変わり」で、国勢調査より新しい
+# 1月1日の人口・世帯数と、前の年の1年間の出生・死亡・転入・転出を見せる（「〇〇市 人口」で探す人の答えにする）
 [juki_population]
 name = "住民基本台帳の人口"
-category = "外国人住民"
+category = "人口・世帯"
 unit = "人"
 kind = "count"
 definition_version = "1"
 digits = 0
 levels = ["municipality"]
-publish = false
-description = "住民基本台帳に記録されている人の数（日本人住民と外国人住民の合計、各年1月1日現在）。外国人住民の割合の分母。"
+description = "住民基本台帳に記録されている人の数（日本人住民と外国人住民の合計、各年1月1日現在）。"
 method = "総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別人口の「人口 計」。"
+caveats = ["2021年以降の各年1月1日現在の値です。", "住民票の数で数えるため、国勢調査の人口（住んでいる場所で数える、10月1日現在）とは調べ方・時点が違い、一致しません。"]
 source_kind = "soumu_juki_total"
 column = "人口/計"
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
+[juki_households]
+name = "住民基本台帳の世帯数"
+category = "人口・世帯"
+unit = "世帯"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "住民基本台帳に記録されている世帯の数（日本人住民と外国人住民の世帯の合計、各年1月1日現在）。"
+method = "総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別の「世帯数」。"
+caveats = ["2021年以降の各年1月1日現在の値です。", "住民票の世帯の数で、国勢調査の世帯数とは数え方・時点が違い、一致しません（同じ家に住んでいても、別の世帯として届け出ていれば別に数えます）。"]
+source_kind = "soumu_juki_total"
+column = "世帯数/世帯数"
+legend = { method = "nice", classes = 12, scheme = "blues" }
+
+[juki_births]
+name = "出生者数"
+category = "人口・世帯"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "1年間（1月1日〜12月31日）に生まれて住民票が記載された人の数。"
+method = "総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別人口動態の「出生者数」。"
+caveats = ["2020〜2025年の各年の値です。", "住民票の記載で数えるため、人口動態統計（厚生労働省）の出生数とは一致しません。"]
+source_kind = "soumu_juki_total"
+column = "住民票記載数/出生者数"
+juki_flow = true
+legend = { method = "nice", classes = 12, scheme = "greens" }
+
+[juki_deaths]
+name = "死亡者数"
+category = "人口・世帯"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+description = "1年間（1月1日〜12月31日）に亡くなって住民票が消除された人の数。"
+method = "総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別人口動態の「死亡者数」。"
+caveats = ["2020〜2025年の各年の値です。", "住民票の消除で数えるため、人口動態統計（厚生労働省）の死亡数とは一致しません。", "人口の多い地域や、高齢の人の多い地域ほど多くなります。"]
+source_kind = "soumu_juki_total"
+column = "住民票消除数/死亡者数"
+juki_flow = true
+legend = { method = "nice", classes = 12, scheme = "purples" }
+
+[juki_natural_change]
+name = "自然増減数"
+category = "人口・世帯"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+allow_negative = true
+description = "1年間（1月1日〜12月31日）に生まれた人の数から、亡くなった人の数を引いた数。マイナスは亡くなった人の方が多いこと。"
+method = "出生者数 − 死亡者数。総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別人口動態の「自然増減数」。"
+caveats = ["2020〜2025年の各年の値です。", "人の引っ越し（転入・転出）は含みません。"]
+source_kind = "soumu_juki_total"
+column = "自然増減数/自然増減数"
+juki_flow = true
+legend = { method = "diverging", classes = 12, scheme = "puor" }
+
+[juki_social_change]
+name = "社会増減数"
+category = "人口・世帯"
+unit = "人"
+kind = "count"
+definition_version = "1"
+digits = 0
+levels = ["municipality"]
+allow_negative = true
+description = "1年間（1月1日〜12月31日）に移り住んだ人（転入など）の数から、移って出ていった人（転出など）の数を引いた数。マイナスは出ていった人の方が多いこと。"
+method = "（転入者数 ＋ そのほかの記載数）−（転出者数 ＋ そのほかの消除数）。総務省「住民基本台帳に基づく人口、人口動態及び世帯数」の【総計】市区町村別人口動態の「社会増減数」。"
+caveats = ["2020〜2025年の各年の値です。", "転入・転出のほか、住民票の職権による記載・消除なども含みます（転入者数 − 転出者数とは少し違います）。", "国外との出入りを含みます。", "都道府県の値は、ほかの都道府県や国外との出入りです（同じ都道府県の中の引っ越しは含みません）。", "政令指定都市の区の値は、同じ市のほかの区との出入りを含みません。"]
+source_kind = "soumu_juki_total"
+column = "社会増減数/社会増減数"
+juki_flow = true
+legend = { method = "diverging", classes = 12, scheme = "puor" }
 
 # 転入・転出（#202）。住民基本台帳の【総計】の人口動態（前の年の1月1日〜12月31日）。juki_flow = true の列は
 # ファイルの時点（1月1日）の前の年の年計として取り込む（例: 令和8年1月1日のファイルの転入者数は2025年の値）。
@@ -4253,13 +4337,13 @@ digits = 0
 scale = 1000000
 unbounded = true
 levels = ["municipality", "prefecture"]
-description = "ふるさと納税の受入額を、その自治体に住む人（2020年国勢調査の人口）1人あたりにした値。自治体の規模の違いをならして比べるための目安。"
-method = "ふるさと納税の受入額 ÷ 2020年の人口。総務省「ふるさと納税に関する現況調査結果」と国勢調査。"
-caveats = ["年度は4月から翌年3月まで（例: 2025年度は2025年4月〜2026年3月）。", "分母はどの年度も2020年の人口です。", "人口の少ない町村は値が極端に大きくなります。", "都道府県の値は、県と県内の市区町村の受入の合計 ÷ 県内の人口です。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "返礼品などの経費を差し引く前の額です。"]
+description = "ふるさと納税の受入額を、その自治体に住む人（2025年国勢調査の人口）1人あたりにした値。自治体の規模の違いをならして比べるための目安。"
+method = "ふるさと納税の受入額 ÷ 2025年の人口。総務省「ふるさと納税に関する現況調査結果」と国勢調査。"
+caveats = ["年度は4月から翌年3月まで（例: 2025年度は2025年4月〜2026年3月）。", "分母はどの年度も2025年の人口です。", "人口の少ない町村は値が極端に大きくなります。", "都道府県の値は、県と県内の市区町村の受入の合計 ÷ 県内の人口です。", "政令指定都市は市全体の値しか公表されていないため、区の値はありません。", "返礼品などの経費を差し引く前の額です。"]
 numerator_indicator = "furusato_amount"
 denominator_indicator = "population_total"
-denominator_period = "2020-10-01"
-denominator_label = "2020年の人口"
+denominator_period = "2025-10-01"
+denominator_label = "2025年の人口"
 fraction_units = ["百万円", "人"]
 compare_with = ["furusato_amount"]
 family = "furusato"
@@ -5762,7 +5846,7 @@ legend = { method = "nice", classes = 12, scheme = "oranges" }
 [total_fertility_rate]
 name = "合計特殊出生率"
 category = "子育て"
-unit = "人"
+unit = ""
 kind = "ratio"
 definition_version = "1"
 digits = 2

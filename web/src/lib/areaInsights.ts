@@ -81,6 +81,8 @@ const EVACUATION_SKIP = new Set([
   "persons_per_household", "households_with_children_share", "owner_occupied_share", "same_residence_5y_share",
   "residence_under1y_share", "residence_under5y_share", "residence_20y_share", "self_employed_share", "professional_share",
   "manager_share", "university_graduate_share", "commute_walk_share", "commute_bicycle_share", "commute_bus_share", "commute_car_share",
+  // 住民1人あたりのふるさと納税は、戻った人がまだ少ない町で人口が小さいために大きくなる（返礼品の人気とは読めない。#231）
+  "furusato",
 ]);
 /**
  * 2024年1月の能登半島地震と9月の奥能登豪雨で大きな被害を受けた能登の3市3町（七尾市・輪島市・珠洲市・志賀町・穴水町・能登町。

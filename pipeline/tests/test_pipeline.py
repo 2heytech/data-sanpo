@@ -1,6 +1,7 @@
 import json
 import re
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -759,11 +760,11 @@ def test_foreign_residents(built):
         built, "values/foreign_residents/2026-01-01/prefectures.json")["rows"]}
     tokyo = sum(v for c, v in juki.items() if c[:2] == "13")
     assert prefs["pref-13"]["value"] == tokyo + 7   # 出典の都道府県の行を使う
-    # 外国人住民の割合: 分母は同じ調査の【総計】の人口。分母の指標そのものは公開しない
+    # 外国人住民の割合: 分母は同じ調査の【総計】の人口（分母の人口も #238 から「人口・世帯」の指標として公開する）
     share = by["foreign_residents_share"]
     assert share["facets"] == {"type": "総数", "basis": "割合"} and share["family"] == "foreign"
     assert [p["period"] for p in share["periods"]] == ["2025-01-01", "2026-01-01"]   # 2020年以前は分母がない
-    assert "juki_population" not in by
+    assert by["juki_population"]["category"] == "人口・世帯"
     tot = fixture.juki_total_values(2026)
     srows = {r["entity_id"]: r for r in load(
         built, "values/foreign_residents_share/2026-01-01/municipalities.json")["rows"]}
@@ -804,6 +805,33 @@ def test_juki_migration(built):
     prefs = {r["entity_id"]: r for r in load(
         built, "values/in_migration_rate/2025-01-01/prefectures.json")["rows"]}
     assert prefs["pref-13"]["value"] is not None   # 都道府県は出典の都道府県の行（県外からの転入）を使う
+
+
+def test_juki_population_and_vitals(built):
+    """住民基本台帳の人口・世帯数（1月1日）と、前の年の1年間の出生・死亡・自然増減・社会増減（#238）。"""
+    by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}
+    assert by["juki_population"]["category"] == "人口・世帯"
+    assert [p["period"] for p in by["juki_population"]["periods"]] == ["2025-01-01", "2026-01-01"]
+    assert [p["label"] for p in by["juki_households"]["periods"]][-1] == "2026年1月1日現在"
+    # 令和8年1月1日のファイルの人口動態は2025年の1年間の値
+    assert [(p["period"], p["period_end"]) for p in by["juki_births"]["periods"]] == [
+        ("2024-01-01", "2024-12-31"), ("2025-01-01", "2025-12-31")]
+
+    def rows(indicator, period):
+        return {r["entity_id"]: r for r in load(built, f"values/{indicator}/{period}/municipalities.json")["rows"]}
+
+    pop = fixture.juki_total_values(2026)
+    births, deaths = fixture.juki_vitals(2026)["13199"]
+    moved_in, moved_out = fixture.juki_moves(2026)["13199"]
+    assert rows("juki_population", "2026-01-01")["muni-13199"]["value"] == pop["13199"]
+    assert rows("juki_households", "2026-01-01")["muni-13199"]["value"] == round(pop["13199"] * 0.6)
+    assert rows("juki_births", "2025-01-01")["muni-13199"]["value"] == births
+    assert rows("juki_deaths", "2025-01-01")["muni-13199"]["value"] == deaths
+    # 自然増減・社会増減は負の値をそのまま出す（0 にしない）
+    assert rows("juki_natural_change", "2025-01-01")["muni-13199"]["value"] == births - deaths < 0
+    assert rows("juki_social_change", "2025-01-01")["muni-13199"]["value"] == moved_in - moved_out
+    legend = load(built, "values/juki_natural_change/2025-01-01/legend.json")
+    assert legend["method"] == "diverging" and 0.0 in legend["levels"]["municipality"]["breaks"]   # 0 を境に増減で色を分ける
 
 
 def test_census_foreign_by_nationality(built):
@@ -2730,9 +2758,14 @@ def test_furusato(built):
     assert abs(p["pref-14"]["value"] - (0.4 + 22.0)) < 0.01   # 政令指定都市の区に値はないが県の合計には入る
     assert pref("furusato_amount", "2023-04-01")["pref-13"]["value"] is None   # 空欄の市町村があれば値なし
     pc = pref("furusato_amount_per_capita", "2025-04-01")["pref-13"]
-    pop = sum(r["value"] for r in load(built, "values/population_total/2020-10-01/municipalities.json")["rows"]
-              if r["entity_id"].startswith("muni-13"))
-    assert abs(pc["denominator"] - pop) < 0.01 and abs(pc["numerator"] - p["pref-13"]["value"]) < 0.01
+    # 分母は2025年国勢調査の人口（最新の年度に合わせる。#231）。都道府県は国勢調査の表にある都道府県の人口
+    def population(period, level="municipalities"):
+        return {r["entity_id"]: r["value"] for r in load(built, f"values/population_total/{period}/{level}.json")["rows"]}
+    assert pc["denominator"] == population("2025-10-01", "prefectures")["pref-13"]
+    assert abs(pc["numerator"] - p["pref-13"]["value"]) < 0.01
+    assert abs(pc["value"] - pc["numerator"] / pc["denominator"] * 1e6) < 1
+    assert per["denominator"] == population("2025-10-01")["muni-13199"] != population("2020-10-01")["muni-13199"]
+    assert "2025年国勢調査の人口" in by["furusato_amount_per_capita"]["description"]
 
 
 def test_jhs_progress(built):
@@ -3142,6 +3175,7 @@ def test_fertility_and_life_expectancy(built):
     assert rows("total_fertility_rate", "2018-01-01", "prefectures")["pref-13"]["value"] == 1.11
     ind = next(i for i in load(built, "indicators.json")["indicators"] if i["id"] == "total_fertility_rate")
     assert any(p["label"] == "2018〜2022年" for p in ind["periods"])
+    assert ind["unit"] == ""   # 率なので単位を付けない（「2.25 人」と出さない。#231）
     male = rows("life_expectancy_male", "2020-01-01", "municipalities")
     female = rows("life_expectancy_female", "2020-01-01", "municipalities")
     assert male["muni-13199"]["value"] == 82.4 and female["muni-13199"]["value"] == 88.3
@@ -3970,6 +4004,77 @@ def test_water_fee_without_fee(tmp_path):
         "SELECT entity_id, value, method_note FROM observations")}
     assert got["muni-13299"] == got["muni-13499"] == (None, digital_water.NO_FEE_NOTE)
     assert result["no_fee"] == 2 and result["unmatched"] == []
+
+
+def _water_zip(tmp_path, years: dict[int, list[tuple]]) -> Path:
+    """水道ダッシュボードの公開データの見本。years: 年度 → [(事業者コード, 事業の区分, 経営主体, 20m³の料金, 10m³の料金)]"""
+    import csv
+    import io
+    import zipfile
+    from tdm.ingest import digital_water
+    path = tmp_path / "water.zip"
+    with zipfile.ZipFile(path, "w") as z:
+        for year, rows in years.items():
+            buf = io.StringIO()
+            w = csv.DictWriter(buf, fixture.WATER_COLUMNS)
+            w.writeheader()
+            for code, facility, entity, fee, fee10 in rows:
+                for item, value in ((digital_water.FEE_ITEM, fee), (digital_water.FEE10_ITEM, fee10),
+                                    (digital_water.POP_ITEM, 10_000_000)):
+                    w.writerow({k: "" for k in fixture.WATER_COLUMNS} | {
+                        "fiscal_year": str(year), "local_public_enterprise_code": code, "local_public_enterprise_name": f"見本{code}",
+                        "facility_code": facility, "cond_2_operating_entity": entity, "item_name": item, "item_value": str(value)})
+            z.writestr(f"data/{year}.csv", buf.getvalue().encode("utf-8-sig"))
+    return path
+
+
+def test_water_fee_fixes(tmp_path):
+    """元の表の誤り（1m³あたりの単価や、超過料金を1m³分しか足していない20m³の料金）は、設定の fee_fixes で直すか値なしにする。
+    安すぎる料金や、20m³と10m³の差が小さすぎる料金は、設定で確かめたものでなければ止める（#239）。"""
+    from tdm.ingest import digital_water
+    rows = [("132993", "005", "3:市営", 171, 102),      # 1m³あたりの単価が入っている → 直す
+            ("134996", "005", "4:町村営", 1228, 1100),  # 超過料金を1m³分しか足していない → 値なし
+            ("135992", "005", "4:町村営", 890, 440),    # 安いが料金表で確かめた
+            ("141909", "001", "2:指定市営", 3759, 3721)]  # 差は小さいが前の年度と同じ（毎年同じ値の報告）
+    path = _water_zip(tmp_path, {2023: [("141909", "001", "2:指定市営", 3759, 3721)], 2024: rows})
+    catalog = {k: d for k, d in load_indicators().items() if k == "water_fee_household"}
+    cfg = {"fiscal_year": 2024, "low_fee_floor": 1000, "min_step": 250,
+           "fee_fixes": {"132993": {"table": 171, "fee": 3875, "note": "元の表の料金は1m³あたりの単価のため直した料金です"},
+                         "134996": {"table": 1228, "note": "元の表の料金は誤りと見られるため、値を表示しません"},
+                         "999999": {"table": 100, "note": "表にない事業者"}},
+           "low_fees_checked": {"135992": 890}}
+
+    def run(c):
+        conn = connect(":memory:")
+        init_schema(conn)
+        conn.execute("PRAGMA foreign_keys = OFF")
+        upsert_indicators(conn, catalog)
+        for code in ("13299", "13499", "13599", "14190"):
+            conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'municipality', '見本')",
+                         (f"muni-{code}",))
+        result = digital_water.ingest(conn, path, "s", catalog, c)
+        return result, {r["entity_id"]: (r["value"], r["status"], r["method_note"]) for r in conn.execute(
+            "SELECT entity_id, value, status, method_note FROM observations")}
+    result, got = run(cfg)
+    assert got["muni-13299"] == (3875, "observed", "元の表の料金は1m³あたりの単価のため直した料金です")
+    assert got["muni-13499"] == (None, "missing", "元の表の料金は誤りと見られるため、値を表示しません")   # 0 にしない
+    assert got["muni-13599"][:2] == (890, "observed") and got["muni-14190"][:2] == (3759, "observed")
+    assert result["fixed"] == 2 and result["missing_fixes"] == ["999999"]
+    # 元の表の料金が設定の table と違えば止める（表が直ったら確かめ直す）
+    with pytest.raises(ValueError, match="設定の table"):
+        run(cfg | {"fee_fixes": {"132993": {"table": 170, "fee": 3875, "note": "x"}}})
+    # 確かめていない安い料金・差の小さい料金は止める
+    with pytest.raises(ValueError, match="見本132993.*見本134996"):
+        run(cfg | {"fee_fixes": {}})
+    with pytest.raises(ValueError, match="見本135992"):
+        run(cfg | {"low_fees_checked": {}})
+    with pytest.raises(ValueError, match="low_fees_checked"):
+        run(cfg | {"low_fees_checked": {"135992": 900}})
+    # 前の年度がなければ、差の小さい料金は毎年の報告とは言えないので止める
+    path.unlink()
+    path = _water_zip(tmp_path, {2024: rows})
+    with pytest.raises(ValueError, match="見本141909"):
+        run(cfg)
 
 
 def test_name_matching_uses_map_municipalities(built):
