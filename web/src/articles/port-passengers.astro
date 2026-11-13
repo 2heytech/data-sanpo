@@ -1,0 +1,134 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
+import ArticlePorts from "../components/ArticlePorts.astro";
+import { about, check, port, portRank, portRanking, portValue } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
+
+const P = "2024-01-01";
+const P20 = "2020-01-01";
+const P23 = "2023-01-01";
+const ITSUKUSHIMA = port("port-34-5f00d14e", "厳島");
+const KAGOSHIMA = port("port-46-07e50bbb", "鹿児島");
+const SAKURAJIMA = port("port-46-cf2411be", "桜島(鹿児島県管理)");
+const TAKAMATSU = port("port-37-7723d21d", "高松");
+const HAKATA = port("port-40-91c721b8", "博多");
+const TONOSHO = port("port-37-ccded9ea", "土庄");
+const MIYANOURA = port("port-37-798fa73f", "宮浦");
+const RYOTSU = port("port-15-d59c8318", "両津");
+const TOKYO = port("port-13-681ee300", "東京");
+const YOKOHAMA = port("port-14-ebe64a20", "横浜");
+const NAGOYA = port("port-23-fc499c23", "名古屋");
+const NAHA = port("port-47-fdf76ae1", "那覇");
+const NAGASAKI = port("port-42-bf01d395", "長崎");
+const ISHIGAKI = port("port-47-e8019c27", "石垣");
+const HITAKATSU = port("port-42-45656bff", "比田勝");
+
+const v = (p: typeof ITSUKUSHIMA, period = P) => portValue(p, period);
+const intl = (p: typeof ITSUKUSHIMA, period = P) => portValue(p, period, "international");
+const ids = (list: { port: { id: string } }[]) => list.map((r) => r.port.id).join();
+const idsOf = (list: (typeof ITSUKUSHIMA)[]) => list.map((p) => p?.id ?? "?").join();
+const rankText = (p: typeof ITSUKUSHIMA) => `${formatNumber(portRank(p, P) ?? 0, 0)}位`;
+const ratio = (a: number | null, b: number | null) => (a === null || b === null || b === 0 ? NaN : a / b);
+
+// 書き出し: 1位は厳島港で、2位の鹿児島港のおよそ2倍。3〜5位は桜島港・高松港・博多港
+check(ids(portRanking(P, 5)) === idsOf([ITSUKUSHIMA, KAGOSHIMA, SAKURAJIMA, TAKAMATSU, HAKATA]), "2024年の1〜5位が厳島港・鹿児島港・桜島港・高松港・博多港ではありません");
+const first = ratio(v(ITSUKUSHIMA), v(KAGOSHIMA));
+check(Number.isNaN(first) || (first >= 1.9 && first < 2.1), "厳島港が鹿児島港のおよそ2倍ではありません");
+// 100万人を超える港の数と、そのうち島の港（土庄港・宮浦港・両津港）の順位
+const over1m = portRanking(P, Infinity).filter((r) => r.value >= 1000000);
+check(over1m.length === 22, "2024年に100万人を超える港が22ではありません");
+check(portRank(TONOSHO, P) === 15 && portRank(MIYANOURA, P) === 16 && portRank(RYOTSU, P) === 20, "土庄港・宮浦港・両津港が15・16・20位ではありません");
+// 大都市の港: 東京港は14位、横浜港は53位、名古屋港は162位
+check(portRank(TOKYO, P) === 14 && portRank(YOKOHAMA, P) === 53 && portRank(NAGOYA, P) === 162, "東京港・横浜港・名古屋港が14・53・162位ではありません");
+const tokyoShare = ratio(v(ITSUKUSHIMA), v(TOKYO));
+check(Number.isNaN(tokyoShare) || (tokyoShare >= 6.5 && tokyoShare < 7.5), "東京港が厳島港の7分の1ほどではありません");
+// 外国航路: 博多港・那覇港・長崎港・石垣港の順で、比田勝港が6位。博多港は2020年の10倍を超える
+check(ids(portRanking(P, 4, [], "international")) === idsOf([HAKATA, NAHA, NAGASAKI, ISHIGAKI]), "外国航路の1〜4位が博多港・那覇港・長崎港・石垣港ではありません");
+check(portRank(HITAKATSU, P, "international") === 6, "外国航路で比田勝港が6位ではありません");
+check(ratio(intl(HAKATA), intl(HAKATA, P20)) > 10, "博多港の外国航路が2020年の10倍を超えていません");
+// 移り変わり: 厳島港は2020年の2倍を超え、2023年からも増えた。100万人を超える港で、2020年から最も増えたのは那覇港（3倍を超える）
+check(ratio(v(ITSUKUSHIMA), v(ITSUKUSHIMA, P20)) > 2 && (v(ITSUKUSHIMA) ?? 0) > (v(ITSUKUSHIMA, P23) ?? Infinity), "厳島港が2020年の2倍を超えていないか、2023年より減っています");
+const growth = over1m.map((r) => ({ id: r.port.id, g: ratio(r.value, portValue(r.port, P20)) })).filter((x) => !Number.isNaN(x.g)).sort((a, b) => b.g - a.g);
+check(growth[0]?.id === NAHA?.id && (growth[0]?.g ?? 0) > 3, "100万人を超える港で2020年から最も増えたのが那覇港（3倍超）ではありません");
+// 那覇港の増えた分の半分より多くが外国航路
+const nahaUp = (v(NAHA) ?? 0) - (v(NAHA, P20) ?? 0);
+const nahaIntlUp = (intl(NAHA) ?? 0) - (intl(NAHA, P20) ?? 0);
+check(nahaUp > 0 && nahaIntlUp > nahaUp / 2, "那覇港の2020年からの増加の半分より多くが外国航路ではありません");
+---
+<Article slug="port-passengers">
+  <p>
+    日本でいちばん人が乗り降りする港は、広島県廿日市市の厳島港です（2024年）。
+    船に乗った人と降りた人を合わせて{about(v(ITSUKUSHIMA))}人で、2位の鹿児島港（{about(v(KAGOSHIMA))}人）のおよそ2倍です。
+  </p>
+  <p>
+    国土交通省の「港湾統計」は、港ごとに、1年間に船に乗った人（乗込人員）と船から降りた人（上陸人員）を数えています。
+    フェリー・高速船・観光船など、すべての船の合計です。この寄り道では、その合計を「乗降人員」として、全国の港を比べます。
+  </p>
+  <ArticlePorts period={P} label="乗降人員" also={{ period: P, key: "international", label: "うち外国航路" }} n={15}
+    expect={[ITSUKUSHIMA, KAGOSHIMA, SAKURAJIMA, TAKAMATSU, HAKATA, TOKYO]} caption="乗降人員が多い港（2024年）" />
+
+  <h2>厳島港は、宮島へ渡る船の港</h2>
+  <p>
+    厳島港は、厳島神社のある宮島と、対岸の宮島口を結ぶフェリーの港です。
+    広島県によると、宮島口も2011年から厳島港の区域に入っていて、宮島には毎年400万人を超える観光客が訪れます。
+    宮島へ行く人の多くが、行きと帰りに船に乗り降りするため、乗降人員が多くなると思われます。
+  </p>
+  <p>
+    3位の桜島港も、鹿児島市の市街地から桜島へ渡るフェリーの港です。
+    乗降人員が100万人を超える港は{over1m.length}あり、15位の土庄港（小豆島）、16位の宮浦港（直島）、20位の両津港（佐渡島）も島の港です。
+    上位には、島へ渡る船の港が多く入ります。
+  </p>
+
+  <h2>東京港は14位、横浜港は53位</h2>
+  <p>
+    大都市の大きな港は、人の乗り降りではそれほど上位ではありません。東京港は{about(v(TOKYO))}人で{rankText(TOKYO)}、厳島港の7分の1ほどです。
+    横浜港は{about(v(YOKOHAMA))}人で{rankText(YOKOHAMA)}、名古屋港は{about(v(NAGOYA))}人で{rankText(NAGOYA)}です。
+    乗降人員が多いのは、短い航路を船が何度も行き来する港で、貨物船が中心の港とは順位が大きく違うようです。
+  </p>
+
+  <h2>外国航路では博多港が1位</h2>
+  <p>
+    外国との間を行き来する船（外国航路）だけで比べると、1位は博多港（{about(intl(HAKATA))}人）で、
+    2位は那覇港（{about(intl(NAHA))}人）、3位は長崎港（{about(intl(NAGASAKI))}人）、4位は石垣港（{about(intl(ISHIGAKI))}人）です。
+    博多港と、6位の対馬の比田勝港は韓国の釜山との間の船が出る港で、那覇港・長崎港・石垣港はクルーズ船が寄港する港と思われます。
+    <ArticleLink slug="inbound-guest-share">外国人の宿泊者の割合が高い都道府県</ArticleLink>
+  </p>
+  <ArticlePorts period={P} key="international" label="外国航路" also={{ period: P20, key: "international", label: "2020年" }} n={8}
+    expect={[HAKATA, NAHA, NAGASAKI, ISHIGAKI, HITAKATSU]} caption="外国航路の乗降人員が多い港（2024年）" />
+  <p>
+    2020年はコロナ禍で外国との行き来が少なく、博多港の外国航路は{about(intl(HAKATA, P20))}人でした。
+    2024年はその10倍を超えています。
+  </p>
+
+  <h2>2020年から2倍を超えた厳島港</h2>
+  <p>
+    厳島港の乗降人員は、2020年の{about(v(ITSUKUSHIMA, P20))}人から、2023年に{about(v(ITSUKUSHIMA, P23))}人、2024年に{about(v(ITSUKUSHIMA))}人と増え、2倍を超えました。
+    乗降人員が100万人を超える港で、2020年から最も大きく増えたのは那覇港で、
+    {about(v(NAHA, P20))}人から{about(v(NAHA))}人と3倍を超えています。外国航路の船が戻ってきたことが大きいと考えられます。
+  </p>
+
+  <h2>人がいちばん乗り降りするのは宮島の港</h2>
+  <p>
+    日本でいちばん人が乗り降りする港は、宮島へ渡る船の厳島港でした。
+    上位には島へ渡る船の港が多く、大都市の大きな港や、外国航路の多い港とは顔ぶれが違います。
+  </p>
+  <p>
+    地図では、全国の港の位置と、2020〜2024年の毎年の乗降人員を見られます。近くの港も確かめてみてください。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?pt=${ITSUKUSHIMA?.id ?? ""}`}>港の乗降人員を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>船に乗った人と降りた人の合計です。行きと帰りに船を使う人は何回も数えるので、港を訪れた人の数とは違います。</li>
+    <li>フェリーだけでなく、高速船・観光船など港に出入りするすべての船の合計です。</li>
+    <li>港湾統計の対象の港（甲種港湾・乙種港湾）だけで、漁港などは含みません。暦年（1〜12月）の値です。</li>
+    <li>港の区域には、対岸の桟橋などを含むことがあります（厳島港は宮島口を含みます）。</li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

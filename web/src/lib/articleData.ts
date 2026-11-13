@@ -4,7 +4,7 @@
 // 開発用の架空データ（fixture）や都道府県を絞ったプレビューでは地域も値も足りないので、止めずに「—」を出す。
 import { loadAreas, loadFacilityPoints, loadIndicators, loadPlace, loadSmallAreas, loadStations, loadValues, RELEASE } from "./data";
 import { formatNumber, formatValue, ranked } from "./format";
-import type { FacilityPoint, Indicator, Station, ValueRow, WeatherElement, WeatherFile, WeatherStation } from "./types";
+import type { FacilityPoint, Indicator, Station, TransportFile, TransportPoint, ValueRow, WeatherElement, WeatherFile, WeatherStation } from "./types";
 
 export type ArticleLevel = "municipality" | "prefecture";
 
@@ -396,3 +396,79 @@ export function weatherRanking(element: string, n: number, expect: (WeatherStati
   if (missing.length) fail(`天気の指標 ${element} の上位${n}に ${missing.map((e) => e?.name ?? "?").join("・")} が入っていません`);
   return top;
 }
+
+/** 港の船舶乗降人員（places/port_passengers.json）。公開版にないときは null */
+function portFile(): TransportFile | null {
+  return loadPlace("port_passengers") as TransportFile | null;
+}
+
+/** 港の乗降人員の時点（「2024-01-01」など）の位置。ないときは実データなら止める */
+function portIndex(period: string): number {
+  const i = portFile()?.periods.findIndex((p) => p.period === period) ?? -1;
+  if (i < 0) fail(`港の乗降人員に ${period} の値がありません`);
+  return i;
+}
+
+/** 港の時点の表示（「2024年」など） */
+export function portPeriodLabel(period: string): string {
+  return portFile()?.periods.find((p) => p.period === period)?.label ?? fail(`港の乗降人員に ${period} の値がありません`) ?? "—";
+}
+
+/** 港（ID と名前で探す。地図に重ねる「港」の点）。見つからないときは実データなら止める */
+export function port(id: string, name: string): TransportPoint | null {
+  return portFile()?.points.find((p) => p.id === id && p.name === name) ?? fail(`港 ${name}（${id}）がありません`);
+}
+
+/** 港の名前（「厳島港」。「桜島(鹿児島県管理)」は「桜島港（鹿児島県管理）」） */
+export function portName(p: TransportPoint | null): string {
+  if (!p) return "—";
+  const m = p.name.match(/^(.*?)[(（](.+)[)）]$/);
+  const base = m ? m[1] : p.name;
+  const withPort = base.endsWith("港") ? base : `${base}港`;
+  return m ? `${withPort}（${m[2]}）` : withPort;
+}
+
+export type PortKey = "values" | "domestic" | "international";
+
+/** 港の乗降人員（values は合計、international は外国航路）。値のない年は null（0 にしない） */
+export function portValue(p: TransportPoint | null, period: string, key: PortKey = "values"): number | null {
+  if (!p) return null;
+  const v = p[key][portIndex(period)];
+  return v === undefined ? null : v;
+}
+
+export interface PortRankRow {
+  port: TransportPoint;
+  rank: number;
+  value: number;
+}
+
+/**
+ * 港の乗降人員の多い順（同じ値は同じ順位）。その年の値のない港は除く（0 にしない）。
+ * expect に挙げた港が上から n 件に入っていなければ、実データでは止める（ranking と同じ）
+ */
+export function portRanking(period: string, n: number, expect: (TransportPoint | null)[] = [], key: PortKey = "values"): PortRankRow[] {
+  const i = portIndex(period);
+  const list = (portFile()?.points ?? []).flatMap((p) => {
+    const v = p[key][i];
+    return v === null || v === undefined || v <= 0 ? [] : [{ port: p, value: v }];
+  }).sort((a, b) => b.value - a.value || a.port.id.localeCompare(b.port.id));
+  if (list.length === 0) fail(`港の乗降人員の ${period} の値がありません`);
+  let rank = 0;
+  const rows = list.map((r, k) => {
+    if (k === 0 || r.value !== list[k - 1].value) rank = k + 1;
+    return { ...r, rank };
+  });
+  const top = rows.slice(0, n);
+  const missing = expect.filter((e) => !e || !top.some((r) => r.port.id === e.id));
+  if (missing.length) fail(`港の乗降人員の上位${n}に ${missing.map((e) => portName(e)).join("・")} が入っていません`);
+  return top;
+}
+
+/** 港の乗降人員の順位（その年の値のある港の中で。同じ値は同じ順位）。ないときは実データなら止める */
+export function portRank(p: TransportPoint | null, period: string, key: PortKey = "values"): number | null {
+  if (!p) return null;
+  const all = portRanking(period, Infinity, [], key);
+  return all.find((r) => r.port.id === p.id)?.rank ?? fail(`港 ${portName(p)} の ${period} の順位がありません`);
+}
+
