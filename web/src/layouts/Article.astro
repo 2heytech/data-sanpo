@@ -50,7 +50,7 @@ const structuredData = {
       dateModified: article.updated ?? article.published,
       inLanguage: "ja",
       ...(image && Astro.site ? { image: [new URL(image.path, Astro.site).href] } : {}),
-      author: { "@type": "Organization", name: "へいてく" },
+      author: { "@type": "Organization", name: "へいてく", url: "https://heyteku.com/" },
       publisher: { "@type": "Organization", name: "データさんぽ" },
       ...(url ? { mainEntityOfPage: url } : {}),
     },
