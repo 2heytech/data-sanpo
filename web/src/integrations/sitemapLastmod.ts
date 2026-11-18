@@ -7,7 +7,7 @@ import type { AstroIntegration } from "astro";
 // サイトマップの更新日（lastmod）を、ページの中身が実際に変わった日時にする仕組み（設計変更記録 #242。#130 の「公開のビルドの日時」を変える）。
 // ビルドの最後に、各ページの題名・説明文・本文（<main> の中の文字）からハッシュを作り、公開中のサイトに置いた前回の記録
 // （/sitemap-lastmod.json）と比べる。同じなら前回の更新日を残し、中身が変わったページと新しいページだけをこのビルドの日時にする。
-// ヘッダー・フッター・スクリプト・タグ・空白だけの違いは、中身の変更に数えない。
+// ヘッダー・フッター・ナビ（<nav>。パンくず・目次・寄り道のテーマの札と本数・前後の記事）・スクリプト・タグ・空白だけの違いは、中身の変更に数えない。
 // 公開中のサイトの記録が読めないとき（この仕組みの初回など）は、web/ に置いた最初の記録（INITIAL_FILE）と比べる。
 // 最初の記録は、2026-11-14〜18 の公開を同じデータでビルドし直し、ページごとに最後に中身が変わった公開の日時を調べたもの。
 // それもないときは、寄り道は記事の更新日（構造化データの dateModified）、ほかのページはデータの公開版を作った日時にする。
@@ -29,13 +29,14 @@ export interface LastmodRecord {
 }
 
 const SCRIPT_STYLE = /<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+const NAV = /<nav\b[^>]*>[\s\S]*?<\/nav\s*>/gi;
 
-/** 中身の比べ方に使う文字（題名・説明文・<main> の中の文字）。<main> がないページはページ全体 */
+/** 中身の比べ方に使う文字（題名・説明文・<main> の中の <nav> を除いた文字）。<main> がないページはページ全体 */
 export function pageText(html: string): string {
   const title = /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? "";
   const description = /<meta\s+name="description"\s+content="([^"]*)"/i.exec(html)?.[1] ?? "";
   const main = /<main\b[^>]*>([\s\S]*)<\/main>/i.exec(html)?.[1] ?? html;
-  const text = main.replace(SCRIPT_STYLE, " ").replace(/<!--[\s\S]*?-->/g, " ").replace(/<[^>]+>/g, " ");
+  const text = main.replace(SCRIPT_STYLE, " ").replace(NAV, " ").replace(/<!--[\s\S]*?-->/g, " ").replace(/<[^>]+>/g, " ");
   return [title, description, text].map((s) => s.replace(/\s+/g, " ").trim()).join("\n");
 }
 

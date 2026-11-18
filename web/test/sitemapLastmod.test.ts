@@ -29,6 +29,10 @@ describe("pageText と contentHash", () => {
     expect(contentHash(page(`<h1 class="x">新宿区</h1>\n  <p>人口 <b>35万人</b></p><script>let a = 1;</script>`))).toBe(contentHash(base));
     expect(contentHash(page("<h1>新宿区</h1><p>人口 35万人</p>", { header: "別のメニュー" }))).toBe(contentHash(base));
     expect(contentHash(page("<h1>新宿区</h1><!-- メモ --><p>人口 35万人</p>"))).toBe(contentHash(base));
+    // パンくず・テーマの札の本数・前後の記事などのナビ（<nav>）の違いも数えない
+    const withNav = (n: number) => page(`<nav aria-label="現在地">トップ</nav><h1>新宿区</h1><p>人口 35万人</p><nav class="theme-nav">すべての寄り道（${n}本）</nav>`);
+    expect(contentHash(withNav(28))).toBe(contentHash(base));
+    expect(contentHash(withNav(29))).toBe(contentHash(base));
   });
 
   it("本文・題名・説明文が変われば変わる", () => {
