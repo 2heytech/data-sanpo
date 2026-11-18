@@ -84,9 +84,16 @@ const allPrefRows = areas.prefectures.length > 1 && period.levels.includes("pref
 const prefValueRows = allPrefRows.filter((r) => r.value !== null);
 const prefRows = prefValueRows.length >= 2 || muniValues.length === 0 ? allPrefRows : [];
 const prefOnly = !prefRows.length && prefValueRows.length === 1 ? prefValueRows[0] : null;
-const prefOmitted = !prefRows.length && !prefOnly && allPrefRows.length > 0
-  ? [...new Set(allPrefRows.map((r) => r.note).filter((n): n is string => !!n))].join("。") || "都道府県の値はありません"
-  : null;
+const prefOmittedNote = [...new Set(allPrefRows.filter((r) => r.value === null).map((r) => r.note).filter((n): n is string => !!n))]
+  .map((n) => n.replace(/。$/, "")).join("。");
+const prefOmitted = prefRows.length || !allPrefRows.some((r) => r.value === null) ? null
+  : prefOmittedNote || (prefOnly ? null : "都道府県の値はありません");
+const prefOnlyName = prefOnly ? prefNames.get(prefOnly.entity_id.slice(5)) ?? "" : "";
+const omittedText = prefOmitted ? `${prefOmitted}。そのため、都道府県別の表はなく、市区町村だけを並べています。` : "";
+const prefScopeNote = prefOnly
+  ? `${prefOnlyName}全体の値は${formatValue(prefOnly, ind, { inText: true })}です` +
+    (prefOmitted ? `。ほかの都道府県は、${omittedText}` : `（値があるのは${prefOnlyName}だけなので、都道府県の順位は付けていません）。`)
+  : omittedText;
 // 都道府県ごとの市区町村ランキングのページ（設計変更記録 #237）。都道府県の表の後ろに、県名から開けるように並べる
 const valueRows = (id: string, p: string, chunk: "municipalities" | "prefectures") => loadValues(id, p, chunk)?.rows ?? [];
 const prefPages = areas.prefectures.filter((p) => hasPrefIndicatorPage(ind, p.code,
@@ -115,7 +122,9 @@ const crumbs = [
 ];
 
 // 政令指定都市: 区ごとに並べていることを表の前に書き、市全体の値（区の分子・分母の合計）の表を添える（#191）
-const cities = nationwide ? designatedCities(areas.municipalities) : [];
+// 一部の都道府県だけの指標では、その範囲の市だけ（東京都だけの指標に「政令指定都市は区ごとに」と書かない。#243）
+const inCoverage = (prefecture: string) => !partial || coverage.includes(prefecture);
+const cities = nationwide ? designatedCities(areas.municipalities).filter((c) => inCoverage(c.prefecture)) : [];
 const allMuniRows = loadValues(ind.id, period.period, "municipalities")?.rows ?? [];
 const cityRows = muniValues.length && cities.length ? cityValues(ind, cities, allMuniRows) : null;
 const cityTable = cityRows?.some((c) => c.value !== null)
@@ -123,7 +132,7 @@ const cityTable = cityRows?.some((c) => c.value !== null)
   : null;
 // 区を再編してこの時点の値がない区（2025年の浜松市の旧区）
 const formerMissing = muniValues.length
-  ? areas.municipalities.filter((m) => formerWard(m.id) && !allMuniRows.some((r) => r.entity_id === m.id))
+  ? areas.municipalities.filter((m) => formerWard(m.id) && inCoverage(m.prefecture) && !allMuniRows.some((r) => r.entity_id === m.id))
   : [];
 
 // 冒頭の「データから分かること」と全国の地図の画像（#190）
@@ -266,10 +275,7 @@ const toc = [
     {muniCount > RANKING_SIZE * 2 && `${muniCount.toLocaleString("ja-JP")}市区町村のうち、上位と下位の${RANKING_SIZE}位までを出し、その間は畳んでいます。`}
     市区町村名から、その市区町村のページを開きます。「地図」を押すと、その市区町村を選んだ地図を開きます。
     <a href={mapHref({ indicator: ind.id, level: "municipality" })}>市区町村別の色分けで地図を見る</a></p>
-  {prefOnly && (
-    <p class="note">{prefNames.get(prefOnly.entity_id.slice(5))}全体の値は{formatValue(prefOnly, ind, { inText: true })}です（値があるのは{prefNames.get(prefOnly.entity_id.slice(5))}だけなので、都道府県の順位は付けていません）。</p>
-  )}
-  {prefOmitted && <p class="note">{prefOmitted.replace(/。$/, "")}。そのため、都道府県別の表はなく、市区町村だけを並べています。</p>}
+  {prefScopeNote && <p class="note">{prefScopeNote}</p>}
   {muniCommonNote && <p class="muted small">備考: どの市区町村も「{muniCommonNote}」です。</p>}
   {cities.length > 0 && (
     <p class="note">政令指定都市（{cities.length}市）は、市全体ではなく区ごとに並べています。{cityTable && <>市全体の値は、この表の下の<a href="#cities">政令指定都市（市全体）</a>にあります。</>}

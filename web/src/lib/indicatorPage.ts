@@ -161,7 +161,7 @@ export function indicatorPageText(ind: Indicator, scope: IndicatorPageScope, lea
     return { title, description, heading };
   }
   const where = scope.hasMuniValues
-    ? `${allPrefs ? "全国の" : ""}市区町村ランキング${scope.hasPrefRows ? "と都道府県別の値" : ""}`
+    ? `${allPrefs ? "全国の" : scope.partial && scope.coverageLabel ? `${scope.coverageLabel}の` : ""}市区町村ランキング${scope.hasPrefRows ? "と都道府県別の値" : ""}`
     : "都道府県別の値";
   // 名前が「（住民100人当たり）」のように括弧で終わる指標が多いので、単位は名前の後ろでなく時点の括弧に入れ、
   // 時点の中の括弧（「2025年度（4月実施）」）は「・」にして、括弧が重ならないようにする（#144）

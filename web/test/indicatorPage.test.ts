@@ -65,8 +65,9 @@ describe("indicatorPageText", () => {
     expect(indicatorPageText(pop, { ...national, hasPrefRows: false }).title).toBe("人口の市区町村ランキング（全国・2020年）");
     expect(indicatorPageText(pop, { ...national, partial: true, hasPrefRows: false }).title).toBe("人口の市区町村ランキング（2020年）");
     // 一部の都道府県だけの指標は「全国」の代わりに範囲を書く（#243）
-    expect(indicatorPageText(pop, { ...national, partial: true, hasPrefRows: false, coverageLabel: "東京都" }).title)
-      .toBe("人口の市区町村ランキング（東京都・2020年）");
+    const tokyo = indicatorPageText(pop, { ...national, partial: true, hasPrefRows: false, coverageLabel: "東京都" });
+    expect(tokyo.title).toBe("人口の市区町村ランキング（東京都・2020年）");
+    expect(tokyo.description.startsWith("人口が1位の市区町村はどこ？ 東京都の市区町村ランキング（")).toBe(true);
     expect(indicatorPageText(pop, { ...national, muniCount: 0, hasMuniValues: false }).title).toBe("人口 都道府県別ランキング（2020年）");
     expect(indicatorPageText(pop, { ...national, muniCount: 0, hasMuniValues: false, hasPrefRows: false }).title).toBe("人口");
     const plain = withPeriod("現存植生図2024");
