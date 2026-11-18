@@ -10,7 +10,11 @@ import type { AstroIntegration } from "astro";
 // ヘッダー・フッター・ナビ（<nav>。パンくず・目次・寄り道のテーマの札と本数・前後の記事）・スクリプト・タグ・空白だけの違いは、中身の変更に数えない。
 // 公開中のサイトの記録が読めないとき（この仕組みの初回など）は、web/ に置いた最初の記録（INITIAL_FILE）と比べる。
 // 最初の記録は、2026-11-14〜18 の公開を同じデータでビルドし直し、ページごとに最後に中身が変わった公開の日時を調べたもの。
+// 寄り道の15本は 2026-11-18 に、本当に中身が変わった公開（11-11 の本文の見直し、11-13 の平均寿命の記事の追加）の日時へ直した（#245）。
 // それもないときは、寄り道は記事の更新日（構造化データの dateModified）、ほかのページはデータの公開版を作った日時にする。
+// 最初の記録を作り直したとき（#245）は、記録に新しい seed を付ける。公開中の記録の seed と違えば、1回だけ、
+// 公開中の記録と中身（hash）が同じページに最初の記録の更新日を当てる（その後に中身が変わったページは公開中の記録のまま）。
+// 記録は比べた記録の seed を引き継ぐので、次からは公開中の記録だけと比べる。
 
 /** 前回の記録のファイル名（サイトの一番上に置く） */
 export const RECORD_FILE = "sitemap-lastmod.json";
@@ -25,6 +29,8 @@ export interface PageRecord {
 
 export interface LastmodRecord {
   version: 1;
+  /** 最初の記録の版。最初の記録を作り直したら変える（#245） */
+  seed?: string;
   pages: Record<string, PageRecord>;
 }
 
@@ -78,6 +84,7 @@ export function parseRecord(text: string): LastmodRecord | null {
   try {
     const r = JSON.parse(text);
     if (!r || r.version !== 1 || !r.pages || typeof r.pages !== "object") return null;
+    if (r.seed !== undefined && typeof r.seed !== "string") return null;
     const ok = Object.values(r.pages).every(
       (p) => !!p && typeof (p as PageRecord).hash === "string" && typeof (p as PageRecord).lastmod === "string",
     );
@@ -167,7 +174,7 @@ export function applySitemapLastmod(
     const fileName = (loc: string) => new URL(loc).pathname.split("/").pop() ?? "";
     writeFileSync(index, rewriteSitemapIndex(readFileSync(index, "utf-8"), (loc) => latestOf.get(fileName(loc)) ?? null));
   }
-  const record: LastmodRecord = { version: 1, pages };
+  const record: LastmodRecord = { version: 1, ...(previous?.seed ? { seed: previous.seed } : {}), pages };
   writeFileSync(join(root, RECORD_FILE), JSON.stringify(record) + "\n");
   return { counts, missing, record };
 }
@@ -200,22 +207,36 @@ export function recordSource(site: string | undefined, env: Record<string, strin
   return new URL(RECORD_FILE, site.endsWith("/") ? site : `${site}/`).href;
 }
 
-/** 比べる記録を選ぶ。公開中のサイトの記録（source）が読めればそれ、読めなければ最初の記録（initialPath）、どちらもなければ null */
+/**
+ * 比べる記録を選ぶ。公開中のサイトの記録（source）が読めればそれ、読めなければ最初の記録（initialPath）、どちらもなければ null。
+ * 最初の記録に seed があり、公開中の記録の seed と違うときは、公開中の記録に、中身が同じページだけ最初の記録の更新日を当てる（#245）
+ */
 export async function previousRecord(
   source: string | null,
   initialPath: string,
 ): Promise<{ record: LastmodRecord | null; from: string; warnings: string[] }> {
   const warnings: string[] = [];
+  let live: LastmodRecord | null = null;
   if (source) {
     const loaded = await loadRecord(source);
-    if (loaded.record) return { record: loaded.record, from: source, warnings };
-    warnings.push(`前回のサイトマップの更新日の記録を読めませんでした（${source}: ${loaded.error}）`);
+    if (loaded.record) live = loaded.record;
+    else warnings.push(`前回のサイトマップの更新日の記録を読めませんでした（${source}: ${loaded.error}）`);
   }
+  let initial: LastmodRecord | null = null;
   if (existsSync(initialPath)) {
     const loaded = await loadRecord(initialPath);
-    if (loaded.record) return { record: loaded.record, from: INITIAL_FILE, warnings };
-    warnings.push(`${INITIAL_FILE} を読めませんでした（${loaded.error}）`);
+    if (loaded.record) initial = loaded.record;
+    else warnings.push(`${INITIAL_FILE} を読めませんでした（${loaded.error}）`);
   }
+  if (live && initial?.seed && initial.seed !== live.seed) {
+    const pages = { ...live.pages };
+    for (const [path, page] of Object.entries(initial.pages)) {
+      if (pages[path]?.hash === page.hash) pages[path] = page;
+    }
+    return { record: { version: 1, seed: initial.seed, pages }, from: `${source} に ${INITIAL_FILE} を当てたもの`, warnings };
+  }
+  if (live) return { record: live, from: source!, warnings };
+  if (initial) return { record: initial, from: INITIAL_FILE, warnings };
   return { record: null, from: "", warnings };
 }
 

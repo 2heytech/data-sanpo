@@ -130,6 +130,16 @@ describe("structured data", () => {
     // Google は説明に50字以上を求める
     expect((d.description as string).length).toBeGreaterThanOrEqual(50);
   });
+  it("一部の都道府県だけの指標の Dataset は、範囲と粒度をページの表に合わせる（#245）", () => {
+    const i = ind("crime_total", [period("2025-01-01", "2025年")]);
+    const tokyo = indicatorDataset(site, i, "/indicators/crime_total/", [], null, ["市区町村", "町丁・字等"],
+      { place: "東京都", scope: "東京都", wholeValue: true });
+    expect(tokyo.spatialCoverage).toEqual({ "@type": "Place", name: "東京都" });
+    expect(tokyo.description).toContain("東京都の市区町村・町丁・字等ごとの値と、東京都全体の値。");
+    const fiscal = indicatorDataset(site, i, "/indicators/fiscal_strength_index/", [], null, ["市区町村"]);
+    expect(fiscal.spatialCoverage).toEqual({ "@type": "Place", name: "日本" });
+    expect(fiscal.description).toContain("全国の市区町村ごとの値。");
+  });
 });
 
 describe("prefectureNeighbors", () => {

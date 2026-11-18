@@ -110,7 +110,15 @@ const muniCommonNote = muniNotes.length <= 1 ? muniNotes[0] ?? "" : null;
 // 検索エンジン向けのパンくずと Dataset（Google のデータセット検索に載せる。設計変更記録 #130）。
 // データのファイルは、ランキングに使っている時点の市区町村（なければ都道府県）の値
 const sourceList = [...new Set(ind.periods.flatMap((p) => p.source_ids))].map((id) => sources.get(id)).filter((x) => !!x);
-const levels = levelOrder.filter((l) => ind.periods.some((p) => p.levels.includes(l))).map((l) => levelLabel[l]);
+// 時点ごとの粒度は、値のあるものだけを書く（#245）。都道府県は値のファイルを読み、どの都道府県も値がなければ書かない
+// （財政力指数など、行はあっても全部「対象外」の指標）。市区町村・町丁・字等は今までどおり
+const prefHasValues = (p: string) => (loadValues(ind.id, p, "prefectures")?.rows ?? []).some((r) => r.value !== null);
+const periodLevels = (p: typeof ind.periods[number]) =>
+  levelOrder.filter((l) => p.levels.includes(l) && (l !== "prefecture" || !nationwide || prefHasValues(p.period)));
+// 一部の都道府県だけの指標で範囲が1つなら、都道府県（その都道府県全体の値）は説明で別に書く
+const singleCoverage = partial && coverage.length === 1;
+const levels = levelOrder.filter((l) => ind.periods.some((p) => periodLevels(p).includes(l)))
+  .filter((l) => !(singleCoverage && l === "prefecture")).map((l) => levelLabel[l]);
 const dataUrl = muniValues.length ? `${DATA_BASE}/values/${ind.id}/${period.period}/municipalities.json`
   : prefRows.length ? `${DATA_BASE}/values/${ind.id}/${period.period}/prefectures.json` : null;
 // パンくずはトップページの指標の一覧とジャンル（#genre-0 など）を通る。検索結果の URL 欄が英語の URL でなく
@@ -127,6 +135,9 @@ const inCoverage = (prefecture: string) => !partial || coverage.includes(prefect
 const cities = nationwide ? designatedCities(areas.municipalities).filter((c) => inCoverage(c.prefecture)) : [];
 const allMuniRows = loadValues(ind.id, period.period, "municipalities")?.rows ?? [];
 const cityRows = muniValues.length && cities.length ? cityValues(ind, cities, allMuniRows) : null;
+// どの区にも値がない指標（財政力指数など、区ごとの値がないもの）は、「区ごとに並べています」と書かず、順位に入れていないことを書く（#245）
+const muniValueById = new Map(muniValues.map((r) => [r.entity_id, r.value]));
+const wardsWithoutValues = cities.length > 0 && cities.every((c) => c.wards.every((w) => (muniValueById.get(w) ?? null) === null));
 const cityTable = cityRows?.some((c) => c.value !== null)
   ? [...cityRows].sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   : null;
@@ -155,6 +166,12 @@ const at = annual.findIndex((p) => p.period === period.period);
 const prev = at > 0 ? annual.slice(0, at).reverse().find((p) => p.levels.includes(compareLevel)) : undefined;
 const prevRows = prev && loadValues(ind.id, prev.period, compareLevel === "municipality" ? "municipalities" : "prefectures")?.rows;
 const coverageLabel = !partial ? null : coverage.length <= 2 ? coverage.map((c) => prefNames.get(c) ?? c).join("・") : `値のある${coverage.length}都道府県`;
+// Dataset の範囲（#245）。一部の都道府県だけの指標は、その都道府県（3つ以上なら「日本」のまま、説明に数を書く）
+const datasetArea = {
+  place: partial && coverage.length <= 2 ? coverageLabel! : "日本",
+  scope: coverageLabel ?? "全国",
+  wholeValue: singleCoverage && ind.periods.some((p) => periodLevels(p).includes("prefecture")),
+};
 const summaryInput: SummaryInput = {
   ind, municipalities: summaryMunis, prefectures: summaryPrefs,
   previous: prev && prevRows ? { label: shortPeriodLabel(prev.label), values: new Map(prevRows.map((r) => [r.entity_id, r.value])) } : null,
@@ -169,7 +186,7 @@ const pageText = indicatorPageText(ind, {
 }, descriptionLeaders(summaryInput));
 const structured = [
   breadcrumbList(Astro.site, [...crumbs, { name: pageText.heading.main }]),
-  indicatorDataset(Astro.site, ind, `/indicators/${ind.id}/`, sourceList, dataUrl, levels),
+  indicatorDataset(Astro.site, ind, `/indicators/${ind.id}/`, sourceList, dataUrl, levels, datasetArea),
 ];
 const image = indicatorPageImage(ind);
 const related = publishedArticles().filter((a) => a.indicators.includes(ind.id)).map((a) => ({ article: a, image: articleImage(a) }));
@@ -277,7 +294,10 @@ const toc = [
     <a href={mapHref({ indicator: ind.id, level: "municipality" })}>市区町村別の色分けで地図を見る</a></p>
   {prefScopeNote && <p class="note">{prefScopeNote}</p>}
   {muniCommonNote && <p class="muted small">備考: どの市区町村も「{muniCommonNote}」です。</p>}
-  {cities.length > 0 && (
+  {wardsWithoutValues && (
+    <p class="note">政令指定都市（{cities.length}市）は、区ごとの値がないため、この順位に入っていません（各区は表の下の「値のない市区町村」にあります）。</p>
+  )}
+  {cities.length > 0 && !wardsWithoutValues && (
     <p class="note">政令指定都市（{cities.length}市）は、市全体ではなく区ごとに並べています。{cityTable && <>市全体の値は、この表の下の<a href="#cities">政令指定都市（市全体）</a>にあります。</>}
       {formerMissing.length > 0 && `浜松市は2024年1月に区を再編したため、この時点の区の値はありません。`}</p>
   )}
@@ -374,7 +394,7 @@ const toc = [
       {ind.periods.map((p) => (
         <tr>
           <td>{p.label}</td>
-          <td>{levelOrder.filter((l) => p.levels.includes(l)).map((l, i) => <>{i > 0 && "・"}<span class="nowrap">{levelLabel[l]}</span></>)}</td>
+          <td>{periodLevels(p).map((l, i) => <>{i > 0 && "・"}<span class="nowrap">{levelLabel[l]}</span></>)}</td>
           <td>{p.source_ids.map((id) => sources.get(id)?.title ?? id).join("／")}</td>
         </tr>
       ))}

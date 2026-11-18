@@ -7,6 +7,7 @@ import {
   contentHash,
   decideLastmod,
   fallbackLastmod,
+  INITIAL_FILE,
   loadRecord,
   pageText,
   parseRecord,
@@ -121,6 +122,40 @@ describe("previousRecord", () => {
     expect(r.warnings).toHaveLength(1);
     expect(await previousRecord(null, join(dir, "none.json"))).toEqual({ record: null, from: "", warnings: [] });
   });
+
+  it("作り直した最初の記録（seed が公開中の記録と違う）は、中身が同じページにだけ1回当てる（#245）", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sitemap-prev-"));
+    dirs.push(dir);
+    const rec = (name: string, seed: string | undefined, pages: Record<string, { hash: string; lastmod: string }>) => {
+      const p = join(dir, name);
+      writeFileSync(p, JSON.stringify({ version: 1, ...(seed ? { seed } : {}), pages }));
+      return p;
+    };
+    const initial = rec("initial.json", "s2", {
+      "/a/": { hash: "aa", lastmod: "2026-11-11T13:31:00Z" },
+      "/b/": { hash: "bb", lastmod: "2026-11-11T13:31:00Z" },
+    });
+    // /b/ は最初の記録を作った後に中身が変わったので、公開中の記録のまま。/c/ は最初の記録にない
+    const oldLive = rec("old.json", undefined, {
+      "/a/": { hash: "aa", lastmod: "2026-11-14T00:00:00Z" },
+      "/b/": { hash: "b2", lastmod: "2026-11-19T00:00:00Z" },
+      "/c/": { hash: "cc", lastmod: "2026-11-19T00:00:00Z" },
+    });
+    const r = await previousRecord(oldLive, initial);
+    expect(r.from).toContain(INITIAL_FILE);
+    expect(r.record).toEqual({
+      version: 1,
+      seed: "s2",
+      pages: {
+        "/a/": { hash: "aa", lastmod: "2026-11-11T13:31:00Z" },
+        "/b/": { hash: "b2", lastmod: "2026-11-19T00:00:00Z" },
+        "/c/": { hash: "cc", lastmod: "2026-11-19T00:00:00Z" },
+      },
+    });
+    // 当てた後の公開中の記録は seed を引き継ぐので、次からは公開中の記録だけを使う
+    const newLive = rec("new.json", "s2", { "/a/": { hash: "a3", lastmod: "2026-11-20T00:00:00Z" } });
+    expect(await previousRecord(newLive, initial)).toMatchObject({ from: newLive, record: { pages: { "/a/": { hash: "a3" } } } });
+  });
 });
 
 describe("rewriteSitemap", () => {
@@ -222,8 +257,9 @@ describe("applySitemapLastmod", () => {
       join(root, "sitemap-0.xml"),
       `<urlset><url><loc>https://data-sanpo.com/</loc></url><url><loc>https://data-sanpo.com/gone/</loc></url></urlset>`,
     );
-    const r = applySitemapLastmod(root, { version: 1, pages: {} }, null, "2026-11-20T21:30:00.000Z");
+    const r = applySitemapLastmod(root, { version: 1, seed: "s2", pages: {} }, null, "2026-11-20T21:30:00.000Z");
     expect(r.missing).toEqual(["/gone/"]);
+    expect(r.record.seed).toBe("s2");
     expect(readFileSync(join(root, "sitemap-0.xml"), "utf-8")).toContain(
       "<loc>https://data-sanpo.com/gone/</loc><lastmod>2026-11-20T21:30:00.000Z</lastmod>",
     );
