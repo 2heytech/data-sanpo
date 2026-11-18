@@ -10,6 +10,7 @@ import {
   loadRecord,
   pageText,
   parseRecord,
+  previousRecord,
   RECORD_FILE,
   recordSource,
   rewriteSitemap,
@@ -91,6 +92,30 @@ describe("parseRecord と recordSource", () => {
     expect(recordSource("https://data-sanpo.com/", { ALLOW_INDEXING: "true" })).toBe("https://data-sanpo.com/sitemap-lastmod.json");
     expect(recordSource("https://data-sanpo.com", {})).toBeNull();
     expect(recordSource("https://data-sanpo.com", { SITEMAP_LASTMOD_PREVIOUS: "/tmp/prev.json" })).toBe("/tmp/prev.json");
+  });
+});
+
+describe("previousRecord", () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  });
+  const write = (dir: string, name: string, lastmod: string) => {
+    const p = join(dir, name);
+    writeFileSync(p, JSON.stringify({ version: 1, pages: { "/": { hash: "ab", lastmod } } }));
+    return p;
+  };
+
+  it("公開中のサイトの記録が読めればそれを使い、読めなければ最初の記録を使う", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sitemap-prev-"));
+    dirs.push(dir);
+    const initial = write(dir, "initial.json", "2026-11-14T00:00:00Z");
+    const live = write(dir, "live.json", "2026-11-20T00:00:00Z");
+    expect(await previousRecord(live, initial)).toMatchObject({ from: live, warnings: [], record: { pages: { "/": { lastmod: "2026-11-20T00:00:00Z" } } } });
+    const r = await previousRecord(join(dir, "none.json"), initial);
+    expect(r.record?.pages["/"].lastmod).toBe("2026-11-14T00:00:00Z");
+    expect(r.warnings).toHaveLength(1);
+    expect(await previousRecord(null, join(dir, "none.json"))).toEqual({ record: null, from: "", warnings: [] });
   });
 });
 

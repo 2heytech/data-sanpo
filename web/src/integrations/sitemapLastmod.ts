@@ -8,11 +8,15 @@ import type { AstroIntegration } from "astro";
 // ビルドの最後に、各ページの題名・説明文・本文（<main> の中の文字）からハッシュを作り、公開中のサイトに置いた前回の記録
 // （/sitemap-lastmod.json）と比べる。同じなら前回の更新日を残し、中身が変わったページと新しいページだけをこのビルドの日時にする。
 // ヘッダー・フッター・スクリプト・タグ・空白だけの違いは、中身の変更に数えない。
-// 前回の記録が読めないとき（この仕組みの初回など）は、寄り道は記事の更新日（構造化データの dateModified）、
-// ほかのページはデータの公開版を作った日時にする（どちらもないときはビルドの日時）。
+// 公開中のサイトの記録が読めないとき（この仕組みの初回など）は、web/ に置いた最初の記録（INITIAL_FILE）と比べる。
+// 最初の記録は、2026-11-14〜18 の公開を同じデータでビルドし直し、ページごとに最後に中身が変わった公開の日時を調べたもの。
+// それもないときは、寄り道は記事の更新日（構造化データの dateModified）、ほかのページはデータの公開版を作った日時にする。
 
 /** 前回の記録のファイル名（サイトの一番上に置く） */
 export const RECORD_FILE = "sitemap-lastmod.json";
+
+/** 最初の記録のファイル名（web/ に置き、公開はしない） */
+export const INITIAL_FILE = "sitemap-lastmod-initial.json";
 
 export interface PageRecord {
   hash: string;
@@ -183,6 +187,25 @@ export function recordSource(site: string | undefined, env: Record<string, strin
   return new URL(RECORD_FILE, site.endsWith("/") ? site : `${site}/`).href;
 }
 
+/** 比べる記録を選ぶ。公開中のサイトの記録（source）が読めればそれ、読めなければ最初の記録（initialPath）、どちらもなければ null */
+export async function previousRecord(
+  source: string | null,
+  initialPath: string,
+): Promise<{ record: LastmodRecord | null; from: string; warnings: string[] }> {
+  const warnings: string[] = [];
+  if (source) {
+    const loaded = await loadRecord(source);
+    if (loaded.record) return { record: loaded.record, from: source, warnings };
+    warnings.push(`前回のサイトマップの更新日の記録を読めませんでした（${source}: ${loaded.error}）`);
+  }
+  if (existsSync(initialPath)) {
+    const loaded = await loadRecord(initialPath);
+    if (loaded.record) return { record: loaded.record, from: INITIAL_FILE, warnings };
+    warnings.push(`${INITIAL_FILE} を読めませんでした（${loaded.error}）`);
+  }
+  return { record: null, from: "", warnings };
+}
+
 export default function sitemapLastmod(): AstroIntegration {
   let site: string | undefined;
   let rootDir = "";
@@ -200,17 +223,12 @@ export default function sitemapLastmod(): AstroIntegration {
         const releaseDate: string | null = existsSync(releaseFile)
           ? (JSON.parse(readFileSync(releaseFile, "utf-8")).created_at ?? null)
           : null;
-        const source = recordSource(site, process.env);
-        let previous: LastmodRecord | null = null;
-        if (source) {
-          const loaded = await loadRecord(source);
-          previous = loaded.record;
-          if (!previous) logger.warn(`前回のサイトマップの更新日の記録を読めませんでした（${source}: ${loaded.error}）`);
-        }
+        const { record: previous, from, warnings } = await previousRecord(recordSource(site, process.env), join(rootDir, INITIAL_FILE));
+        for (const w of warnings) logger.warn(w);
         const { counts, missing } = applySitemapLastmod(root, previous, releaseDate, now);
         if (missing.length) logger.warn(`サイトマップにあるのに HTML が見つからないページがあります（ビルドの日時にしました）: ${missing.slice(0, 5).join(", ")}`);
         if (previous) {
-          logger.info(`サイトマップの更新日: 前と同じ ${counts.kept}・中身が変わった ${counts.changed}・新しいページ ${counts.added}`);
+          logger.info(`サイトマップの更新日（${from} と比べた）: 前と同じ ${counts.kept}・中身が変わった ${counts.changed}・新しいページ ${counts.added}`);
         } else {
           logger.info(
             `サイトマップの更新日: 前回の記録がないので、寄り道は記事の更新日、ほかはデータの公開版の日時（${releaseDate ?? now}）にしました（${counts.fallback} ページ）`,
