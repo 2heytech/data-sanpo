@@ -74,10 +74,19 @@ const smallAreaBottom = smallAreaRanked.length > RANKING_SIZE && zeroCount <= RA
 const levelLabel = { prefecture: "都道府県", municipality: "市区町村", small_area: "町丁・字等" } as const;
 const levelOrder = ["prefecture", "municipality", "small_area"] as const;
 // 全国の公開版では、都道府県別の値（市区町村の分子・分母の合計など）も表にする
-const prefRows = areas.prefectures.length > 1 && period.levels.includes("prefecture")
+const allPrefRows = areas.prefectures.length > 1 && period.levels.includes("prefecture")
   ? [...(loadValues(ind.id, period.period, "prefectures")?.rows ?? [])]
       .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity))
   : [];
+// 都道府県の表は、値のある都道府県が2つ以上あるときだけ出す（設計変更記録 #243）。財政力指数（市区町村の比率は合計できない）や、
+// 値のない市区町村がある指標で47行とも「—」になる表、東京都だけの指標で1行だけ「1位」になる表は出さず、題名・見出しも市区町村のランキングにする。
+// 値が1つだけならその都道府県全体の値として市区町村の表の前に書き、どれもなければ理由（行の備考）を書く。市区町村の値がない指標はこれまでどおり
+const prefValueRows = allPrefRows.filter((r) => r.value !== null);
+const prefRows = prefValueRows.length >= 2 || muniValues.length === 0 ? allPrefRows : [];
+const prefOnly = !prefRows.length && prefValueRows.length === 1 ? prefValueRows[0] : null;
+const prefOmitted = !prefRows.length && !prefOnly && allPrefRows.length > 0
+  ? [...new Set(allPrefRows.map((r) => r.note).filter((n): n is string => !!n))].join("。") || "都道府県の値はありません"
+  : null;
 // 都道府県ごとの市区町村ランキングのページ（設計変更記録 #237）。都道府県の表の後ろに、県名から開けるように並べる
 const valueRows = (id: string, p: string, chunk: "municipalities" | "prefectures") => loadValues(id, p, chunk)?.rows ?? [];
 const prefPages = areas.prefectures.filter((p) => hasPrefIndicatorPage(ind, p.code,
@@ -222,7 +231,7 @@ const toc = [
   {prefRows.length > 0 && (
     <>
       <h2 id="pref-ranking">{pageText.heading.main}の都道府県ランキング（{period.label}）</h2>
-      <p class="muted">値の大きい順です（同じ値は同じ順位）。都道府県名から、その都道府県のページを開きます。「地図」を押すと、その都道府県を選んだ地図を開きます。
+      <p class="muted">{partial && `値のある${prefValueRows.length}都道府県を並べています。`}値の大きい順です（同じ値は同じ順位）。都道府県名から、その都道府県のページを開きます。「地図」を押すと、その都道府県を選んだ地図を開きます。
         <a href={mapHref({ indicator: ind.id, level: "prefecture" })}>都道府県別の色分けで地図を見る</a></p>
       {prefCommonNote && <p class="muted small">備考: どの都道府県も「{prefCommonNote}」です。</p>}
       <div class="table-scroll">
@@ -257,6 +266,10 @@ const toc = [
     {muniCount > RANKING_SIZE * 2 && `${muniCount.toLocaleString("ja-JP")}市区町村のうち、上位と下位の${RANKING_SIZE}位までを出し、その間は畳んでいます。`}
     市区町村名から、その市区町村のページを開きます。「地図」を押すと、その市区町村を選んだ地図を開きます。
     <a href={mapHref({ indicator: ind.id, level: "municipality" })}>市区町村別の色分けで地図を見る</a></p>
+  {prefOnly && (
+    <p class="note">{prefNames.get(prefOnly.entity_id.slice(5))}全体の値は{formatValue(prefOnly, ind, { inText: true })}です（値があるのは{prefNames.get(prefOnly.entity_id.slice(5))}だけなので、都道府県の順位は付けていません）。</p>
+  )}
+  {prefOmitted && <p class="note">{prefOmitted.replace(/。$/, "")}。そのため、都道府県別の表はなく、市区町村だけを並べています。</p>}
   {muniCommonNote && <p class="muted small">備考: どの市区町村も「{muniCommonNote}」です。</p>}
   {cities.length > 0 && (
     <p class="note">政令指定都市（{cities.length}市）は、市全体ではなく区ごとに並べています。{cityTable && <>市全体の値は、この表の下の<a href="#cities">政令指定都市（市全体）</a>にあります。</>}

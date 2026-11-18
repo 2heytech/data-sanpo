@@ -184,9 +184,35 @@ describe("applySitemapLastmod", () => {
     expect(xml).toContain("<loc>https://data-sanpo.com/</loc><lastmod>2026-11-13T16:01:00+00:00</lastmod>");
     expect(xml).toContain(`<loc>https://data-sanpo.com/areas/muni-13104/</loc><lastmod>${now}</lastmod>`);
     expect(xml).toContain(`<loc>https://data-sanpo.com/articles/new/</loc><lastmod>${now}</lastmod>`);
-    // 索引の更新日は、いちばん新しいページの更新日
+    // 索引の更新日は、そのサイトマップのいちばん新しいページの更新日
     expect(readFileSync(join(second, "sitemap-index.xml"), "utf-8")).toContain(
       `<loc>https://data-sanpo.com/sitemap-0.xml</loc><lastmod>${now}</lastmod>`,
+    );
+  });
+
+  it("種類ごとに分けたサイトマップも書き換え、索引にはファイルごとのいちばん新しい更新日を書く", () => {
+    const root = site({ "/": page("<p>トップ</p>"), "/areas/muni-13104/": page("<p>新宿区</p>") });
+    rmSync(join(root, "sitemap-0.xml"));
+    writeFileSync(join(root, "sitemap-pages-0.xml"), `<urlset><url><loc>https://data-sanpo.com/</loc></url></urlset>`);
+    writeFileSync(join(root, "sitemap-areas-0.xml"), `<urlset><url><loc>https://data-sanpo.com/areas/muni-13104/</loc></url></urlset>`);
+    writeFileSync(
+      join(root, "sitemap-index.xml"),
+      `<sitemapindex><sitemap><loc>https://data-sanpo.com/sitemap-areas-0.xml</loc></sitemap>` +
+        `<sitemap><loc>https://data-sanpo.com/sitemap-pages-0.xml</loc></sitemap></sitemapindex>`,
+    );
+    const previous: LastmodRecord = {
+      version: 1,
+      pages: {
+        "/": { hash: contentHash(page("<p>トップ</p>")), lastmod: "2026-11-14T00:00:00Z" },
+        "/areas/muni-13104/": { hash: contentHash(page("<p>新宿区</p>")), lastmod: "2026-11-16T00:00:00Z" },
+      },
+    };
+    const r = applySitemapLastmod(root, previous, null, "2026-11-20T21:30:00.000Z");
+    expect(r.counts.kept).toBe(2);
+    expect(readFileSync(join(root, "sitemap-areas-0.xml"), "utf-8")).toContain("<lastmod>2026-11-16T00:00:00Z</lastmod>");
+    expect(readFileSync(join(root, "sitemap-index.xml"), "utf-8")).toBe(
+      `<sitemapindex><sitemap><loc>https://data-sanpo.com/sitemap-areas-0.xml</loc><lastmod>2026-11-16T00:00:00Z</lastmod></sitemap>` +
+        `<sitemap><loc>https://data-sanpo.com/sitemap-pages-0.xml</loc><lastmod>2026-11-14T00:00:00Z</lastmod></sitemap></sitemapindex>`,
     );
   });
 

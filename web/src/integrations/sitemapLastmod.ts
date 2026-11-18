@@ -98,13 +98,19 @@ export function rewriteSitemap(xml: string, lastmodOf: (loc: string) => string):
   );
 }
 
-/** サイトマップの索引（sitemap-index.xml）の lastmod を差し替える */
-export function rewriteSitemapIndex(xml: string, lastmod: string): string {
+/** サイトマップの索引（sitemap-index.xml）の各サイトマップの lastmod を差し替える。lastmodOf が null を返すものは今のまま */
+export function rewriteSitemapIndex(xml: string, lastmodOf: (loc: string) => string | null): string {
   return xml.replace(
     /<sitemap><loc>([^<]+)<\/loc>(?:<lastmod>[^<]*<\/lastmod>)?/g,
-    (_m, loc: string) => `<sitemap><loc>${loc}</loc><lastmod>${lastmod}</lastmod>`,
+    (m, loc: string) => {
+      const lastmod = lastmodOf(unescapeXml(loc));
+      return lastmod ? `<sitemap><loc>${loc}</loc><lastmod>${lastmod}</lastmod>` : m;
+    },
   );
 }
+
+/** 索引の下のサイトマップのファイル（sitemap-0.xml、種類ごとに分けた sitemap-areas-0.xml など） */
+export const isChildSitemap = (name: string) => /^sitemap-[a-z0-9-]+\.xml$/.test(name) && name !== "sitemap-index.xml";
 
 /** URL のページの HTML のファイル（build.format = "directory"） */
 export function htmlFileFor(root: string, loc: string): string | null {
@@ -135,9 +141,11 @@ export function applySitemapLastmod(
   const counts: Record<PageChange, number> = { kept: 0, changed: 0, added: 0, fallback: 0 };
   const missing: string[] = [];
   const pages: Record<string, PageRecord> = {};
-  let latest = "";
-  for (const name of readdirSync(root).filter((f) => /^sitemap-\d+\.xml$/.test(f))) {
+  // サイトマップのファイルごとの、いちばん新しいページの更新日（索引に書く）
+  const latestOf = new Map<string, string>();
+  for (const name of readdirSync(root).filter(isChildSitemap).sort()) {
     const file = join(root, name);
+    let latest = "";
     const xml = rewriteSitemap(readFileSync(file, "utf-8"), (loc) => {
       const path = new URL(loc).pathname;
       const html = htmlFileFor(root, loc);
@@ -152,9 +160,13 @@ export function applySitemapLastmod(
       return record.lastmod;
     });
     writeFileSync(file, xml);
+    if (latest) latestOf.set(name, latest);
   }
   const index = join(root, "sitemap-index.xml");
-  if (existsSync(index) && latest) writeFileSync(index, rewriteSitemapIndex(readFileSync(index, "utf-8"), latest));
+  if (existsSync(index)) {
+    const fileName = (loc: string) => new URL(loc).pathname.split("/").pop() ?? "";
+    writeFileSync(index, rewriteSitemapIndex(readFileSync(index, "utf-8"), (loc) => latestOf.get(fileName(loc)) ?? null));
+  }
   const record: LastmodRecord = { version: 1, pages };
   writeFileSync(join(root, RECORD_FILE), JSON.stringify(record) + "\n");
   return { counts, missing, record };

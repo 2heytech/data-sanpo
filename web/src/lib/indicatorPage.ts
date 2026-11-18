@@ -9,7 +9,7 @@ export interface IndicatorPageScope {
   muniCount: number;
   /** 市区町村の値の行があるか（値なしの行を含む） */
   hasMuniValues: boolean;
-  /** 都道府県別の値の表を出すか */
+  /** 都道府県別の値の表を出すか（値のある都道府県が2つ以上あるとき。#243） */
   hasPrefRows: boolean;
   /** 全国の公開版か */
   nationwide: boolean;
@@ -92,8 +92,9 @@ function rankingSub(ind: Indicator, scope: IndicatorPageScope, party: boolean): 
   // 「〇〇 都道府県別」「〇〇 市区町村 ランキング 2025」のように探されるので、都道府県別の表があればそう書き、
   // ランキングの時点の年を添える。都道府県の値だけの指標は「〇〇 都道府県別ランキング（年）」（#144）、どちらもなければ名前だけ
   if (scope.muniCount > 0 && scope.hasPrefRows) return { sub: `都道府県別・市区町村別ランキング${year ? `（${year}）` : ""}`, join: " " };
+  // 一部の都道府県だけの指標は、「全国」の代わりに範囲（「東京都」）を書く（#243）
   if (scope.muniCount > 0) {
-    const notes = [allPrefs ? "全国" : null, year].filter((x) => !!x);
+    const notes = [allPrefs ? "全国" : scope.partial ? scope.coverageLabel : null, year].filter((x) => !!x);
     return { sub: `市区町村ランキング${notes.length ? `（${notes.join("・")}）` : ""}`, join: "の" };
   }
   if (scope.hasPrefRows) return { sub: `都道府県別ランキング${year ? `（${year}）` : ""}`, join: " " };
