@@ -46,7 +46,8 @@ const municipalityFeatures = (prefCodes: string[]): MapFeature[] =>
     .map((f) => ({ id: f.properties.id, geometry: f.geometry })));
 
 /** 出典の提供者（同じ名前は1つに。「総務省統計局・経済産業省」のような連名は分けて数え、境界の「総務省統計局」と重ねない） */
-function providersOf(ind: Indicator, period: string): string[] {
+/** その時点の出典の提供元（「総務省統計局」など。出典をコピーするボタンでも使う） */
+export function providersOf(ind: Indicator, period: string): string[] {
   const ids = ind.periods.find((p) => p.period === period)?.source_ids ?? [];
   const sources = new Map(loadSources().map((s) => [s.source_id, s]));
   return [...new Set(ids.flatMap((id) => sources.get(id)?.provider?.split("・") ?? []).filter((p) => !!p))];

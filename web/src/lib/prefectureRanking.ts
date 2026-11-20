@@ -1,8 +1,10 @@
 // 都道府県ごとの市区町村ランキングのページ（/prefectures/<コード>/<指標>/。設計変更記録 #237）。
 // 「兵庫県 高齢化率 市町村」「北海道で一番広い市町村」のように、都道府県名と指標で探す人の受け皿にする。
 // 全国のランキング（指標のページ）では、その県の市区町村が上位・下位の100位の外に畳まれて見つけにくい。
-// 指標は、順位の上下で地域を良い・悪いと読ませない中立のものに絞る（所得・犯罪・財政・学力は入れない。地域ページの考察と同じ方針）
+// 指標は、順位の上下で地域を良い・悪いと読ませないものに絞る（犯罪・財政・学力は入れない。地域ページの考察と同じ方針）。
+// 所得は、検索で探される世帯年収1000万円以上の割合だけ入れ、文には上位だけを書く（低い方は書かない。#246）
 import { fitDescription } from "./areaSummary";
+import { cityValues, type DesignatedCity } from "./designatedCities";
 import { formatValue, ranked } from "./format";
 import { municipalityPeriods } from "./periods";
 import type { Indicator, Municipality, Period, ValueRow } from "./types";
@@ -12,13 +14,16 @@ export interface PrefIndicatorPage {
   /** 題名・見出しで指標名の前に置く、よく探される呼び名（「高齢化率」）。指標名は括弧で添える */
   alias?: string;
   /** いちばん小さい市区町村を文に書く指標の言い方（「いちばん狭い」）。面積・標高など、小さい側も探される指標だけ。
-   * 人口の減り方・地価・産業の額の小さい側は書かない */
+   * 人口の減り方・地価・産業の額・所得の小さい側は書かない */
   lowest?: string;
+  /** 政令指定都市を、区の値を合計した1つの市として並べる（人口。「神奈川県 人口ランキング」で探す人は横浜市が1位の表を見たい。#246）。
+   * ほかの指標は、地図・指標ページと同じく区ごとに並べる */
+  wholeCities?: boolean;
 }
 
-/** ページを作る指標（11指標 × 47都道府県）。人口は「〇〇県 人口ランキング」で探す人の受け皿（#246） */
+/** ページを作る指標（15指標 × 47都道府県）。人口・出生率・国宝・車通勤・世帯年収は、県名と指標で探す検索が出ているもの（#246） */
 export const PREF_INDICATOR_PAGES: PrefIndicatorPage[] = [
-  { id: "population_total", lowest: "いちばん少ない" },
+  { id: "population_total", lowest: "いちばん少ない", wholeCities: true },
   { id: "area", lowest: "いちばん狭い" },
   { id: "population_density", lowest: "いちばん低い" },
   { id: "population_change_rate" },
@@ -29,6 +34,10 @@ export const PREF_INDICATOR_PAGES: PrefIndicatorPage[] = [
   { id: "land_price_residential" },
   { id: "agri_output" },
   { id: "manufacturing_shipments" },
+  { id: "total_fertility_rate", lowest: "いちばん低い" },
+  { id: "important_cultural_buildings" },
+  { id: "commute_car_share", lowest: "いちばん低い" },
+  { id: "household_income_1000plus_share" },
 ];
 
 /** 県内で値のある市区町村がこれより少ない、または値がすべて同じ指標はページを作らない */
@@ -44,7 +53,10 @@ export function prefIndicatorName(ind: Indicator, page: PrefIndicatorPage | unde
 }
 
 export interface PrefRankRow extends ValueRow {
+  /** 市区町村（wholeCities の政令指定都市は、区をまとめた市。地域ページはない） */
   muni: Municipality;
+  /** wholeCities で区をまとめた政令指定都市 */
+  city?: DesignatedCity;
   /** 県内の順位（値のない市区町村は null） */
   rank: number | null;
   /** 全国の市区町村の中の順位 */
@@ -57,6 +69,8 @@ export interface PrefIndicatorRanking {
   rows: PrefRankRow[];
   /** 値のない市区町村（区を再編した浜松市の旧区・地価の地点がない町村など） */
   missing: PrefRankRow[];
+  /** wholeCities のとき、まとめた政令指定都市の区（値の大きい順。県内の順位は付けない） */
+  wards: PrefRankRow[];
   /** 都道府県全体の値（都道府県の値がない指標・時点は null） */
   prefRow: ValueRow | null;
   /** 都道府県全体の値の全国の順位（すべて同じ値なら null） */
@@ -65,17 +79,54 @@ export interface PrefIndicatorRanking {
 
 type Rows = (id: string, period: string, chunk: "municipalities" | "prefectures") => ValueRow[];
 
+/** 区をまとめた政令指定都市の地域 ID（地域ページ・地図の地域ではない、表のためだけの ID） */
+export const wholeCityId = (c: DesignatedCity) => `city-${c.prefecture}-${c.name}`;
+
+/** 政令指定都市を1つの市にした市区町村の一覧（区を除き、市を足す） */
+function withWholeCities(munis: Municipality[], cities: DesignatedCity[]): { list: Municipality[]; cityOf: Map<string, DesignatedCity> } {
+  const wardIds = new Set(cities.flatMap((c) => c.wards));
+  const cityOf = new Map(cities.map((c) => [wholeCityId(c), c]));
+  const list = munis.filter((m) => !wardIds.has(m.id));
+  for (const c of cities) {
+    const first = munis.find((m) => m.id === c.wards[0]);
+    if (first) list.push({ ...first, id: wholeCityId(c), name: c.name, region: null, neighbors: [], small_area_count: 0 });
+  }
+  return { list, cityOf };
+}
+
+/** 区の行を除き、政令指定都市の行（区の合計。値のない区が1つでもあれば値なし、区の行がひとつもなければ行なし）を足す */
+function mergeWardRows(ind: Indicator, all: ValueRow[], cities: DesignatedCity[]): ValueRow[] {
+  const wardIds = new Set(cities.flatMap((c) => c.wards));
+  const byId = new Map(all.map((r) => [r.entity_id, r]));
+  const sums = cityValues(ind, cities, all) ?? [];
+  const merged: ValueRow[] = all.filter((r) => !wardIds.has(r.entity_id));
+  for (const v of sums) {
+    const wardRows = v.city.wards.map((id) => byId.get(id)).filter((r): r is ValueRow => !!r);
+    if (!wardRows.length) continue;
+    const statuses = new Set(wardRows.map((r) => r.status));
+    merged.push({ entity_id: wholeCityId(v.city), value: v.value,
+      status: v.value === null ? "missing" : statuses.size === 1 ? wardRows[0].status : "derived" });
+  }
+  return merged;
+}
+
 /**
  * 県内の市区町村の順位。市区町村の値がある最も新しい時点（国勢調査は2025年、#118）で数え、
  * 県内で値のある市区町村が PREF_INDICATOR_MIN より少ないとき・値がすべて同じときは次の候補の時点を見る（どれもなければ null）。
- * 値のない市区町村は順位に入れず、最後に並べる（0 にしない）
+ * 値のない市区町村は順位に入れず、最後に並べる（0 にしない）。
+ * cities（全国の政令指定都市）を渡すと、区を合計した1つの市として、県内・全国の順位を数える（wholeCities の指標）
  */
-export function prefIndicatorRanking(ind: Indicator, prefCode: string, munis: Municipality[], rows: Rows): PrefIndicatorRanking | null {
-  const byId = new Map(munis.map((m) => [m.id, m]));
+export function prefIndicatorRanking(ind: Indicator, prefCode: string, munis: Municipality[], rows: Rows,
+  cities: DesignatedCity[] = []): PrefIndicatorRanking | null {
+  const prefCities = cities.filter((c) => c.prefecture === prefCode);
+  const { list, cityOf } = withWholeCities(munis, prefCities);
+  const byId = new Map(list.map((m) => [m.id, m]));
+  const wardMunis = new Map(munis.filter((m) => prefCities.some((c) => c.wards.includes(m.id))).map((m) => [m.id, m]));
   for (const p of municipalityPeriods(ind)) {
     const period = ind.periods.find((x) => x.period === p);
     if (!period) continue;
-    const all = rows(ind.id, p, "municipalities");
+    const raw = rows(ind.id, p, "municipalities");
+    const all = cities.length ? mergeWardRows(ind, raw, cities) : raw;
     const inPref = all.filter((r) => byId.has(r.entity_id));
     const valued = inPref.filter((r) => r.value !== null);
     if (valued.length < PREF_INDICATOR_MIN || new Set(valued.map((r) => r.value)).size < 2) continue;
@@ -83,26 +134,30 @@ export function prefIndicatorRanking(ind: Indicator, prefCode: string, munis: Mu
     const nationRank = new Map(nationRanked.map((r) => [r.entity_id, r.rank]));
     const nationTotal = nationRanked.length;
     const rankedRows: PrefRankRow[] = ranked(valued).map((r) => ({
-      ...r, muni: byId.get(r.entity_id)!, national: { rank: nationRank.get(r.entity_id)!, total: nationTotal },
+      ...r, muni: byId.get(r.entity_id)!, city: cityOf.get(r.entity_id),
+      national: { rank: nationRank.get(r.entity_id)!, total: nationTotal },
     }));
     // 県内の市区町村で、この時点の行がない・値がない市区町村
     const seen = new Set(valued.map((r) => r.entity_id));
-    const missing: PrefRankRow[] = munis.filter((m) => !seen.has(m.id)).map((m) => {
+    const missing: PrefRankRow[] = list.filter((m) => !seen.has(m.id)).map((m) => {
       const r = inPref.find((x) => x.entity_id === m.id);
-      return { entity_id: m.id, value: null, status: r?.status ?? "missing", muni: m, rank: null, national: null };
+      return { entity_id: m.id, value: null, status: r?.status ?? "missing", muni: m, city: cityOf.get(m.id), rank: null, national: null };
     });
+    const wards: PrefRankRow[] = raw.filter((r) => wardMunis.has(r.entity_id) && r.value !== null)
+      .sort((a, b) => (b.value as number) - (a.value as number))
+      .map((r) => ({ ...r, muni: wardMunis.get(r.entity_id)!, rank: null, national: null }));
     const prefRows = period.levels.includes("prefecture") ? rows(ind.id, p, "prefectures") : [];
     const prefRow = prefRows.find((r) => r.entity_id === `pref-${prefCode}`) ?? null;
     const prefValued = prefRows.filter((r) => r.value !== null);
     const prefRank = prefRow && prefRow.value !== null && new Set(prefValued.map((r) => r.value)).size > 1
       ? { rank: prefValued.filter((r) => (r.value as number) > (prefRow.value as number)).length + 1, total: prefValued.length }
       : null;
-    return { period, rows: rankedRows, missing, prefRow, prefRank };
+    return { period, rows: rankedRows, missing, wards, prefRow, prefRank };
   }
   return null;
 }
 
-// ページがあるかどうか（都道府県 × 指標）。約520ページが互いにリンクし、都道府県・指標のページからもリンクするので、ビルドの間とっておく
+// ページがあるかどうか（都道府県 × 指標）。約700ページが互いにリンクし、都道府県・指標のページからもリンクするので、ビルドの間とっておく
 const available = new Map<string, boolean>();
 
 /**
@@ -169,8 +224,13 @@ export function prefIndicatorFacts(a: PrefIndicatorTextInput): string[] {
     lines.push(`全国${total.toLocaleString("ja-JP")}市区町村の中で上位${NATIONAL_TOP}位に入るのは、` +
       `${names(top.map((r) => r.muni.name))}の${top.length}市区町村です。`);
   }
-  for (const c of a.cities) {
-    lines.push(`政令指定都市の${c.name}は、区ごとに並べています${c.text ? `（${c.name}全体では${c.text}）` : ""}。`);
+  if (page?.wholeCities) {
+    const merged = ranking.rows.filter((r) => r.city).map((r) => r.muni.name);
+    if (merged.length) lines.push(`政令指定都市の${names(merged)}は、区の合計を1つの市として数えています。`);
+  } else {
+    for (const c of a.cities) {
+      lines.push(`政令指定都市の${c.name}は、区ごとに並べています${c.text ? `（${c.name}全体では${c.text}）` : ""}。`);
+    }
   }
   return lines;
 }
