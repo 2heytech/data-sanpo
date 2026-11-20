@@ -3881,6 +3881,49 @@ attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat
 modification_note = "市区町村別の18歳未満世帯員のいる一般世帯数と一般世帯数（家族類型の総数）を抜き出し、割合を算出して作成"
 redistributable = true
 
+# 住宅の所有の関係・住宅の建て方（市区町村、2026-09-29 公表。#247）。町丁・字等の値は未公表なので、町丁・字等は2020年の小地域の表のまま。
+# 形式は pipeline/tdm/ingest/estat_census_municipal.py を参照（2026-11-20 に GitHub Actions から取得して確認）。
+# 列の名前は2020年の小地域の表（census2020_small_area_tenure・building_type）に合わせる。
+[census2025_municipal_tenure]
+kind = "census_municipal"
+period = "2025-10-01"
+label = "2025年"
+table = "tenure"
+title = "令和7年国勢調査 人口等基本集計 表23-4 住宅の所有の関係別一般世帯数－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230926&tclass2=000001232187&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506521&fileKind=0"
+download_filename = "b23_04.xlsx"
+files = ["b23_04.xlsx"]
+cache = true
+columns = { "住宅に住む一般世帯" = "一般世帯数/1_住宅に住む一般世帯", "持ち家" = "一般世帯数/111_持ち家", "民営借家" = "一般世帯数/113_民営の借家" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
+modification_note = "市区町村別の住宅に住む一般世帯数・持ち家・民営の借家の世帯数を抜き出し、割合を算出して作成"
+redistributable = true
+
+# 建物の階数は「11～14階建」と「15階建以上」の2つの列を足して、2020年の「11階建以上」に合わせる。
+[census2025_municipal_building_type]
+kind = "census_municipal"
+period = "2025-10-01"
+label = "2025年"
+table = "building_type"
+title = "令和7年国勢調査 人口等基本集計 表24-4 住宅の所有の関係、住宅の建て方・世帯が住んでいる階別一般世帯数－全国、都道府県、市区町村"
+provider = "総務省統計局"
+url = "https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&toukei=00200521&tstat=000001230925&cycle=0&tclass1=000001230926&tclass2=000001232187&tclass3val=0"
+download_url = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040506530&fileKind=0"
+download_filename = "b24_04.xlsx"
+files = ["b24_04.xlsx"]
+cache = true
+columns = { "主世帯数" = "一般世帯数/0_総数", "共同住宅11階建以上" = ["一般世帯数/1304_共同住宅（11～14階建）", "一般世帯数/1305_共同住宅（15階建以上）"] }
+filters = { "住宅の所有の関係" = "11_主世帯" }
+license = "政府標準利用規約（第2.0版）"
+license_url = "https://www.e-stat.go.jp/terms-of-use"
+attribution = "出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/） 令和7年国勢調査 人口等基本集計"
+modification_note = "市区町村別の主世帯数と、11～14階建・15階建以上の共同住宅に住む主世帯数を抜き出して足し、割合を算出して作成"
+redistributable = true
+
 # 国勢調査 人口等基本集計の男女・国籍別人口（全国・都道府県・市区町村）。外国人の数・割合と国籍別の数・割合（#102）。
 # 2026-10-13 に GitHub Actions から取得して形式を確認した（形式は pipeline/tdm/ingest/estat_census_municipal.py を参照）。
 # 国籍の区分は年で違う（2025年は23か国、2020年は12か国、2015年は11か国、2010年は10か国。ほかは「その他」）。
@@ -5917,7 +5960,10 @@ redistributable = true
 
 # 公立小学校卒業者の進路（東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」小学校 第1表）。
 # 区市町村別は報告書の前年度の卒業者（令和7年度版＝令和7年3月卒業）。形式は pipeline/tdm/ingest/tokyo_jhs_progress.py を参照。
-# 東京都オープンデータカタログ（CC BY 4.0）に載っている令和7年度報告（令和7年3月卒業）だけを使う。
+# 東京都オープンデータカタログ（CC BY 4.0）に載っている令和5〜7年度報告（2023〜2025年3月卒業）だけを使う（#70・#247）。
+# カタログのファイルは CSV。同じ値の Excel が都教委のサイトにあるので、取得先は都教委のサイトの Excel にする
+# （2026-11-20 に GitHub Actions から両方を取得し、区市町村の値が同じことを確かめた）。
+# 令和8年度報告（2026年3月卒業）は 2026-10-09 に都教委のサイトに出たが、カタログにはまだない（2026-11-20 時点）。
 
 [tokyo_jhs_progress_2025]
 kind = "tokyo_jhs_progress"
@@ -5928,6 +5974,36 @@ url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000021d2000000192"
 download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7-sotsugo-01"
 download_filename = "sotsugo01_2025.xlsx"
 files = ["sotsugo01_2025.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
+modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
+redistributable = true
+
+[tokyo_jhs_progress_2024]
+kind = "tokyo_jhs_progress"
+period = "2024-03-31"
+title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2024年3月卒業） 小学校 第1表 状況別卒業者数"
+provider = "東京都教育委員会"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000021d2000000187"
+download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/statistics_and_research_report2024_sotsugo-01_r61119"
+download_filename = "sotsugo01_2024.xlsx"
+files = ["sotsugo01_2024.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
+modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
+redistributable = true
+
+[tokyo_jhs_progress_2023]
+kind = "tokyo_jhs_progress"
+period = "2023-03-31"
+title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2023年3月卒業） 小学校 第1表 状況別卒業者数"
+provider = "東京都教育委員会"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000021d2000000177"
+download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/sotsugo-01_4"
+download_filename = "sotsugo01_2023.xlsx"
+files = ["sotsugo01_2023.xlsx"]
 license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
 license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
@@ -7271,14 +7347,15 @@ redistributable = true
 
 # 都道府県地価調査（基準地、各年7月1日時点）。形式は pipeline/tdm/ingest/mlit_landprice.py を参照。
 # 国土数値情報の利用規約: 2018年以降のデータは CC BY 4.0（2026-10-10 に配布ページで確認）。
-[mlit_l02_2025]
+# 2026年版（2026-09 公開）に入れ替えた。2026年の基準地に1983年からの価格の推移が入っているので、2025年版は使わない（#247）。
+[mlit_l02_2026]
 kind = "mlit_landsurvey"
 per_prefecture = true
-title = "国土数値情報 都道府県地価調査データ（2025年）"
+title = "国土数値情報 都道府県地価調査データ（2026年）"
 provider = "国土交通省"
-url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L02-2025.html"
-download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/L02/L02-25/L02-25_{pref}_GML.zip"
-files = ["L02-25_??.geojson"]
+url = "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-L02-2026.html"
+download_url = "https://nlftp.mlit.go.jp/ksj/gml/data/L02/L02-26/L02-26_{pref}_GML.zip"
+files = ["L02-26_??.geojson"]
 license = "クリエイティブ・コモンズ 表示 4.0 国際（国土数値情報 オープンデータ）"
 license_url = "https://nlftp.mlit.go.jp/ksj/other/agreement.html"
 attribution = "出典：国土交通省 国土数値情報（都道府県地価調査データ）"
