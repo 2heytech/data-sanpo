@@ -1,6 +1,7 @@
 import subprocess, sys, io, json, zipfile, urllib.request, os
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-e", "pipeline"], check=True)
 from pathlib import Path
+sys.path.insert(0, "pipeline")
 from tdm.config import load_sources
 from tdm.ingest import mlit_landprice
 from tdm.ingest.estat_census_municipal import read_table
