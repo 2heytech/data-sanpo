@@ -1,4 +1,4 @@
-import subprocess, sys, json, os, re, urllib.request, urllib.parse
+import subprocess, sys, json, os, re, urllib.request, hashlib
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-e", "pipeline"], check=True)
 sys.path.insert(0, "pipeline")
 from pathlib import Path
@@ -8,27 +8,27 @@ os.makedirs("/tmp/shots", exist_ok=True)
 UA = {"User-Agent": "Mozilla/5.0"}
 def get(url):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
-        return r.read()
+        return r.read(), r.headers
 API = "https://catalog.data.metro.tokyo.lg.jp/api/3/action/"
-for params in ({"q": "title:進路状況調査編"}, {"q": "title:公立学校統計調査報告書"}, {"q": "公立学校卒業者"},
-               {"fq": "organization:t000021", "sort": "metadata_modified desc"}, {"q": "進路状況調査編 令和8年度"}):
-    try:
-        params = {"rows": 20, **params}
-        res = json.loads(get(API + "package_search?" + urllib.parse.urlencode(params)))["result"]
-        print("SEARCH", params, "count", res["count"])
-        for p in res["results"]:
-            print("  P", p["name"], "|", p["title"], "|", p["metadata_created"][:10], p["metadata_modified"][:10], "|",
-                  (p.get("organization") or {}).get("name"), "|", [r.get("name", "")[:30] for r in p["resources"][:2]])
-    except Exception as e:
-        print("ERR", params, repr(e))
-for y in ("r7", "r8"):
-    p = Path(f"/tmp/{y}.xlsx"); p.write_bytes(get(f"https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/{y}-sotsugo-01"))
+for pid in ("t000021d2000000177", "t000021d2000000187", "t000021d2000000192"):
+    d = json.loads(get(API + "package_show?id=" + pid)[0])["result"]
+    print("PKG", pid, d.get("license_id"), d.get("license_title"), d.get("license_url"), "|", d["title"], "|", (d.get("notes") or "")[:200].replace("\n", " "))
+    for r in d["resources"][:3]:
+        print("  RES", r.get("name"), "|", r.get("description", "")[:80].replace("\n", " "), "|", r.get("url"), "|", r.get("format"), r.get("last_modified") or r.get("created"))
+    u = d["resources"][0]["url"]
+    b, h = get(u)
+    p = Path(f"/tmp/{pid}.xlsx"); p.write_bytes(b)
+    print("  FILE", len(b), h.get("Content-Type"), hashlib.sha256(b).hexdigest()[:16])
     rows = read_sheet(p)
-    for i in range(0, 4):
-        print("TOP", y, i, [c for c in rows[i] if c not in (None, "")][:8])
-    yrs = [r[0] for r in rows if r and r[0] and re.search("年度", str(r[0]))]
-    print("YEARS", y, yrs[:12])
-    d = t.read_table(p)
-    print("N", y, len(d))
-    for k in list(d)[:3] + [k for k in d if any(s in k for s in ("文京", "港区", "千代田", "檜原", "青ヶ島"))]:
-        print("V", y, k, d[k])
+    print("  TOP", [str(c)[:20] for r in rows[:3] for c in r if c not in (None, "")][:6])
+    print("  YEARS", [r[0] for r in rows if r and r[0] and re.search("年度", str(r[0]))][:6])
+    dd = t.read_table(p)
+    print("  N", len(dd))
+    for k in [k for k in dd if any(s in k for s in ("千代田", "文京", "檜原", "青ヶ島", "立川"))]:
+        print("  V", k, dd[k])
+# 今使っている r7-sotsugo-01（ハイフン）とカタログの r7_sotsugo_01（下線）が同じものか
+a, _ = get("https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7-sotsugo-01")
+b, _ = get("https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7_sotsugo_01")
+print("SAME_R7", hashlib.sha256(a).hexdigest()[:16], hashlib.sha256(b).hexdigest()[:16], len(a), len(b))
+pa, pb = Path("/tmp/a.xlsx"), Path("/tmp/b.xlsx"); pa.write_bytes(a); pb.write_bytes(b)
+print("SAME_R7_VALUES", t.read_table(pa) == t.read_table(pb))
