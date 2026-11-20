@@ -16,8 +16,9 @@ export interface PrefIndicatorPage {
   lowest?: string;
 }
 
-/** ページを作る指標（10指標 × 47都道府県） */
+/** ページを作る指標（11指標 × 47都道府県）。人口は「〇〇県 人口ランキング」で探す人の受け皿（#246） */
 export const PREF_INDICATOR_PAGES: PrefIndicatorPage[] = [
+  { id: "population_total", lowest: "いちばん少ない" },
   { id: "area", lowest: "いちばん狭い" },
   { id: "population_density", lowest: "いちばん低い" },
   { id: "population_change_rate" },
@@ -101,7 +102,7 @@ export function prefIndicatorRanking(ind: Indicator, prefCode: string, munis: Mu
   return null;
 }
 
-// ページがあるかどうか（都道府県 × 指標）。約470ページが互いにリンクし、都道府県・指標のページからもリンクするので、ビルドの間とっておく
+// ページがあるかどうか（都道府県 × 指標）。約520ページが互いにリンクし、都道府県・指標のページからもリンクするので、ビルドの間とっておく
 const available = new Map<string, boolean>();
 
 /**

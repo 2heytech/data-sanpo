@@ -78,7 +78,7 @@ describe("hasPrefIndicatorPage", () => {
   });
   it("所得・犯罪・財政・学力の指標は入れない", () => {
     const ids = PREF_INDICATOR_PAGES.map((p) => p.id);
-    expect(ids).toHaveLength(10);
+    expect(ids).toHaveLength(11);
     for (const bad of ["taxable_income_per_taxpayer", "financial_strength_index", "crime_rate", "household_income"]) expect(ids).not.toContain(bad);
   });
 });
@@ -90,6 +90,8 @@ describe("文章", () => {
     expect(prefIndicatorName(ind("area", { name: "面積" } as Partial<Indicator>), { id: "area" })).toBe("面積");
     expect(prefIndicatorPath("28", "area")).toBe("/prefectures/28/area/");
     expect(prefIndicatorTitle("兵庫県", ind("aged_65_plus_share"), page, "2025年")).toBe("兵庫県の高齢化率（65歳以上の割合） 市区町村ランキング（2025年）");
+    const pop = PREF_INDICATOR_PAGES.find((p) => p.id === "population_total");
+    expect(prefIndicatorTitle("兵庫県", ind("population_total", { name: "人口" } as Partial<Indicator>), pop, "2025年")).toBe("兵庫県の人口 市区町村ランキング（2025年）");
   });
   it("1〜3位は同じ値を同じ順位にまとめて書く", () => {
     expect(topPhrase(r.rows, ind("aged_65_plus_share"))).toBe("1位は町2・町3（45.0%）、3位は町1（40.0%）");

@@ -229,6 +229,7 @@ const structured = breadcrumbList(Astro.site, [
     </div>
     <p class="muted small">人口と増減は{popLabel}の国勢調査{noPop.length > 0 && `（その年の値がない市区町村は順位を付けずに最後に並べています）`}。
       特徴の一言は、各市区町村のページの「データで見る」と同じで、全国の中で目立つ指標から作った推測です。</p>
+    {popInd && allRanksHref.has(popInd.id) && <p class="all-ranks small"><a href={allRanksHref.get(popInd.id)}>{pref.name}の人口 市区町村ランキング（全国の中の順位つき）</a></p>}
   </section>
 
   {prefIndicatorLinks.length > 0 && (
