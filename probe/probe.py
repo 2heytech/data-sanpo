@@ -1,45 +1,34 @@
-import json, os, re, urllib.request, urllib.parse
+import subprocess, sys, json, os, re, urllib.request, urllib.parse
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-e", "pipeline"], check=True)
+sys.path.insert(0, "pipeline")
+from pathlib import Path
+from tdm.xlsx import read_sheet
+from tdm.ingest import tokyo_jhs_progress as t
 os.makedirs("/tmp/shots", exist_ok=True)
 UA = {"User-Agent": "Mozilla/5.0"}
-def get(url, method="GET"):
-    req = urllib.request.Request(url, headers=UA, method=method)
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return r.status, r.headers, (r.read() if method == "GET" else b"")
+def get(url):
+    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
+        return r.read()
 API = "https://catalog.data.metro.tokyo.lg.jp/api/3/action/"
-try:
-    _, _, b = get(API + "package_show?id=t000021d2000000192")
-    d = json.loads(b)["result"]
-    print("PKG", d.get("title"), d.get("metadata_modified"))
-    for r in d["resources"]:
-        print("RES", r.get("name"), "|", r.get("url"), "|", r.get("last_modified") or r.get("created"))
-except Exception as e:
-    print("ERR pkg", repr(e))
-for q in ("進路状況", "卒業者の進路", "公立学校統計調査 進路"):
+for params in ({"q": "title:進路状況調査編"}, {"q": "title:公立学校統計調査報告書"}, {"q": "公立学校卒業者"},
+               {"fq": "organization:t000021", "sort": "metadata_modified desc"}, {"q": "進路状況調査編 令和8年度"}):
     try:
-        _, _, b = get(API + "package_search?" + urllib.parse.urlencode({"q": q, "rows": 30, "sort": "metadata_modified desc"}))
-        for p in json.loads(b)["result"]["results"]:
-            print("SEARCH", q, "|", p["name"], "|", p["title"], "|", p["metadata_modified"], "|", len(p["resources"]))
+        params = {"rows": 20, **params}
+        res = json.loads(get(API + "package_search?" + urllib.parse.urlencode(params)))["result"]
+        print("SEARCH", params, "count", res["count"])
+        for p in res["results"]:
+            print("  P", p["name"], "|", p["title"], "|", p["metadata_created"][:10], p["metadata_modified"][:10], "|",
+                  (p.get("organization") or {}).get("name"), "|", [r.get("name", "")[:30] for r in p["resources"][:2]])
     except Exception as e:
-        print("ERR search", q, repr(e))
+        print("ERR", params, repr(e))
 for y in ("r7", "r8"):
-    for n in ("01", "02", "1"):
-        u = f"https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/{y}-sotsugo-{n}"
-        try:
-            s, h, _ = get(u, "HEAD")
-            print("HEAD", u, s, h.get("Content-Type"), h.get("Content-Length"), h.get("Last-Modified"))
-        except Exception as e:
-            print("HEAD", u, repr(e))
-# 都教委の統計のページ
-for u in ("https://www.kyoiku.metro.tokyo.lg.jp/administration/statistics_and_research/school_statistics/",
-          "https://www.kyoiku.metro.tokyo.lg.jp/administration/statistics_and_research/statistics/",
-          "https://www.kyoiku.metro.tokyo.lg.jp/administration/statistics/"):
-    try:
-        s, h, b = get(u)
-        t = b.decode("utf-8", "replace")
-        print("PAGE", u, s, len(t))
-        for m in re.finditer(r'<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>', t, re.S):
-            txt = re.sub(r"<[^>]+>", "", m[2]).strip()
-            if re.search("進路|卒業|令和8|令和７|令和8|R8|統計調査", txt):
-                print("  L", txt[:80], "|", m[1])
-    except Exception as e:
-        print("PAGE", u, repr(e))
+    p = Path(f"/tmp/{y}.xlsx"); p.write_bytes(get(f"https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/{y}-sotsugo-01"))
+    rows = read_sheet(p)
+    for i in range(0, 4):
+        print("TOP", y, i, [c for c in rows[i] if c not in (None, "")][:8])
+    yrs = [r[0] for r in rows if r and r[0] and re.search("年度", str(r[0]))]
+    print("YEARS", y, yrs[:12])
+    d = t.read_table(p)
+    print("N", y, len(d))
+    for k in list(d)[:3] + [k for k in d if any(s in k for s in ("文京", "港区", "千代田", "檜原", "青ヶ島"))]:
+        print("V", y, k, d[k])
