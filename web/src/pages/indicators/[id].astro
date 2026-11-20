@@ -10,13 +10,14 @@ import { indicatorPageText } from "../../lib/indicatorPage";
 import { descriptionLeaders, indicatorSummary, shortPeriodLabel, type SummaryArea, type SummaryInput } from "../../lib/indicatorSummary";
 import { genreOfCategory } from "../../lib/indicatorCatalog";
 import { cityValues, designatedCities } from "../../lib/designatedCities";
-import { articleImage, indicatorPageImage } from "../../lib/shareImages";
+import { articleImage, indicatorPageImage, providersOf } from "../../lib/shareImages";
 import { formerWard } from "../../lib/areaSummary";
 import { publishedArticles } from "../../lib/articles";
 import { latestPeriod } from "../../lib/periods";
 import { mapHref } from "../../lib/urlstate";
 import { barScale, barStyle, barZero } from "../../lib/valueBars";
 import { hasPrefIndicatorPage, prefIndicatorPath } from "../../lib/prefectureRanking";
+import { KIND_PAGES, kindFacts, kindRankings, type KindEntry } from "../../lib/muniKinds";
 import type { Indicator } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -179,6 +180,17 @@ const summaryInput: SummaryInput = {
   coverage: coverageLabel,
 };
 const summary = indicatorSummary(summaryInput);
+// 市・町・村・東京23区ごとの順位（#248）。「日本一小さい市」のような検索に、冒頭の2文と小さな表で答える
+const kindWords = nationwide && !partial && muniValues.length ? KIND_PAGES[ind.id] : undefined;
+const kinds = kindWords ? kindRankings(areas.municipalities, muniValues, new Set(cities.flatMap((c) => c.wards)), cityRows ?? []) : [];
+const kindLabel = (e: KindEntry) => `${prefNames.get(e.prefecture) ?? ""}${e.name}`;
+const kindLines = kindWords ? kindFacts(kinds, kindWords, kindLabel, (e) => formatValue(e.row, ind, { inText: true })) : [];
+const kindRows = (list: KindEntry[]): RankingRow[] => list.map((e) => ({
+  ...e.row, rank: e.rank, name: e.name, href: e.id ? `/areas/${e.id}/` : "", mapHref: e.id ? toMap(e.id) : undefined,
+  extra: [e.id ? prefNames.get(e.prefecture) ?? "" : `${prefNames.get(e.prefecture) ?? ""}・区の合計`],
+}));
+const kindExcluded = kinds.length ? (cityRows ?? []).filter((c) => c.value === null).map((c) => c.city.name) : [];
+const findings = [...summary, ...kindLines];
 // 題名・見出し・説明文（選挙の得票率は政党名から始める。#142）。説明文は都道府県・市区町村の1位から始める（#216）
 const pageText = indicatorPageText(ind, {
   muniCount, hasMuniValues: muniValues.length > 0, hasPrefRows: prefRows.length > 0, nationwide, partial,
@@ -200,9 +212,10 @@ const FIND_MIN_ROWS = 50;
 const showFind = muniValues.length >= FIND_MIN_ROWS;
 // ページの先頭の目次（#225）。長いページで、ランキングと計算方法へすぐ移れるようにする
 const toc = [
-  ...(summary.length > 0 || image ? [{ href: "#findings", label: "データから分かること" }] : []),
+  ...(findings.length > 0 || image ? [{ href: "#findings", label: "データから分かること" }] : []),
   ...(prefRows.length > 0 ? [{ href: "#pref-ranking", label: "都道府県ランキング" }] : []),
   ...(muniValues.length > 0 ? [{ href: "#muni-ranking", label: "市区町村ランキング" }] : []),
+  ...(kinds.length > 0 ? [{ href: "#muni-kinds", label: "市・町・村ごとの順位" }] : []),
   ...(prefPages.length > 0 ? [{ href: "#pref-pages", label: "都道府県ごとの市区町村ランキング" }] : []),
   ...(smallAreaTop.length > 0 ? [{ href: "#small-ranking", label: "町丁・字等ランキング" }] : []),
   { href: "#method", label: "計算方法と出典" },
@@ -222,10 +235,10 @@ const toc = [
 
   <nav class="toc" aria-label="このページの内容">{toc.map((t) => <a href={t.href}>{t.label}</a>)}</nav>
 
-  {(summary.length > 0 || image) && (
+  {(findings.length > 0 || image) && (
     <section class="sheet findings">
       <h2 id="findings">データから分かること（{shortPeriodLabel(period.label)}）</h2>
-      {summary.length > 0 && <ul class="findings-list">{summary.map((line) => <li>{line}</li>)}</ul>}
+      {findings.length > 0 && <ul class="findings-list">{findings.map((line) => <li>{line}</li>)}</ul>}
       {image && <MapFigure image={image} eager />}
       {/* この指標を使った寄り道を、記事の地図の画像つきのカードで案内する（設計変更記録 #235） */}
       {related.length > 0 && (
@@ -352,6 +365,23 @@ const toc = [
       </div>
     </>
   )}
+  {kinds.length > 0 && kindWords && (
+    <>
+      <h3 id="muni-kinds">市・町・村・東京23区ごとの順位（{period.label}）</h3>
+      <p class="muted small">市区町村を市・町・村・東京23区に分け、それぞれの中で並べています。{cityRows
+        ? <>政令指定都市は区の合計を1つの市として数え{kindExcluded.length > 0 && `（市全体の値のない${kindExcluded.join("・")}は入れていません）`}、区は入れていません。</>
+        : "政令指定都市は、市全体の値を区から計算できないため、市も区も入れていません。"}</p>
+      {kinds.map((k) => (
+        <div class="kind-block">
+          <h4>{k.kind}（{k.total.toLocaleString("ja-JP")}）</h4>
+          <div class="kind-pair">
+            <RankingTable ind={ind} rows={kindRows(k.top)} areaLabel={k.kind} note={false} caption={`${kindWords.more}順`} />
+            {k.bottom.length > 0 && <RankingTable ind={ind} rows={kindRows(k.bottom)} areaLabel={k.kind} note={false} caption={`${kindWords.less}順`} />}
+          </div>
+        </div>
+      ))}
+    </>
+  )}
   </>
   )}
 
@@ -403,7 +433,7 @@ const toc = [
   </div>
   <p class="muted">定義の版: {ind.definition_version}</p>
   </section>
-  <ShareButtons title={pageText.title} />
+  <ShareButtons title={pageText.title} providers={providersOf(ind, period.period)} />
 </Base>
 
 <script>
@@ -526,4 +556,10 @@ const toc = [
   .rank-find-status:empty { display: none; }
   #muni-tables :global(tr.found td) { background: #fff3bf; }
   #muni-tables :global(tr.found td:first-child) { box-shadow: inset 4px 0 0 var(--accent); }
+  .kind-block h4 { margin: 16px 0 6px; font-size: 1rem; }
+  .kind-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; align-items: start; }
+  .kind-pair :global(.ranking) { min-width: 0; }
+  .kind-pair :global(.ranking .col-rank) { width: 4.5em; }
+  .kind-pair :global(.ranking .col-value) { width: 8.5em; }
+  .kind-pair > :global(.table-scroll + .table-scroll) { margin-top: 0; }
 </style>

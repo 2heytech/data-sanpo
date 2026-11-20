@@ -11,6 +11,7 @@ import type { Indicator, ValueRow } from "../lib/types";
 export interface RankingRow extends ValueRow {
   rank: number | null;
   name: string;
+  /** 地域名のリンク先（空なら名前だけ。区をまとめた政令指定都市など、ページのない地域） */
   href: string;
   /** その指標の色分けで、その地域を選んだ地図（地域名のリンクとは別に置く） */
   mapHref?: string;
@@ -39,7 +40,7 @@ const { ind, rows, areaLabel, note = true, caption, scale = null } = Astro.props
       {rows.map((r) => (
         <tr>
           <td class="num rank">{r.rank === null ? "—" : `${r.rank.toLocaleString("ja-JP")}位`}</td>
-          <td><a href={r.href}>{r.name}</a>{r.mapHref && <a class="to-map" href={r.mapHref} aria-label={`${r.name}を地図で見る`}></a>}
+          <td>{r.href ? <a href={r.href}>{r.name}</a> : <span>{r.name}</span>}{r.mapHref && <a class="to-map" href={r.mapHref} aria-label={`${r.name}を地図で見る`}></a>}
             {r.extra.some(Boolean) && <div class="muted ranking-place">{r.extra.filter(Boolean).join("・")}</div>}</td>
           <td class:list={["num", scale && r.value !== null && "vcell"]} style={barStyle(r.value, scale)}>{formatValue(r, ind)}</td>
           {note && <td class="muted col-note">{r.value === null ? "" : STATUS_LABEL[r.status]}</td>}

@@ -3,6 +3,7 @@
 // 全国の市区町村の中の順位を添える。「〇〇県 高齢化率 市町村」「北海道で一番広い市町村」などで探す人の入口にする
 import Base from "../../../layouts/Base.astro";
 import ShareButtons from "../../../components/ShareButtons.astro";
+import { providersOf } from "../../../lib/shareImages";
 import RankingTable, { type RankingRow } from "../../../components/RankingTable.astro";
 import { loadAreas, loadIndicators, loadSources, loadValues } from "../../../lib/data";
 import { periodYear } from "../../../lib/areaSummary";
@@ -26,11 +27,13 @@ export function getStaticPaths() {
   const values = (id: string, period: string, chunk: "municipalities" | "prefectures") => loadValues(id, period, chunk)?.rows ?? [];
   // 全国の公開版だけで作る（1つの都道府県だけの公開版では、指標のページの市区町村ランキングと同じになる）
   if (areas.prefectures.length < 2) return [];
+  // 人口は政令指定都市を1つの市として数える（全国の順位もそろえるので、全国の政令指定都市を渡す。#246）
+  const allCities = designatedCities(areas.municipalities);
   return areas.prefectures.flatMap((pref) => {
     const munis = areas.municipalities.filter((m) => m.prefecture === pref.code);
     return PREF_INDICATOR_PAGES.flatMap((page) => {
       const ind = indicators.get(page.id);
-      const ranking = ind ? prefIndicatorRanking(ind, pref.code, munis, values) : null;
+      const ranking = ind ? prefIndicatorRanking(ind, pref.code, munis, values, page.wholeCities ? allCities : []) : null;
       return ind && ranking ? [{ params: { code: pref.code, indicator: ind.id }, props: { pref, ind, page, ranking } }] : [];
     });
   });
@@ -57,11 +60,16 @@ const description = prefIndicatorDescription({ pref: pref.name, ind, page, ranki
 // 表。地域名の下に全国の順位を書き、横に「地図」（この指標の色分けでその市区町村を選んだ地図。#200）を置く
 const atLatest = period.period === latestPeriod(ind);
 const toMap = (area: string) => mapHref({ indicator: ind.id, area, period: atLatest ? undefined : period.period });
+// 区をまとめた政令指定都市には地域ページ・地図の地域がないので、名前だけにして「〇区の合計」と書く（区は表の下に並べる）
 const tableRows: RankingRow[] = ranking.rows.map((r) => ({
-  ...r, name: r.muni.name, href: `/areas/${r.muni.id}/`, mapHref: toMap(r.muni.id),
-  extra: r.national ? [`全国${r.national.rank.toLocaleString("ja-JP")}位`] : [],
+  ...r, name: r.muni.name, href: r.city ? "" : `/areas/${r.muni.id}/`, mapHref: r.city ? undefined : toMap(r.muni.id),
+  extra: [...(r.city ? [`${r.city.wards.length}区の合計`] : []), ...(r.national ? [`全国${r.national.rank.toLocaleString("ja-JP")}位`] : [])],
 }));
-const missingRows: RankingRow[] = ranking.missing.map((r) => ({ ...r, name: r.muni.name, href: `/areas/${r.muni.id}/`, extra: [] }));
+const missingRows: RankingRow[] = ranking.missing.map((r) => ({ ...r, name: r.muni.name, href: r.city ? "" : `/areas/${r.muni.id}/`, extra: [] }));
+const wardRows: RankingRow[] = ranking.wards.map((r) => ({
+  ...r, name: r.muni.name, href: `/areas/${r.muni.id}/`, mapHref: toMap(r.muni.id), extra: [],
+}));
+const wholeCities = !!page.wholeCities && ranking.rows.some((r) => r.city);
 const scale = barScale(ranking.rows.map((r) => r.value));
 // 備考（算出値など）がどの行も同じなら、列にせず表の上に1回だけ書く（指標ページと同じ。#216）
 const notes = [...new Set(ranking.rows.map((r) => STATUS_LABEL[r.status]))];
@@ -106,13 +114,20 @@ const structured = breadcrumbList(Astro.site, [
     <h2>{pref.name}の{name} 市区町村ランキング（{period.label}）</h2>
     <p class="muted">{pref.name}の{(ranking.rows.length + ranking.missing.length).toLocaleString("ja-JP")}市区町村を、値の大きい順に並べています（同じ値は同じ順位）。
       市区町村名の下は、全国{nationalTotal.toLocaleString("ja-JP")}市区町村の中の順位です。市区町村名から、その市区町村のページを開きます。
-      「地図」を押すと、その市区町村を選んだ地図を開きます。</p>
+      「地図」を押すと、その市区町村を選んだ地図を開きます。
+      {wholeCities && "政令指定都市は区の値を合計して1つの市として並べ、全国の順位も政令指定都市を1つの市として数えています（区ごとの値は表の下）。"}</p>
     {commonNote && <p class="muted small">備考: どの市区町村も「{commonNote}」です。</p>}
     <RankingTable ind={ind} rows={tableRows} areaLabel="市区町村" note={commonNote === null} scale={scale} />
     {missingRows.length > 0 && (
       <details class="ranking-more">
         <summary>{`値のない市区町村（${missingRows.length.toLocaleString("ja-JP")}）`}</summary>
         <RankingTable ind={ind} rows={missingRows} areaLabel="市区町村" note={false} />
+      </details>
+    )}
+    {wardRows.length > 0 && (
+      <details class="ranking-more">
+        <summary>{`政令指定都市の区（${wardRows.length.toLocaleString("ja-JP")}）`}</summary>
+        <RankingTable ind={ind} rows={wardRows} areaLabel="区" note={false} scale={scale} />
       </details>
     )}
     <p class="muted small">出典: {sourceTitles.join("／")}。意味・計算方法・注意点は<a href={`/indicators/${ind.id}/`}>{ind.name}のページ</a>にあります。</p>
@@ -133,7 +148,7 @@ const structured = breadcrumbList(Astro.site, [
     </section>
   )}
 
-  <ShareButtons title={title} />
+  <ShareButtons title={title} providers={providersOf(ind, period.period)} />
 </Base>
 
 <style>

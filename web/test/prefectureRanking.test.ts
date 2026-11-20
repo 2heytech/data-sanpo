@@ -4,6 +4,7 @@ import {
   prefIndicatorRanking, prefIndicatorTitle, topPhrase,
 } from "../src/lib/prefectureRanking";
 import { DESCRIPTION_MAX } from "../src/lib/areaSummary";
+import { designatedCities } from "../src/lib/designatedCities";
 import type { Indicator, Municipality, ValueRow } from "../src/lib/types";
 
 const muni = (code: string, name: string, region: string | null = null) =>
@@ -78,7 +79,7 @@ describe("hasPrefIndicatorPage", () => {
   });
   it("所得・犯罪・財政・学力の指標は入れない", () => {
     const ids = PREF_INDICATOR_PAGES.map((p) => p.id);
-    expect(ids).toHaveLength(10);
+    expect(ids).toHaveLength(15);
     for (const bad of ["taxable_income_per_taxpayer", "financial_strength_index", "crime_rate", "household_income"]) expect(ids).not.toContain(bad);
   });
 });
@@ -90,6 +91,8 @@ describe("文章", () => {
     expect(prefIndicatorName(ind("area", { name: "面積" } as Partial<Indicator>), { id: "area" })).toBe("面積");
     expect(prefIndicatorPath("28", "area")).toBe("/prefectures/28/area/");
     expect(prefIndicatorTitle("兵庫県", ind("aged_65_plus_share"), page, "2025年")).toBe("兵庫県の高齢化率（65歳以上の割合） 市区町村ランキング（2025年）");
+    const pop = PREF_INDICATOR_PAGES.find((p) => p.id === "population_total");
+    expect(prefIndicatorTitle("兵庫県", ind("population_total", { name: "人口" } as Partial<Indicator>), pop, "2025年")).toBe("兵庫県の人口 市区町村ランキング（2025年）");
   });
   it("1〜3位は同じ値を同じ順位にまとめて書く", () => {
     expect(topPhrase(r.rows, ind("aged_65_plus_share"))).toBe("1位は町2・町3（45.0%）、3位は町1（40.0%）");
@@ -123,5 +126,52 @@ describe("文章", () => {
     expect(d).toMatch(/^兵庫県の高齢化率（65歳以上の割合）の市区町村ランキング（2025年）。1位は町2・町3（45.0%）、3位は町1。/);
     expect(d).toContain("県内6市区町村の全順位");
     expect(d.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+  });
+});
+
+describe("政令指定都市を1つの市として数える（人口、#246）", () => {
+  const pop = ind("population_total", { name: "人口", unit: "人", kind: "count", digits: 0 } as Partial<Indicator>);
+  const popPage = PREF_INDICATOR_PAGES.find((p) => p.id === "population_total")!;
+  const kanagawa = [
+    muni("14101", "横浜市鶴見区", "横浜市"), muni("14102", "横浜市神奈川区", "横浜市"),
+    muni("14131", "川崎市川崎区", "川崎市"), muni("14132", "川崎市幸区", "川崎市"),
+    muni("14205", "藤沢市"), muni("14201", "横須賀市"), muni("14204", "鎌倉市"), muni("14206", "小田原市"), muni("14382", "箱根町"),
+  ];
+  const all = [...kanagawa, muni("27127", "大阪市北区", "大阪市"), muni("27128", "大阪市都島区", "大阪市"), muni("13101", "千代田区", "区部")];
+  const vals: Record<string, ValueRow[]> = {
+    municipalities: [
+      row("muni-14101", 300), row("muni-14102", 250), row("muni-14131", 230), row("muni-14132", 170),
+      row("muni-14205", 440), row("muni-14201", 380), row("muni-14204", 170), row("muni-14206", 180), row("muni-14382", 10),
+      row("muni-27127", 150), row("muni-27128", 110), row("muni-13101", 70),
+    ],
+    prefectures: [],
+  };
+  const popRows = (_id: string, _p: string, chunk: "municipalities" | "prefectures") => vals[chunk];
+  const cities = designatedCities(all);
+
+  it("区を合計した市を県内・全国の順位に入れ、区は別に値の大きい順に並べる", () => {
+    const r = prefIndicatorRanking(pop, "14", kanagawa, popRows, cities)!;
+    expect(r.rows.map((x) => [x.muni.name, x.value, x.rank, x.national?.rank])).toEqual([
+      ["横浜市", 550, 1, 1], ["藤沢市", 440, 2, 2], ["川崎市", 400, 3, 3], ["横須賀市", 380, 4, 4],
+      ["小田原市", 180, 5, 6], ["鎌倉市", 170, 6, 7], ["箱根町", 10, 7, 9],
+    ]);
+    expect(r.rows[0].national?.total).toBe(9);
+    expect(r.rows[0].city?.wards).toEqual(["muni-14101", "muni-14102"]);
+    expect(r.wards.map((x) => x.muni.name)).toEqual(["横浜市鶴見区", "横浜市神奈川区", "川崎市川崎区", "川崎市幸区"]);
+    const lines = prefIndicatorFacts({ pref: "神奈川県", ind: pop, page: popPage, ranking: r, cities: [] });
+    expect(lines[0]).toBe("神奈川県の7市区町村のうち、1位は横浜市（550人）、2位は藤沢市（440人）、3位は川崎市（400人）です。");
+    expect(lines.at(-1)).toBe("政令指定都市の横浜市・川崎市は、区の合計を1つの市として数えています。");
+  });
+  it("値のない区が1つでもある市は値なしにし（0 にしない）、区の行がひとつもない市も値のない市区町村に並べる", () => {
+    const gap = (_id: string, _p: string, chunk: "municipalities" | "prefectures") => chunk === "prefectures" ? [] :
+      vals.municipalities.map((x) => x.entity_id === "muni-14102" ? row("muni-14102", null) : x).filter((x) => !x.entity_id.startsWith("muni-1413"));
+    const r = prefIndicatorRanking(pop, "14", kanagawa, gap, cities)!;
+    expect(r.rows.some((x) => x.city)).toBe(false);
+    expect(r.missing.map((x) => [x.muni.name, x.value])).toEqual([["横浜市", null], ["川崎市", null]]);
+  });
+  it("cities を渡さない指標は、これまでどおり区ごとに並べる", () => {
+    const r = prefIndicatorRanking(pop, "14", kanagawa, popRows)!;
+    expect(r.rows[0].muni.name).toBe("藤沢市");
+    expect(r.wards).toEqual([]);
   });
 });

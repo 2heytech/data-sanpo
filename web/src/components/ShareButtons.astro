@@ -1,14 +1,19 @@
 ---
-// ページのリンクをコピーするボタン（#153・#156）。SNS などへ送るボタンは置かない。
+// ページのリンクと出典の書き方をコピーするボタン（#153・#156・#248）。SNS などへ送るボタンは置かない。
+// 出典の書き方は、ブログや調べ学習で引用するときにそのまま貼れる形（「出典：データさんぽ「題名」（URL）。元データ：総務省統計局」）
 interface Props {
-  /** ページの題名（ボタンの説明に使う） */
+  /** ページの題名（ボタンの説明と出典の書き方に使う） */
   title: string;
+  /** 元データの提供元（指標のページなど。あれば出典の書き方に添える） */
+  providers?: string[];
 }
-const { title } = Astro.props;
+const { title, providers = [] } = Astro.props;
 const url = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.url.href;
+const credit = `出典：データさんぽ「${title}」（${url}）${providers.length ? `。元データ：${providers.join("・")}` : ""}`;
 ---
-<section class="share-row" aria-label="このページのリンク">
+<section class="share-row" aria-label="このページのリンクと出典">
   <button type="button" class="share-chip" data-share-copy={url} title={`「${title}」のリンクをコピー`}>このページのリンクをコピー</button>
+  <button type="button" class="share-chip" data-share-copy={credit} title={`「${title}」の出典の書き方をコピー`}>出典の書き方をコピー</button>
 </section>
 
 <script>
@@ -18,7 +23,7 @@ const url = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.ur
         await navigator.clipboard.writeText(b.dataset.shareCopy!);
         b.textContent = "コピーしました";
       } catch {
-        window.prompt("このページのリンク", b.dataset.shareCopy!);
+        window.prompt(b.textContent ?? "", b.dataset.shareCopy!);
       }
     });
   }
