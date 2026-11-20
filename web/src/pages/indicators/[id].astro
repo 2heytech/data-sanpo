@@ -180,7 +180,7 @@ const summaryInput: SummaryInput = {
   coverage: coverageLabel,
 };
 const summary = indicatorSummary(summaryInput);
-// 市・町・村・東京23区ごとの順位（#247）。「日本一小さい市」のような検索に、冒頭の2文と小さな表で答える
+// 市・町・村・東京23区ごとの順位（#248）。「日本一小さい市」のような検索に、冒頭の2文と小さな表で答える
 const kindWords = nationwide && !partial && muniValues.length ? KIND_PAGES[ind.id] : undefined;
 const kinds = kindWords ? kindRankings(areas.municipalities, muniValues, new Set(cities.flatMap((c) => c.wards)), cityRows ?? []) : [];
 const kindLabel = (e: KindEntry) => `${prefNames.get(e.prefecture) ?? ""}${e.name}`;
