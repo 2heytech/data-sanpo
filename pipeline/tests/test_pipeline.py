@@ -683,9 +683,9 @@ def test_household_indicators_for_three_censuses(built):
     for ind in ["single_person_household_share", "households_with_children_share", "owner_occupied_share",
                 "private_rented_share", "high_rise_household_share"]:
         assert by[ind]["category"] == "暮らし方"
-        # 一人暮らし・子どものいる世帯は2025年（市区町村だけ）もある
-        extra = ["2025-10-01"] if ind in ("single_person_household_share", "households_with_children_share") else []
-        assert [p["period"] for p in by[ind]["periods"]] == ["2010-10-01", "2015-10-01", "2020-10-01", *extra]
+        # 2025年（市区町村だけ）もある。住宅の3つは #247 から
+        assert [p["period"] for p in by[ind]["periods"]] == ["2010-10-01", "2015-10-01", "2020-10-01", "2025-10-01"]
+        assert by[ind]["periods"][-1]["levels"] == ["municipality", "prefecture"]
     from tdm.ingest.estat_small_area import read_table
     path = next((built.raw / "census2015_small_area_household_size" / "13").glob("*.txt"))
     src = next(r for r in read_table(path).rows if r["KEY_CODE"] == "13199")
@@ -1533,6 +1533,28 @@ def test_census2025_municipal(built):
     kids = muni("households_with_children_share")
     assert kids["numerator"] == int(f["18歳未満世帯員のいる一般世帯総数"])  # 家族類型の総数の行
     assert kids["denominator"] == int(f["一般世帯総数"])
+    # 住宅の所有の関係（表23-4）。分母は住宅に住む一般世帯（#247）
+    t = src("census2025_municipal_tenure")
+    assert set(t) == {"13199", "13299", "13499", "14199", "13", "14"}   # 2000年の市区町村の行は使わない
+    own = muni("owner_occupied_share")
+    assert own["numerator"] == int(t["13199"]["持ち家"]) and own["denominator"] == int(t["13199"]["住宅に住む一般世帯"])
+    assert muni("private_rented_share")["numerator"] == int(t["13199"]["民営借家"])
+    # 11階建以上の共同住宅（表24-4）: 主世帯の行の「11～14階建」と「15階建以上」の合計。「-」は0として足す
+    b = src("census2025_municipal_building_type")
+    c = cfg["census2025_municipal_building_type"]
+    path = built.raw / "census2025_municipal_building_type" / c["files"][0]
+    parts = {r["KEY_CODE"]: r for r in read_table(path, {"中": "一般世帯数/1304_共同住宅（11～14階建）",
+                                                         "高": "一般世帯数/1305_共同住宅（15階建以上）"}, c["filters"]).rows}
+    owned = {r["KEY_CODE"]: r for r in read_table(path, c["columns"], {"住宅の所有の関係": "111_持ち家"}).rows}
+    assert any(r["高"] == "-" for r in parts.values())
+    for code, r in parts.items():
+        assert int(b[code]["共同住宅11階建以上"]) == sum(parse_cell(r[k]).value for k in ("中", "高"))
+        assert b[code]["主世帯数"] != owned[code]["主世帯数"]   # 持ち家の行ではなく主世帯の行
+    high = muni("high_rise_household_share")
+    assert high["numerator"] == int(b["13199"]["共同住宅11階建以上"]) and high["denominator"] == int(b["13199"]["主世帯数"])
+    # 町丁・字等は2020年のまま
+    hp = by["high_rise_household_share"]
+    assert [p["period"] for p in hp["periods"]][-1] == "2025-10-01" and hp["default_period"] == "2020-10-01"
 
 
 def test_child_woman_ratio(built):
@@ -2561,7 +2583,7 @@ def test_land_price_point_with_new_ward_code_is_located_by_position(tmp_path):
         conn.execute("INSERT INTO entities (entity_id, entity_type, name) VALUES (?, 'municipality', ?)", (eid, eid))
         conn.execute("INSERT INTO boundaries VALUES (?, 'v', ?, '2020-10-01', 's', ?, NULL, NULL, ?, ?, ?, ?)",
                      (f"v:{eid}", eid, _json.dumps(mapping(g)), *g.bounds))
-    props = {"L01_001": "22138", "L01_002": "000", "L01_003": 1, "L01_007": 1984, "L01_009": 0.5,
+    props = {"L01_001": "22138", "L01_002": "000", "L01_003": 1, "L01_007": 1984, "L01_008": 120000, "L01_009": 0.5,
              "L01_024": "浜松中央", "L01_062": 0, "L01_063": 120000}
     gj = {"type": "FeatureCollection", "features": [
         {"type": "Feature", "properties": props, "geometry": {"type": "Point", "coordinates": [137.77, 34.71]}},
@@ -2577,6 +2599,27 @@ def test_land_price_point_with_new_ward_code_is_located_by_position(tmp_path):
     assert (row["name"], row["parent_id"]) == ("浜松中央-1", "muni-22132")
     got = conn.execute("SELECT period_start, value FROM observations WHERE entity_id = 'land-22138-000-001'").fetchall()
     assert [(r["period_start"], r["value"]) for r in got] == [("1984-01-01", 120000)]   # 0 の年は値なし
+
+
+def test_land_survey_shifted_columns_stop_ingest(tmp_path):
+    """都道府県地価調査の欄の並びが版で変わったら（2025年版→2026年版で最寄駅から後ろが1つずれた）、取込を止める（#247）。"""
+    import json as _json
+    from tdm.ingest import mlit_landprice
+    conn = connect(":memory:")
+    init_schema(conn)
+    # 2025年版の並び: 価格の推移が L02_055（1983年）〜 L02_097（2025年）
+    props = {"L02_001": "000", "L02_002": "001", "L02_005": 2025, "L02_006": 300000, "L02_020": "13101",
+             "L02_021": "千代田", **{f"L02_{55 + i:03d}": 0 for i in range(43)}, "L02_097": 300000}
+    path = tmp_path / "L02-25_13.geojson"
+    path.write_text(_json.dumps({"type": "FeatureCollection", "features": [
+        {"type": "Feature", "properties": props, "geometry": {"type": "Point", "coordinates": [139.74, 35.69]}}]}),
+        encoding="utf-8")
+    with pytest.raises(ValueError, match="欄の並び"):
+        mlit_landprice.ingest(conn, path, "s", "land_survey_price", {"definition_version": "1"})
+    # 2026年版の並び（L02_056〜L02_099）で読む。L02_097 は2024年の欄になる
+    new = {**props, "L02_005": 2026, "L02_006": 310000, "L02_099": 310000}
+    assert mlit_landprice.price_history(new) == {2024: 300000.0, 2026: 310000.0}
+    assert mlit_landprice._price_matches(new) and not mlit_landprice._price_matches(props)
 
 
 def test_estat_file_ids_are_found_by_prefecture_and_table(tmp_path):
@@ -3505,7 +3548,7 @@ def test_land_survey_points(built):
     p = pts["landsv-13199-000-001"]
     assert p["name"] == "サンプル(都)-1" and pts["landsv-13299-005-001"]["name"] == "ためし(都)5-1"
     periods = [x["period"] for x in data["periods"]]
-    assert periods[0] == "1983-07-01" and periods[-1] == "2025-07-01"
+    assert periods[0] == "1983-07-01" and periods[-1] == "2026-07-01"
     assert pts["landsv-13299-005-001"]["values"][periods.index("2009-07-01")] is None   # 基準地でなかった年は0円にしない
     # 地価公示の点には混ざらない
     assert not any(x["id"].startswith("landsv-") for x in load(built, "places/land_price.json")["points"])
@@ -3526,7 +3569,7 @@ def test_land_price_medians(built):
     # 住宅地の地点は最新の年に5つ（共通地点は1つに数える）。古い年は地点が少ないので、8割（4つ）以上ある1995年から
     assert [p["period"] for p in res["periods"]] == [f"{y}-01-01" for y in range(1995, 2027)]
     assert res["periods"][-1]["levels"] == ["municipality", "prefecture"]
-    assert {s.split("@")[0] for s in res["periods"][-1]["source_ids"]} == {"mlit_l01_2026", "mlit_l02_2025"}
+    assert {s.split("@")[0] for s in res["periods"][-1]["source_ids"]} == {"mlit_l01_2026", "mlit_l02_2026"}
     # 商業地は地価調査の基準地が加わった2011年（前年7月の価格）から
     assert com["periods"][0]["period"] == "2011-01-01"
     rows = {r["entity_id"]: r for r in load(built, "values/land_price_residential/2026-01-01/municipalities.json")["rows"]}

@@ -13,10 +13,13 @@
 地点の位置から地図の市区町村を決める。都道府県地価調査の林地（市区町村コードが「02900」のような
 都道府県の番号）は載せない。
 
-「都道府県地価調査データ」（L02、L02-25_13 を 2026-10-10 に GitHub Actions から取得して確認）も同じ形で読む。
+「都道府県地価調査データ」（L02、L02-26_13 を 2026-11-20 に GitHub Actions から取得して確認）も同じ形で読む。
   L02_001 用途区分、L02_002 連番、L02_005 調査年、L02_006 当年の価格、L02_007 変動率、L02_020 市区町村コード、
-  L02_021 市区町村名、L02_022 所在地、L02_024 地積、L02_025 利用現況、L02_044 最寄駅、L02_045 駅までの距離、
-  L02_046 用途地域。L02_055〜L02_097 は 1983年〜2025年の価格の推移（基準地でなかった年は 0）。
+  L02_021 市区町村名、L02_022 所在地、L02_024 地積、L02_025 利用現況、L02_045 最寄駅、L02_046 駅までの距離、
+  L02_047 用途地域。L02_056〜L02_099 は 1983年〜2026年の価格の推移（基準地でなかった年は 0）。
+  2025年版（L02-25）から、L02_041〜043 のあたりに欄が1つ増え、最寄駅から後ろの欄の番号が1つずつずれた
+  （2025年版は最寄駅 L02_044・価格の推移 L02_055〜）。欄がずれていると調査年の価格が推移の欄と合わなくなるので、
+  合わない地点が1割を超えたら取込を止める。
   価格は7月1日時点。基準地の番号は「千代田(都)-1」「千代田(都)5-1」。
 """
 from __future__ import annotations
@@ -33,14 +36,14 @@ from .mlit_stations import _municipality_index, _municipality_of
 FIRST_YEAR = 1983
 # 地価公示（L01）と都道府県地価調査（L02）の属性名。first_price は 1983年の価格の欄の番号
 FIELDS = {
-    "L01": {"code": "L01_001", "use": "L01_002", "seq": "L01_003", "year": "L01_007", "change": "L01_009",
-            "name": "L01_024", "address": "L01_025", "residential_address": "L01_026", "area": "L01_027",
-            "current_use": "L01_028", "station": "L01_048", "distance": "L01_050", "zoning": "L01_051",
-            "first_price": 62, "date": "01-01", "id_prefix": "land"},
-    "L02": {"code": "L02_020", "use": "L02_001", "seq": "L02_002", "year": "L02_005", "change": "L02_007",
-            "name": "L02_021", "address": "L02_022", "residential_address": None, "area": "L02_024",
-            "current_use": "L02_025", "station": "L02_044", "distance": "L02_045", "zoning": "L02_046",
-            "first_price": 55, "date": "07-01", "id_prefix": "landsv"},
+    "L01": {"code": "L01_001", "use": "L01_002", "seq": "L01_003", "year": "L01_007", "price": "L01_008",
+            "change": "L01_009", "name": "L01_024", "address": "L01_025", "residential_address": "L01_026",
+            "area": "L01_027", "current_use": "L01_028", "station": "L01_048", "distance": "L01_050",
+            "zoning": "L01_051", "first_price": 62, "date": "01-01", "id_prefix": "land"},
+    "L02": {"code": "L02_020", "use": "L02_001", "seq": "L02_002", "year": "L02_005", "price": "L02_006",
+            "change": "L02_007", "name": "L02_021", "address": "L02_022", "residential_address": None,
+            "area": "L02_024", "current_use": "L02_025", "station": "L02_045", "distance": "L02_046",
+            "zoning": "L02_047", "first_price": 56, "date": "07-01", "id_prefix": "landsv"},
 }
 PREF_SUFFIX = {"01": "道", "13": "都", "26": "府", "27": "府"}   # 基準地番号の「(都)」など。ほかは「県」
 USE_LABELS = {"000": "住宅地", "003": "宅地見込地", "005": "商業地", "007": "準工業地", "009": "工業地",
@@ -74,6 +77,12 @@ def price_history(props: dict) -> dict[int, float]:
     return out
 
 
+def _price_matches(props: dict) -> bool:
+    f = _fields(props)
+    price = props.get(f["price"])
+    return isinstance(price, (int, float)) and price_history(props).get(int(props[f["year"]])) == float(price)
+
+
 def _text(v) -> str | None:
     return None if v in (None, "", "_") else str(v).replace("　", " ").strip()
 
@@ -85,6 +94,12 @@ def ingest(conn: sqlite3.Connection, path: Path, source_id: str, indicator_id: s
         "SELECT entity_id FROM entities WHERE entity_type = 'municipality'")}
     indexes: dict[str, tuple] = {}   # 都道府県 → 市区町村の形の索引（コードが地図にない地点があったときだけ作る）
     result = {"points": 0, "located_by_point": 0, "no_municipality": 0, "observations": 0}
+    # 欄の並びが版で変わったときに気づけるように、調査年の価格が推移の欄の同じ年の値と合うかを確かめる
+    shifted = sum(1 for feature in features if not _price_matches(feature["properties"]))
+    if shifted > len(features) * 0.1:
+        raise ValueError(f"{path.name}: {shifted}/{len(features)} 地点で調査年の価格が価格の推移の欄と合いません"
+                         "（欄の並びが変わった可能性があります。tdm/ingest/mlit_landprice.py の FIELDS を確かめてください）")
+    result["price_mismatch"] = shifted
     for feature in features:
         p = feature["properties"]
         f = _fields(p)
