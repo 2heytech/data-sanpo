@@ -6,8 +6,11 @@
   地域識別コードは a 全国・都道府県、1 政令指定都市の市全体、0 特別区・政令指定都市の区、2 市、3 町村、
   9 2000年時点の市区町村（表1-1・2-7 にある）。市区町村のコードは「2025年_地域コード」の列か、
   「地域名」の先頭（例: 13101_千代田区）にある。
-  地域の列の前後に分類の列があることがある（表2-7 の「国籍総数か日本人」「男女」、表9-1 の「世帯の家族類型」）。
-  「-」は該当なし（0）、「X」は秘匿。
+  地域の列の前後に分類の列があることがある（表2-7 の「国籍総数か日本人」「男女」、表9-1 の「世帯の家族類型」、
+  表24-4 の「住宅の所有の関係」）。「-」は該当なし（0）、「X」は秘匿。
+  住宅の表（表23-4・24-4、2026-11-20 に GitHub Actions から取得して確認）も同じ形。表24-4 の建物の階数は
+  「1304_共同住宅（11～14階建）」「1305_共同住宅（15階建以上）」に分かれているので、2020年の小地域の表の
+  「11階建以上」に合わせて2つの列を足す（columns の値を列の並びにすると、その列の合計を返す。#247）。
 
 市区町村（地域識別コード 0・2・3）と都道府県（a、全国の行を除く）の行を、国勢調査の小地域の表と同じ形
 （estat_small_area.Table）で返す。都道府県の行は KEY_CODE を2桁にする。政令指定都市の市全体の行は使わない。
@@ -39,7 +42,7 @@ import re
 from pathlib import Path
 
 from ..xlsx import read_sheet
-from .estat_small_area import Table
+from .estat_small_area import Table, parse_cell
 
 MUNICIPALITY_LEVELS = {"0", "2", "3"}
 PREFECTURE_LEVEL = "a"
@@ -59,9 +62,23 @@ def _cell_text(v) -> str:
     return str(v).strip()
 
 
-def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | None = None,
+def _sum_cells(raw: list[str]) -> str:
+    """複数の列の値の合計（文字列）。秘匿（X）が1つでもあれば秘匿、値のない列があれば値なし。「-」は0として足す。"""
+    if len(raw) == 1:
+        return raw[0]
+    cells = [parse_cell(v) for v in raw]
+    for status in ("suppressed", "missing"):
+        hit = next((v for v, c in zip(raw, cells) if c.status == status), None)
+        if hit is not None:
+            return hit
+    total = sum(c.value for c in cells)
+    return str(int(total)) if float(total).is_integer() else str(total)
+
+
+def read_table(path: Path, columns: dict[str, str | list[str]], filters: dict[str, str] | None = None,
                encoding: str = "cp932", row_codes: list[str] | None = None) -> Table:
     """columns: 返す列名 → 「表章項目/項目名」（項目名は先頭が一致すればよい。例: "人口/R1_（再掲）15歳未満"）。
+    Excel では「表章項目/項目名」の並びにすると、その列の合計を返す（例: 11～14階建と15階建以上）。
     CSV（2015・2010年）は列名そのもの（例: "（別掲）総人口"）。
     filters: 分類の列名 → 残す値（例: {"男女": "0_総数"}）。
     row_codes: CSV で、行に含まれていなければならない分類の符号（列名のない分類の列。例: "danjo.0000"）。"""
@@ -85,12 +102,15 @@ def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | No
     items = above[item_row]
     names = above[name_row] + [""] * len(items)
     keys = {j: f"{items[j]}/{names[j]}" for j in range(label_col + 1, len(items)) if items[j]}
-    picked: dict[str, int] = {}
-    for out, spec in columns.items():
-        hits = [j for j, k in keys.items() if _same(k) == _same(spec) or (_same(k).startswith(_same(spec)) and names[j])]
-        if not hits:
-            raise KeyError(f"{path.name}: 列 {spec} が見つかりません。項目: {list(keys.values())}")
-        picked[out] = hits[0]
+    picked: dict[str, list[int]] = {}
+    for out, specs in columns.items():
+        picked[out] = []
+        for spec in specs if isinstance(specs, list) else [specs]:
+            hits = [j for j, k in keys.items()
+                    if _same(k) == _same(spec) or (_same(k).startswith(_same(spec)) and names[j])]
+            if not hits:
+                raise KeyError(f"{path.name}: 列 {spec} が見つかりません。項目: {list(keys.values())}")
+            picked[out].append(hits[0])
     level = head.index(HEAD)
     # 調査の年の地域コードの列（「2025年_地域コード」、遡及集計は「2020年_地域コード」）。2000年の列は使わない
     years = [j for j, c in enumerate(head) if re.fullmatch(r"\d{4}年_地域コード", c) and not c.startswith("2000")]
@@ -118,7 +138,7 @@ def read_table(path: Path, columns: dict[str, str], filters: dict[str, str] | No
             continue
         seen.add(key)
         out_rows.append({"KEY_CODE": key, "HTKSYORI": "", "HTKSAKI": "", "GASSAN": "",
-                         **{name: cells[j] for name, j in picked.items()}})
+                         **{name: _sum_cells([cells[j] for j in js]) for name, js in picked.items()}})
     return Table(["KEY_CODE", "HTKSYORI", "HTKSAKI", "GASSAN", *columns], out_rows, prefecture_rows=True)
 
 

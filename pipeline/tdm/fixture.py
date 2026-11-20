@@ -710,7 +710,7 @@ def _write_industry_tables(directory: Path) -> dict[str, Path]:
     return out
 
 
-# 都道府県地価調査（L02）。1983年からの価格の推移の欄（L02_055〜）は、基準地でなかった年が 0
+# 都道府県地価調査（L02、2026年版の欄の並び）。1983年からの価格の推移の欄（L02_056〜）は、基準地でなかった年が 0
 LAND_SURVEY_POINTS = [   # (市区町村, 市区町村名, 用途, 連番, 経度, 緯度, 基準地になった年)
     ("13199", "サンプル", "000", "001", 139.712, 35.668, 1983),
     ("13199", "サンプル", "000", "002", 139.725, 35.685, 2008),   # 地価公示のサンプル-2 と同じ位置（共通地点）
@@ -719,20 +719,20 @@ LAND_SURVEY_POINTS = [   # (市区町村, 市区町村名, 用途, 連番, 経�
 
 
 def _write_land_survey(directory: Path, rnd: random.Random) -> Path:
-    d = directory / "mlit_l02_2025"
+    d = directory / "mlit_l02_2026"
     features: dict[str, list] = {}
     for city5, city_name, use, seq, lon, lat, since in LAND_SURVEY_POINTS:
         level = {"000": 380_000, "005": 1_500_000}[use]
         prices = [0 if y < since else int(level * (1 + (y - 2000) * 0.01) * rnd.uniform(0.95, 1.05))
-                  for y in range(1983, 2026)]
-        props = {"L02_001": use, "L02_002": seq, "L02_005": 2025, "L02_006": prices[-1],
+                  for y in range(1983, 2027)]
+        props = {"L02_001": use, "L02_002": seq, "L02_005": 2026, "L02_006": prices[-1],
                  "L02_007": round((prices[-1] / prices[-2] - 1) * 100, 1), "L02_020": city5, "L02_021": city_name,
                  "L02_022": f"東京都{city_name}見本町２丁目{seq}番", "L02_024": 150, "L02_025": "住宅",
-                 "L02_044": "見本", "L02_045": 800, "L02_046": "1住居"}
-        props.update({f"L02_{55 + i:03d}": v for i, v in enumerate(prices)})
+                 "L02_045": "見本", "L02_046": 800, "L02_047": "1住居"}
+        props.update({f"L02_{56 + i:03d}": v for i, v in enumerate(prices)})
         features.setdefault(city5[:2], []).append(_point(props, lon, lat))
     for pref, feats in features.items():
-        _write_geojson(d / pref / f"L02-25_{pref}.geojson", feats)
+        _write_geojson(d / pref / f"L02-26_{pref}.geojson", feats)
     return d
 
 
@@ -2326,6 +2326,14 @@ def census2025_values(base: dict, seed: int = 42) -> dict[str, dict[str, int]]:
                       "15～64歳": pop - young - old - unknown, "65歳以上": old,
                       "単独世帯": round(general * rnd.uniform(0.3, 0.6)),
                       "18歳未満世帯員のいる": round(general * rnd.uniform(0.1, 0.25))}
+    # 住宅（表23-4・24-4）。ほかの値が変わらないように乱数を分ける
+    rnd = random.Random(f"{seed}-census2025-housing")
+    for city5, v in out.items():
+        home = v["一般世帯数"] - round(v["一般世帯数"] * rnd.uniform(0.01, 0.03))
+        main = home - round(home * rnd.uniform(0.005, 0.02))
+        v.update({"住宅に住む一般世帯": home, "主世帯": main, "持ち家": round(main * rnd.uniform(0.3, 0.7)),
+                  "民営借家": round(main * rnd.uniform(0.2, 0.5)), "共同住宅11～14階建": round(main * rnd.uniform(0.05, 0.15)),
+                  "共同住宅15階建以上": 0 if city5 == "13499" else round(main * rnd.uniform(0.02, 0.1))})   # 村は「-」
     return out
 
 
@@ -2417,6 +2425,45 @@ def _write_census2025(directory: Path, base: dict, before: dict[str, int]) -> di
         rows.append([level, f"{pref}_{pnames[pref]}", f"{code}_{label}", "1", "3_単独世帯",
                      value(code, "単独世帯"), "-"])
     save("census2025_municipal_family_type", "b09_01.xlsx", rows)
+    # 表23-4: 2000年の市区町村の行（地域識別コード 9）もある。項目名の下に「階層レベル」の行がある
+    items = ["0_総数", "1_住宅に住む一般世帯", "11_主世帯", "111_持ち家", "112_公営・都市再生機構・公社の借家",
+             "113_民営の借家", "114_給与住宅", "12_間借り", "2_住宅以外に住む一般世帯", "3_住居の種類「不詳」"]
+    rows = title + [[None] * 6 + ["表章項目"] + ["一般世帯数"] * len(items),
+                    [None] * 6 + ["事項名"] + ["住宅の所有の関係"] * len(items),
+                    [None] * 6 + ["項目名", *items],
+                    [None] * 6 + ["階層レベル", 1, 1, 2, 3, 3, 3, 3, 2, 1, 1],
+                    [None] * 6 + ["表章単位"] + ["世帯"] * len(items),
+                    ["地域識別コード", "2000年_都道府県", "2000年_地域コード", "2000年地域", "2025年_都道府県",
+                     "2025年_地域コード", "地域名", " "]]
+    for k, (level, pref, code, label) in enumerate(areas):
+        home, main = value(code, "住宅に住む一般世帯"), value(code, "主世帯")
+        own, rent = value(code, "持ち家"), value(code, "民営借家")
+        rows.append([level, f"{pref}_{pnames[pref]}", code, "2000", f"{pref}_{pnames[pref]}", code, f"{1000 + k}_{label}",
+                     value(code, "一般世帯数"), home, main, own, "-", rent, main - own - rent, home - main,
+                     value(code, "一般世帯数") - home, "-"])
+    rows.append(["9", "13_東京都", "13199", "2000", "13_東京都", "13199", "9999_（旧：サンプル町）",
+                 5, 5, 4, 3, "-", 1, "-", 1, "-", "-"])
+    save("census2025_municipal_tenure", "b23_04.xlsx", rows)
+    # 表24-4: 住宅の所有の関係の分類の列が地域の後ろにある。建物の階数は11～14階建と15階建以上に分かれる
+    items = ["0_総数", "1_住宅に住む一般世帯", "11_一戸建", "12_長屋建", "13_共同住宅", "1301_共同住宅（1・2階建）",
+             "1302_共同住宅（3～5階建）", "1303_共同住宅（6～10階建）", "1304_共同住宅（11～14階建）",
+             "1305_共同住宅（15階建以上）", "14_その他"]
+    rows = title + [[None] * 3 + ["表章項目"] + ["一般世帯数"] * len(items),
+                    [None] * 3 + ["事項名"] + ["住宅の建て方・世帯が住んでいる階"] * len(items),
+                    [None] * 3 + ["項目名", *items],
+                    [None] * 3 + ["階層レベル", 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 2],
+                    [None] * 3 + ["表章単位"] + ["世帯"] * len(items),
+                    ["地域識別コード", "都道府県", "地域名", "住宅の所有の関係", " "]]
+    for level, pref, code, label in areas:
+        main = value(code, "主世帯")
+        mid, high = value(code, "共同住宅11～14階建"), value(code, "共同住宅15階建以上")
+        low = round(main * 0.2)
+        detached = main - low - mid - high
+        for tenure, scale in (("0_総数", 1.0), ("11_主世帯", 1.0), ("111_持ち家", 0.5)):
+            f = (lambda x: round(x * scale))
+            rows.append([level, f"{pref}_{pnames[pref]}", f"{code}_{label}", tenure, f(main), f(main), f(detached), "-",
+                         f(low + mid + high), f(low), "-", "-", f(mid), f(high) if high else "-", "-"])
+    save("census2025_municipal_building_type", "b24_04.xlsx", rows)
     return out
 
 
