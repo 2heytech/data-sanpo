@@ -368,7 +368,9 @@ const toc = [
   {kinds.length > 0 && kindWords && (
     <>
       <h3 id="muni-kinds">市・町・村・東京23区ごとの順位（{period.label}）</h3>
-      <p class="muted small">市区町村を市・町・村・東京23区に分け、それぞれの中で並べています。政令指定都市は区の合計を1つの市として数え{kindExcluded.length > 0 && `（市全体の値のない${kindExcluded.join("・")}は入れていません）`}、区は入れていません。</p>
+      <p class="muted small">市区町村を市・町・村・東京23区に分け、それぞれの中で並べています。{cityRows
+        ? <>政令指定都市は区の合計を1つの市として数え{kindExcluded.length > 0 && `（市全体の値のない${kindExcluded.join("・")}は入れていません）`}、区は入れていません。</>
+        : "政令指定都市は、市全体の値を区から計算できないため、市も区も入れていません。"}</p>
       {kinds.map((k) => (
         <div class="kind-block">
           <h4>{k.kind}（{k.total.toLocaleString("ja-JP")}）</h4>
@@ -556,4 +558,8 @@ const toc = [
   #muni-tables :global(tr.found td:first-child) { box-shadow: inset 4px 0 0 var(--accent); }
   .kind-block h4 { margin: 16px 0 6px; font-size: 1rem; }
   .kind-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; align-items: start; }
+  .kind-pair :global(.ranking) { min-width: 0; }
+  .kind-pair :global(.ranking .col-rank) { width: 4.5em; }
+  .kind-pair :global(.ranking .col-value) { width: 8.5em; }
+  .kind-pair > :global(.table-scroll + .table-scroll) { margin-top: 0; }
 </style>
