@@ -2823,6 +2823,16 @@ def test_jhs_progress(built):
     assert pri["muni-13499"]["value"] is None and pri["muni-13499"]["status"] == "withheld"   # 卒業者10人未満
 
 
+def test_jhs_progress_sources_have_labels():
+    """進路状況調査の出典の時点（3月31日）には、どの指標にも「〇年3月卒業」の名前がある（#247 で2023・2024年を足した）。"""
+    from tdm.config import load_sources
+    periods = {c["period"] for c in load_sources().values() if c.get("kind") == "tokyo_jhs_progress"}
+    assert periods == {"2023-03-31", "2024-03-31", "2025-03-31"}
+    for d in load_indicators().values():
+        if d.get("source_kind") == "tokyo_jhs_progress":
+            assert {p: f"{p[:4]}年3月卒業" for p in periods} == d["period_labels"]
+
+
 def test_elections(built):
     from tdm.ingest.tokyo_election import read_turnout
     by = {i["id"]: i for i in load(built, "indicators.json")["indicators"]}

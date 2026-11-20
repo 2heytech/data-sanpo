@@ -5960,7 +5960,10 @@ redistributable = true
 
 # 公立小学校卒業者の進路（東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」小学校 第1表）。
 # 区市町村別は報告書の前年度の卒業者（令和7年度版＝令和7年3月卒業）。形式は pipeline/tdm/ingest/tokyo_jhs_progress.py を参照。
-# 東京都オープンデータカタログ（CC BY 4.0）に載っている令和7年度報告（令和7年3月卒業）だけを使う。
+# 東京都オープンデータカタログ（CC BY 4.0）に載っている令和5〜7年度報告（2023〜2025年3月卒業）だけを使う（#70・#247）。
+# カタログのファイルは CSV。同じ値の Excel が都教委のサイトにあるので、取得先は都教委のサイトの Excel にする
+# （2026-11-20 に GitHub Actions から両方を取得し、区市町村の値が同じことを確かめた）。
+# 令和8年度報告（2026年3月卒業）は 2026-10-09 に都教委のサイトに出たが、カタログにはまだない（2026-11-20 時点）。
 
 [tokyo_jhs_progress_2025]
 kind = "tokyo_jhs_progress"
@@ -5971,6 +5974,36 @@ url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000021d2000000192"
 download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/r7-sotsugo-01"
 download_filename = "sotsugo01_2025.xlsx"
 files = ["sotsugo01_2025.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
+modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
+redistributable = true
+
+[tokyo_jhs_progress_2024]
+kind = "tokyo_jhs_progress"
+period = "2024-03-31"
+title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2024年3月卒業） 小学校 第1表 状況別卒業者数"
+provider = "東京都教育委員会"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000021d2000000187"
+download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/statistics_and_research_report2024_sotsugo-01_r61119"
+download_filename = "sotsugo01_2024.xlsx"
+files = ["sotsugo01_2024.xlsx"]
+license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
+license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
+attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
+modification_note = "区市町村別の公立小学校卒業者数と進学先別の進学者数から進学率を算出して作成"
+redistributable = true
+
+[tokyo_jhs_progress_2023]
+kind = "tokyo_jhs_progress"
+period = "2023-03-31"
+title = "公立学校統計調査報告書【公立学校卒業者の進路状況調査編】（2023年3月卒業） 小学校 第1表 状況別卒業者数"
+provider = "東京都教育委員会"
+url = "https://catalog.data.metro.tokyo.lg.jp/dataset/t000021d2000000177"
+download_url = "https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/sotsugo-01_4"
+download_filename = "sotsugo01_2023.xlsx"
+files = ["sotsugo01_2023.xlsx"]
 license = "クリエイティブ・コモンズ 表示 4.0 国際（東京都オープンデータ利用規約）"
 license_url = "https://portal.data.metro.tokyo.lg.jp/terms/"
 attribution = "出典：東京都教育委員会「公立学校統計調査報告書【公立学校卒業者の進路状況調査編】」"
