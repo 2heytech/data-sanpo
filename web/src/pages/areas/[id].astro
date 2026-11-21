@@ -25,6 +25,8 @@ import { municipalityPeriods } from "../../lib/periods";
 import { statGroups } from "../../lib/statList";
 import { jukiPopulation, populationChangeIndicator, populationHistory } from "../../lib/populationHistory";
 import { jukiLines, signed } from "../../lib/jukiPopulation";
+import { furusatoAreaLead } from "../../lib/furusatoPicks";
+import { RAKUTEN_AFFILIATE_ID } from "../../lib/rakuten";
 import type { Municipality, ValueRow } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -115,12 +117,21 @@ const aramashi = RELEASE.is_fixture ? null : aramashiOf(muni.id);
 const hasIntro = summary.length > 0 || insights.length > 0 || !!aramashi;
 // この市区町村が順位の表に出てくる寄り道（設計変更記録 #234）
 const areaArticles = articlesForArea(muni.id, publishedArticles(), await articleMentions());
+// ふるさと納税の返礼品の欄（楽天のリンク）。最初の1文はこの市区町村の受入額で、順位は上位のときだけ書く（設計変更記録 #252）。
+// 政令指定都市の区は区の値がなく、欄は市の返礼品を探すので、受入額の文を出さない
+const furusatoOn = !!RAKUTEN_AFFILIATE_ID && !!pref;
+const furusato = stats.find((s) => s.ind.id === "furusato_amount");
+const furusatoLead = furusato ? furusatoAreaLead({
+  name: muni.name, prefName: pref, value: furusato.row?.value, periodLabel: furusato.period.label,
+  inPref: furusato.ranks[0], national: furusato.ranks[1],
+}) : null;
 // 冒頭の目次（設計変更記録 #193・#215）。スマホでは表やとなりのまちとの比べがずっと下にあるので、最初にそこへ移れるようにする
 const toc = [
   ...(history.length ? [{ id: "population", label: "人口の移り変わり" }] : []),
   ...(hasIntro ? [{ id: "profile", label: `データで見る${muni.name}` }] : []),
   ...(loadCenterSpots().has(muni.id) ? [{ id: "photos", label: "中心部の昔と今" }] : []),
   ...(areaArticles.length ? [{ id: "articles", label: `登場する寄り道（${areaArticles.length}）` }] : []),
+  ...(furusatoOn ? [{ id: "furusato", label: "ふるさと納税の返礼品" }] : []),
   { id: "stats", label: `主な指標（${statCount}）` },
   ...(neighbors.length ? [{ id: "compare", label: "となりの市区町村と比べる", main: true }] : []),
   ...(smallAreaTables(muni).tables.length ? [{ id: "small-areas", label: "町丁目別ランキング" }] : []),
@@ -224,6 +235,9 @@ const toc = [
 
   <AreaArticles id="articles" name={muni.name} lead={`順位の表に${muni.name}が出てくる分析記事です。`} items={areaArticles} />
 
+  {/* ふるさと納税の返礼品（楽天のリンク）。長い指標の表の前に置く（設計変更記録 #252） */}
+  <FurusatoLink muni={muni} pref={pref} lead={furusatoLead} />
+
   <section class="sheet" id="stats">
     <h2>主な指標<span class="count">{statCount}</span></h2>
     <StatList groups={groups} rankLabels={[`${pref}内`, "全国"]} />
@@ -235,8 +249,6 @@ const toc = [
   )}
 
   <SmallAreaRanking muni={muni} />
-
-  <FurusatoLink muni={muni} pref={pref} />
 
   <section class="sheet">
     <h2>データについて</h2>

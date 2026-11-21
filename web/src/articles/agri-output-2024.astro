@@ -2,6 +2,8 @@
 import Article from "../layouts/Article.astro";
 import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
+import FurusatoPicks from "../components/FurusatoPicks.astro";
+import { furusatoPicks } from "../lib/furusatoPicks";
 import { areaName, check, rankNumber, ranking, raw, value } from "../lib/articleData";
 import { formatNumber } from "../lib/format";
 
@@ -74,6 +76,11 @@ check(["pref-46", "pref-43", "pref-45"].every((id) => (rankNumber(ID, P, id) ?? 
 // 「都城市と別海町は、ふるさと納税の受入額でも全国の上位4つに入る」
 check([MIYAKONOJO, BETSUKAI].every((id) => (rankNumber("furusato_amount", "2025-04-01", id) ?? 99) <= 4),
   "都城市・別海町が、2025年度のふるさと納税の受入額の上位4つに入っていません");
+// 記事の最後の、農業産出額の表の上位10の市町村の返礼品を楽天ふるさと納税で探すリンク（設計変更記録 #252）
+const picks = furusatoPicks(ranking(ID, P, "municipality", "high", 10).map((r) => {
+  const prefName = areaName(`pref-${r.entity_id.slice(5, 7)}`);
+  return { label: `${r.rank}位`, name: areaName(r.entity_id, false), pref: prefName, sub: prefName };
+}));
 ---
 <Article slug="agri-output-2024">
   <p>
@@ -175,6 +182,8 @@ check([MIYAKONOJO, BETSUKAI].every((id) => (rankNumber("furusato_amount", "2025-
     <li>都道府県の値は「生産農業所得統計」の公表値で、市町村の推計に入らない品目も含むため、市町村の値を足しても一致しません。</li>
     <li>農業産出額は、農産物を農家が売った値段で計算した額で、農家のもうけ（所得）ではありません。1月から12月までの1年間の値です。</li>
   </ul>
+  <FurusatoPicks bare id="furusato" heading="表のまちの返礼品を探す" items={picks}
+    lead={`農業産出額の上位${picks.length}の市町村の返礼品を、楽天ふるさと納税で探せます。米・野菜・果実・畜産それぞれの上位のまちは、各指標のページから探せます。`} />
 </Article>
 
 <style>

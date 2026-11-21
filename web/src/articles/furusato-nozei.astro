@@ -1,10 +1,11 @@
 ---
-import { RAKUTEN_FURUSATO_TOP, rakutenAffiliateUrl } from "../lib/rakuten";
 import Article from "../layouts/Article.astro";
+import FurusatoPicks from "../components/FurusatoPicks.astro";
+import { furusatoPicks } from "../lib/furusatoPicks";
 import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
 import { formatNumber } from "../lib/format";
-import { check, man, manYen, oku, parts, rankNumber, ranking, raw, rows } from "../lib/articleData";
+import { areaName, check, man, manYen, oku, parts, rankNumber, ranking, raw, rows } from "../lib/articleData";
 
 const P = "2025-04-01";
 const ID = "furusato_amount";
@@ -45,7 +46,11 @@ check(thousands >= 5 && thousands <= 8, "白糠町の人口が5千〜8千人台�
 const prefRows = rows(ID, P, "prefecture");
 const total = prefRows.length && prefRows.every((r) => r.value !== null) ? prefRows.reduce((s, r) => s + (r.value as number), 0) : null;
 const cho = total === null ? "—" : `約${formatNumber(Math.floor(total / 1e6), 0)}兆${formatNumber(Math.round((total % 1e6) / 100), 0)}億円`;
-const rakuten = rakutenAffiliateUrl(RAKUTEN_FURUSATO_TOP);
+// 記事の最後の、受入額の表の上位10の市区町村の返礼品を楽天ふるさと納税で探すリンク（設計変更記録 #252）
+const picks = furusatoPicks(top10.map((r) => {
+  const prefName = areaName(`pref-${r.entity_id.slice(5, 7)}`);
+  return { label: `${r.rank}位`, name: areaName(r.entity_id, false), pref: prefName, sub: prefName };
+}));
 ---
 <Article slug="furusato-nozei">
   <p>
@@ -101,16 +106,6 @@ const rakuten = rakutenAffiliateUrl(RAKUTEN_FURUSATO_TOP);
     <li>住民1人あたりの額は、受入額を{censusYear}年国勢調査の人口で割った値です。</li>
     <li>政令指定都市は市全体の値しか公表されていないため、区ごとの値はありません。</li>
   </ul>
-  {rakuten && (
-    <>
-      <h2>返礼品を探す</h2>
-      <p>
-        各自治体の返礼品は、ふるさと納税のサイトで探せます。データさんぽの地域のページにも、その市区町村の返礼品を楽天ふるさと納税で探すリンクを置いています。
-      </p>
-      <p>
-        <a class="button secondary" href={rakuten} target="_blank" rel="sponsored noopener">楽天ふるさと納税を開く</a>
-        <span class="ad-mark">広告</span>
-      </p>
-    </>
-  )}
+  <FurusatoPicks bare id="furusato" heading="表のまちの返礼品を探す" items={picks}
+    lead={`受入額の上位${picks.length}の市区町村の返礼品を、楽天ふるさと納税で探せます。ほかの市区町村は、地域のページの「ふるさと納税の返礼品」から探せます。`} />
 </Article>

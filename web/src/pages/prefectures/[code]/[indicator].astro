@@ -5,6 +5,9 @@ import Base from "../../../layouts/Base.astro";
 import ShareButtons from "../../../components/ShareButtons.astro";
 import { providersOf } from "../../../lib/shareImages";
 import RankingTable, { type RankingRow } from "../../../components/RankingTable.astro";
+import FurusatoPicks from "../../../components/FurusatoPicks.astro";
+import PrNotice from "../../../components/PrNotice.astro";
+import { PICK_INDICATORS, PREF_PICK_COUNT, furusatoPicks, pickLead } from "../../../lib/furusatoPicks";
 import { loadAreas, loadIndicators, loadSources, loadValues } from "../../../lib/data";
 import { periodYear } from "../../../lib/areaSummary";
 import { cityValues, designatedCities } from "../../../lib/designatedCities";
@@ -77,6 +80,10 @@ const commonNote = notes.length <= 1 ? notes[0] ?? "" : null;
 const nationalTotal = ranking.rows[0]?.national?.total ?? 0;
 const sourceTitles = [...new Set(period.source_ids.map((id) => sources.get(id)?.title ?? id))];
 
+// 農業産出額などは、県内の上位のまちの返礼品を楽天ふるさと納税で探すリンクを置く（設計変更記録 #252）。区をまとめた政令指定都市は除く
+const pickConf = PICK_INDICATORS[ind.id];
+const picks = pickConf ? furusatoPicks(ranking.rows.filter((r) => !r.city && r.rank !== null).slice(0, PREF_PICK_COUNT)
+  .map((r) => ({ label: `${r.rank}位`, name: r.muni.name, pref: pref.name })), pickConf.keyword) : [];
 // 同じ都道府県のほかの指標と、ほかの都道府県の同じ指標（どちらもページのあるものだけ）
 const prefCount = areas.prefectures.length;
 const munisOf = (code: string) => areas.municipalities.filter((m) => m.prefecture === code);
@@ -102,6 +109,7 @@ const structured = breadcrumbList(Astro.site, [
       <a class="button" href={toMap(`pref-${pref.code}`)}>地図で{pref.name}を見る</a>
       <a class="button secondary" href={`/indicators/${ind.id}/`}>全国のランキング</a>
     </div>
+    {picks.length > 0 && <PrNotice />}
   </header>
 
   <section class="sheet findings">
@@ -132,6 +140,8 @@ const structured = breadcrumbList(Astro.site, [
     )}
     <p class="muted small">出典: {sourceTitles.join("／")}。意味・計算方法・注意点は<a href={`/indicators/${ind.id}/`}>{ind.name}のページ</a>にあります。</p>
   </section>
+
+  {pickConf && <FurusatoPicks id="furusato" heading={`${pref.name}で${pickConf.heading}`} lead={pickLead(ind.name, pickConf, picks.length, `${pref.name}の`)} items={picks} />}
 
   {otherIndicators.length > 0 && (
     <section class="sheet">

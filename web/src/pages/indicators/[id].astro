@@ -3,6 +3,8 @@ import Base from "../../layouts/Base.astro";
 import ShareButtons from "../../components/ShareButtons.astro";
 import RankingTable, { type RankingRow } from "../../components/RankingTable.astro";
 import MapFigure from "../../components/MapFigure.astro";
+import FurusatoPicks from "../../components/FurusatoPicks.astro";
+import PrNotice from "../../components/PrNotice.astro";
 import { DATA_BASE, loadAreas, loadIndicators, loadSmallAreaRows, loadSmallAreas, loadSources, loadValues } from "../../lib/data";
 import { formatValue, ranked, splitRanking, STATUS_LABEL } from "../../lib/format";
 import { breadcrumbList, indicatorDataset } from "../../lib/structured";
@@ -18,6 +20,7 @@ import { mapHref } from "../../lib/urlstate";
 import { barScale, barStyle, barZero } from "../../lib/valueBars";
 import { hasPrefIndicatorPage, prefIndicatorPath } from "../../lib/prefectureRanking";
 import { KIND_PAGES, kindFacts, kindRankings, type KindEntry } from "../../lib/muniKinds";
+import { PICK_COUNT, PICK_INDICATORS, furusatoPicks, pickLead } from "../../lib/furusatoPicks";
 import type { Indicator } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -210,9 +213,17 @@ const smallScale = barScale(smallAreaRanked.map((r) => r.value));
 // 名前で探す欄は、目で探すには長い表（上位と下位に分かれる・畳まれた行がある）のときだけ出す（#225）
 const FIND_MIN_ROWS = 50;
 const showFind = muniValues.length >= FIND_MIN_ROWS;
+// ふるさと納税・農業産出額の指標は、市区町村の上位のまちの返礼品を楽天ふるさと納税で探すリンクを置く（設計変更記録 #252）
+const pickConf = nationwide ? PICK_INDICATORS[ind.id] : undefined;
+const picks = pickConf ? furusatoPicks(muniRanking.top.slice(0, PICK_COUNT).map((r) => {
+  const m = munis.get(r.entity_id)!;
+  const prefName = prefNames.get(m.prefecture) ?? "";
+  return { label: `${r.rank}位`, name: m.name, pref: prefName, sub: prefName };
+}), pickConf.keyword) : [];
 // ページの先頭の目次（#225）。長いページで、ランキングと計算方法へすぐ移れるようにする
 const toc = [
   ...(findings.length > 0 || image ? [{ href: "#findings", label: "データから分かること" }] : []),
+  ...(picks.length > 0 ? [{ href: "#furusato", label: "上位のまちの返礼品" }] : []),
   ...(prefRows.length > 0 ? [{ href: "#pref-ranking", label: "都道府県ランキング" }] : []),
   ...(muniValues.length > 0 ? [{ href: "#muni-ranking", label: "市区町村ランキング" }] : []),
   ...(kinds.length > 0 ? [{ href: "#muni-kinds", label: "市・町・村ごとの順位" }] : []),
@@ -231,6 +242,7 @@ const toc = [
       <a class="button" href={`/map/?i=${ind.id}`}>地図で見る</a>
       <a class="button secondary" href="/#indicators">指標の一覧</a>
     </div>
+    {picks.length > 0 && <PrNotice />}
   </header>
 
   <nav class="toc" aria-label="このページの内容">{toc.map((t) => <a href={t.href}>{t.label}</a>)}</nav>
@@ -262,6 +274,8 @@ const toc = [
       <p class="muted small">下の表と同じ公開データから数えた事実です。値の大きい順の順位で、大きいほど良い・悪いという意味ではありません。</p>
     </section>
   )}
+
+  {pickConf && <FurusatoPicks id="furusato" heading={pickConf.heading} lead={pickLead(ind.name, pickConf, picks.length)} items={picks} />}
 
   <section class="sheet">
   {partial && (

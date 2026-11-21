@@ -2,34 +2,35 @@
 // 地域ページの「ふるさと納税の返礼品」の欄（楽天ふるさと納税へのリンク、設計変更記録 #189）。
 // 政令指定都市の区は区ごとの寄附先がないので、市の返礼品を探すリンクにする。ID がなければ何も出さない。
 // 楽天の API のキーがあれば、欄が画面に入ったときに返礼品を4件まで画像付きで並べる（#195）。
-// 取れなかったとき・その自治体の品が見つからないときは何も足さず、リンクのボタンだけにする
+// 取れなかったとき・その自治体の品が見つからないときは何も足さず、リンクのボタンだけにする。
+// 欄は「主な指標」の前に置いて目次から移れるようにし、最初の1文はその市区町村の受入額（上位なら順位も）にする。
+// ボタンは藍の塗り、「広告」は見出しの横に1つ（#252）
 import { RAKUTEN_API, rakutenAffiliateUrl, rakutenFurusatoSearchUrl } from "../lib/rakuten";
 import { isDesignatedWard } from "../lib/prefecturePage";
 import type { Municipality } from "../lib/types";
 
-interface Props { muni: Municipality; pref: string }
-const { muni, pref } = Astro.props;
+interface Props { muni: Municipality; pref: string; lead?: string | null }
+const { muni, pref, lead } = Astro.props;
 const ward = isDesignatedWard(muni);
 const target = ward ? muni.region! : muni.name;
 const href = pref ? rakutenAffiliateUrl(rakutenFurusatoSearchUrl(pref, target)) : null;
 ---
 {href && (
-  <section class="sheet furusato-link">
-    <h2>ふるさと納税の返礼品</h2>
+  <section class="sheet furusato-link furusato-box" id="furusato">
+    <h2>ふるさと納税の返礼品<span class="ad-mark">広告</span></h2>
     <p>
-      {ward ? `${muni.name}を含む${target}` : target}へのふるさと納税の返礼品は、楽天ふるさと納税で探せます。
+      {lead ? `${lead}返礼品は楽天ふるさと納税で探せます。` : `${ward ? `${muni.name}を含む${target}` : target}へのふるさと納税の返礼品は、楽天ふるさと納税で探せます。`}
     </p>
     {RAKUTEN_API && (
       <div class="furusato-items" hidden data-pref={pref} data-name={target}
         data-app={RAKUTEN_API.appId} data-key={RAKUTEN_API.accessKey} data-aff={RAKUTEN_API.affiliateId}>
-        <p class="muted small">楽天ふるさと納税にある{target}の返礼品の例です（楽天の検索結果から。押すと楽天のページを開きます）。<span class="ad-mark">広告</span></p>
+        <p class="muted small">{target}の返礼品の例（楽天ふるさと納税の検索結果から。押すと楽天のページを開きます）</p>
         <ul></ul>
         <p class="muted small credit"></p>
       </div>
     )}
-    <p>
-      <a class="button secondary" href={href} target="_blank" rel="sponsored noopener">楽天ふるさと納税で{target}の返礼品を探す</a>
-      <span class="ad-mark">広告</span>
+    <p class="furusato-cta">
+      <a class="button ext-link" href={href} target="_blank" rel="sponsored noopener"><span>楽天ふるさと納税で<span class="wide-only">{target}の</span>返礼品を見る</span></a>
     </p>
   </section>
 )}

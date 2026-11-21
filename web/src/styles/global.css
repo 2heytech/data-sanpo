@@ -237,6 +237,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 
 /* 広告（楽天アフィリエイト）のリンクと、ページの冒頭の「広告を含みます」（設計変更記録 #189） */
 .pr-notice { flex-basis: 100%; margin: 0; font-size: 0.8rem; }
+.page-head:not(.area-head) .actions + .pr-notice { margin-top: 10px; }
 .ad-mark { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--muted); border-radius: 3px; font-size: 0.7rem; color: var(--muted); vertical-align: middle; }
 /* 地域ページの返礼品の例（楽天の API から。設計変更記録 #195） */
 .furusato-items ul { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
@@ -246,7 +247,44 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .furusato-items .item-name { font-size: 0.85rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .furusato-items .item-price { font-size: 0.8rem; color: var(--muted); }
 .furusato-items .credit { margin-top: 4px; }
-@media (max-width: 640px) { .furusato-items ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 欄の面は淡い藍、ボタンは藍の塗りにして、データの欄と見分けられるようにする。「広告」は見出しの横に1つ。
+   スマホでは返礼品の例を横に送る1列にして、欄が縦に長くなりすぎないようにする（設計変更記録 #252） */
+.furusato-box { background: var(--accent-soft); border-color: #b9d0ea; }
+.furusato-box h2 { margin-top: 0; }
+.furusato-picks h2 .ad-mark, .furusato-link h2 .ad-mark { margin-left: 10px; font-weight: 400; vertical-align: 0.2em; }
+.furusato-box .furusato-items img { background: var(--surface); }
+.furusato-cta { margin: 14px 0 0; }
+/* 別タブで楽天のページを開くリンクの印（↗） */
+.ext-link::after {
+  content: ""; display: inline-block; width: 0.8em; height: 0.8em; margin-left: 0.35em; vertical-align: -0.05em; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* 上位のまちの返礼品の箱（指標ページ・都道府県ページ・寄り道、#252） */
+.furusato-picks > p:not(.furusato-cta) { margin: 0 0 4px; }
+.button.ext-link::after { margin-left: 0; }
+.furusato-chips { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.furusato-chips.wide { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.furusato-chips a {
+  display: flex; align-items: baseline; gap: 8px; height: 100%; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 10px;
+  background: var(--surface); color: var(--accent-ink); font-weight: 600; line-height: 1.4; text-decoration: none;
+}
+.furusato-chips a:hover { background: var(--accent-soft); color: var(--accent-ink); }
+.furusato-chips a::after { margin-left: auto; flex: none; align-self: center; }
+.furusato-chips .r { min-width: 2.4em; color: var(--muted); font-size: 0.8rem; font-weight: 400; font-variant-numeric: tabular-nums; }
+.furusato-chips .n, .furusato-chips .s { white-space: nowrap; }
+.furusato-chips .s { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
+@media (max-width: 640px) {
+  .furusato-items ul { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; padding-bottom: 6px; }
+  .furusato-items li { flex: 0 0 40%; scroll-snap-align: start; }
+  .furusato-cta .button { display: flex; justify-content: center; text-align: center; }
+  .furusato-chips, .furusato-chips.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .furusato-chips a { padding: 8px 10px; }
+  .furusato-chips .s { display: none; }
+  .furusato-chips .n { white-space: normal; }
+  .furusato-chips .r { min-width: 2.2em; }
+  .wide-only { display: none; }
+}
 
 /* --- フッター --- */
 .site-footer { background: var(--ink); color: #d7e2ef; margin-top: 40px; }

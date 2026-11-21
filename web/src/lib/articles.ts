@@ -160,6 +160,7 @@ export const ARTICLES: Article[] = [
     theme: "money",
     indicators: ["agri_output", "agri_output_vegetables", "agri_output_livestock", "agri_output_rice", "agri_output_fruits"],
     mapHref: "/map/?i=agri_output&p=2024-01-01&a=muni-23231&l=municipality",
+    affiliate: true,
   },
   {
     slug: "households-with-children",
