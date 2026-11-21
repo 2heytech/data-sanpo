@@ -1,0 +1,79 @@
+---
+// 寄り道の中の港（国土交通省「港湾統計」の船舶乗降人員）の表。乗降人員の多い順に並べ（lib/articleData.ts の portRanking）、
+// 港の名前から、その港を選んだ地図（年ごとの乗降人員の表つき）を開く。本文で挙げた港（expect）が表に入るかを確かめる。
+// also を渡すと、同じ港の別の年・外国航路の値も並べる（値のない港は「—」。0 にしない）
+import { portName, portPeriodLabel, portRanking, portValue, type PortKey } from "../lib/articleData";
+import { collectTable } from "../lib/articleLinks";
+import { loadAreas } from "../lib/data";
+import { formatNumber } from "../lib/format";
+import type { TransportPoint } from "../lib/types";
+
+interface Props {
+  period: string;
+  /** 並べる値（values: 合計、international: 外国航路） */
+  key?: PortKey;
+  /** 値の列の見出し */
+  label: string;
+  also?: { period: string; key?: PortKey; label: string };
+  n?: number;
+  expect?: (TransportPoint | null)[];
+  caption: string;
+}
+const { period, key = "values", label, also, n = 10, expect = [], caption } = Astro.props;
+const list = portRanking(period, n, expect, key);
+// 港のある市区町村を、表に出てくる地域として数える（#234）
+collectTable(Astro.locals, caption, list.map((r) => ({ id: r.port.municipality_id, rank: r.rank, via: portName(r.port) })));
+const areas = loadAreas();
+const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
+const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));
+// スマホの狭い列で「廿日市市（広」「島県）」と切れないように、名前と（〜）の間で折り返す
+const place = (id: string) => {
+  const m = munis.get(id);
+  return m ? [m.name, `（${prefs.get(m.prefecture) ?? ""}）`] : [];
+};
+const pieces = (name: string) => name.split(/(?=（)/);
+// 単位（人）は列の見出しに書き、スマホの狭い列でも数が収まるようにする
+const people = (v: number | null) => (v === null ? "—" : formatNumber(v, 0));
+---
+{list.length > 0 && (
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking ports">
+        <caption>{caption}</caption>
+        <thead><tr>
+          <th class="num col-rank">順位</th><th>港</th><th class="num col-value">{label}（人）</th>
+          {also && <th class="num col-value">{also.label}（人）</th>}
+        </tr></thead>
+        <tbody>
+          {list.map((r) => (
+            <tr>
+              <td class="num">{`${formatNumber(r.rank, 0)}位`}</td>
+              <td>
+                <a href={`/map/?pt=${r.port.id}`}>{pieces(portName(r.port)).map((t) => <span class="piece">{t}</span>)}</a>
+                <span class="port-meta muted"><a href={`/areas/${r.port.municipality_id}/`}>{place(r.port.municipality_id).map((t) => <span class="piece">{t}</span>)}</a></span>
+              </td>
+              <td class="num">{people(r.value)}</td>
+              {also && <td class="num">{people(portValue(r.port, also.period, also.key))}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <figcaption class="muted">
+      国土交通省「港湾統計」の、{portPeriodLabel(period)}の{key === "international" ? "外国航路の" : ""}乗降人員（船に乗った人と降りた人の合計）の多い順です。港の名前から、年ごとの乗降人員を地図で見られます。
+    </figcaption>
+  </figure>
+)}
+
+<style>
+  .port-meta { display: block; font-size: 0.8rem; }
+  .piece { display: inline-block; }
+  table.ranking.ports .col-rank { width: 4.5em; }
+  table.ranking.ports .col-value { width: 9em; }
+  @media (max-width: 640px) {
+    table.ranking.ports th, table.ranking.ports td { padding-left: 6px; padding-right: 6px; }
+    table.ranking.ports .col-rank { width: 3.2em; }
+    table.ranking.ports .col-value { width: 5.8em; }
+    table.ranking.ports td.num { white-space: nowrap; font-size: 0.85rem; }
+  }
+</style>

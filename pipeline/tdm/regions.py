@@ -82,3 +82,26 @@ def region_of(city_code5: str, designated_city: str | None = None) -> str | None
             return "多摩"
         return "島しょ"
     return designated_city or None
+
+
+def map_municipalities(conn) -> list:
+    """地図の市区町村（最新の国勢調査の境界がある市区町村）の entity_id・name・region。
+    過去の境界で作った、今はない市区町村（2012年に政令指定都市になる前の熊本市 43201、合併した町村など）を
+    名前で取り違えないように使う。境界がまだない（テストの小さな DB）ときは全部の市区町村。"""
+    from .config import load_censuses
+    version = load_censuses()[-1]["boundary_version"]
+    rows = conn.execute(
+        """SELECT e.entity_id, e.name, e.region FROM entities e JOIN boundaries b ON b.entity_id = e.entity_id
+             WHERE e.entity_type = 'municipality' AND b.boundary_version = ? ORDER BY e.entity_id""", (version,)).fetchall()
+    return rows or conn.execute(
+        "SELECT entity_id, name, region FROM entities WHERE entity_type = 'municipality' ORDER BY entity_id").fetchall()
+
+
+REORGANIZED_WARD_NOTE = "区の再編で、表の区が地図の区（2020年国勢調査の区）と合わないため値なし"
+
+
+def wards_without_rows(conn, written: set[str]) -> list[str]:
+    """政令指定都市の区（地図の区）のうち、表に行のなかった地域ID。区を再編した市（浜松市は2024年1月）の
+    古い区は、新しい区の表に行がない。値なし（0 にしない）にして理由を書くのに使う。"""
+    return [r["entity_id"] for r in map_municipalities(conn)
+            if r["region"] and r["entity_id"][5:7] != TOKYO and r["entity_id"] not in written]

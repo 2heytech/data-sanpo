@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
+import sharp from "sharp";
 import { BLANK_COLOR, classIndex, colorsFor, NO_DATA_COLOR } from "./classify";
 import { frameFor, pathFor, type Frame, type Geometry } from "./shape";
 
@@ -250,8 +251,13 @@ export function choroplethSvg(spec: ChoroplethSpec): string {
     + `<rect y="${IMAGE_HEIGHT - 14}" width="${IMAGE_WIDTH}" height="14" fill="${ACCENT}"/></svg>`;
 }
 
-/** 色分け地図の PNG。文字がフォントにないときは止める */
-export function choroplethPng(spec: ChoroplethSpec): Uint8Array<ArrayBuffer> {
+/**
+ * 色分け地図の PNG。文字がフォントにないときは止める。
+ * resvg の出す PNG はフルカラー（1枚 100〜170KB）で、記事や都道府県・指標のページでいちばん重い部品だった。
+ * 絵は塗り分けと文字だけなので 256色にまとめても見分けが付かず（色の差は平均 0.1 階調未満）、大きさは約3分の1になる（#223）。
+ * 色のまとめ方は毎回同じ結果になるので、中身の変わらない画像は公開のたびに送り直されない
+ */
+export async function choroplethPng(spec: ChoroplethSpec): Promise<Uint8Array<ArrayBuffer>> {
   assertGlyphs(allTexts(spec));
   const resvg = new Resvg(choroplethSvg(spec), {
     font: {
@@ -260,6 +266,7 @@ export function choroplethPng(spec: ChoroplethSpec): Uint8Array<ArrayBuffer> {
       defaultFontFamily: "Rounded Mplus 1c",
     },
   });
+  const png = await sharp(resvg.render().asPng()).png({ palette: true, colours: 256, effort: 7, dither: 0 }).toBuffer();
   // Response にそのまま渡せる形にする
-  return new Uint8Array(resvg.render().asPng());
+  return new Uint8Array(png);
 }

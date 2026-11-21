@@ -2,7 +2,7 @@
 import Article from "../layouts/Article.astro";
 import ArticleCompare from "../components/ArticleCompare.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, compareRanking, ranking, rows, value } from "../lib/articleData";
+import { about, check, compareRanking, ranking, rows, value } from "../lib/articleData";
 import { loadAreas, loadValues } from "../lib/data";
 import { formatNumber } from "../lib/format";
 
@@ -52,17 +52,16 @@ check(shares.slice(0, 4).map((r) => r.entity_id).join() === [HAMURA, AKISHIMA, F
   "イチョウの割合の1〜4位が羽村市・昭島市・福生市・文京区ではありません");
 check(Math.abs((shareOf(BUNKYO) ?? 0) - 0.3) < 0.02, "文京区の街路樹のイチョウの割合が約3割ではありません");
 
-// 町丁目: 東京都で最も多いのは町田市小野路町、次が千代田区永田町一丁目。文京区では本駒込三丁目・音羽一丁目・目白台二丁目・向丘二丁目
+// 町丁目: 東京都で最も多いのは町田市小野路町、次が千代田区永田町一丁目
 const small = (loadValues(GINKGO, P, "13")?.rows ?? []).filter((r) => r.value !== null)
   .sort((a, b) => (b.value as number) - (a.value as number));
 const ONOJI = "area-132090050";
 const NAGATACHO = "area-13101006001";
-const BUNKYO_SMALL = ["area-13105028003", "area-13105020001", "area-13105019002", "area-13105024002"];
 if (small.length > 0) {
   check(small[0].entity_id === ONOJI && small[1].entity_id === NAGATACHO, "町丁目のイチョウの1・2位が小野路町・永田町一丁目ではありません");
-  check(small.filter((r) => r.entity_id.startsWith("area-13105")).slice(0, 4).map((r) => r.entity_id).join() === BUNKYO_SMALL.join(),
-    "文京区の町丁目のイチョウの上位4つが本駒込三丁目・音羽一丁目・目白台二丁目・向丘二丁目ではありません");
 }
+// 結びの「イチョウは23区に多い」
+check(total(GINKGO, "区部") > total(GINKGO, "多摩"), "都道のイチョウが多摩より区部に多くありません");
 
 // ほかの木: ケヤキ・サクラ類は八王子市、ハナミズキはあきる野市、トウカエデは町田市、プラタナス類は新宿区が1位。樹種の数も新宿区が1位
 check(top(ZELKOVA, 1) === HACHIOJI && top(CHERRY, 1) === HACHIOJI, "ケヤキ・サクラ類の1位が八王子市ではありません");
@@ -77,22 +76,22 @@ check(total(PLANE, "区部") > 0.9 * total(PLANE), "プラタナス類の9割以
 <Article slug="street-trees-ginkgo">
   <p>
     東京都の木はイチョウです。1966年に、都民のはがきの投票で、ケヤキ・イチョウ・ソメイヨシノの3つの候補から選ばれました。
-    では、東京の道にはどこにイチョウが多いのでしょうか。東京都建設局が公開している「都道の街路樹」のデータで、
-    都道の街路樹を1本ずつ市区町村に分けて数えてみます。
+    そのイチョウが都道にいちばん多く植えられているのは、文京区です。{value(GINKGO, P, BUNKYO)}あり、区の都道の街路樹のおよそ3本に1本にあたります。
   </p>
   <p>
-    島しょを除く東京都の都道の街路樹は{trees(total(ALL))}で、そのうちイチョウは{trees(total(GINKGO))}、約1割です。
+    東京都建設局が公開している「都道の街路樹」のデータで、街路樹を1本ずつ市区町村に分けて数えました。
+    島しょを除く東京都の都道の街路樹は{about(total(ALL), 1000)}本で、そのうちイチョウは{about(total(GINKGO), 100)}本、約1割です。
     このサイトで数えている6つの樹種（イチョウ・ハナミズキ・トウカエデ・ケヤキ・サクラ類・プラタナス類）の中では、イチョウが最も多い木です。
   </p>
 
-  <h2>都道のイチョウが最も多いのは文京区</h2>
+  <h2>上位10のうち9つが23区</h2>
   <p>
-    都道のイチョウが最も多い市区町村は文京区で、{value(GINKGO, P, BUNKYO)}あります。2位は足立区（{value(GINKGO, P, ADACHI)}）、
-    3位は千代田区（{value(GINKGO, P, CHIYODA)}）です。上位には23区が並び、多摩で最も多い八王子市（{value(GINKGO, P, HACHIOJI)}）は10位です。
+    2位は足立区（{value(GINKGO, P, ADACHI)}）、3位は千代田区（{value(GINKGO, P, CHIYODA)}）です。
+    上位10のうち9つを23区が占め、多摩で最も多い八王子市（{value(GINKGO, P, HACHIOJI)}）は10位です。
   </p>
   <ArticleRanking id={GINKGO} period={P} n={10} expect={[BUNKYO, ADACHI, CHIYODA, HACHIOJI]} caption="都道のイチョウの本数が多い市区町村（2026年4月）" />
   <p>
-    文京区の都道の街路樹は全部で{value(ALL, P, BUNKYO)}なので、およそ3本に1本がイチョウです。
+    文京区の都道の街路樹は全部で{value(ALL, P, BUNKYO)}です。
     足立区は街路樹の総数が{value(ALL, P, ADACHI)}と東京都で最も多く、その中でイチョウも多い区です。
   </p>
   <p class="map-links">
@@ -102,20 +101,19 @@ check(total(PLANE, "区部") > 0.9 * total(PLANE), "プラタナス類の9割以
   <h2>街路樹の4割以上がイチョウの市</h2>
   <p>
     街路樹のうちイチョウの割合で比べると（都道の街路樹が{formatNumber(MIN_TREES, 0)}本以上の市区町村）、
-    1位は羽村市の{pct(HAMURA)}で、昭島市（{pct(AKISHIMA)}）、福生市（{pct(FUSSA)}）が続き、文京区（{pct(BUNKYO)}）は4位です。
+    1位は羽村市の{pct(HAMURA)}です。2位は昭島市（{pct(AKISHIMA)}）、3位は福生市（{pct(FUSSA)}）で、文京区（{pct(BUNKYO)}）は4位です。
     上位の3市は、多摩の西でとなり合う市です。
   </p>
   <ArticleCompare as="share" level="municipality" n={8} minFrom={MIN_TREES}
     from={{ id: ALL, period: P, label: "街路樹" }} to={{ id: GINKGO, period: P, label: "イチョウ" }}
     expect={[HAMURA, AKISHIMA, FUSSA, BUNKYO]} caption="都道の街路樹のうちイチョウの割合が高い市区町村（2026年4月）" />
 
-  <h2>町丁目で見ると</h2>
+  <h2>町丁目でいちばん多いのは、町田市の町</h2>
   <p>
     町丁目ごとに数えると、都道のイチョウが最も多いのは町田市小野路町（{value(GINKGO, P, ONOJI)}）、
     次が国会議事堂のある千代田区永田町一丁目（{value(GINKGO, P, NAGATACHO)}）です。
-    文京区では、本駒込三丁目（{value(GINKGO, P, BUNKYO_SMALL[0])}）、音羽一丁目（{value(GINKGO, P, BUNKYO_SMALL[1])}）、
-    目白台二丁目（{value(GINKGO, P, BUNKYO_SMALL[2])}）、向丘二丁目（{value(GINKGO, P, BUNKYO_SMALL[3])}）などに多くあります。
-    地図の色分けを町丁目の単位にすると、イチョウの多い町がどこに続いているかが分かります。
+    市区町村の上位10には入らない町田市に、いちばん多い町があります。
+    文京区の中でイチョウの多い町も、地図の色分けを町丁目の単位にすると見られます。
   </p>
   <p class="map-links">
     <a class="button" href={`/map/?i=${GINKGO}&p=${P}&a=${BUNKYO}&l=small_area`}>文京区の町丁目ごとのイチョウを地図で見る</a>
@@ -138,6 +136,14 @@ check(total(PLANE, "区部") > 0.9 * total(PLANE), "プラタナス類の9割以
   <p class="map-links">
     <a class="button" href={`/map/?i=${ZELKOVA}&p=${P}&a=${HACHIOJI}&l=municipality`}>都道のケヤキの本数を地図で見る</a>
     <a class="button secondary" href={`/map/?i=${SPECIES}&p=${P}&a=${SHINJUKU}&l=municipality`}>樹種の数を地図で見る</a>
+  </p>
+
+  <h2>3つの候補の木は、いまどこに多いか</h2>
+  <p>
+    都の木の投票で争った3つの木は、いまの都道では、イチョウが23区に、ケヤキとサクラが八王子市に多く植えられています。
+    選ばれたイチョウは、都道の街路樹のおよそ1割を占めています。
+    同じ東京でも、区部と多摩とでは、道ばたに並ぶ木の種類が違うようです。
+    よく通る道の木が何の木か、地図で確かめてみてください。
   </p>
 
   <h2>読むときの注意</h2>

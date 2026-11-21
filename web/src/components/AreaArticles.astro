@@ -1,0 +1,96 @@
+---
+// 市区町村・都道府県のページに置く「〇〇が登場する寄り道」（設計変更記録 #234）。
+// 記事の順位の表（lib/articleMentions.ts が本文から集める）にその地域が出てくる記事を、どの表の何位かと一緒に並べる。
+// 出てくる記事がない地域には何も出さない
+import { captionLabel, type TableMention } from "../lib/articleLinks";
+import type { Article } from "../lib/articles";
+import { articleImage } from "../lib/shareImages";
+
+interface Item {
+  article: Article;
+  /** その地域が出てくる表（順位の高い順） */
+  tables: TableMention[];
+  /** 都道府県のページ: 記事の表に出てくる、その都道府県の市区町村の名前（順位の高い順） */
+  places?: string[];
+}
+interface Props {
+  id: string;
+  name: string;
+  lead: string;
+  items: Item[];
+  /** 先に見せる本数を超えたときに、残りを畳んで出す代わりに、一覧ページで全部見るリンクにする（都道府県のページ） */
+  more?: { href: string; label: string };
+}
+const { id, name, lead, items, more } = Astro.props;
+// 先に見せる本数と、1本の記事で挙げる表・市区町村の数。残りは「ほかの〇本も表示」「ほか〇つの表」にまとめる
+const FIRST = 5;
+const TABLES = 3;
+const PLACES = 4;
+// 残りが1つだけのときは、「ほか1」と書かずにそれも出す
+const head = <T,>(list: T[], max: number): T[] => (list.length <= max + 1 ? list : list.slice(0, max));
+const rest = items.slice(FIRST);
+const lists = [{ fold: false, items: items.slice(0, FIRST) }, ...(more ? [] : [{ fold: true, items: rest }])].filter((l) => l.items.length > 0);
+---
+{items.length > 0 && (
+  <section class="sheet area-articles" id={id}>
+    <h2>{name}が登場する寄り道<span class="count">{items.length}</span></h2>
+    <p class="muted">{lead}</p>
+    {lists.map((l) => {
+      const list = (
+        <ul class="area-article-list">
+          {l.items.map(({ article: a, tables, places = [] }) => {
+            const image = articleImage(a);
+            return (
+              <li>
+                {image
+                  ? <img src={image.path} alt="" width="1200" height="630" loading="lazy" decoding="async" />
+                  : <span class="none"><img src="/logo-mark.svg" alt="" width="30" height="30" loading="lazy" decoding="async" /></span>}
+                <div>
+                  <a class="t" href={`/articles/${a.slug}/`}>{a.title}</a>
+                  {tables.length > 0 && (
+                    <p class="where">
+                      {head(tables, TABLES).map((t, i) => (
+                        <Fragment>{i > 0 && "、"}{captionLabel(t.caption)}{t.rank !== null && <> <b>{t.rank}位</b></>}{t.via && `（${t.via}）`}</Fragment>
+                      ))}
+                      {tables.length > head(tables, TABLES).length && `、ほか${tables.length - TABLES}つの表`}
+                    </p>
+                  )}
+                  {places.length > 0 && (
+                    <p class="where">表に出てくるまち: {head(places, PLACES).join("・")}{places.length > head(places, PLACES).length && ` ほか${places.length - PLACES}`}</p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      );
+      return l.fold ? <details class="ranking-more"><summary>ほかの{l.items.length}本も表示</summary>{list}</details> : list;
+    })}
+    {more && rest.length > 0 && <p class="more"><a href={more.href}>{more.label}（{items.length}本）›</a></p>}
+  </section>
+)}
+
+<style>
+  .area-articles { scroll-margin-top: 80px; }
+  .area-article-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .area-article-list li {
+    display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; align-items: center;
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface);
+  }
+  .area-article-list li > img, .area-article-list .none {
+    display: block; width: 92px; height: 100%; min-height: 84px; object-fit: cover; object-position: 100% 50%;
+    border-right: 1px solid var(--line);
+  }
+  .area-article-list .none { display: grid; place-items: center; background: linear-gradient(135deg, #eef4fb, #e3edf8); }
+  .area-article-list li > div { padding: 8px 12px 8px 0; }
+  .area-article-list .t { font-weight: 700; }
+  .area-article-list .where { margin: 2px 0 0; font-size: 0.86rem; color: var(--muted); line-height: 1.6; }
+  .area-article-list .where b { color: #7a4d00; background: #fff4dc; border-radius: 4px; padding: 0 6px; font-weight: 700; white-space: nowrap; }
+  details { margin-top: 10px; }
+  .more { margin: 12px 0 0; font-weight: 700; }
+  @media (max-width: 720px) {
+    .area-article-list li { grid-template-columns: 76px minmax(0, 1fr); gap: 10px; }
+    .area-article-list li > img, .area-article-list .none { width: 76px; }
+    .area-article-list .t { font-size: 0.95rem; line-height: 1.5; display: inline-block; }
+  }
+</style>

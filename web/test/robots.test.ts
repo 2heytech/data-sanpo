@@ -28,7 +28,7 @@ function allowed(body: string, agent: string, path: string): boolean {
 }
 
 describe("robots.txt", () => {
-  const body = robotsBody(true, SITEMAP, "");
+  const body = robotsBody(true, SITEMAP);
 
   it("サイトマップの場所を書く", () => {
     expect(body).toContain(`Sitemap: ${SITEMAP}`);
@@ -41,20 +41,27 @@ describe("robots.txt", () => {
     }
   });
 
+  it("AI の検索・クローラーも地図の状態付き URL を巡回しない（#220）", () => {
+    for (const bot of ["OAI-SearchBot", "GPTBot", "PerplexityBot", "Amazonbot", "ClaudeBot", "Claude-SearchBot", "Applebot", "Meta-ExternalAgent"]) {
+      expect(allowed(body, bot, "/map/?i=population_total&p=2020-10-01&a=area-17201001001"), bot).toBe(false);
+      expect(allowed(body, bot, "/map/"), bot).toBe(true);
+      expect(allowed(body, bot, "/areas/muni-17201/"), bot).toBe(true);
+    }
+  });
+
   it("地図そのものと、ほかのページは読める", () => {
     for (const path of ["/", "/map/", "/areas/muni-17201/", "/indicators/population_total/", "/data/x/areas.json"]) {
       expect(allowed(body, "Googlebot", path), path).toBe(true);
     }
   });
 
-  it("SNS のリンクの読み取りは止めない", () => {
-    expect(allowed(body, "Twitterbot", "/map/?i=population_total&a=muni-17201")).toBe(true);
+  it("SNS のリンクの読み取りと、人が頼んだときの読み取りは止めない", () => {
+    for (const bot of ["Twitterbot", "facebookexternalhit", "ChatGPT-User", "Claude-User"]) {
+      expect(allowed(body, bot, "/map/?i=population_total&a=muni-17201"), bot).toBe(true);
+    }
   });
 
-  it("掲載前は全部止め、広告のクローラだけ通す（#62）", () => {
-    expect(robotsBody(false, SITEMAP, "")).toBe("User-agent: *\nDisallow: /\n");
-    const ads = robotsBody(false, SITEMAP, "ca-pub-0000000000000000");
-    expect(allowed(ads, "Mediapartners-Google", "/areas/muni-17201/")).toBe(true);
-    expect(allowed(ads, "Googlebot", "/")).toBe(false);
+  it("掲載前は全部止める", () => {
+    expect(robotsBody(false, SITEMAP)).toBe("User-agent: *\nDisallow: /\n");
   });
 });

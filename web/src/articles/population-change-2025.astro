@@ -1,46 +1,63 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, count, nationalValue, ranking, value } from "../lib/articleData";
+import { about, check, count, nationalRaw, rankNumber, ranking, raw, value } from "../lib/articleData";
 
 const P = "2025-10-01";
+const P0 = "2020-10-01";
 const ID = "population_change_rate";
+const POP = "population_total";
+const OKUMA = "muni-07545";
+const SHIMUKAPPU = "muni-01463";
 // 題名・見出しの「人口が増えた都道府県は1つだけ」「人口が増えたのは東京都だけ」
 const grewPrefs = ranking(ID, P, "prefecture", "high", 47).filter((r) => (r.value ?? 0) > 0).map((r) => r.entity_id);
 check(grewPrefs.join() === "pref-13", `2020年より人口が増えた都道府県が東京都だけではありません（${grewPrefs.join("・")}）`);
+// 全国の人口と、5年で減った数。東京都で増えた数
+const national = nationalRaw(POP, P);
+const nationalLoss = (nationalRaw(POP, P0) ?? NaN) - (national ?? NaN);
+const tokyoGain = (raw(POP, P, "pref-13") ?? NaN) - (raw(POP, P0, "pref-13") ?? NaN);
+// 見出しの「市区町村の8割以上で人口が減った」
+const n = (text: string) => Number(text.replace(/,/g, ""));
+const grew = count(ID, P, "municipality", (v) => v > 0);
+check(n(count(ID, P, "municipality", (v) => v < 0)) / n(count(ID, P, "municipality")) > 0.8, "人口が減った市区町村が8割を超えていません");
+// 「8位の占冠村」
+check(rankNumber(ID, P, SHIMUKAPPU) === 8, "占冠村の人口増加率が8位ではありません");
+// 「大熊町で増えた人数は数百人」
+const okumaGain = (raw(POP, P, OKUMA) ?? NaN) - (raw(POP, P0, OKUMA) ?? NaN);
+check(okumaGain >= 200 && okumaGain < 1000, "大熊町で増えた人数が数百人ではありません");
 ---
 <Article slug="population-change-2025">
   <p>
-    2025年10月に行われた国勢調査の人口（人口等基本集計）が公表されました。全国の人口は{nationalValue("population_total", P)}で、
-    5年前の2020年（{nationalValue("population_total", "2020-10-01")}）から減っています。
-    この記事では、5年前と比べた人口の増え方・減り方（人口増加率）を、都道府県と市区町村で見ていきます。
+    2025年の国勢調査で、全国の人口は{about(national)}人でした。5年前より{about(nationalLoss)}人減っています。
+    そのなかで人口が増えた都道府県は、東京都だけでした。増えたのは{about(tokyoGain, 1000)}人、率にして{value(ID, P, "pref-13").replace("+", "")}です。
+  </p>
+  <p>
+    5年前と比べた人口の増え方・減り方（人口増加率）を、都道府県と市区町村で見ていきます。
   </p>
 
   <h2>人口が増えたのは東京都だけ</h2>
   <p>
-    都道府県で見ると、2020年より人口が増えたのは東京都（{value(ID, P, "pref-13")}）だけでした。
-    次いで沖縄県（{value(ID, P, "pref-47")}）がほぼ横ばいで、千葉・神奈川・埼玉の3県と大阪府が1%未満の減少です。
+    東京都（{value(ID, P, "pref-13")}）に次ぐのは沖縄県（{value(ID, P, "pref-47")}）で、ほぼ横ばいでした。
+    千葉・神奈川・埼玉の3県と大阪府が1%未満の減少です。
     減り方が大きいのは東北や四国などの県で、秋田県は{value(ID, P, "pref-05")}でした。
+    <ArticleLink slug="population-growth-2010-2025">2010年から人口が増え続けている都道府県も東京都だけであること</ArticleLink>
   </p>
   <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={["pref-13", "pref-47"]} caption="人口増加率の高い都道府県（2020→2025年）" />
   <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-05"]} caption="人口増加率の低い都道府県（2020→2025年）" />
-  <p class="muted">
-    浜松市は2024年に区を再編し、2020年の区と2025年の区が対応しないため、浜松市の区の増加率は出していません。
-    都道府県の増加率は、国勢調査の表にある都道府県の人口と、今の区域に組み替えた2020年の人口から計算しているので、静岡県も出しています。
-  </p>
 
   <h2>市区町村の8割以上で人口が減った</h2>
   <p>
-    値のある{count(ID, P, "municipality")}市区町村のうち、人口が増えたのは{count(ID, P, "municipality", (v) => v > 0)}市区町村で、
-    残りの多くは減少でした。増えた市区町村を順に見ると、大きく3つのタイプに分けられます。
+    値のある{count(ID, P, "municipality")}市区町村のうち、人口が増えたのは{grew}市区町村で、
+    残りの多くは減少でした。増えた市区町村を順に見ると、いくつかのタイプに分けられます。
   </p>
   <ArticleRanking id={ID} period={P} n={12}
-    expect={["muni-07545", "muni-07543", "muni-07547", "muni-07542", "muni-27111", "muni-23106", "muni-27128", "muni-08220"]}
+    expect={[OKUMA, "muni-07543", "muni-07547", "muni-07542", "muni-27111", "muni-23106", "muni-27128", SHIMUKAPPU, "muni-08220"]}
     caption="人口増加率の高い市区町村（2020→2025年）" />
   <p>
     1つ目は、福島県の大熊町・富岡町・浪江町・楢葉町です。東京電力福島第一原子力発電所の事故による避難指示が段階的に解除され、
     2020年の時点では住む人が少なかった町に、戻った人や新しく移り住んだ人がいるためと考えられます。
-    大熊町は{value(ID, P, "muni-07545")}と全国で最も高い増加率ですが、もとの人口が少ないため、増えた人数そのものは数百人です。
+    大熊町は{value(ID, P, OKUMA)}と全国で最も高い増加率ですが、もとの人口が少ないため、増えた人数は{about(okumaGain, 100)}人です。
   </p>
   <p>
     2つ目は、大阪市浪速区（{value(ID, P, "muni-27111")}）、名古屋市中区（{value(ID, P, "muni-23106")}）、大阪市中央区（{value(ID, P, "muni-27128")}）、
@@ -50,21 +67,34 @@ check(grewPrefs.join() === "pref-13", `2020年より人口が増えた都道府�
     3つ目は、つくば市（{value(ID, P, "muni-08220")}）のような郊外の成長都市です。つくば市は鉄道（つくばエクスプレス）の沿線で住宅地の開発が進み、
     子育て世代が多く移り住んでいるようです。
   </p>
+  <p>
+    このほか、8位の北海道占冠村（{value(ID, P, SHIMUKAPPU)}）は、スキーリゾートのある村です。
+    リゾートで働く人が増えたことが表れていると考えられます。
+    <ArticleLink slug="foreign-residents">占冠村の外国人住民の割合</ArticleLink>
+  </p>
 
   <h2>人口の減り方が大きい市区町村</h2>
-  <ArticleRanking id={ID} period={P} order="low" n={10} expect={["muni-17205", "muni-17204", "muni-01209"]} caption="人口増加率の低い市区町村（2020→2025年）" />
+  <ArticleRanking id={ID} period={P} order="low" n={10} expect={["muni-17205", "muni-17204"]} caption="人口増加率の低い市区町村（2020→2025年）" />
   <p>
     減り方が最も大きいのは石川県珠洲市（{value(ID, P, "muni-17205")}）と輪島市（{value(ID, P, "muni-17204")}）です。
     2024年1月の能登半島地震と、その後の豪雨の被害で、多くの人がまちの外での生活を続けていることが表れていると考えられます。
-    ほかは山あいや離島の小さな町村が多く、北海道の夕張市（{value(ID, P, "muni-01209")}）のように、
-    高齢化が進んだまちでは、亡くなる人が生まれる人を大きく上回ることが人口の減少につながっていると思われます。
+    ほかは、山あいや離島の小さな町村が多く入ります。
   </p>
 
-  <h2>地図で見るときのヒント</h2>
-  <ul>
-    <li>地図で「人口増加率」を選び、時点のスライドバーを動かすと、2015年・2020年・2025年の増え方の違いを比べられます。</li>
-    <li>2025年の値は今のところ市区町村までです。町丁目ごとの値は、国勢調査の小地域集計が公表されたら追加します（2020年までは町丁目でも見られます）。</li>
-    <li>増加率は「前回からの変化」なので、もとの人口が少ない町村では大きな値になりやすいです。人数でも確かめるときは「人口」の指標と並べて見てください。</li>
-  </ul>
+  <h2>増えたのは、限られた場所だった</h2>
+  <p>
+    人口が増えた都道府県は東京都だけで、市区町村でも増えたのは2割に届きませんでした。
+    増えたのは、人が戻り始めた福島県の町、大都市の中心部、鉄道の沿線で開発が進むまちなど、限られた場所です。
+    地図で「人口増加率」を選び、時点のスライドバーを動かすと、2015年・2020年・2025年の増え方の違いを比べられます。
+    自分のまちがどう変わってきたか、確かめてみてください。
+  </p>
   <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>人口増加率を地図で見る</a></p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>増加率は「前回からの変化」なので、もとの人口が少ない町村では大きな値になりやすいです。人数でも確かめるときは「人口」の指標と並べて見てください。</li>
+    <li>2025年の値は今のところ市区町村までです。町丁目ごとの値は、国勢調査の小地域集計が公表されたら追加します（2020年までは町丁目でも見られます）。</li>
+    <li>浜松市は2024年に区を再編し、2020年の区と2025年の区が対応しないため、浜松市の区の増加率は出していません。
+      都道府県の増加率は、国勢調査の表にある都道府県の人口と、今の区域に組み替えた2020年の人口から計算しているので、静岡県も出しています。</li>
+  </ul>
 </Article>

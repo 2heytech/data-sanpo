@@ -1,0 +1,21 @@
+---
+// 寄り道のテーマの札（設計変更記録 #232）。押すと、一覧（/articles/?theme=…）をそのテーマで絞り込んで開く。
+// トップページと記事の末尾に置く。一覧ページの中の札は、同じ見た目で pages/articles/index.astro が出す
+import { publishedArticles, themeCounts, themeHref } from "../lib/articles";
+
+interface Props {
+  label: string;
+}
+const { label } = Astro.props;
+const articles = publishedArticles();
+const themes = themeCounts(articles);
+---
+<nav class="theme-nav" aria-label={label}>
+  <span class="theme-label">{label}</span>
+  <ul class="theme-chips">
+    {themes.map((t) => (
+      <li><a class="theme-chip" href={themeHref(t.id)}>{t.name}<span class="n">{t.count}</span></a></li>
+    ))}
+  </ul>
+  <a class="theme-all" href="/articles/">すべての寄り道（{articles.length}本）›</a>
+</nav>

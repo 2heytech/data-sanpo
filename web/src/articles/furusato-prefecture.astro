@@ -1,0 +1,148 @@
+---
+import Article from "../layouts/Article.astro";
+import FurusatoPicks from "../components/FurusatoPicks.astro";
+import { furusatoPicks } from "../lib/furusatoPicks";
+import ArticleLink from "../components/ArticleLink.astro";
+import ArticleRanking from "../components/ArticleRanking.astro";
+import { about, areaName, check, man, nationalRaw, oku, rankNumber, ranking, raw, rows } from "../lib/articleData";
+
+const P = "2025-04-01";
+const P1 = "2024-04-01";
+const ID = "furusato_amount_per_capita";
+const AMOUNT = "furusato_amount";
+const YAMANASHI = "pref-19";
+const MIYAZAKI = "pref-45";
+const SAGA = "pref-41";
+const YAMAGATA = "pref-06";
+const HOKKAIDO = "pref-01";
+const KOFU = "muni-19201";
+const FUJIYOSHIDA = "muni-19202";
+const YAMANASHI_CITY = "muni-19205";
+const MIYAKONOJO = "muni-45202";
+const MIYAZAKI_CITY = "muni-45201";
+const KAMIMINE = "muni-41345";
+const SHIRANUKA = "muni-01668";
+const BETSUKAI = "muni-01691";
+const yen = (v: number | null) => `${about(v)}円`;
+const amount = (id: string, p = P) => raw(AMOUNT, p, id) ?? 0;
+// 県の中の市町村の受入額（県自身の受入を除く）。政令指定都市は市全体の値
+const munis = (pref: string, p = P) => rows(AMOUNT, p, "municipality")
+  .filter((r) => r.entity_id.startsWith(`muni-${pref.slice(5)}`) && r.value !== null)
+  .sort((a, b) => (b.value as number) - (a.value as number));
+const share = (ids: string[], pref: string) => ids.reduce((s, id) => s + amount(id), 0) / amount(pref);
+
+// 書き出し: 1人あたりの1位は山梨県、2位宮崎県、3位佐賀県、合計1位の北海道は5位
+ranking(ID, P, "prefecture", "high", 5, [YAMANASHI, MIYAZAKI, SAGA, HOKKAIDO]);
+check(rankNumber(ID, P, YAMANASHI) === 1 && rankNumber(ID, P, MIYAZAKI) === 2 && rankNumber(ID, P, SAGA) === 3
+  && rankNumber(ID, P, HOKKAIDO) === 5, "1人あたりの1〜3位・北海道の順位が本文と合いません");
+check(rankNumber(AMOUNT, P, HOKKAIDO) === 1, "受入額の合計の1位が北海道ではありません");
+// 「山梨県は2020年度には5位、2024年度に1位になり、2025年度も1位」
+check(rankNumber(ID, "2020-04-01", YAMANASHI) === 5 && rankNumber(ID, P1, YAMANASHI) === 1, "山梨県の順位の移り変わりが本文と合いません");
+// 「2022年度と2023年度は佐賀県が1位」「上位5つの顔ぶれは2022年度から同じ」
+check(["2022-04-01", "2023-04-01"].every((p) => rankNumber(ID, p, SAGA) === 1), "2022・2023年度の1位が佐賀県ではありません");
+const top5 = (p: string) => ranking(ID, p, "prefecture", "high", 5).map((r) => r.entity_id).sort().join(",");
+check(["2022-04-01", "2023-04-01", P1].every((p) => top5(p) === top5(P))
+  && top5(P) === [YAMANASHI, MIYAZAKI, SAGA, YAMAGATA, HOKKAIDO].sort().join(","), "1人あたりの上位5つの顔ぶれが2022年度から同じではありません");
+// 山梨県: 甲府市・富士吉田市がともに100億円を超え、2つで県全体の4割近く。山梨市を加えると半分を超える
+const yamanashiTop = munis(YAMANASHI);
+check(yamanashiTop[0]?.entity_id === KOFU && yamanashiTop[1]?.entity_id === FUJIYOSHIDA && yamanashiTop[2]?.entity_id === YAMANASHI_CITY,
+  "山梨県の市町村の受入額の上位3つが甲府市・富士吉田市・山梨市ではありません");
+check(amount(KOFU) > 10000 && amount(FUJIYOSHIDA) > 10000, "甲府市・富士吉田市の受入額がともに100億円を超えていません");
+const kofuFuji = share([KOFU, FUJIYOSHIDA], YAMANASHI);
+check(kofuFuji >= 0.35 && kofuFuji < 0.4, "甲府市・富士吉田市が山梨県の受入額の4割近く（35〜40%）ではありません");
+check(share([KOFU, FUJIYOSHIDA, YAMANASHI_CITY], YAMANASHI) > 0.5, "山梨県の上位3市で県全体の半分を超えていません");
+// 宮崎県: 都城市が県全体の3分の1あまりで、市区町村の受入額でも全国3位。宮崎市と合わせると半分を超える
+const miyazakiTop = munis(MIYAZAKI);
+check(miyazakiTop[0]?.entity_id === MIYAKONOJO && miyazakiTop[1]?.entity_id === MIYAZAKI_CITY, "宮崎県の上位2つが都城市・宮崎市ではありません");
+const miyakonojo = share([MIYAKONOJO], MIYAZAKI);
+check(miyakonojo > 1 / 3 && miyakonojo < 0.4, "都城市が宮崎県の受入額の3分の1あまりではありません");
+check(rankNumber(AMOUNT, P, MIYAKONOJO) === 3, "都城市の受入額が市区町村で全国3位ではありません");
+check(share([MIYAKONOJO, MIYAZAKI_CITY], MIYAZAKI) > 0.5, "都城市と宮崎市で宮崎県の半分を超えていません");
+// 佐賀県: 上峰町が県内で最も多く、前の年度の3倍を超えた。人口は1万人に満たない
+check(munis(SAGA)[0]?.entity_id === KAMIMINE, "佐賀県で受入額がいちばん多いのが上峰町ではありません");
+check(amount(KAMIMINE) > 3 * amount(KAMIMINE, P1), "上峰町の受入額が前の年度の3倍を超えていません");
+const kamiminePop = raw("population_total", "2025-10-01", KAMIMINE);
+check((kamiminePop ?? Infinity) < 10000, "上峰町の人口が1万人に満たないとは言えません");
+// 北海道: 合計は2位の宮崎県の3倍あまり。白糠町・別海町は市区町村の1人あたりで1位・2位
+const prefTotals = ranking(AMOUNT, P, "prefecture", "high", 2, [HOKKAIDO, MIYAZAKI]);
+const hokkaidoRatio = amount(HOKKAIDO) / amount(MIYAZAKI);
+check(prefTotals[1]?.entity_id === MIYAZAKI && hokkaidoRatio >= 3 && hokkaidoRatio < 3.3, "北海道の受入額が2位の宮崎県の3倍あまりではありません");
+check(rankNumber(ID, P, SHIRANUKA) === 1 && rankNumber(ID, P, BETSUKAI) === 2, "市区町村の1人あたりの1位・2位が白糠町・別海町ではありません");
+// 「人口の少ない県の中にある」: 山梨県の人口は全国で40位以下
+check((rankNumber("population_total", "2025-10-01", YAMANASHI) ?? 0) >= 40, "山梨県の人口が全国で40位以下ではありません");
+const national = nationalRaw(ID, P);
+check((raw(ID, P, YAMANASHI) ?? 0) > 6 * (national ?? Infinity), "山梨県の1人あたりの額が全国の6倍を超えていません");
+// 記事の最後の、1人あたりの表の上位5の都道府県の返礼品を楽天ふるさと納税で探すリンク（設計変更記録 #252）
+const picks = furusatoPicks(ranking(ID, P, "prefecture", "high", 5).map((r) => ({ label: `${r.rank}位`, name: areaName(r.entity_id), pref: "" })));
+---
+<Article slug="furusato-prefecture">
+  <p>
+    2025年度のふるさと納税の受入額を、県と県内の市町村を合わせて住民1人あたりにすると、いちばん多いのは山梨県の{yen(raw(ID, P, YAMANASHI))}です。
+    2位は宮崎県（{yen(raw(ID, P, MIYAZAKI))}）、3位は佐賀県（{yen(raw(ID, P, SAGA))}）で、受入額の合計で1位の北海道は5位です。
+  </p>
+  <p>
+    ふるさと納税は、住んでいる自治体以外にも寄附ができ、その分が住民税などから差し引かれる仕組みです。
+    ここでは、県自身と県内のすべての市町村が2025年度（2025年4月〜2026年3月）に受け入れた額を合わせ、2025年国勢調査の人口で割りました。
+    全国では1人あたり{yen(national)}なので、山梨県はその6倍を超えます。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={[YAMANASHI, MIYAZAKI, SAGA, YAMAGATA, HOKKAIDO]} caption="ふるさと納税の受入額（住民1人あたり）が多い都道府県（県と県内の市町村の合計、2025年度）" />
+
+  <h2>山梨県は、甲府市と富士吉田市で4割近く</h2>
+  <p>
+    山梨県の受入額は、県と市町村を合わせて{oku(amount(YAMANASHI))}です。
+    そのうち甲府市が{oku(amount(KOFU))}、富士吉田市が{oku(amount(FUJIYOSHIDA))}で、この2つの市で県全体の4割近くを占めます。
+    3番目に多い山梨市（{oku(amount(YAMANASHI_CITY))}）を加えると、半分を超えます。
+  </p>
+  <p>
+    山梨県の1人あたりの順位は、2020年度には5位でした。その後に順位を上げ、2024年度に1位になり、2025年度も1位です。
+  </p>
+
+  <h2>宮崎県は都城市、佐賀県は上峰町</h2>
+  <p>
+    2位の宮崎県では、都城市が{oku(amount(MIYAKONOJO))}を受け入れ、県全体の3分の1あまりを占めます。
+    都城市は、市区町村の受入額でも全国3位です。宮崎市（{oku(amount(MIYAZAKI_CITY))}）と合わせると、県全体の半分を超えます。
+  </p>
+  <p>
+    3位の佐賀県で最も多いのは、人口{man(kamiminePop)}人の上峰町です（2025年国勢調査）。
+    2025年度は{oku(amount(KAMIMINE))}を受け入れ、前の年度（{oku(amount(KAMIMINE, P1))}）の3倍を超えました。
+  </p>
+  <p>
+    1人あたりの1位は、2022年度と2023年度は佐賀県で、2024年度から山梨県です。
+    ただ、上位5つの顔ぶれ（山梨県・宮崎県・佐賀県・山形県・北海道）は2022年度から変わっていません。
+  </p>
+
+  <h2>北海道は合計で1位、1人あたりでは5位</h2>
+  <p>
+    受入額の合計では、北海道が{oku(amount(HOKKAIDO))}で全国1位です。2位の宮崎県（{oku(amount(MIYAZAKI))}）の3倍あまりにあたります。
+    ただ、北海道は人口が多いため、1人あたりにすると{yen(raw(ID, P, HOKKAIDO))}で5位になります。
+  </p>
+  <p>
+    北海道で受入額が多いのは白糠町と別海町で、この2つの町は市区町村の1人あたりでも全国1位・2位です。
+    <ArticleLink slug="furusato-nozei">市区町村ごとの順位</ArticleLink>
+  </p>
+
+  <h2>1人あたりで最も多いのは山梨県</h2>
+  <p>
+    ふるさと納税の受入額は、合計では北海道が1位ですが、住民1人あたりにすると山梨県が1位です。
+    甲府市や富士吉田市のように100億円を超えて受け入れる市が、人口の少ない県の中にあることが、1人あたりの額を押し上げていると考えられます。
+  </p>
+  <p>
+    地図では、都道府県と市区町村のふるさと納税の受入額を色分けで見られます。住んでいる県や、気になるまちの額も確かめてみてください。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${YAMANASHI}&l=prefecture`}>1人あたりの受入額を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>受入額は、返礼品の調達や送料、事務の経費を差し引く前の額です。自治体の手元に残る額はこれより少なくなります。</li>
+    <li>寄附を受けた側の額です。住民がほかの自治体に寄附したことで減った住民税は含みません。</li>
+    <li>
+      都道府県の値は、県自身と県内のすべての市町村が受け入れた額の合計です。1人あたりの額は、どの年度も2025年国勢調査の人口で割っています。
+      <ArticleLink slug="reading-public-data">大きな地域の値が、中の地域の違いを隠すこと</ArticleLink>
+    </li>
+    <li>政令指定都市は市全体の値しか公表されていないため、区ごとの値はありません。</li>
+  </ul>
+  <FurusatoPicks bare id="furusato" heading="表の県の返礼品を探す" items={picks}
+    lead={`住民1人あたりの受入額の上位${picks.length}の都道府県の返礼品を、楽天ふるさと納税で探せます。市区町村ごとの返礼品は、地域のページの「ふるさと納税の返礼品」から探せます。`} />
+</Article>

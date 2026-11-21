@@ -1,8 +1,9 @@
 ---
 import Article from "../layouts/Article.astro";
 import ArticleCompare from "../components/ArticleCompare.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, cityTotal, cityTotals, compareRanking, ranking, raw, value } from "../lib/articleData";
+import { check, cityTotal, cityTotals, compareRanking, man, rankNumber, ranking, raw, value } from "../lib/articleData";
 import { formatNumber } from "../lib/format";
 
 const RYOKAN = "ryokan_hotels";
@@ -53,13 +54,22 @@ const shareOf = (id: string) => shares.find((r) => r.entity_id === id)?.ratio ??
 const pct = (id: string) => { const v = shareOf(id); return v === null ? "—" : `${formatNumber(v * 100, 0)}%`; };
 check((shareOf("muni-01463") ?? 0) > 0.5 && (shareOf("muni-07402") ?? 0) > 0.5, "占冠村・北塩原村の宿泊業で働く人の割合が半分を超えていません");
 check(["muni-14382", NOZAWA, "muni-10426"].every((id) => (shareOf(id) ?? 0) > 0.4), "箱根町・野沢温泉村・草津町の割合が4割を超えていません");
+// 「白馬村は、外国人住民の割合でも全国5位」
+const FR = "foreign_residents_share";
+const PF = "2026-01-01";
+check(rankNumber(FR, PF, HAKUBA) === 5, "白馬村の外国人住民の割合が全国5位ではありません");
+// 結びの「働く人に占める割合では占冠村が1位」
+check(shares[0]?.entity_id === "muni-01463", "宿泊業で働く人の割合の1位が占冠村ではありません");
 ---
 <Article slug="lodging-hakuba">
   <p>
-    旅館・ホテルがいちばん多い市区町村はどこでしょうか。2021年の経済センサスで旅館・ホテルの事業所を数えると、
-    1位は長野県白馬村の{value(RYOKAN, P, HAKUBA)}でした。2位は同じ数の東京都台東区と岐阜県高山市（{value(RYOKAN, P, TAITO)}）で、
+    旅館・ホテルがいちばん多い市区町村は、長野県白馬村です。
+    人口{man(raw("population_total", "2025-10-01", HAKUBA))}人（2025年）の村に、{value(RYOKAN, P, HAKUBA)}の旅館・ホテルがあります（2021年の経済センサス）。
+  </p>
+  <p>
+    2位は、同じ数の東京都台東区と岐阜県高山市（{value(RYOKAN, P, TAITO)}）です。
     台東区には上野や浅草、高山市には古い町並みや奥飛騨温泉郷といった、国内外から多くの人が訪れる観光地があります。
-    白馬村の人口は{value("population_total", "2025-10-01", HAKUBA)}（2025年）ですが、その台東区や高山市、沖縄県那覇市（{value(RYOKAN, P, NAHA)}）よりも多くの旅館・ホテルがあります。
+    白馬村には、その台東区や高山市、沖縄県那覇市（{value(RYOKAN, P, NAHA)}）よりも多くの旅館・ホテルがあることになります。
   </p>
   <ArticleRanking id={RYOKAN} period={P} n={12} expect={[HAKUBA, TAITO, TAKAYAMA, HAKONE, NAHA]}
     caption="旅館・ホテルの数が多い市区町村（2021年）" />
@@ -79,24 +89,27 @@ check(["muni-14382", NOZAWA, "muni-10426"].every((id) => (shareOf(id) ?? 0) > 0.
     簡易宿所の数も、白馬村は{value(SIMPLE, P, HAKUBA)}で、台東区（{value(SIMPLE, P, TAITO)}）に次ぐ2番目です。
     台東区では、上野や浅草の周りに、外国から訪れる人などが泊まるゲストハウスやホステルが多く集まっているためと考えられます。
   </p>
+  <p>
+    白馬村は、外国人住民の割合でも全国{rankNumber(FR, PF, HAKUBA)}位（{value(FR, PF, HAKUBA)}）です。海外からのスキー客に人気のあるリゾートで、宿や店で働く人も多いと思われます。
+    <ArticleLink slug="foreign-residents">スキーリゾートのまちで外国人住民の割合が高いこと</ArticleLink>
+  </p>
   <ArticleRanking id={SIMPLE} period={P} n={8} expect={[TAITO, HAKUBA]} caption="簡易宿所の数が多い市区町村（2021年）" />
   <p class="map-links">
-    <a class="button" href={`/map/?i=${RYOKAN}&p=${P}&a=${HAKUBA}&l=municipality`}>白馬村の旅館・ホテルの数を地図で見る</a>
     <a class="button secondary" href={`/map/?i=${SIMPLE}&p=${P}&a=${HAKUBA}&l=municipality`}>簡易宿所の数を地図で見る</a>
   </p>
 
   <h2>入湯税がいちばん多いのは箱根町</h2>
   <p>
     温泉に入る人に市町村がかける入湯税（標準は1人1日150円）の収入を2024年度で比べると、神奈川県箱根町が{oku1(raw(ONSEN, PT, HAKONE))}で最も多く、
-    大分県別府市（{oku1(raw(ONSEN, PT, "muni-44202"))}）、静岡県熱海市（{oku1(raw(ONSEN, PT, "muni-22205"))}）が続きます。
+    2位は大分県別府市（{oku1(raw(ONSEN, PT, "muni-44202"))}）、3位は静岡県熱海市（{oku1(raw(ONSEN, PT, "muni-22205"))}）です。
     箱根町は旅館・ホテルの数でも上位に入っていて、温泉に泊まる人の多いまちのようです。
   </p>
   <ArticleRanking id={ONSEN} period={PT} n={10} expect={[HAKONE, "muni-44202", "muni-22205"]} caption="入湯税の収入額が多い市区町村（2024年度）" />
   <p class="map-links">
-    <a class="button" href={`/map/?i=${ONSEN}&p=${PT}&a=${HAKONE}&l=municipality`}>入湯税の収入額を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${ONSEN}&p=${PT}&a=${HAKONE}&l=municipality`}>入湯税の収入額を地図で見る</a>
   </p>
 
-  <h2>働く人の半分近くが宿で働くまち</h2>
+  <h2>働く人の半分以上が宿で働く村</h2>
   <p>
     宿泊業で働く人を、まちの民営の事業所で働く人と比べると、北海道占冠村が{pct("muni-01463")}、福島県北塩原村が{pct("muni-07402")}で、半分を超えています。
     占冠村にはスキー場やホテルのあるリゾート「星野リゾート トマム」があり、北塩原村には檜原湖や五色沼のある裏磐梯に
@@ -110,7 +123,18 @@ check(["muni-14382", NOZAWA, "muni-10426"].every((id) => (shareOf(id) ?? 0) > 0.
     expect={["muni-01463", "muni-07402", HAKONE, NOZAWA, "muni-10426"]}
     caption="働く人のうち宿泊業で働く人の割合が大きい市区町村（2021年）" />
   <p class="map-links">
-    <a class="button" href={`/map/?i=${ACC}&p=${P}&a=${HAKONE}&l=municipality`}>宿泊業で働く人の数を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${ACC}&p=${P}&a=${HAKONE}&l=municipality`}>宿泊業で働く人の数を地図で見る</a>
+  </p>
+
+  <h2>宿のまちは、何で数えるかで変わる</h2>
+  <p>
+    旅館・ホテルの数では白馬村、入湯税では箱根町、働く人に占める割合では占冠村と、何で数えるかで1位のまちは変わりました。
+    白馬村は小さな宿が集まる村で、占冠村は大きなリゾートホテルのある村です。
+    宿の数だけでなく、働く人の数や温泉の利用もあわせて見ると、それぞれの観光地の姿が分かります。
+    行ったことのある観光地を、地図で探してみてください。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${RYOKAN}&p=${P}&a=${HAKUBA}&l=municipality`}>白馬村の旅館・ホテルの数を地図で見る</a>
   </p>
 
   <h2>読むときの注意</h2>

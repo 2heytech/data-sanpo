@@ -1,5 +1,6 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
 import { check, nationalValue, rankOf, ranking, raw, rows, steadyGrowth, value } from "../lib/articleData";
 import { formatNumber } from "../lib/format";
@@ -58,13 +59,13 @@ check(ranking(CH, P, "municipality", "high", 2).map((r) => r.entity_id).join() =
 ---
 <Article slug="households-with-children">
   <p>
-    18歳未満の子どもがいる世帯は、どのくらいあるのでしょうか。2025年の国勢調査で、一般世帯のうち18歳未満の人がいる世帯の割合
-    （子どものいる世帯の割合）を見ると、全国では{nationalValue(ID, P)}で、およそ6世帯に1世帯です。
-    10年前の2015年は{nationalValue(ID, P15)}だったので、全国では少しずつ下がっています。
+    18歳未満の子どもがいる世帯の割合が全国でいちばん高いのは、富山県舟橋村です。2025年の国勢調査で{value(ID, P, FUNA)}、およそ3世帯に1世帯に子どもがいます。
+    全国では{nationalValue(ID, P)}で、およそ6世帯に1世帯なので、舟橋村は全国のおよそ2倍です。
   </p>
   <p>
-    市区町村で比べると、1位は富山県舟橋村の{value(ID, P, FUNA)}で、全国のおよそ2倍、3世帯に1世帯です。
-    舟橋村は面積が{value("area", P, FUNA)}と、日本でいちばん小さい市区町村です。
+    ここでは、一般世帯のうち18歳未満の人がいる世帯の割合（子どものいる世帯の割合）を、市区町村と都道府県で比べます。
+    1位の舟橋村は、面積が{value("area", P, FUNA)}と、日本でいちばん小さい市区町村でもあります。
+    <ArticleLink slug="area-largest-smallest">舟橋村の広さ</ArticleLink>
   </p>
   <ArticleRanking id={ID} period={P} n={10} expect={[FUNA, KAWAKITA, YAESE, KOSHI, SHINGU, HAEBARU, KASHIMA]}
     caption="子どものいる世帯の割合が高い市区町村（2025年）" />
@@ -84,35 +85,43 @@ check(ranking(CH, P, "municipality", "high", 2).map((r) => r.entity_id).join() =
     2025年の{hh(withChildren(P, FUNA))}とほぼ同じですが、一般世帯の数が2010年の{hh(households(P10, FUNA))}から2025年は{hh(households(P, FUNA))}に増えたためです。
     子どもが大きくなって家を出たり、子どものいない世帯が新しく住んだりして、子どものいない世帯が増えていると考えられます。
   </p>
-  <p class="map-links">
-    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${FUNA}&l=municipality`}>舟橋村の子どものいる世帯の割合を地図で見る</a>
-  </p>
 
-  <h2>上位に並ぶのは、大きな市のとなりのまち</h2>
+  <h2>上位に入るのは、大きな市のとなりのまち</h2>
   <p>
     2位の石川県川北町（{value(ID, P, KAWAKITA)}）や3位の沖縄県八重瀬町（{value(ID, P, YAESE)}）のほかにも、上位には、
     熊本市のとなりの熊本県合志市・嘉島町、福岡市のとなりの福岡県新宮町、那覇市のとなりの沖縄県南風原町のように、
-    県庁所在地など大きな市のとなりや近くにある市町村が多く並びます。
+    県庁所在地など大きな市のとなりや近くにある市町村が多く入ります。
     大きな市へ通いやすく、住宅地が新しくできた郊外のまちに、子育て世帯が多く住んでいると考えられます。
   </p>
 
   <h2>都道府県では沖縄県が1位</h2>
   <p>
-    都道府県では、沖縄県（{value(ID, P, "pref-47")}）が最も高く、滋賀県、佐賀県が続きます。
-    最も低いのは北海道（{value(ID, P, "pref-01")}）で、東京都（{value(ID, P, "pref-13")}）、高知県が続きます。
+    都道府県では、沖縄県（{value(ID, P, "pref-47")}）が最も高く、2位は滋賀県、3位は佐賀県です。
+    最も低いのは北海道（{value(ID, P, "pref-01")}）で、次が東京都（{value(ID, P, "pref-13")}）、高知県の順です。
     東京都は、<a href="/articles/single-households/">一人暮らしの世帯</a>が一般世帯の半分を超えるため、子どものいる世帯の割合が低くなると考えられます。
   </p>
   <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-47", "pref-25", "pref-41"]} caption="子どものいる世帯の割合が高い都道府県（2025年）" />
   <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-01", "pref-13", "pref-39"]} caption="子どものいる世帯の割合が低い都道府県（2025年）" />
 
-  <h2>人で数えると順位が変わる</h2>
+  <h2>人で数えると、順位が変わる</h2>
   <p>
     世帯ではなく、人口に占める15歳未満の子どもの割合で比べると、舟橋村は{value(CH, P, FUNA)}で{rankOf(CH, P, FUNA)}です。
     1位は鹿児島県三島村（{value(CH, P, "muni-46303")}）で、島の小さな村が上位に入ります。
     世帯で数えるか、人で数えるかで、順位は変わります。
   </p>
   <p class="map-links">
-    <a class="button" href={`/map/?i=${CH}&p=${P}&a=${FUNA}&l=municipality`}>15歳未満の割合を地図で見る</a>
+    <a class="button secondary" href={`/map/?i=${CH}&p=${P}&a=${FUNA}&l=municipality`}>15歳未満の割合を地図で見る</a>
+  </p>
+
+  <h2>子どものいる世帯は、全国でも減っている</h2>
+  <p>
+    いちばん小さい舟橋村は、富山市へ通いやすい住宅地として、子どものいる世帯の割合が1位になりました。
+    上位には、同じように大きな市のとなりにあるまちが入ります。
+    ただ、割合は舟橋村でも全国でも下がっています。全国では、2015年の{nationalValue(ID, P15)}から2025年は{nationalValue(ID, P)}になりました。
+    自分のまちでは何世帯に1世帯なのか、地図で確かめてみてください。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${P}&a=${FUNA}&l=municipality`}>舟橋村の子どものいる世帯の割合を地図で見る</a>
   </p>
 
   <h2>読むときの注意</h2>

@@ -1,53 +1,98 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { areaName, count, nationalValue, value } from "../lib/articleData";
+import { areaName, check, count, nationalValue, ranking, raw, value } from "../lib/articleData";
 
 const P = "2025-10-01";
+const P10 = "2010-10-01";
+const P20 = "2020-10-01";
 const ID = "aged_65_plus_share";
+const NANMOKU = "muni-10383";
+const OSAKA_CHUO = "muni-27128";
+const TOKYO_CHUO = "muni-13102";
+const CHIYODA = "muni-13101";
+const OKUMA = "muni-07545";
 const TAMA_HIGH = "area-13224022003";
 const TAMA_LOW = "area-13224024002";
+// 書き出しの「南牧村から大阪市中央区まで、5倍近い開き」: いちばん高いのが南牧村、いちばん低いのが大阪市中央区
+ranking(ID, P, "municipality", "high", 1, [NANMOKU]);
+ranking(ID, P, "municipality", "low", 1, [OSAKA_CHUO]);
+const spread = (raw(ID, P, NANMOKU) ?? 0) / (raw(ID, P, OSAKA_CHUO) ?? Infinity);
+check(spread >= 4.5 && spread < 5, "南牧村と大阪市中央区の開きが「5倍近く」ではありません");
+// 「都心の3つの区では、15年前より下がった」
+check([OSAKA_CHUO, TOKYO_CHUO, CHIYODA].every((id) => (raw(ID, P, id) ?? Infinity) < (raw(ID, P10, id) ?? 0)),
+  "大阪市中央区・東京都中央区・千代田区の65歳以上の割合が2010年より下がっていません");
+// 「多摩市の中に、6割を超える町と、大阪市中央区より低い町がある」
+const pct = (text: string) => Number(text.replace("%", ""));
+check(pct(value(ID, P20, TAMA_HIGH)) > 60 && pct(value(ID, P20, TAMA_LOW)) < (raw(ID, P, OSAKA_CHUO) ?? 0),
+  "多摩市の町丁目の65歳以上の割合が本文と合いません");
+// 「半分以上が65歳以上の市区町村は100を超える」
+check(Number(count(ID, P, "municipality", (v) => v >= 50).replace(/,/g, "")) > 100, "65歳以上の割合が50%以上の市区町村が100を超えていません");
 ---
 <Article slug="aging-rate">
   <p>
-    65歳以上の人の割合は「高齢化率」とも呼ばれ、地域の年齢構成を表す最も基本的な数字です。
-    2025年の国勢調査では、全国の65歳以上の割合は{nationalValue(ID, P)}でした（2020年は{nationalValue(ID, "2020-10-01")}）。
-    この記事では、65歳以上の人の割合を、都道府県・市区町村・町丁目の順に見ていきます。
+    65歳以上の人の割合（高齢化率）は、全国では{nationalValue(ID, P)}です（2025年国勢調査）。
+    市区町村で見ると、群馬県南牧村の{value(ID, P, NANMOKU)}から大阪市中央区の{value(ID, P, OSAKA_CHUO)}まで、5倍近い開きがあります。
   </p>
+  <p>
+    町丁目まで細かく見ると、同じ市の中に{value(ID, P20, TAMA_HIGH)}の町と{value(ID, P20, TAMA_LOW)}の町があることも分かります。
+    全国の値は、これだけ幅のある地域をならした数字です。低い方、高い方、町丁目の順に見ていきます。
+  </p>
+
+  <h2>低いまち：都心の区では、15年前より下がっている</h2>
+  <ArticleRanking id={ID} period={P} order="low" n={10} expect={[OSAKA_CHUO, TOKYO_CHUO, CHIYODA, "muni-14133", OKUMA]} caption="65歳以上の割合が低い市区町村（2025年）" />
+  <p>
+    低い方には、大阪市中央区や東京都中央区・千代田区のような大都市の中心部と、川崎市中原区のような駅前の再開発が進んだ地域が入ります。
+    全国の値は2020年の{nationalValue(ID, P20)}から2025年は{nationalValue(ID, P)}に上がりましたが、都心の区では反対に下がっています。
+    大阪市中央区は2010年の{value(ID, P10, OSAKA_CHUO)}から2025年は{value(ID, P, OSAKA_CHUO)}へ、東京都中央区は{value(ID, P10, TOKYO_CHUO)}から{value(ID, P, TOKYO_CHUO)}へ下がりました。
+    新しく移り住む働く世代や子育て世代が多いためと思われます。
+    <ArticleLink slug="population-growth-2010-2025">大阪市中央区の人口が15年で1.5倍になったこと</ArticleLink>
+  </p>
+  <p>
+    福島県大熊町（{value(ID, P, OKUMA)}）も低い方に入ります。避難指示の解除後に町に住む人の多くが、
+    復興の仕事などで移り住んだ働く世代であるためと考えられます。
+    <ArticleLink slug="single-households">大熊町で一人暮らしの世帯が8割を超えること</ArticleLink>
+  </p>
+
+  <h2>高いまち：半分以上が65歳以上のまちは100を超える</h2>
+  <p>
+    65歳以上の人が半分以上を占める市区町村は、{count(ID, P, "municipality", (v) => v >= 50)}あります。
+    最も高い群馬県南牧村（{value(ID, P, NANMOKU)}）をはじめ、山あいの小さな町村が上位に入ります。
+    若い世代が進学や就職で都市へ移る動きが、長く続いてきたことが背景にあると考えられます。
+  </p>
+  <ArticleRanking id={ID} period={P} n={10} expect={[NANMOKU]} caption="65歳以上の割合が高い市区町村（2025年）" />
 
   <h2>都道府県：秋田県は4割、東京都は2割強</h2>
   <p>
-    最も高いのは秋田県（{value(ID, P, "pref-05")}）で、高知県、青森県、山形県が続きます。
+    都道府県で最も高いのは秋田県（{value(ID, P, "pref-05")}）で、高知県、青森県、山形県の順です。
     最も低いのは東京都（{value(ID, P, "pref-13")}）で、次が沖縄県（{value(ID, P, "pref-47")}）です。
     東京都は進学や就職で若い人が集まるため、沖縄県は子どもの割合が全国で最も高い（15歳未満が{value("children_0_14_share", P, "pref-47")}）ため、と考えられます。
   </p>
   <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-05"]} caption="65歳以上の割合が高い都道府県（2025年）" />
   <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-13", "pref-47"]} caption="65歳以上の割合が低い都道府県（2025年）" />
 
-  <h2>市区町村：半分以上が65歳以上のまちは100を超える</h2>
-  <p>
-    市区町村で見ると、65歳以上の割合が50%以上の市区町村は{count(ID, P, "municipality", (v) => v >= 50)}ありました。
-    最も高いのは群馬県南牧村（{value(ID, P, "muni-10383")}）で、山あいの小さな町村が上位に並びます。
-    若い人が進学や就職でまちを離れ、戻る人が少ない状態が長く続いた結果と考えられます。
-  </p>
-  <ArticleRanking id={ID} period={P} n={10} expect={["muni-10383"]} caption="65歳以上の割合が高い市区町村（2025年）" />
-  <p>
-    反対に低い方には、大阪市中央区や東京都中央区・千代田区のような大都市の中心部と、川崎市中原区のような駅前の再開発が進んだ地域が並びます。
-    都心のマンションに住む単身の人や子育て世代が多いためと思われます。
-    福島県大熊町も低い方に入りますが、これは避難指示の解除後に町に住む人の多くが、復興の仕事などで移り住んだ働く世代であるためと考えられます。
-  </p>
-  <ArticleRanking id={ID} period={P} order="low" n={10} expect={["muni-27128", "muni-13102", "muni-13101", "muni-14133", "muni-07545"]} caption="65歳以上の割合が低い市区町村（2025年）" />
-
   <h2>町丁目で見ると、同じ市の中でも大きく違う</h2>
   <p>
-    市区町村の値は、その中の地域の平均のようなものです。町丁目まで細かく見ると、同じ市の中でも大きな差があります。
-    例えば東京都多摩市では、2020年の国勢調査で、{areaName(TAMA_HIGH)}の65歳以上の割合が{value(ID, "2020-10-01", TAMA_HIGH)}、
-    {areaName(TAMA_LOW)}が{value(ID, "2020-10-01", TAMA_LOW)}でした。
-    多摩ニュータウンのように開発の時期が地区ごとに違うまちでは、同じ時期に入居した人が一緒に年を重ねるため、地区ごとの差が大きくなると考えられます。
+    市区町村の値も、その中の地域をならした数字です。東京都多摩市では、2020年の国勢調査で、
+    {areaName(TAMA_HIGH)}の65歳以上の割合が{value(ID, P20, TAMA_HIGH)}、{areaName(TAMA_LOW)}が{value(ID, P20, TAMA_LOW)}でした。
+    6割を超える町と、市区町村で最も低い大阪市中央区より低い町が、同じ市の中にあることになります。
   </p>
   <p>
-    <a href={`/map/?i=${ID}&p=2020-10-01&a=${TAMA_HIGH}`}>多摩市の町丁目を地図で見る</a>
+    多摩ニュータウンのように開発の時期が地区ごとに違うまちでは、同じ時期に入居した人が一緒に年を重ねるため、
+    地区ごとの差が大きくなると考えられます。
+    <a href={`/map/?i=${ID}&p=${P20}&a=${TAMA_HIGH}`}>多摩市の町丁目を地図で見る</a>
   </p>
+
+  <h2>平均の中に、大きな幅がある</h2>
+  <p>
+    全国の{nationalValue(ID, P)}という数字の中には、7割に近い村も、15年前より割合が下がった都心の区もありました。
+    市区町村の値の中にも、町丁目ごとの大きな差が隠れています。
+    65歳以上の割合が高いことは、地域の良し悪しを表すものではありません。
+    介護や医療、交通など、そのまちで必要とされるものを考える手がかりになる数字です。
+    自分の住むまちと、その中の町丁目を、地図で見比べてみてください。
+  </p>
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>65歳以上の割合を地図で見る</a></p>
 
   <h2>読むときの注意</h2>
   <ul>
@@ -55,7 +100,5 @@ const TAMA_LOW = "area-13224024002";
     <li>町丁目の値と2010年の値は補完した値がないため、年齢不詳の人を分母から除いて計算しています。都市部では年齢不詳の人が多い地域があり、その影響を受けます。</li>
     <li>人口（町丁目などは年齢が分かっている人）が50人未満の地域は、値が大きくぶれるため表示していません。</li>
     <li>2025年の値は今のところ市区町村までです。町丁目は2020年までの値で見られます。</li>
-    <li>65歳以上の割合が高いことは、地域の良し悪しを表すものではありません。介護や医療、交通など、必要とされるものを考える手がかりとしてお使いください。</li>
   </ul>
-  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>65歳以上の割合を地図で見る</a></p>
 </Article>

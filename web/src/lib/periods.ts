@@ -38,3 +38,15 @@ export function prefecturePeriods(ind: Indicator): string[] {
   const latest = ind.periods.filter((p) => !p.aggregate && has(p)).map((p) => p.period).sort().at(-1);
   return [...new Set([...newer, ...(current && has(current) ? [current.period] : []), ...(latest ? [latest] : [])])];
 }
+
+/**
+ * 既定の時点（町丁目に合わせた時点）より新しい国勢調査の回で、市区町村の値がある時点（2025年など）。なければ null。
+ * 指標ページの都道府県・市区町村の表と題名、地図を開いたときの時点に使う（設計変更記録 #191）
+ */
+export function newerPeriod(ind: Indicator): string | null {
+  const [first] = municipalityPeriods(ind);
+  return first && first !== ind.default_period ? first : null;
+}
+
+/** 都道府県・市区町村の値を見るときの時点（新しい国勢調査の回があればそれ、なければ既定の時点。#191） */
+export const latestPeriod = (ind: Indicator): string => newerPeriod(ind) ?? ind.default_period;

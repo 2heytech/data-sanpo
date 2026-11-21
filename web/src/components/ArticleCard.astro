@@ -1,0 +1,36 @@
+---
+// 寄り道の記事のカード（設計変更記録 #232）: 記事の地図の画像・テーマ・日付・題名。
+// 一覧（説明文つき）・記事の末尾の「あわせて読みたい」（つながりの一言つき）で使う。ul.acards の中に置く
+import { formatDate, themeName, type Article } from "../lib/articles";
+import { articleImage } from "../lib/shareImages";
+
+interface Props {
+  article: Article;
+  /** 説明文も出す（一覧） */
+  description?: boolean;
+  /** テーマと日付の代わりに出す一言（「舟橋村・日吉津村も登場」「同じテーマ: 人口」） */
+  why?: string;
+  whyKind?: "area" | "theme";
+}
+const { article: a, description = false, why, whyKind = "area" } = Astro.props;
+const image = articleImage(a);
+---
+<li class="acard" data-slug={a.slug} data-theme={a.theme}>
+  <a href={`/articles/${a.slug}/`}>
+    {image
+      ? <img class="acard-thumb" src={image.path} alt="" width="1200" height="630" loading="lazy" decoding="async" />
+      : <span class="acard-thumb none"><img src="/logo-mark.svg" alt="" width="44" height="44" loading="lazy" decoding="async" /></span>}
+    <span class="acard-body">
+      {why
+        ? <span class:list={["acard-why", whyKind]}>{why}</span>
+        : (
+          <span class="acard-meta">
+            <span class="acard-theme">{themeName(a.theme)}</span>
+            <time datetime={a.published}>{formatDate(a.published)}</time>
+          </span>
+        )}
+      <span class="acard-title">{a.title}</span>
+      {description && <span class="acard-desc">{a.description}</span>}
+    </span>
+  </a>
+</li>

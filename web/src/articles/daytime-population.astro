@@ -1,20 +1,45 @@
 ---
 import Article from "../layouts/Article.astro";
+import ArticleLink from "../components/ArticleLink.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { check, ranking, raw, value } from "../lib/articleData";
+import { about, check, man, parts, rankNumber, ranking, raw, value } from "../lib/articleData";
 import { formatNumber } from "../lib/format";
 
 const P = "2020-10-01";
 const ID = "daytime_night_ratio";
+const CHIYODA = "muni-13101";
+const OKUMA = "muni-07545";
+const TOBISHIMA = "muni-23427";
+const SHICHIGAHAMA = "muni-04404";
+const FUNAHASHI = "muni-16321";
 // 題名の「昼の人口が住民の17.5倍になる区」: 1位が千代田区で、昼夜間人口比率（%）÷100 が17.5
-ranking(ID, P, "municipality", "high", 1, ["muni-13101"]);
-check(formatNumber((raw(ID, P, "muni-13101") ?? 0) / 100, 1) === "17.5", "千代田区の昼夜間人口比率が17.5倍ではありません");
+ranking(ID, P, "municipality", "high", 1, [CHIYODA]);
+const chiyodaTimes = formatNumber((raw(ID, P, CHIYODA) ?? 0) / 100, 1);
+check(chiyodaTimes === "17.5", "千代田区の昼夜間人口比率が17.5倍ではありません");
+// 住んでいる人（分母）と昼間人口（分子）
+const chiyoda = parts(ID, P, CHIYODA);
+const okuma = parts(ID, P, OKUMA);
+const tobishima = parts(ID, P, TOBISHIMA);
+// 「飛島村は財政力指数が全国1位」
+check(rankNumber("fiscal_strength_index", "2024-04-01", TOBISHIMA) === 1, "飛島村の財政力指数が全国1位ではありません");
+// 「舟橋村は日本でいちばん面積の小さい村」
+ranking("area", "2025-10-01", "municipality", "low", 1, [FUNAHASHI]);
+// 「低い方の1〜3位は東京都をとり囲む3県」「奈良県は低い方の4位」
+const prefLow = ranking(ID, P, "prefecture", "low", 4, ["pref-11", "pref-12", "pref-14", "pref-29"]);
+check(prefLow.slice(0, 3).every((r) => ["pref-11", "pref-12", "pref-14"].includes(r.entity_id)) && prefLow[3]?.entity_id === "pref-29",
+  "昼夜間人口比率の低い都道府県の並びが本文と合いません");
+// 「昼間は住民の3分の1にあたる人がまちの外にいる」: 最も低い七ヶ浜町が66〜67%
+ranking(ID, P, "municipality", "low", 1, [SHICHIGAHAMA]);
+check(Math.floor(raw(ID, P, SHICHIGAHAMA) ?? 0) === 66, "七ヶ浜町の昼夜間人口比率が66%台ではありません");
 ---
 <Article slug="daytime-population">
   <p>
+    東京都千代田区に住んでいる人は{man(chiyoda.denominator)}人です。ところが昼間は、通勤や通学で来る人を合わせて
+    {about(chiyoda.numerator)}人がこの区にいます。住民の{chiyodaTimes}倍です（2020年国勢調査）。
+  </p>
+  <p>
     同じまちでも、昼と夜とでいる人の数は違います。会社や学校の多いまちには昼間に人が集まり、住宅の多いまちからは人が出ていきます。
-    この違いを表すのが<strong>昼夜間人口比率</strong>です。国勢調査の「ふだん通勤・通学している場所」から計算した昼間人口を、
-    住んでいる人（常住人口）を100としたときの値で表します。
+    この違いを表すのが<strong>昼夜間人口比率</strong>で、住んでいる人を100としたときの昼間の人口です。千代田区は{value(ID, P, CHIYODA)}になります。
   </p>
   <div class="note">
     <strong>昼夜間人口比率の計算</strong>
@@ -25,36 +50,61 @@ check(formatNumber((raw(ID, P, "muni-13101") ?? 0) / 100, 1) === "17.5", "千代
     買い物や観光で訪れる人は含みません。100より大きいと「昼に人が集まるまち」、100より小さいと「昼に人が出ていくまち」です。
   </div>
 
-  <h2>都道府県では東京都だけが大きく100を超える</h2>
-  <p>
-    都道府県で見ると、東京都が{value(ID, P, "pref-13")}で最も高く、大阪府（{value(ID, P, "pref-27")}）、京都府、愛知県が続きます。
-    反対に低いのは埼玉県（{value(ID, P, "pref-11")}）、千葉県、神奈川県、奈良県で、いずれも東京・大阪へ通う人が多い県です。
-    県の境をまたいだ通勤が、首都圏と関西圏の数字にはっきり表れています。
-  </p>
-  <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-13", "pref-27"]} caption="昼夜間人口比率の高い都道府県（2020年）" />
-  <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-11"]} caption="昼夜間人口比率の低い都道府県（2020年）" />
-
-  <h2>昼に人が集まるまち</h2>
+  <h2>昼に人が集まるまち：三大都市の都心</h2>
   <ArticleRanking id={ID} period={P} n={10}
-    expect={["muni-13101", "muni-07545", "muni-27128", "muni-13102", "muni-13103", "muni-23106", "muni-23427"]}
+    expect={[CHIYODA, OKUMA, "muni-27128", "muni-13102", "muni-13103", "muni-27127", "muni-23106", TOBISHIMA]}
     caption="昼夜間人口比率の高い市区町村（2020年）" />
   <p>
-    1位は東京都千代田区で{value(ID, P, "muni-13101")}です。住んでいる人の10倍以上の人が、昼間には千代田区にいることになります。
-    大阪市中央区、東京都の中央区・港区、大阪市北区、名古屋市中区と、三大都市の都心が上位に並びます。
-  </p>
-  <p>
-    都心以外で目立つのが、福島県大熊町と愛知県飛島村です。大熊町は、住んでいる人が少ない一方で、
-    原子力発電所の廃炉や復興の仕事のために町の外から通う人が多いことが表れていると考えられます。
-    飛島村は名古屋港の臨海部に工場や物流の施設が集まり、村の外から働きに来る人が多いまちです。
+    千代田区のほかにも、大阪市中央区（{value(ID, P, "muni-27128")}）、東京都の中央区と港区、大阪市北区、名古屋市中区と、
+    東京・大阪・名古屋の都心の区が上位に入ります。なかでも千代田区が飛び抜けているのは、官庁や会社が集まる一方で、
+    住んでいる人が少ないためと考えられます。
   </p>
 
-  <h2>昼に人が出ていくまち（ベッドタウン）</h2>
-  <ArticleRanking id={ID} period={P} order="low" n={10} expect={["muni-04404", "muni-16321", "muni-13219"]} caption="昼夜間人口比率の低い市区町村（2020年）" />
+  <h2>都心ではないのに上位に入る、2つのまち</h2>
   <p>
-    低い方には、大都市のとなりにある住宅のまちが並びます。宮城県七ヶ浜町（{value(ID, P, "muni-04404")}）は仙台市や塩竈市へ、
-    富山県舟橋村は富山市へ、東京都狛江市は都心へ通う人が多いまちと考えられます。
-    入ってくる人と出ていく人を差し引くと、昼間は住民の3割前後にあたる人がまちの外にいることになります。
+    都心の区にまじって、福島県大熊町（{value(ID, P, OKUMA)}）と愛知県飛島村（{value(ID, P, TOBISHIMA)}）が上位10に入っています。
   </p>
+  <p>
+    大熊町は、2020年の調査の時点で住んでいた人が{man(okuma.denominator)}人でした。そこへ、原子力発電所の廃炉や復興の仕事のために
+    町の外から通う人が加わり、昼間の人口は{about(okuma.numerator)}人になります。
+    避難指示が段階的に解除され始めた時期の町のようすが、数字に表れていると考えられます。
+  </p>
+  <p>
+    飛島村は名古屋港に面した村で、臨海部に工場や物流の施設が集まります。住んでいる人は{man(tobishima.denominator)}人ですが、
+    昼間は村の外から働きに来る人が加わって{about(tobishima.numerator)}人になります。
+    飛島村は、財政力指数が全国1位の村でもあります。
+    <ArticleLink slug="fiscal-strength">財政力指数の高いまち</ArticleLink>
+  </p>
+
+  <h2>昼に人が出ていくまち</h2>
+  <ArticleRanking id={ID} period={P} order="low" n={10} expect={[SHICHIGAHAMA, FUNAHASHI, "muni-13219", "muni-14136"]} caption="昼夜間人口比率の低い市区町村（2020年）" />
+  <p>
+    反対に、昼間の人口が住民の7割ほどになるまちもあります。最も低いのは宮城県七ヶ浜町の{value(ID, P, SHICHIGAHAMA)}で、
+    仙台市や塩竈市へ通う人が多いまちと考えられます。入ってくる人と出ていく人を差し引くと、
+    昼間は住民の3分の1にあたる人がまちの外にいることになります。
+  </p>
+  <p>
+    東京都狛江市（{value(ID, P, "muni-13219")}）、川崎市宮前区（{value(ID, P, "muni-14136")}）など、大都市のとなりの住宅のまちが多く入ります。
+    富山県舟橋村（{value(ID, P, FUNAHASHI)}）は日本でいちばん面積の小さい村で、となりの富山市へ通う人が多いようです。
+    <ArticleLink slug="area-largest-smallest">舟橋村の面積</ArticleLink>
+  </p>
+
+  <h2>都道府県：東京都に集まり、となりの3県から出ていく</h2>
+  <p>
+    都道府県で見ると、東京都が{value(ID, P, "pref-13")}で最も高く、低い方の1〜3位は埼玉県（{value(ID, P, "pref-11")}）・千葉県・神奈川県と、
+    東京都をとり囲む3県です。関西でも、大阪府（{value(ID, P, "pref-27")}）が高い方の2位で、となりの奈良県（{value(ID, P, "pref-29")}）が低い方の4位です。
+    県の境をまたいだ通勤・通学が、数字にはっきり表れています。
+  </p>
+  <ArticleRanking id={ID} period={P} level="prefecture" n={5} expect={["pref-13", "pref-27"]} caption="昼夜間人口比率の高い都道府県（2020年）" />
+  <ArticleRanking id={ID} period={P} level="prefecture" order="low" n={5} expect={["pref-11", "pref-12", "pref-14", "pref-29"]} caption="昼夜間人口比率の低い都道府県（2020年）" />
+
+  <h2>昼と夜で、まちは別の顔になる</h2>
+  <p>
+    住民の{chiyodaTimes}倍の人が集まる千代田区と、昼には住民の3分の1にあたる人が出かけている住宅のまち。
+    昼夜間人口比率は、そのまちが「働く・学ぶ場所」なのか「住む場所」なのかを教えてくれます。
+    自分のまちは昼に人が集まる側か、出ていく側か、地図で確かめてみてください。
+  </p>
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>昼夜間人口比率を地図で見る</a></p>
 
   <h2>読むときの注意</h2>
   <ul>
@@ -62,10 +112,6 @@ check(formatNumber((raw(ID, P, "muni-13101") ?? 0) / 100, 1) === "17.5", "千代
     <li>値は市区町村ごとで、町丁目ごとの昼間人口は公表されていません。</li>
     <li>2015・2020年の値は、統計局が通勤・通学先の「不詳」を補完した値（不詳補完値）から計算しています。統計局が公表する昼夜間人口比率と同じ値です。</li>
     <li>2020年の国勢調査は、在宅勤務が広がり始めた時期の調査です。通勤先は「ふだん」の場所として答えるため、在宅勤務の影響がどこまで表れているかは数字だけでは分かりません。</li>
+    <li>交通事故などの件数を「住民100人当たり」で比べると、昼間に人が集まる都心では値が大きく出がちです。データさんぽでは、一部の指標に「昼間人口100人当たり」の値も載せています。</li>
   </ul>
-  <p>
-    交通事故や犯罪の件数を「住民100人当たり」で比べると、昼間に人が集まる都心では値が大きく出がちです。
-    データさんぽでは、一部の指標に「昼間人口100人当たり」の値も載せているので、あわせて見てください。
-  </p>
-  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>昼夜間人口比率を地図で見る</a></p>
 </Article>

@@ -4,6 +4,8 @@ import type { Indicator } from "./types";
 
 export interface ItemLink {
   label: string;
+  /** 指標の名前そのもの（指標の検索で使う。#201） */
+  name: string;
   href: string;
   /** 同じ種類の、基準だけが違う指標（割合・住民100人当たりなど） */
   extras: { label: string; href: string }[];
@@ -38,6 +40,9 @@ export const INDICATOR_GROUPS: IndicatorGroup[] = [
   { title: "今の場所に住んでいる期間", ids: ["same_residence_5y_share", "residence_under1y_share", "residence_under5y_share", "residence_20y_share"],
     labels: ["5年前と同じ場所", "1年未満", "5年未満", "20年以上"],
     description: "今の住居に住み始めてからの年数ごとの人の割合。短い人が多いほど、人の入れ替わりが多い地域。" },
+  { title: "転入・転出", ids: ["in_migration_rate", "out_migration_rate", "migration_in_out_ratio"],
+    labels: ["転入率", "転出率", "転出入人口比率"],
+    description: "1年間に移り住んだ人・出ていった人が人口の何%にあたるか（住民基本台帳）。転出者100人あたりの転入者の数も見られます。" },
   { title: "国勢調査の外国人の数（国籍別）", family: "census_foreign", exceptTypes: ["総数"],
     description: "国勢調査で数えた外国人の数（各回10月1日現在）を国籍別に。人口に占める割合も見られます。" },
   { title: "外国人住民の数（国籍別）", family: "foreign", exceptTypes: ["総数"],
@@ -46,6 +51,9 @@ export const INDICATOR_GROUPS: IndicatorGroup[] = [
     ids: ["preschool_kindergarten_share", "preschool_nursery_share", "preschool_kodomoen_share"],
     labels: ["幼稚園", "保育園・保育所", "認定こども園"],
     description: "小学校に入る前の子どものうち、幼稚園・保育園・認定こども園に通う子どもの割合。" },
+  { title: "子どもの医療費の助成の対象年齢", ids: ["child_medical_age_outpatient", "child_medical_age_inpatient"],
+    labels: ["通院", "入院"],
+    description: "市区町村が子どもの医療費を助成する年齢の上限（その年齢の年度末まで）。通院と入院で分けて見られます。" },
   { title: "1学級あたりの人数", ids: ["elem_class_size", "jhs_class_size"], labels: ["小学校", "中学校"],
     description: "公立の小学校・中学校の1学級あたりの児童・生徒数。" },
   { title: "特別支援学級の子どもの割合", ids: ["elem_special_class_share", "jhs_special_class_share"], labels: ["小学校", "中学校"],
@@ -172,13 +180,13 @@ function rowItem(r: Row): ListItem {
     return {
       title: groupName(r.main), href: href(r.variants[0]),
       description: FAMILY_DESCRIPTIONS[r.main.family!] ?? (total ?? r.main).description,
-      members: r.variants.map((v) => ({ label: v.facets!.type, href: href(v), extras: [] })),
+      members: r.variants.map((v) => ({ label: v.facets!.type, name: v.name, href: href(v), extras: [] })),
       ids: r.variants.map((v) => v.id),
     };
   }
   return {
     title: r.main.name, href: href(r.main), description: r.main.description,
-    members: [{ label: r.main.name, href: href(r.main), extras: extrasOf(r) }], ids: idsOf(r),
+    members: [{ label: r.main.name, name: r.main.name, href: href(r.main), extras: extrasOf(r) }], ids: idsOf(r),
   };
 }
 
@@ -205,7 +213,7 @@ export function listItems(indicators: Indicator[], category: string): ListItem[]
     items.push({
       title: g.title, href: href(members[0].main), description: g.description,
       members: members.map((m) => ({
-        label: g.ids ? g.labels![g.ids.indexOf(m.main.id)] : m.main.facets!.type, href: href(m.main), extras: extrasOf(m),
+        label: g.ids ? g.labels![g.ids.indexOf(m.main.id)] : m.main.facets!.type, name: m.main.name, href: href(m.main), extras: extrasOf(m),
       })),
       ids: members.flatMap(idsOf),
     });

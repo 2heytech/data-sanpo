@@ -1,0 +1,13 @@
+---
+// 本文から別の寄り道へ案内する一文。「<slot>は、寄り道「題名」で紹介しています。」の形で出す。
+// 公開日が来ていない寄り道には何も出さない（リンク切れにしないため）。出ないときも前後の文が成り立つよう、段落の終わりに置く
+import { publishedArticles } from "../lib/articles";
+
+interface Props {
+  slug: string;
+}
+const article = publishedArticles().find((a) => a.slug === Astro.props.slug);
+// 題名の「：」より前（問いかけの部分）だけを出す
+const label = article?.title.split("：")[0];
+---
+{article && <span class="article-link"><slot />は、寄り道「<a href={`/articles/${article.slug}/`}>{label}</a>」で紹介しています。</span>}

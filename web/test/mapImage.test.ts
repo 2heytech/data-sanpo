@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { breakText, layoutTitle, textWidth } from "../src/lib/mapImage";
+import { breakText, choroplethPng, IMAGE_HEIGHT, IMAGE_WIDTH, layoutTitle, textWidth } from "../src/lib/mapImage";
 import { MIN_SMALL_AREAS, topSmallAreas } from "../src/lib/smallAreaRanking";
 import type { ValueRow } from "../src/lib/types";
 
@@ -26,6 +26,26 @@ describe("地図の画像の題名", () => {
   it("区切りで収まらない文は文字で折り返し、行が多すぎるときは「…」で切る", () => {
     expect(breakText("あ".repeat(30), 20, 200, 2)).toEqual(["あ".repeat(10), `${"あ".repeat(9)}…`]);
     expect(breakText("全国の市区町村別の人口（2020年）", 22, 536, 2)).toEqual(["全国の市区町村別の人口（2020年）"]);
+  });
+});
+
+describe("地図の画像のファイル", () => {
+  it("256色の PNG（1200×630）で書き出し、同じ絵は毎回同じファイルになる（設計変更記録 #223）", async () => {
+    const square = (x: number, y: number) => ({
+      type: "Polygon" as const, coordinates: [[[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1], [x, y]]],
+    });
+    const spec = {
+      title: "人口", subtitle: "全国の市区町村別の人口（2020年）", features: [{ id: "a", geometry: square(139, 35) }, { id: "b", geometry: square(140, 35) }],
+      values: new Map<string, number | null>([["a", 10], ["b", null]]), breaks: [5, 20], scheme: "blues",
+      formatBreak: (v: number) => String(v), source: "出典：総務省統計局", frame: "fit" as const,
+    };
+    const png = await choroplethPng(spec);
+    const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+    expect([...png.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    expect([view.getUint32(16), view.getUint32(20)]).toEqual([IMAGE_WIDTH, IMAGE_HEIGHT]);
+    // IHDR の色の種類: 3 が色の表（パレット）を使う PNG
+    expect(png[25]).toBe(3);
+    expect([...(await choroplethPng(spec))]).toEqual([...png]);
   });
 });
 

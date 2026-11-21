@@ -17,6 +17,11 @@ e-Stat の基本集計「全国、都道府県、市区町村」の xlsx（2026-
 
 住宅数（kind = estat_housing_stock）
   第1-2表「居住世帯の有無(8区分)別住宅数…」: 横長で、見出しの1行に「0_総数」「22_空き家」などの列名がある。
+
+主世帯の世帯人員（kind = estat_housing_members、#208）
+  令和5年 第2表「住宅の種類(2区分)別住宅数並びに世帯の種類(3区分)別世帯数及び世帯人員…」（2026-11-06 に取得して確認）:
+  「表章項目」の行（住宅数・世帯数・世帯人員）と「項目名」の行（0_総数・1_主世帯…）の組で列を選ぶ。
+  1行が「地域・住宅の種類」の組み合わせで、住宅の種類「0_総数」の行の「世帯人員 / 1_主世帯」を使う。
 """
 from __future__ import annotations
 
@@ -30,6 +35,7 @@ from ..xlsx import read_sheet, sheet_names
 
 INCOME_KIND = "estat_housing_income"
 STOCK_KIND = "estat_housing_stock"
+MEMBERS_KIND = "estat_housing_members"
 AREA = re.compile(r"^(\d{5})_")
 LABEL = re.compile(r"^\d+_\S")
 NOT_PUBLISHED = "この市区町村の値は公表されていません（人口1万5千人未満の町村は調査結果の公表の対象外）"
@@ -177,6 +183,40 @@ def ingest_stock(conn: sqlite3.Connection, path: Path, source_id: str, catalog: 
             num = _number(r[cols[d["housing_numerator"]]])
             den = _number(r[cols[d["housing_denominator"]]])
             _write_ratio(conn, entity_id, indicator_id, d, num, den, source_id, period)
+        written.add(entity_id)
+        result["prefectures" if entity_id.startswith("pref-") else "municipalities"] += 1
+    result["not_published"] = _write_missing_towns(conn, known, written, targets, source_id, period)
+    return result
+
+
+def ingest_members(conn: sqlite3.Connection, path: Path, source_id: str, catalog: dict,
+                   period: tuple[str, str, str]) -> dict:
+    """主世帯の世帯人員（住宅に住む世帯の人数。1人あたり延べ面積の分母、#208）。"""
+    targets = {k: d for k, d in catalog.items() if d.get("source_kind") == MEMBERS_KIND}
+    rows = read_sheet(path, sheet_names(path)[0])
+    text = lambda r: ["" if c is None else str(c).strip() for c in r]
+    top = next(text(r) for r in rows if "表章項目" in text(r))
+    names = next(text(r) for r in rows if "項目名" in text(r))
+    col = next((j for j in range(min(len(top), len(names))) if top[j] == "世帯人員" and names[j] == "1_主世帯"), None)
+    if col is None:
+        raise KeyError(f"{path.name}: 「世帯人員 / 1_主世帯」の列が見つかりません")
+    known = _known(conn)
+    written: set[str] = set()
+    result = {"municipalities": 0, "prefectures": 0}
+    for r in rows:
+        cells = text(r)
+        m = next((AREA.match(c) for c in cells[:3] if AREA.match(c)), None)
+        if m is None or "0_総数" not in cells[:4]:
+            continue
+        entity_id = _entity(known, m.group(1))
+        if entity_id is None:
+            continue
+        v = _number(r[col]) if len(r) > col else None
+        for indicator_id, d in targets.items():
+            insert_observation(conn, entity_id=entity_id, indicator_id=indicator_id,
+                               definition_version=d["definition_version"], period_start=period[0],
+                               period_end=period[1], period_kind=period[2], value=v,
+                               status="observed" if v is not None else "missing", source_id=source_id)
         written.add(entity_id)
         result["prefectures" if entity_id.startswith("pref-") else "municipalities"] += 1
     result["not_published"] = _write_missing_towns(conn, known, written, targets, source_id, period)

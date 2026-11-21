@@ -13,12 +13,18 @@ export const STATUS_LABEL: Record<Status, string> = {
 /** 表示の桁に丸めると0になる値か（-0.04 を「-0.0」、+0.04 を「+0.0」と書かないため）。 */
 const roundsToZero = (value: number, digits: number) => Math.abs(value) < 0.5 * 10 ** -digits;
 
+// 書式を決める部品は桁数ごとに1つ作って使い回す。数字1つごとに作ると、地図で全国の市区町村を塗るたび・
+// ページを作るたびに数千回作ることになり、その分だけ遅くなる（設計変更記録 #222）
+const formatters = new Map<number, Intl.NumberFormat>();
+
 export function formatNumber(value: number, digits: number): string {
   if (roundsToZero(value, digits)) value = 0;
-  return new Intl.NumberFormat("ja-JP", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(value);
+  let f = formatters.get(digits);
+  if (!f) {
+    f = new Intl.NumberFormat("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    formatters.set(digits, f);
+  }
+  return f.format(value);
 }
 
 /** 全体のうち4分の1・3分の1・半分・3分の2・4分の3に近い割合は、その言い方を添える */

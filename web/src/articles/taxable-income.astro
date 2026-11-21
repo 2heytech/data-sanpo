@@ -1,16 +1,55 @@
 ---
 import Article from "../layouts/Article.astro";
 import ArticleRanking from "../components/ArticleRanking.astro";
-import { nationalValue, value } from "../lib/articleData";
+import { check, indicator, man, manYen, nationalRaw, parts, rankNumber, ranking, raw } from "../lib/articleData";
+import { formatNumber } from "../lib/format";
 
 const P = "2025-04-01";
 const ID = "taxable_income_per_taxpayer";
+const MINATO = "muni-13103";
+const ASHIYA = "muni-28206";
+const SARUFUTSU = "muni-01511";
+// 題名の「上位に、ほたての村」: 猿払村が上位10に入り、東京都の区のほかは芦屋市と猿払村だけ
+const top10 = ranking(ID, P, "municipality", "high", 10, [MINATO, "muni-13113", "muni-13101", ASHIYA, SARUFUTSU]);
+const tokyoWards = top10.filter((r) => r.entity_id.startsWith("muni-131")).length;
+check(tokyoWards === 8 && top10.length === 10, "上位10のうち東京都の区が8つではありません");
+// 「1位は港区、2位は渋谷区、3位は千代田区」
+check(top10.slice(0, 3).map((r) => r.entity_id).join() === [MINATO, "muni-13113", "muni-13101"].join(), "1〜3位が港区・渋谷区・千代田区ではありません");
+// 「新宿区や世田谷区を上回る」
+check((raw(ID, P, SARUFUTSU) ?? 0) > (raw(ID, P, "muni-13104") ?? Infinity) && (raw(ID, P, SARUFUTSU) ?? 0) > (raw(ID, P, "muni-13112") ?? Infinity),
+  "猿払村が新宿区・世田谷区を上回っていません");
+// 全国の値と、港区がその何倍か
+const nationalYen = nationalRaw(ID, P);
+const minatoTimes = nationalYen ? formatNumber((raw(ID, P, MINATO) ?? 0) / nationalYen, 1) : "—";
+// 猿払村の年度ごとの順位と額（このサイトにある年度すべて）
+const years = (indicator(ID)?.periods ?? []).filter((q) => q.levels.includes("municipality")).map((q) => q.period).sort();
+const history = years.map((period) => ({ year: period.slice(0, 4), rank: rankNumber(ID, period, SARUFUTSU), yen: raw(ID, period, SARUFUTSU) }));
+const known = history.filter((h) => h.rank !== null);
+const best = known.reduce<typeof history[number] | null>((a, h) => (!a || h.rank! < a.rank! ? h : a), null);
+const worst = known.reduce<typeof history[number] | null>((a, h) => (!a || h.rank! > a.rank! ? h : a), null);
+// 「いちばん低かった年度の2年後には、また上位5位に戻った」
+const rebound = worst ? history.find((h) => Number(h.year) === Number(worst.year) + 2) : undefined;
+check(!!best && !!worst && worst.rank! >= 20 && best.rank! <= 5 && !!rebound && rebound.rank !== null && rebound.rank <= 5,
+  "猿払村の順位の動き（上位5位以内から20位以下へ下がり、2年後に戻る）が本文と合いません");
+// 「1位は毎年港区」
+check(years.every((period) => rankNumber(ID, period, MINATO) === 1), "港区が1位でない年度があります");
+// 猿払村の納税者の数
+const taxpayers = parts(ID, P, SARUFUTSU).denominator;
+// 「2022年度には周防大島町が港区に次ぐ2位。この年度だけの動き」
+const SUO = "muni-35305";
+const SUO_P = "2022-04-01";
+check(rankNumber(ID, SUO_P, SUO) === 2 && (rankNumber(ID, "2021-04-01", SUO) ?? 0) > 100 && (rankNumber(ID, "2023-04-01", SUO) ?? 0) > 100,
+  "周防大島町が2022年度だけ2位という前提が崩れています");
 ---
 <Article slug="taxable-income">
   <p>
-    「市区町村の平均年収」として紹介されることが多いのが、総務省「市町村税課税状況等の調」から計算できる
-    <strong>課税対象所得の納税者1人あたり額</strong>です。住民税の所得割を納める人の、所得控除をする前の所得を合計し、その人数で割った値です。
-    2025年度（2024年の所得）の値は、全国で{nationalValue(ID, P)}でした。
+    納税者1人あたりの所得が高い市区町村を並べると、上位10のうち{tokyoWards}つは東京都の区です。
+    残る2つは、兵庫県芦屋市と、北海道の猿払村です。ほたて漁で知られるオホーツク海沿いの村が、
+    新宿区や世田谷区を上回る{rankNumber(ID, P, SARUFUTSU)}位（{manYen(raw(ID, P, SARUFUTSU))}）に入っています（2025年度）。
+  </p>
+  <p>
+    ここで比べているのは、総務省「市町村税課税状況等の調」から計算した<strong>課税対象所得の納税者1人あたり額</strong>です。
+    「市区町村の平均年収」として紹介されることの多い値ですが、年収そのものではありません。全国では{manYen(nationalYen)}です。
   </p>
   <div class="note">
     <strong>「平均年収」と違うところ</strong>
@@ -20,35 +59,79 @@ const ID = "taxable_income_per_taxpayer";
       <li>世帯の収入ではなく、納税者1人あたりの額です。</li>
     </ul>
   </div>
+  <ArticleRanking id={ID} period={P} n={10} expect={[MINATO, "muni-13113", "muni-13101", ASHIYA, SARUFUTSU]} caption="課税対象所得の納税者1人あたり額が高い市区町村（2025年度）" />
+
+  <h2>1位の港区は、全国の{minatoTimes}倍</h2>
+  <p>
+    1位は東京都港区の{manYen(raw(ID, P, MINATO))}で、全国の{minatoTimes}倍です。
+    2位は渋谷区（{manYen(raw(ID, P, "muni-13113"))}）、3位は千代田区（{manYen(raw(ID, P, "muni-13101"))}）です。
+    港区は、このサイトにある{years[0]?.slice(0, 4)}年度から毎年1位です。会社の経営者や専門職の人が多く住むまちと考えられます。
+  </p>
+  <p>
+    この値には株式の売却などによる所得も含まれます。高額な所得のある人が少しいるだけで平均は大きく上がるので、
+    「港区に住む人の多くがこの額をかせいでいる」という意味ではありません。
+    東京都のほかで上位10に入った芦屋市（{manYen(raw(ID, P, ASHIYA))}）は、古くからの住宅地として知られるまちです。
+  </p>
+
+  <h2>ほたての村の順位は、{best?.rank}位から{worst?.rank}位まで動く</h2>
+  <p>
+    もう1つの猿払村は、北海道の北部、オホーツク海に面した村で、ほたて漁で知られます。
+    {manYen(raw(ID, P, SARUFUTSU))}という値には、漁業の所得が大きいことが表れていると考えられます。
+  </p>
+  <p>
+    ただ、猿払村の順位は年によって大きく変わります。いちばん高かったのは{best?.year}年度の{best?.rank}位（{manYen(best?.yen ?? null)}）、
+    いちばん低かったのは{worst?.year}年度の{worst?.rank}位（{manYen(worst?.yen ?? null)}）でした。
+    その2年後の{rebound?.year}年度には、{rebound?.rank}位（{manYen(rebound?.yen ?? null)}）に戻っています。
+  </p>
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking">
+        <caption>猿払村の課税対象所得の納税者1人あたり額と、全国の市区町村での順位</caption>
+        <thead><tr><th class="col-rank">年度</th><th class="num">順位</th><th class="num col-value">納税者1人あたり額</th></tr></thead>
+        <tbody>
+          {history.map((h) => (
+            <tr>
+              <td>{h.year}年度</td>
+              <td class="num">{h.rank === null ? "—" : `${h.rank}位`}</td>
+              <td class="num">{manYen(h.yen)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <figcaption class="muted">
+      年度の課税は前の年の所得にもとづきます。<a href={`/map/?i=${ID}&p=${P}&a=${SARUFUTSU}&l=municipality`}>猿払村を地図で見る</a>
+    </figcaption>
+  </figure>
+  <p>
+    猿払村で所得割を納める人は{man(taxpayers)}人です。人数の少ない村では、主な産業のその年の出来が、
+    そのまま村全体の平均を動かすと考えられます。毎年1位の港区とは対照的です。
+  </p>
 
   <h2>都道府県：東京都が突出</h2>
   <p>
-    都道府県では東京都が{value(ID, P, "pref-13")}で最も高く、神奈川県（{value(ID, P, "pref-14")}）、愛知県、千葉県、兵庫県が続きます。
-    大都市圏の都府県が上位に並び、東京都は2位の神奈川県より100万円以上高くなっています。
+    都道府県では東京都が{manYen(raw(ID, P, "pref-13"))}で最も高く、2位の神奈川県（{manYen(raw(ID, P, "pref-14"))}）より100万円以上高くなっています。
+    愛知県、千葉県、兵庫県と、大都市のある県が上位に入ります。
   </p>
-  <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={["pref-13", "pref-14"]} caption="課税対象所得の納税者1人あたり額が高い都道府県（2025年度）" />
+  <ArticleRanking id={ID} period={P} level="prefecture" n={10} expect={["pref-13", "pref-14", "pref-23", "pref-12", "pref-28"]} caption="課税対象所得の納税者1人あたり額が高い都道府県（2025年度）" />
 
-  <h2>市区町村：上位は東京の都心と、ほたての村</h2>
-  <ArticleRanking id={ID} period={P} n={10} expect={["muni-13103", "muni-13113", "muni-13101", "muni-28206", "muni-01511"]} caption="課税対象所得の納税者1人あたり額が高い市区町村（2025年度）" />
+  <h2>「平均」は、少ない人数で大きく動く</h2>
   <p>
-    1位は東京都港区（{value(ID, P, "muni-13103")}）で、渋谷区、千代田区が続きます。上位10のうち8つが東京都の区で、
-    会社の経営者や専門職の人が多く住むまちと考えられます。株式の売却などによる所得も含むため、
-    一部の高額な所得のある人の影響で、年によって大きく動くことがあります。
+    「平均年収」の上位には、東京の都心の区と、ほたての村が入っていました。
+    港区では高額な所得のある人が、猿払村では漁のその年の出来が、平均を大きく動かしていると考えられます。
+    2022年度には、山口県周防大島町が港区に次ぐ2位（{manYen(raw(ID, SUO_P, SUO))}）に入ったこともあります。
+    この年度だけの動きで、一部の大きな所得が町の平均を押し上げたと考えられます。
+    平均の値は、そのまちの「ふつうの人」の所得を表すとは限りません。
+    気になるまちの値を見るときは、年ごとの動きもあわせて見ると、数字の意味が分かりやすくなります。
+    地図では、時点のスライドバーで{years[0]?.slice(0, 4)}年度からの値を見られます。
   </p>
-  <p>
-    東京都以外では、兵庫県芦屋市（{value(ID, P, "muni-28206")}）と北海道猿払村（{value(ID, P, "muni-01511")}）が入っています。
-    芦屋市は古くからの住宅地として知られるまちです。猿払村はほたて漁で知られる村で、漁業の所得が大きいことが表れていると考えられます。
-    人口の少ない町村では、主な産業の1年の出来によって値が大きく変わることもあります。
-  </p>
+  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>課税対象所得の納税者1人あたり額を地図で見る</a></p>
 
   <h2>読むときの注意</h2>
   <ul>
     <li>2025年度の課税は2024年の所得にもとづきます。年度と所得の年が1年ずれます。</li>
     <li>政令指定都市は市全体の値しか公表されていないため、区ごとの値はありません（地図でも区は値なしです）。</li>
     <li>所得の高い低いは、その地域の暮らしやすさや住む人の良し悪しを表すものではありません。物価や家賃、世帯の人数によって、同じ所得でも暮らし向きは変わります。</li>
+    <li>住民税（所得割）の納税者1人あたり額や、住民税の所得割を納める人の割合も載せているので、あわせて見ると地域の姿がより分かります。</li>
   </ul>
-  <p>
-    住民税（所得割）の納税者1人あたり額や、住民税の所得割を納める人の割合も載せているので、あわせて見ると地域の姿がより分かります。
-  </p>
-  <p><a class="button" href={`/map/?i=${ID}&p=${P}&l=municipality`}>課税対象所得の納税者1人あたり額を地図で見る</a></p>
 </Article>

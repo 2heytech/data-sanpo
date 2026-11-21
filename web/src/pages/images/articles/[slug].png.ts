@@ -11,5 +11,5 @@ export function getStaticPaths() {
   });
 }
 
-export const GET: APIRoute = ({ props }) =>
-  new Response(choroplethPng((props.image as ShareImage).spec()), { headers: { "Content-Type": "image/png" } });
+export const GET: APIRoute = async ({ props }) =>
+  new Response(await choroplethPng((props.image as ShareImage).spec()), { headers: { "Content-Type": "image/png" } });

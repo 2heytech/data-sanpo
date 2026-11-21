@@ -1,0 +1,38 @@
+---
+// 上位のまちの返礼品を楽天ふるさと納税で探すリンクの箱（設計変更記録 #252）。指標ページ・都道府県ページ・県別のランキング・寄り道で使う。
+// リンクがない（アフィリエイトID がない）ときは何も出さない。「広告」は見出しの横に1つ出す（ステマ規制、#189）。
+// 寄り道の本文の中では、白い面の中にさらに面を作らないよう bare にする
+import type { FurusatoPick } from "../lib/furusatoPicks";
+
+interface Props {
+  id?: string;
+  heading: string;
+  lead?: string | null;
+  items: FurusatoPick[];
+  /** 都道府県全体を探すボタン（place は「宮崎県の」。スマホでは文字を短くするため省く） */
+  button?: { place: string; href: string } | null;
+  bare?: boolean;
+  /** 名前の横の言葉が長い（受入額を添える）とき、1つの幅を広げる */
+  wide?: boolean;
+}
+const { id, heading, lead, items, button, bare = false, wide = false } = Astro.props;
+const show = items.length > 0 || !!button;
+---
+{show && (
+  <section class:list={[!bare && "sheet furusato-box", "furusato-picks"]} id={id}>
+    <h2>{heading}<span class="ad-mark">広告</span></h2>
+    {lead && <p>{lead}</p>}
+    {items.length > 0 && (
+      <ul class:list={["furusato-chips", wide && "wide"]}>
+        {items.map((it) => (
+          <li><a class="ext-link" href={it.href} target="_blank" rel="sponsored noopener"><span class="r">{it.label}</span><span class="n">{it.name}</span>{it.sub && <span class="s">{it.sub}</span>}</a></li>
+        ))}
+      </ul>
+    )}
+    {button && (
+      <p class="furusato-cta">
+        <a class="button ext-link" href={button.href} target="_blank" rel="sponsored noopener"><span>楽天ふるさと納税で<span class="wide-only">{button.place}</span>返礼品を見る</span></a>
+      </p>
+    )}
+  </section>
+)}

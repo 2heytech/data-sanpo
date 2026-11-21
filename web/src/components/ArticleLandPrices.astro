@@ -1,0 +1,87 @@
+---
+// 寄り道の中の地価公示の表（設計変更記録 #249）。同じ標準地の2つの年の価格を比べ、何倍になったかの大きい順に並べる
+// （lib/articleData.ts の landChangeRanking）。所在地から、その地点を選んだ地図（年ごとの価格の表つき）を開く。
+// 本文で挙げた地点（expect）が表に入るかを確かめる
+import { landAddress, landChangeRanking, landYear } from "../lib/articleData";
+import { collectTable } from "../lib/articleLinks";
+import { loadAreas } from "../lib/data";
+import { formatNumber } from "../lib/format";
+import type { LandPoint } from "../lib/types";
+
+interface Props {
+  /** 用途のコード（"000" 住宅地・"005" 商業地） */
+  use: string;
+  from: string;
+  to: string;
+  n?: number;
+  expect?: (LandPoint | null)[];
+  caption: string;
+}
+const { use, from, to, n = 10, expect = [], caption } = Astro.props;
+const list = landChangeRanking(use, from, to, n, expect);
+// 地点のある市区町村を、表に出てくる地域として数える（#234）
+collectTable(Astro.locals, caption, list.map((r) => ({ id: r.point.municipality_id, rank: r.rank, via: landAddress(r.point) })));
+const areas = loadAreas();
+const munis = new Map(areas.municipalities.map((m) => [m.id, m]));
+const prefs = new Map(areas.prefectures.map((p) => [p.code, p.name]));
+// スマホの狭い列で「千歳市（北」「海道）」と切れないように、名前と（〜）の間で折り返す
+const place = (id: string) => {
+  const m = munis.get(id);
+  return m ? [m.name, `（${prefs.get(m.prefecture) ?? ""}）`] : [];
+};
+// 最寄りの駅（バス停は「〜停」のまま）
+const station = (p: LandPoint) => {
+  if (!p.station) return "";
+  const s = p.station.endsWith("停") ? p.station : `${p.station}駅`;
+  return p.station_distance_m ? `${s}から${formatNumber(p.station_distance_m, 0)}m` : s;
+};
+const fromYear = landYear(from);
+const toYear = landYear(to);
+---
+{list.length > 0 && (
+  <figure class="article-ranking">
+    <div class="table-scroll">
+      <table class="ranking land-prices">
+        <caption>{caption}</caption>
+        <thead><tr>
+          <th class="num col-rank">順位</th><th>地点</th>
+          <th class="num col-value">{toYear}（円/㎡）</th><th class="num col-ratio">{fromYear}の何倍</th>
+        </tr></thead>
+        <tbody>
+          {list.map((r) => (
+            <tr>
+              <td class="num">{`${formatNumber(r.rank, 0)}位`}</td>
+              <td>
+                <a href={`/map/?lp=${r.point.id}`}>{landAddress(r.point)}</a>
+                <span class="land-meta muted">
+                  <a href={`/areas/${r.point.municipality_id}/`}>{place(r.point.municipality_id).map((t) => <span class="piece">{t}</span>)}</a>
+                  {station(r.point) && <span class="piece">{`・${station(r.point)}`}</span>}
+                </span>
+              </td>
+              <td class="num">{formatNumber(r.to, 0)}</td>
+              <td class="num">{`${formatNumber(Math.floor(r.ratio * 100) / 100, 2)}倍`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <figcaption class="muted">
+      国土交通省「地価公示」の標準地のうち、{fromYear}と{toYear}の両方に価格のある地点を、{toYear}の価格が{fromYear}の何倍かの大きい順に並べました（各年1月1日の価格）。所在地から、年ごとの価格を地図で見られます。
+    </figcaption>
+  </figure>
+)}
+
+<style>
+  .land-meta { display: block; font-size: 0.8rem; }
+  .piece { display: inline-block; }
+  table.ranking.land-prices .col-rank { width: 4.5em; }
+  table.ranking.land-prices .col-value { width: 8em; }
+  table.ranking.land-prices .col-ratio { width: 6.5em; }
+  @media (max-width: 640px) {
+    table.ranking.land-prices th, table.ranking.land-prices td { padding-left: 6px; padding-right: 6px; }
+    table.ranking.land-prices .col-rank { width: 3.2em; }
+    table.ranking.land-prices .col-value { width: 5.6em; }
+    table.ranking.land-prices .col-ratio { width: 4.6em; }
+    table.ranking.land-prices td.num { white-space: nowrap; font-size: 0.85rem; }
+  }
+</style>
