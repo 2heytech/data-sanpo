@@ -276,12 +276,12 @@ export function spotWhere(spot: LandSpot): string {
 }
 
 /**
- * 写真のタイルの拡大の段階と、並べるときの1枚の大きさ（CSS 画素）。縮尺はどれも PHOTO_MAP_ZOOM と同じ。
+ * 写真のタイルの拡大の段階と、並べるときの1枚の大きさ（CSS 画素）。縮尺はどれも地図の縮尺 mapZoom（ふだんは PHOTO_MAP_ZOOM）と同じ。
  * PNG の年代（1928〜1969年）は1枚 90KB ほどあるので、高精細でない画面（devicePixelRatio 1.5 未満）では
  * 1段下のタイルを大きく並べ、読む枚数を4分の1にする（その画面では細かいタイルでも見え方は変わらない）
  */
-export function photoTileSize(era: Pick<PhotoEra, "ext">, pixelRatio = 2): { z: number; px: number } {
-  return era.ext === "png" && pixelRatio < 1.5 ? { z: PHOTO_MAP_ZOOM + 1, px: 256 } : { z: PHOTO_MAP_ZOOM + 2, px: 128 };
+export function photoTileSize(era: Pick<PhotoEra, "ext">, pixelRatio = 2, mapZoom = PHOTO_MAP_ZOOM): { z: number; px: number } {
+  return era.ext === "png" && pixelRatio < 1.5 ? { z: mapZoom + 1, px: 256 } : { z: mapZoom + 2, px: 128 };
 }
 
 export interface PhotoTile {
@@ -292,10 +292,10 @@ export interface PhotoTile {
   px: number;
 }
 
-/** 地点を中心に、幅・高さ（CSS 画素）の範囲を覆うタイル */
+/** 地点を中心に、幅・高さ（CSS 画素）の範囲を覆うタイル。mapZoom は地図の縮尺（寄り道の写真は広い範囲を見せるので小さくする、#250） */
 export function photoTiles(era: Pick<PhotoEra, "ext" | "tiles">, lng: number, lat: number, pixelRatio = 2,
-  width: number = PHOTO_BOX.width, height: number = PHOTO_BOX.height): PhotoTile[] {
-  const { z, px } = photoTileSize(era, pixelRatio);
+  width: number = PHOTO_BOX.width, height: number = PHOTO_BOX.height, mapZoom = PHOTO_MAP_ZOOM): PhotoTile[] {
+  const { z, px } = photoTileSize(era, pixelRatio, mapZoom);
   const n = 2 ** z;
   const cx = ((lng + 180) / 360) * n;
   const r = (lat * Math.PI) / 180;

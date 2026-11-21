@@ -1,0 +1,156 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleCompare from "../components/ArticleCompare.astro";
+import ArticleLink from "../components/ArticleLink.astro";
+import ArticlePhotos from "../components/ArticlePhotos.astro";
+import { check, compareRanking, nationalRaw, raw, value } from "../lib/articleData";
+import { loadAreas } from "../lib/data";
+import { formatNumber } from "../lib/format";
+import { mapHref } from "../lib/urlstate";
+
+const ID = "land_use_building_share";
+const PADDY = "land_use_paddy_share";
+const AREA = "area";
+const FROM = { id: ID, period: "1976-04-01", label: "1976年度" };
+const TO = { id: ID, period: "2021-04-01", label: "2021年度" };
+const AREA_P = "2025-10-01";
+const GINAN = "muni-21302";
+const URAYASU = "muni-12227";
+const SHOWA = "muni-19384";
+const UTAZU = "muni-37386";
+const TAMA = "muni-13224";
+const GIFU = "muni-21201";
+const ICHINOMIYA = "muni-23203";
+const KOFU = "muni-19201";
+// 写真の真ん中（国土地理院の地名・住所の検索で確かめた位置）
+const GINAN_HALL = { lat: 35.3898, lng: 136.7834 };
+const MAIHAMA = { lat: 35.6329, lng: 139.8804 };
+const UTAZU_NORTH = { lat: 34.3092, lng: 133.8152 };
+const TAMA_CENTER = { lat: 35.6250, lng: 139.4243 };
+
+const all = compareRanking(FROM, TO, "municipality", "high", Infinity, [], { by: "difference" });
+const row = (id: string) => all.find((r) => r.entity_id === id);
+const rankOf = (id: string) => row(id)?.rank ?? null;
+const diff = (id: string) => row(id)?.difference ?? null;
+const pts = (id: string) => `${formatNumber(diff(id) ?? 0, 1)}ポイント`;
+const range = (id: string) => `${value(ID, FROM.period, id)}→${value(ID, TO.period, id)}`;
+const sortedDiffs = all.map((r) => r.difference).sort((a, b) => a - b);
+const median = sortedDiffs.length ? sortedDiffs[Math.floor((sortedDiffs.length - 1) / 2)] : null;
+const national = (p: string) => nationalRaw(ID, p);
+const munis = new Map(loadAreas().municipalities.map((m) => [m.id, m]));
+const neighbors = (a: string, b: string) => munis.get(a)?.neighbors.includes(b) ?? false;
+const paddy = (p: string, id: string) => raw(PADDY, p, id) ?? 0;
+
+// 書き出し: 1位岐南町（50ポイント超）、2位浦安市、3位昭和町。50ポイント以上増えたのはこの3つだけ
+check(rankOf(GINAN) === 1 && rankOf(URAYASU) === 2 && rankOf(SHOWA) === 3, "建物用地の割合の増えた差の1〜3位が岐南町・浦安市・昭和町ではありません");
+check(all.filter((r) => r.difference >= 50).length === 3, "50ポイント以上増えた市区町村が3つではありません");
+// 「全国では約4%から約7%」「市区町村の真ん中は約4ポイント」
+check(Math.round(national(FROM.period) ?? 0) === 4 && Math.round(national(TO.period) ?? 0) === 7, "全国の建物用地の割合が約4%→約7%ではありません");
+check(median !== null && median >= 3.5 && median < 4.5, "増えた差の真ん中が約4ポイントではありません");
+// 岐南町: 1976年度は陸地の半分が田、2021年度は5%未満。岐阜市・一宮市に接する、面積10km²未満の町
+check(paddy(FROM.period, GINAN) >= 50 && paddy(FROM.period, GINAN) < 51 && paddy(TO.period, GINAN) < 5, "岐南町の田の割合が1976年度に半分、2021年度に5%未満ではありません");
+check(neighbors(GINAN, GIFU) && neighbors(GINAN, ICHINOMIYA), "岐南町が岐阜市・一宮市に接していません");
+check((raw(AREA, AREA_P, GINAN) ?? 99) < 10, "岐南町の面積が10km²未満ではありません");
+// 昭和町: 1976年度は陸地の6割近くが田。甲府市の隣
+check(paddy(FROM.period, SHOWA) >= 55 && paddy(FROM.period, SHOWA) < 60 && paddy(TO.period, SHOWA) < paddy(FROM.period, SHOWA) / 3,
+  "昭和町の田の割合が1976年度に6割近く、2021年度に3分の1未満ではありません");
+check(neighbors(SHOWA, KOFU), "昭和町が甲府市の隣ではありません");
+// 浦安市: 1976年度は1割に届かない
+check((raw(ID, FROM.period, URAYASU) ?? 99) < 10, "浦安市の1976年度の建物用地の割合が1割未満ではありません");
+// 宇多津町は9位、多摩市は30ポイントを超えて増えた（上位10の外）
+check(rankOf(UTAZU) === 9, "宇多津町が9位ではありません");
+check((diff(TAMA) ?? 0) > 30 && (rankOf(TAMA) ?? 0) > 10, "多摩市が30ポイント超・上位10の外ではありません");
+---
+<Article slug="aerial-photos-building-land">
+  <p>
+    1976年度から2021年度の45年で、陸地に占める建物用地の割合が最も増えたのは岐阜県岐南町です。
+    {value(ID, FROM.period, GINAN)}から{value(ID, TO.period, GINAN)}へ、{pts(GINAN)}増えました。
+    2位は千葉県浦安市（{range(URAYASU)}）、3位は山梨県昭和町（{range(SHOWA)}）です。
+  </p>
+  <p>
+    建物用地は、家や店、工場などの建物が建ち並ぶ土地です。
+    国土数値情報の土地利用細分メッシュ（100m四方のマスごとの土地利用）で、海を除く陸のマスのうち建物用地のマスの割合を求めました。
+    全国では{formatNumber(national(FROM.period) ?? 0, 1)}%から{formatNumber(national(TO.period) ?? 0, 1)}%に増え、
+    市区町村の真ん中は約{formatNumber(median ?? 0, 0)}ポイントの増加です。50ポイント以上増えたのは、上位の3つだけです。
+  </p>
+  <ArticleCompare as="points" level="municipality" n={10} from={FROM} to={TO}
+    expect={[GINAN, URAYASU, SHOWA, UTAZU]}
+    caption="1976年度から2021年度に、建物用地の割合が大きく増えた市区町村" />
+  <p>
+    上位のまちを、昔と今の航空写真で見比べてみます。写真を押すと、その場所の航空写真を地図で、年代を変えながら見られます。
+  </p>
+
+  <h2>岐南町は、陸地の半分が田んぼだった</h2>
+  <p>
+    岐南町は、岐阜市と愛知県一宮市に接する、面積{value(AREA, AREA_P, GINAN)}の小さな町です。
+    1976年度には陸地の{value(PADDY, FROM.period, GINAN)}が田でしたが、2021年度には{value(PADDY, TO.period, GINAN)}になりました。
+    田んぼだった所の多くが、建物の建ち並ぶ土地に変わったと考えられます。
+    <ArticleLink slug="paddy-bamboo">田んぼの割合が高いまち</ArticleLink>
+  </p>
+  <ArticlePhotos {...GINAN_HALL} area={GINAN} eras={["photo1961", "photo"]} place="岐阜県岐南町の町役場のまわり" />
+  <p>
+    1960年代の写真では田んぼの間に集落が点々とありますが、今の写真では家などがすき間なく並んでいます。
+    3位の昭和町も、甲府市の隣の町で、1976年度は陸地の{value(PADDY, FROM.period, SHOWA)}が田でした（2021年度は{value(PADDY, TO.period, SHOWA)}）。
+  </p>
+
+  <h2>浦安市は、海を埋め立てた土地が街に</h2>
+  <p>
+    浦安市の資料によると、千葉県による海の埋め立て（第1期は1965〜1975年、第2期は1972〜1980年）で、市の面積は約4倍に広がりました。
+    1983年には、埋め立てでできた舞浜地区に東京ディズニーランドが開業しています。
+  </p>
+  <ArticlePhotos {...MAIHAMA} area={URAYASU} eras={["photo1961", "photo1974", "photo"]} place="千葉県浦安市の舞浜" />
+  <p>
+    1960年代の写真では海と干潟だった所が、1970年代の写真では埋め立てたばかりの広い土地になり、今は建物が並んでいます。
+    1976年度の建物用地の割合が{value(ID, FROM.period, URAYASU)}と低いのは、埋め立てた土地にまだ建物が少なかったためと考えられます。
+  </p>
+
+  <h2>宇多津町は、塩田の跡に新しい街</h2>
+  <p>
+    9位の香川県宇多津町（{range(UTAZU)}）は、塩田の跡が街になりました。
+    香川県の資料によると、宇多津町の塩田は1972年の塩業の整備で歴史を閉じ、港の背後の塩田の跡地約186haで、瀬戸大橋の時代に向けた「新宇多津都市開発」の事業が進められました。
+  </p>
+  <ArticlePhotos {...UTAZU_NORTH} area={UTAZU} eras={["photo1961", "photo1979", "photo"]} place="香川県宇多津町の宇多津駅の北側" />
+  <p>
+    1979〜1983年の写真ではまだ塩田の形が残っていますが、今の写真では同じ場所に街並みが広がっています。
+  </p>
+
+  <h2>多摩市は、丘陵にニュータウン</h2>
+  <p>
+    東京都多摩市（{range(TAMA)}）も、{pts(TAMA)}増えました。
+    東京都によると、多摩ニュータウンは多摩丘陵に開発された街で、1971年に多摩市の諏訪・永山地区で入居が始まりました。
+  </p>
+  <ArticlePhotos {...TAMA_CENTER} area={TAMA} eras={["photo1961", "photo1974", "photo"]} place="東京都多摩市の多摩センター駅のまわり" />
+  <p>
+    1960年代の写真では林や畑の広がる丘陵ですが、1970年代の写真では丘を切り開いて土地をつくっている様子が写っています。
+  </p>
+
+  <h2>45年で建物用地が最も増えたのは岐南町</h2>
+  <p>
+    1976年度から2021年度に建物用地の割合が最も増えたのは岐南町で、田んぼが建物の建ち並ぶ土地に変わりました。
+    2位の浦安市は海の埋め立て、9位の宇多津町は塩田の跡と、街に変わる前の土地はまちによってさまざまです。
+  </p>
+  <p>
+    地図の航空写真は、1928年頃から今までの年代を選んで見られます（年代によって写っている範囲は違います）。自分のまちの昔の姿も確かめてみてください。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?i=${ID}&p=${TO.period}&a=${GINAN}&l=municipality`}>建物用地の割合を地図で見る</a>
+    <a class="button secondary" href={mapHref({ area: GINAN, base: "photo1961", view: { zoom: 13, ...GINAN_HALL } })}>岐南町の1960年代の航空写真を見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>
+      100m四方のマスごとに、その中で最も広い土地利用でマス全体を数えています。
+      年度によって判読の方法（地形図・衛星画像など）が違うため、増えた差には判読の違いも含まれます。1976年度は、建物が密集した所と小さな建物が点在する所を合わせています。
+    </li>
+    <li>どの年度も、2020年の町丁・字等の境界で数えています。埋立地など昔は海だった所は、古い年度ほど陸のマスが少なくなります。</li>
+    <li>
+      航空写真の「1961〜1969年」などは撮影の期間で、場所によって撮影した年が違います。最新の写真も、場所によっては数年前の撮影です。
+      <ArticleLink slug="reading-public-data">公開データを読むときの注意</ArticleLink>
+    </li>
+  </ul>
+</Article>
+
+<style>
+  .map-links { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>

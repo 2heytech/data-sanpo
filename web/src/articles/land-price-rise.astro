@@ -1,0 +1,148 @@
+---
+import Article from "../layouts/Article.astro";
+import ArticleLandPrices from "../components/ArticleLandPrices.astro";
+import ArticleLink from "../components/ArticleLink.astro";
+import { check, landChanges, landPoint, landValue, man } from "../lib/articleData";
+import { loadAreas } from "../lib/data";
+import { formatNumber } from "../lib/format";
+
+const FROM = "2021-01-01";
+const TO = "2026-01-01";
+const COMMERCIAL = "005";
+const RESIDENTIAL = "000";
+// 本文で挙げる標準地（ID と標準地の番号）
+const CHITOSE_SAIWAI = landPoint("land-01224-005-004", "千歳5-4");
+const CHITOSE_NISHIKI = landPoint("land-01224-005-002", "千歳5-2");
+const CHITOSE_CHIYODA = landPoint("land-01224-005-003", "千歳5-3");
+const HAKUBA_C = landPoint("land-20485-005-001", "白馬5-1");
+const KIKUYO_C = landPoint("land-43404-005-001", "菊陽5-1");
+const KITAHIROSHIMA_C = landPoint("land-01234-005-002", "北広島5-2");
+const OZU_C = landPoint("land-43403-005-001", "熊本大津5-1");
+const FURANO_R = landPoint("land-01229-000-004", "富良野-4");
+const HAKUBA_R = landPoint("land-20485-000-001", "白馬-1");
+const CHITOSE_R = landPoint("land-01224-000-019", "千歳-19");
+const MIYAKOJIMA_R = landPoint("land-47214-000-006", "宮古島-6");
+const KIKUYO = "muni-43404";
+const OZU = "muni-43403";
+const CHITOSE = "muni-01224";
+const KITAHIROSHIMA = "muni-01234";
+const ENIWA = "muni-01231";
+
+const commercial = landChanges(COMMERCIAL, FROM, TO);
+const residential = landChanges(RESIDENTIAL, FROM, TO);
+const rankOf = (list: typeof commercial, p: typeof FURANO_R) => list.find((r) => r.point.id === p?.id)?.rank ?? null;
+const ratioOf = (list: typeof commercial, p: typeof FURANO_R) => list.find((r) => r.point.id === p?.id)?.ratio ?? null;
+const times = (r: number | null) => (r === null ? "—" : `${formatNumber(Math.floor(r * 10) / 10, 1)}倍`);
+const yen = (v: number | null) => `${man(v)}円`;
+const atLeast = (list: typeof commercial, r: number) => list.filter((x) => x.ratio >= r).length;
+const share = (list: typeof commercial, test: (r: number) => boolean) => (list.length ? list.filter((x) => test(x.ratio)).length / list.length : 0);
+
+// 書き出し: 商業地の1位は千歳市幸町3丁目（3.5倍を超える）、住宅地の1位は富良野市北の峰町（3倍を超える）
+check(rankOf(commercial, CHITOSE_SAIWAI) === 1 && (ratioOf(commercial, CHITOSE_SAIWAI) ?? 0) > 3.5, "商業地の1位が千歳市幸町3丁目（3.5倍超）ではありません");
+check(rankOf(residential, FURANO_R) === 1 && (ratioOf(residential, FURANO_R) ?? 0) > 3, "住宅地の1位が富良野市北の峰町（3倍超）ではありません");
+// 題名・結び「5年で3倍を超えたのは、千歳市の商業地3地点と富良野市の住宅地1地点だけ」
+check(atLeast(commercial, 3) === 3 && commercial.slice(0, 3).every((r) => r.point.municipality_id === CHITOSE)
+  && atLeast(residential, 3) === 1, "3倍以上の地点が千歳市の商業地3地点と富良野市の住宅地1地点ではありません");
+// 「上位3つは千歳市の地点で、どれも千歳駅から1km以内」
+check([CHITOSE_SAIWAI, CHITOSE_NISHIKI, CHITOSE_CHIYODA].every((p, k) => rankOf(commercial, p) === k + 1 && p?.station === "千歳"
+  && (p.station_distance_m ?? Infinity) < 1000), "商業地の1〜3位が千歳駅から1km以内の千歳市の地点ではありません");
+// 「千代田町5丁目は、1年間の上昇率でも商業地の全国1位」「住宅地の1年間の上昇率は白馬村が1位、富良野市が2位」
+const byChange = (use: string) => commercial.concat(residential).filter((r) => r.point.use === use && r.point.change_rate !== null)
+  .sort((a, b) => (b.point.change_rate as number) - (a.point.change_rate as number));
+check(byChange(COMMERCIAL)[0]?.point.id === CHITOSE_CHIYODA?.id, "千歳市千代田町5丁目が1年間の上昇率で商業地の1位ではありません");
+check(byChange(RESIDENTIAL)[0]?.point.id === HAKUBA_R?.id && byChange(RESIDENTIAL)[1]?.point.id === FURANO_R?.id,
+  "住宅地の1年間の上昇率の1位・2位が白馬村・富良野市ではありません");
+// 商業地: 白馬村4位、菊陽町5位、北広島市6位、隣の大津町10位
+check(rankOf(commercial, HAKUBA_C) === 4 && rankOf(commercial, KIKUYO_C) === 5 && rankOf(commercial, KITAHIROSHIMA_C) === 6
+  && rankOf(commercial, OZU_C) === 10, "商業地の白馬村・菊陽町・北広島市・大津町の順位が本文と合いません");
+const munis = new Map(loadAreas().municipalities.map((m) => [m.id, m]));
+const neighbors = (a: string, b: string) => munis.get(a)?.neighbors.includes(b) ?? false;
+check(neighbors(KIKUYO, OZU), "大津町が菊陽町の隣ではありません");
+// 住宅地: 白馬村2位、千歳市3位、宮古島市4位。上位10地点のうち8地点が北海道。北広島市・恵庭市は札幌市と千歳市の間
+check(rankOf(residential, HAKUBA_R) === 2 && rankOf(residential, CHITOSE_R) === 3 && rankOf(residential, MIYAKOJIMA_R) === 4,
+  "住宅地の白馬村・千歳市・宮古島市の順位が本文と合いません");
+check(residential.slice(0, 10).filter((r) => r.point.municipality_id.startsWith("muni-01")).length === 8, "住宅地の上位10地点のうち北海道が8地点ではありません");
+check(residential.slice(0, 10).some((r) => r.point.municipality_id === KITAHIROSHIMA) && residential.slice(0, 10).some((r) => r.point.municipality_id === ENIWA),
+  "住宅地の上位10地点に北広島市・恵庭市が入っていません");
+const sapporo = (id: string) => (munis.get(id)?.neighbors ?? []).some((n) => munis.get(n)?.name.startsWith("札幌市"));
+check(sapporo(KITAHIROSHIMA) && sapporo(ENIWA) && neighbors(ENIWA, CHITOSE) && neighbors(ENIWA, KITAHIROSHIMA),
+  "北広島市・恵庭市が札幌市と千歳市の間にあるとは言えません");
+// 結び: 5年前より上がった地点は、商業地で約7割、住宅地で約3分の2。下がった地点もある
+const upC = share(commercial, (r) => r > 1);
+const upR = share(residential, (r) => r > 1);
+check(upC >= 0.67 && upC < 0.73 && upR >= 0.63 && upR < 0.7, "上がった地点の割合が商業地で約7割、住宅地で約3分の2ではありません");
+check(share(commercial, (r) => r < 1) > 0 && share(residential, (r) => r < 1) > 0, "5年前より下がった地点がありません");
+---
+<Article slug="land-price-rise">
+  <p>
+    地価公示で同じ地点の価格を5年前と比べると、いちばん上がったのは北海道千歳市の商業地です。
+    幸町3丁目の地点は1㎡あたり{yen(landValue(CHITOSE_SAIWAI, FROM))}から{yen(landValue(CHITOSE_SAIWAI, TO))}になり、5年で3.5倍を超えました。
+    住宅地では、北海道富良野市の北の峰町の地点が{times(ratioOf(residential, FURANO_R))}で1位です。
+  </p>
+  <p>
+    地価公示は、国土交通省が毎年1月1日時点の土地の価格を判定して公表するものです。
+    ここでは、2021年と2026年の両方に価格のある商業地{formatNumber(commercial.length, 0)}地点、住宅地{formatNumber(residential.length, 0)}地点で、同じ地点の価格が何倍になったかを比べました。
+    5年で2倍以上になったのは、商業地で{atLeast(commercial, 2)}地点、住宅地で{atLeast(residential, 2)}地点です。
+  </p>
+  <ArticleLandPrices use={COMMERCIAL} from={FROM} to={TO} n={10}
+    expect={[CHITOSE_SAIWAI, CHITOSE_NISHIKI, CHITOSE_CHIYODA, HAKUBA_C, KIKUYO_C, KITAHIROSHIMA_C, OZU_C]}
+    caption="地価公示の商業地で、2021年から2026年に価格の上がり方が大きい地点" />
+
+  <h2>商業地の上位3つは、千歳駅の近く</h2>
+  <p>
+    商業地の1位から3位は、どれも千歳市の地点で、千歳駅から1km以内にあります。
+    3位の千代田町5丁目の地点は、2025年から2026年の1年間の上昇率（{CHITOSE_CHIYODA?.change_rate ?? "—"}%）でも、商業地の全国1位です。
+  </p>
+  <p>
+    北海道の発表によると、千歳市は2023年に次世代半導体の工場の建設予定地に選ばれました。
+    国土交通省は、令和8年地価公示の結果の概要で、大手半導体メーカーの工場が進出した地域では、従業員向けの住宅のほか、事務所・ホテル・店舗の需要も堅調で、高い地価上昇が続いているとしています。
+    千歳市の地価の上がり方にも、こうした需要が表れていると考えられます。
+  </p>
+
+  <h2>熊本県の菊陽町・大津町も上位に</h2>
+  <p>
+    商業地の5位は熊本県菊陽町の地点（{times(ratioOf(commercial, KIKUYO_C))}）、10位は隣の大津町の地点（{times(ratioOf(commercial, OZU_C))}）です。
+    菊陽町にも大手半導体メーカーの工場が進出しており（熊本県）、千歳市と同じように、工場のまわりの需要が地価を押し上げていると思われます。
+  </p>
+  <p>
+    6位は北海道北広島市の北広島駅前の地点（{times(ratioOf(commercial, KITAHIROSHIMA_C))}）です。北広島市では、2023年に北海道ボールパークFビレッジが開業しました（北広島市）。
+  </p>
+
+  <h2>住宅地は富良野市と白馬村が上位に</h2>
+  <ArticleLandPrices use={RESIDENTIAL} from={FROM} to={TO} n={10}
+    expect={[FURANO_R, HAKUBA_R, CHITOSE_R, MIYAKOJIMA_R]}
+    caption="地価公示の住宅地で、2021年から2026年に価格の上がり方が大きい地点" />
+  <p>
+    住宅地の1位は富良野市北の峰町、2位は長野県白馬村の地点です。
+    2025年から2026年の1年間の上昇率でも、白馬村の地点が住宅地の全国1位、富良野市の地点が2位です。
+    国土交通省は、リゾート地域では別荘・コンドミニアムや移住者、従業員向けの住宅の需要が多く、高い地価上昇が続いているとしています。
+    <ArticleLink slug="lodging-hakuba">白馬村の宿の多さ</ArticleLink>
+  </p>
+  <p>
+    3位は千歳市栄町、4位は沖縄県宮古島市の地点です。
+    上位10地点のうち8地点は北海道の地点で、千歳市のほか、札幌市と千歳市の間にある北広島市・恵庭市の地点も入ります。
+  </p>
+
+  <h2>5年で3倍を超えたのは、千歳市と富良野市</h2>
+  <p>
+    同じ地点の地価を5年前と比べると、3倍を超えたのは千歳市の商業地3地点と、富良野市の住宅地1地点だけでした。
+    上位には、半導体の工場が進出したまちや、リゾートのまちの地点が多く入ります。
+    5年前より上がった地点は、商業地で約7割、住宅地で約3分の2で、下がった地点もあります。
+  </p>
+  <p>
+    地図で地価公示の地点を選ぶと、1983年からの価格の移り変わりを見られます。気になる地点の価格も確かめてみてください。
+  </p>
+  <p class="map-links">
+    <a class="button" href={`/map/?lp=${CHITOSE_SAIWAI?.id ?? ""}`}>千歳市の地点を地図で見る</a>
+  </p>
+
+  <h2>読むときの注意</h2>
+  <ul>
+    <li>地価公示は、国が選んだ標準地の価格です。地域全体の土地の平均ではありません。</li>
+    <li>5年前の2021年の価格と比べています。比べる年を変えると、順位は変わります。</li>
+    <li>
+      2021年と2026年の両方に価格のある地点だけを比べています。途中で新しく選ばれた地点や、都道府県地価調査（7月1日の価格）の地点は含みません。
+      <ArticleLink slug="reading-public-data">公開データを読むときの注意</ArticleLink>
+    </li>
+  </ul>
+</Article>

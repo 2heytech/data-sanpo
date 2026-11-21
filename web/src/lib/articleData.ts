@@ -2,9 +2,11 @@
 // 実データで、本文が前提にしている値・地域が見つからないときは例外を投げてビルドを止める
 // （データを差し替えたあとに、本文と表が食い違ったまま公開しないため。設計変更記録 #126）。
 // 開発用の架空データ（fixture）や都道府県を絞ったプレビューでは地域も値も足りないので、止めずに「—」を出す。
-import { loadAreas, loadFacilityPoints, loadIndicators, loadPlace, loadSmallAreas, loadStations, loadValues, RELEASE } from "./data";
+import { loadAreas, loadFacilityPoints, loadIndicators, loadLandPoints, loadPlace, loadSmallAreas, loadStations, loadValues, RELEASE } from "./data";
 import { formatNumber, formatValue, ranked } from "./format";
-import type { FacilityPoint, Indicator, Station, TransportFile, TransportPoint, ValueRow, WeatherElement, WeatherFile, WeatherStation } from "./types";
+import type {
+  FacilityPoint, Indicator, LandPoint, LandPriceFile, Station, TransportFile, TransportPoint, ValueRow, WeatherElement, WeatherFile, WeatherStation,
+} from "./types";
 
 export type ArticleLevel = "municipality" | "prefecture";
 
@@ -216,36 +218,46 @@ export interface ArticleCompareRow {
   rank: number;
   from: ValueRow;
   to: ValueRow;
-  /** 後の値 ÷ 前の値 */
+  /** 後の値 ÷ 前の値（前の値が 0 以下のときは NaN。by: "difference" のときだけ起きる） */
   ratio: number;
+  /** 後の値 − 前の値 */
+  difference: number;
 }
 
 /**
  * 2つの時点の値を地域ごとに並べ、後の値÷前の値（倍率）の順に並べる。時点ごとに指標が違ってもよい
  * （例: 1920年は「人口（1920年からの推移）」、2025年は「人口」）。どちらかの値がない地域は除き（0 にしない）、
  * expect に挙げた地域が上から n 件に入っていなければ実データでは止める（ranking と同じ）。
- * 2つの指標の割合（例: 宿泊業で働く人÷働く人）にも使う。minFrom を渡すと、前の値がそれ未満の地域を除く（小さな数の割合が極端になるため）
+ * 2つの指標の割合（例: 宿泊業で働く人÷働く人）にも使う。minFrom を渡すと、前の値がそれ未満の地域を除く（小さな数の割合が極端になるため）。
+ * by: "difference" では、後の値 − 前の値（割合の指標なら何ポイント増えたか）の順に並べる（#251）
  */
 export function compareRanking(from: { id: string; period: string }, to: { id: string; period: string }, level: ArticleLevel,
-  order: "high" | "low", n: number, expect: string[] = [], opts: { minFrom?: number } = {}): ArticleCompareRow[] {
+  order: "high" | "low", n: number, expect: string[] = [],
+  opts: { minFrom?: number; by?: "ratio" | "difference" } = {}): ArticleCompareRow[] {
+  const by = opts.by ?? "ratio";
   const before = new Map(rows(from.id, from.period, level).map((r) => [r.entity_id, r]));
   const pairs = rows(to.id, to.period, level).flatMap((r) => {
     const b = before.get(r.entity_id);
-    if (!b || b.value === null || r.value === null || b.value <= 0) return [];
+    if (!b || b.value === null || r.value === null) return [];
+    // 倍率は前の値が 0 以下だと求められない。差（to − from、割合の指標なら何ポイント増えたか）は 0 でも求められる
+    if (by === "ratio" && b.value <= 0) return [];
     if (opts.minFrom !== undefined && b.value < opts.minFrom) return [];
-    return [{ entity_id: r.entity_id, from: b, to: r, ratio: r.value / b.value }];
+    return [{ entity_id: r.entity_id, from: b, to: r, ratio: b.value > 0 ? r.value / b.value : Number.NaN, difference: r.value - b.value }];
   });
   if (pairs.length === 0) fail(`${from.id} の ${from.period} と ${to.id} の ${to.period} に、両方の値のある地域がありません`);
+  const key = (p: (typeof pairs)[number]) => (by === "ratio" ? p.ratio : p.difference);
   const sign = order === "high" ? -1 : 1;
-  const sorted = pairs.sort((a, b) => sign * (a.ratio - b.ratio));
+  const sorted = pairs.sort((a, b) => sign * (key(a) - key(b)));
   let rank = 0;
   const list = sorted.map((p, i) => {
-    if (i === 0 || p.ratio !== sorted[i - 1].ratio) rank = i + 1;
+    if (i === 0 || key(p) !== key(sorted[i - 1])) rank = i + 1;
     return { ...p, rank };
   });
   const top = list.slice(0, n);
   const missing = expect.filter((e) => !top.some((r) => r.entity_id === e));
-  if (missing.length) fail(`${from.id}→${to.id} の倍率の${order === "high" ? "上位" : "下位"}${n}に ${missing.join("・")} が入っていません`);
+  if (missing.length) {
+    fail(`${from.id}→${to.id} の${by === "ratio" ? "倍率" : "差"}の${order === "high" ? "上位" : "下位"}${n}に ${missing.join("・")} が入っていません`);
+  }
   return top;
 }
 
@@ -472,3 +484,84 @@ export function portRank(p: TransportPoint | null, period: string, key: PortKey 
   return all.find((r) => r.port.id === p.id)?.rank ?? fail(`港 ${portName(p)} の ${period} の順位がありません`);
 }
 
+
+// 地価公示の地点（places/land_price）。同じ地点の2つの年の価格を比べる（地点の入れ替わりの影響を受けない）
+let landPointCache: LandPoint[] | undefined;
+function landPoints(): LandPoint[] {
+  landPointCache ??= loadLandPoints("land_price");
+  return landPointCache;
+}
+
+function landFile(): LandPriceFile | null {
+  return loadPlace("land_price") as LandPriceFile | null;
+}
+
+/** 地価公示の年（「2026-01-01」など）の位置。ないときは実データなら止める */
+function landIndex(period: string): number {
+  const i = landFile()?.periods.findIndex((p) => p.period === period) ?? -1;
+  if (i < 0) fail(`地価公示に ${period} の価格がありません`);
+  return i;
+}
+
+/** 地価公示の年の表示（「2026年」） */
+export function landYear(period: string): string {
+  const label = landFile()?.periods.find((p) => p.period === period)?.label;
+  return label ? label.replace(/\d+月\d+日.*$/, "") : (fail(`地価公示に ${period} の価格がありません`) ?? "—");
+}
+
+/** 地価公示の標準地（ID と標準地の番号「千歳5-4」で探す）。見つからないときは実データなら止める */
+export function landPoint(id: string, name: string): LandPoint | null {
+  return landPoints().find((p) => p.id === id && p.name === name) ?? fail(`地価公示の標準地 ${name}（${id}）がありません`);
+}
+
+/** 標準地の価格（円/㎡）。その年の価格がないときは null（0 にしない） */
+export function landValue(p: LandPoint | null, period: string): number | null {
+  if (!p) return null;
+  const i = landIndex(period);
+  const v = i < 0 ? undefined : p.values[i];
+  return v === undefined || v === null || v <= 0 ? null : v;
+}
+
+/** 標準地の所在地（都道府県名を除き、数字は半角に。「千歳市幸町3丁目19番2」） */
+export function landAddress(p: LandPoint | null): string {
+  if (!p?.address) return p?.name ?? "—";
+  return p.address.replace(/^\S+\s+/, "").normalize("NFKC");
+}
+
+export interface LandChangeRow {
+  point: LandPoint;
+  rank: number;
+  from: number;
+  to: number;
+  /** to ÷ from（何倍になったか） */
+  ratio: number;
+}
+
+/**
+ * 用途（"000" 住宅地・"005" 商業地など）ごとに、2つの年の両方に価格のある標準地を、何倍になったかの大きい順に並べる
+ * （同じ倍率は同じ順位）。どちらかの年に価格のない地点は除く（0 にしない）
+ */
+export function landChanges(use: string, from: string, to: string): LandChangeRow[] {
+  const a = landIndex(from);
+  const b = landIndex(to);
+  if (a < 0 || b < 0) return [];
+  const list = landPoints().flatMap((p) => {
+    const x = p.values[a];
+    const y = p.values[b];
+    return p.use !== use || !x || !y || x <= 0 || y <= 0 ? [] : [{ point: p, from: x, to: y, ratio: y / x }];
+  }).sort((s, t) => t.ratio - s.ratio || s.point.id.localeCompare(t.point.id));
+  if (list.length === 0) fail(`地価公示の ${from}・${to} に、用途 ${use} の価格のある地点がありません`);
+  let rank = 0;
+  return list.map((r, k) => {
+    if (k === 0 || r.ratio !== list[k - 1].ratio) rank = k + 1;
+    return { ...r, rank };
+  });
+}
+
+/** landChanges の上から n 件。expect に挙げた標準地が入っていなければ、実データでは止める（ranking と同じ） */
+export function landChangeRanking(use: string, from: string, to: string, n: number, expect: (LandPoint | null)[] = []): LandChangeRow[] {
+  const top = landChanges(use, from, to).slice(0, n);
+  const missing = expect.filter((e) => !e || !top.some((r) => r.point.id === e.id));
+  if (missing.length) fail(`地価公示の上昇率の上位${n}に ${missing.map((e) => e?.name ?? "（見つからない地点）").join("・")} が入っていません`);
+  return top;
+}
