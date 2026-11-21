@@ -55,10 +55,10 @@ export function furusatoPicks(items: PickSource[], keyword = ""): FurusatoPick[]
   });
 }
 
-/** 箱の説明の1文（「果実の産出額の上位10の市町村の、果物の返礼品を…」） */
+/** 箱の説明の1文（「果実の産出額の上位10の市町村で、果物の返礼品を楽天ふるさと納税で探せます。」） */
 export function pickLead(indicatorName: string, conf: PickIndicator, n: number, scope = ""): string {
-  const what = conf.keyword ? `の、${conf.keyword}の返礼品` : "の返礼品";
-  return `${scope}${indicatorName}の上位${n}の${conf.areaWord}${what}を、楽天ふるさと納税で探せます。`;
+  const top = `${scope}${indicatorName}の上位${n}の${conf.areaWord}`;
+  return conf.keyword ? `${top}で、${conf.keyword}の返礼品を楽天ふるさと納税で探せます。` : `${top}の返礼品を、楽天ふるさと納税で探せます。`;
 }
 
 /** 百万円の受入額を「約216億円」「約3.8億円」「約2,530万円」の形に。値がない・0以下なら null */
