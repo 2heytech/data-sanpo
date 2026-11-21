@@ -1,0 +1,1 @@
+{"indicator_id":"guest_nights_business_hotel","period":"2020-01-01","method":"nice","scheme":"oranges","zero_blank":false,"pooled_periods":11,"levels":{"prefecture":{"breaks":[100.0,150.0,180.0,200.0,250.0,300.0,350.0,400.0,500.0,700.0,1000.0],"min":48.194,"max":2367.688,"count":47}}}

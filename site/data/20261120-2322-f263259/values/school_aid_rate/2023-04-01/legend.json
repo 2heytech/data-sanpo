@@ -1,0 +1,1 @@
+{"indicator_id":"school_aid_rate","period":"2023-04-01","method":"bands","scheme":"oranges","zero_blank":false,"pooled_periods":4,"levels":{"municipality":{"breaks":[5.0,10.0,15.0,20.0,25.0,30.0,35.0,40.0,45.0,50.0,55.0],"min":0.0,"max":50.0,"count":1718}}}

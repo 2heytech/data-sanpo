@@ -1,0 +1,1 @@
+{"indicator_id":"current_balance_ratio","period":"2020-04-01","method":"nice","scheme":"oranges","zero_blank":false,"pooled_periods":8,"levels":{"municipality":{"breaks":[65.0,70.0,75.0,78.0,80.0,83.0,85.0,87.0,88.0,89.0,90.0,91.0,92.0,93.0,94.0,95.0,97.0,100.0,102.0],"min":39.4,"max":124.9,"count":1721},"prefecture":{"breaks":[],"min":null,"max":null,"count":0}}}

@@ -1,0 +1,1 @@
+{"indicator_id":"preservation_districts","period":"2026-10-18","method":"nice","scheme":"oranges","zero_blank":true,"pooled_periods":1,"levels":{"municipality":{"breaks":[2.0,3.0,4.0],"min":0.0,"max":4.0,"count":1896},"prefecture":{"breaks":[2.0,3.0,4.0,5.0,6.0,8.0],"min":0.0,"max":8.0,"count":47}}}
