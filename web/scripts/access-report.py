@@ -5,7 +5,8 @@
   python3 web/scripts/access-report.py   （Markdown を出力。最後の行は「ALERTS_JSON: {...}」）
 
   日付は日本時間で区切る。public リポジトリでは実行結果を誰でも見られるので、
-  出すのは日ごとの合計（全体・日本から・検索から）、ページ別の数（公開しているページの URL だけ）と、変化があったときの国・参照元の名前だけにする。
+  出すのは日ごとの合計（全体・日本から・検索から・参照元の種類別）、前日の時間ごとの合計、ページ別の数（公開しているページの URL だけ）と、
+  変化があったときの国・参照元の名前だけにする。
 """
 import json
 import os
@@ -127,6 +128,10 @@ def jst_day(ts: str) -> str:
     return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(JST).strftime("%Y-%m-%d")
 
 
+def jst_hour(ts: str) -> int:
+    return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(JST).hour
+
+
 def changed(today: float, base: float, minimum: float, up: float, down: float | None) -> str | None:
     if max(today, base) < minimum:
         return None
@@ -157,33 +162,52 @@ def main() -> None:
     search: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     country: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     referer: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    # 減った・増えた日にどこが動いたかを見るため、参照元の種類別と、時間ごと（日本時間）の数も持つ
+    source: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    hourly: dict[str, dict[int, dict[str, float]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     for r in rows_by_day(token, RUM_QUERY, account, day0s):
         d = jst_day(r["dimensions"]["datetimeHour"])
+        h = hourly[d][jst_hour(r["dimensions"]["datetimeHour"])]
         v = r["sum"]["visits"]
         visits[d] += v
         views[d] += r["count"]
+        h["visits"] += v
+        h["views"] += r["count"]
         country[d][r["dimensions"]["countryName"] or "不明"] += r["count"]
         if r["dimensions"]["countryName"] == HOME_COUNTRY:
             jp_visits[d] += v
+            h["jp_visits"] += v
         ref = (r["dimensions"]["refererHost"] or "").lower()
-        if ref and not ref.endswith(HOST):
+        if not ref:
+            source[d]["direct"] += v
+        elif ref.endswith(HOST):
+            source[d]["inside"] += v
+        else:
             referer[d][ref] += v
             for key, name in SEARCH_ENGINES.items():
                 if key in ref.split("."):
                     search[d][name] += v
+                    source[d]["search"] += v
+                    h["search"] += v
                     break
+            else:
+                source[d]["other"] += v
 
     # ページ別: 8日間と前日のページビュー、8日間の検索からの訪問
     page_views: dict[str, float] = defaultdict(float)
     page_views_target: dict[str, float] = defaultdict(float)
     page_search: dict[str, float] = defaultdict(float)
+    page_search_target: dict[str, float] = defaultdict(float)
     for r in rows_by_day(token, PAGE_QUERY, account, day0s):
         path = r["dimensions"]["requestPath"] or "/"
         page_views[path] += r["count"]
-        if jst_day(r["dimensions"]["datetimeHour"]) == target:
+        is_target = jst_day(r["dimensions"]["datetimeHour"]) == target
+        if is_target:
             page_views_target[path] += r["count"]
         if is_search((r["dimensions"]["refererHost"] or "").lower()):
             page_search[path] += r["sum"]["visits"]
+            if is_target:
+                page_search_target[path] += r["sum"]["visits"]
     top_pages = sorted(page_views, key=lambda p: (-page_views[p], p))[:TOP_PAGES]
 
     # ボットを含むリクエスト数（ゾーンの読み取り権限がないトークンでは取れないので、取れたときだけ）
@@ -241,6 +265,28 @@ def main() -> None:
     print("|---|--:|")
     for p in search_pages:
         print(f"| {p} | {page_search[p]:,.0f} |")
+    print("\n### 参照元の種類別の訪問数\n")
+    print("| 日付 | 検索 | ほかのサイト | 直接・不明（参照元なし） | サイトの中 |")
+    print("|---|--:|--:|--:|--:|")
+    for d in days:
+        sd = source[d]
+        print(f"| {d} | {sd['search']:,.0f} | {sd['other']:,.0f} | {sd['direct']:,.0f} | {sd['inside']:,.0f} |")
+    print(f"\n### 前日（{target}）の時間ごと（日本時間）と前7日の同じ時間の平均\n")
+    print("| 時 | 訪問数 | 平均 | ページビュー | 平均 | 日本からの訪問数 | 平均 | 検索からの訪問数 | 平均 |")
+    print("|--:|--:|--:|--:|--:|--:|--:|--:|--:|")
+    for hr in range(24):
+        cells = []
+        for k in ("visits", "views", "jp_visits", "search"):
+            cells.append(f"{hourly[target][hr][k]:,.0f}")
+            cells.append(f"{sum(hourly[d][hr][k] for d in prev) / len(prev):,.1f}")
+        print(f"| {hr} | " + " | ".join(cells) + " |")
+    search_diff = sorted((p for p in page_search if page_search[p]),
+                         key=lambda p: (page_search_target[p] - (page_search[p] - page_search_target[p]) / len(prev), p))
+    print(f"\n### 検索から入ったページの前日と前7日平均（前日に減った順、上位{TOP_PAGES}）\n")
+    print("| ページ | 前日 | 前7日平均 |")
+    print("|---|--:|--:|")
+    for p in search_diff[:TOP_PAGES]:
+        print(f"| {p} | {page_search_target[p]:,.0f} | {(page_search[p] - page_search_target[p]) / len(prev):,.1f} |")
     muni_pages = sorted((p for p in page_views if MUNI_PAGE.match(p)), key=lambda p: (-page_views[p], p))
     names = muni_names() if muni_pages else {}
     print(f"\n### 市区町村のページ（8日間のページビューの多い順、上位{TOP_MUNIS}）\n")
