@@ -1,50 +1,43 @@
-import subprocess, sys, json, os, re, urllib.request, hashlib, csv, io
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-e", "pipeline"], check=True)
-sys.path.insert(0, "pipeline")
-from pathlib import Path
-from tdm.xlsx import read_sheet
-from tdm.ingest import tokyo_jhs_progress as t
+import json, os, re, urllib.request
 os.makedirs("/tmp/shots", exist_ok=True)
 UA = {"User-Agent": "Mozilla/5.0"}
 def get(url):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
-        return r.read(), r.headers
-def show_xlsx(tag, b):
-    p = Path(f"/tmp/{hashlib.md5(tag.encode()).hexdigest()}.xlsx"); p.write_bytes(b)
-    rows = read_sheet(p)
-    print("  YEARS", tag, [r[0] for r in rows if r and r[0] and re.search("年度", str(r[0]))][:3])
-    dd = t.read_table(p)
-    print("  N", tag, len(dd), {k: dd[k] for k in dd if any(s in k for s in ("千代田", "文京"))})
-    return dd
-API = "https://catalog.data.metro.tokyo.lg.jp/api/3/action/"
-cat = {}
-for pid in ("t000021d2000000177", "t000021d2000000187", "t000021d2000000192"):
-    d = json.loads(get(API + "package_show?id=" + pid)[0])["result"]
-    print("PKG", pid, d.get("license_id"), d["metadata_created"][:10])
-    r = d["resources"][0]
-    print("  RES0", r.get("name"), "|", r.get("description", "")[:40], "|", r.get("url"), "|", r.get("format"))
-    b, h = get(r["url"])
-    print("  FILE", len(b), h.get("Content-Type"), b[:4])
-    if b[:2] == b"PK":
-        cat[pid] = show_xlsx(pid, b)
-    else:
-        for enc in ("utf-8-sig", "cp932"):
-            try:
-                txt = b.decode(enc); break
-            except UnicodeDecodeError:
-                pass
-        rows = list(csv.reader(io.StringIO(txt)))
-        print("  CSV", enc, len(rows))
-        for row in rows[:9]:
-            print("   C", [c.strip()[:12] for c in row][:14])
-        for row in rows:
-            if row and any(s in row[0] for s in ("千代田", "文京", "令和")):
-                print("   R", [c.strip()[:12] for c in row][:26])
-for u in ("sotsugo-01_3", "sotsugo-01_4", "statistics_and_research_report2024_sotsugo-01_r61119", "r7-sotsugo-01", "r7_sotsugo_01", "r6-sotsugo-01", "r6_sotsugo_01", "sotsugo_01_4"):
+        return r.read().decode("utf-8")
+S = "https://data-sanpo.com"
+html = get(S + "/indicators/owner_occupied_share/")
+rid = re.search(r"/data/([^/\"']+)/", html)
+print("RID", rid and rid[1])
+for kw in ("2025年", "2020年", "間借りは分母に含みます"):
+    print("HTML has", kw, kw in html)
+base = f"{S}/data/{rid[1]}"
+cat = json.loads(get(base + "/indicators.json"))
+by = {i["id"]: i for i in cat["indicators"]}
+for k in ("owner_occupied_share", "private_rented_share", "high_rise_household_share", "jhs_progress_private", "land_survey_price", "land_price_residential"):
+    i = by[k]
+    print("IND", k, [(p["period"], p.get("label"), p.get("levels")) for p in i["periods"]][-4:], "default", i.get("default_period"))
+def row(ind, period, eid, level="municipalities"):
+    d = json.loads(get(f"{base}/values/{ind}/{period}/{level}.json"))
+    r = {x["entity_id"]: x for x in d["rows"]}.get(eid)
+    print("VAL", ind, period, eid, r and {k: r.get(k) for k in ("value", "numerator", "denominator", "status")})
+row("owner_occupied_share", "2025-10-01", "muni-13101")
+row("private_rented_share", "2025-10-01", "muni-13101")
+row("high_rise_household_share", "2025-10-01", "muni-13101")
+row("high_rise_household_share", "2025-10-01", "pref-13", "prefectures")
+row("jhs_progress_private", "2023-03-31", "muni-13101")
+row("jhs_progress_private", "2024-03-31", "muni-13101")
+row("jhs_progress_private", "2025-03-31", "muni-13105")
+pl = json.loads(get(f"{base}/places/land_survey_price.json"))
+print("PLACES", [p["period"] for p in pl["periods"]][-3:] if "periods" in pl else list(pl)[:8])
+try:
+    p13 = json.loads(get(f"{base}/places/land_survey_price/13.json"))
+    periods = [p["period"] for p in (p13.get("periods") or pl.get("periods"))]
+    pt = next(x for x in p13["points"] if x.get("name") == "千代田(都)-1")
+    print("PT", pt["name"], dict(zip(periods[-2:], pt["values"][-2:])))
+except Exception as e:
+    print("ERR places", repr(e))
+for path in ("/map/?i=owner_occupied_share", "/indicators/jhs_progress_private/", "/indicators/land_survey_price/"):
     try:
-        b, h = get("https://www.kyoiku.metro.tokyo.lg.jp/documents/d/kyoiku/" + u)
-        print("SITE", u, len(b), h.get("Content-Type"), h.get("Last-Modified"), hashlib.sha256(b).hexdigest()[:12])
-        if b[:2] == b"PK":
-            show_xlsx(u, b)
+        h = get(S + path); print("PAGE", path, len(h), "2026年" in h, "2023年3月卒業" in h)
     except Exception as e:
-        print("SITE", u, repr(e))
+        print("PAGE", path, repr(e))
