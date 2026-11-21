@@ -39,6 +39,34 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "aerial-photos-building-land",
+    title: "田んぼや塩田が街になったまちはどこ？：昔と今の航空写真と建物用地の割合",
+    description: "陸地に占める建物用地の割合が1976年度から2021年度に最も増えた市区町村を、昔と今の航空写真で見比べます。1位は田んぼの多かった岐阜県岐南町、2位は海を埋め立てた千葉県浦安市。塩田の跡の香川県宇多津町、多摩ニュータウンも。",
+    published: "2026-12-04",
+    theme: "land",
+    indicators: ["land_use_building_share", "land_use_paddy_share"],
+    mapHref: "/map/?i=land_use_building_share&p=2021-04-01&a=muni-21302&l=municipality",
+  },
+  {
+    slug: "land-price-rise",
+    title: "地価が5年で3倍になったまちはどこ？：地価公示の上昇率ランキング",
+    description: "地価公示（2026年1月1日）の価格を、同じ地点の2021年の価格と比べます。商業地で3倍を超えた北海道千歳市の3地点、半導体の工場が進出した熊本県菊陽町、住宅地の1位の富良野市・2位の白馬村なども見ます。",
+    published: "2026-12-02",
+    theme: "money",
+    indicators: ["land_price_commercial", "land_price_residential"],
+    mapHref: "/map/?lp=land-01224-005-004",
+  },
+  {
+    slug: "furusato-prefecture",
+    title: "1人あたり日本一の県はどこ？：ふるさと納税の都道府県ランキング",
+    description: "2025年度のふるさと納税の受入額を、県と県内の市町村の合計で住民1人あたりにして比べます。1位の山梨県で多く集めるまち、宮崎県の都城市・佐賀県の上峰町、合計では1位の北海道が1人あたりでは何位かも見ます。",
+    published: "2026-11-30",
+    theme: "money",
+    indicators: ["furusato_amount_per_capita", "furusato_amount"],
+    mapHref: "/map/?i=furusato_amount_per_capita&p=2025-04-01&a=pref-19&l=prefecture",
+    affiliate: true,
+  },
+  {
     slug: "water-fee",
     title: "水道料金が安いまちはどこ？：家庭用の水道料金の市区町村ランキング",
     description: "家庭で1か月に20m³の水道水を使ったときの料金（2024年度）を、市区町村ごとに比べます。1,000円未満の4つのまち、市で最も安い市、人口の多い市や政令指定都市で安い市、料金の高いまちが多い地域も見ます。",

@@ -6,7 +6,7 @@ import { centerSpots, type CenterSpot, type LandSource, type StationSource, type
 import type { PlacePoints } from "./placeStats";
 import type { Geometry } from "./shape";
 import type {
-  AreasFile, FacilityPoint, IndicatorCatalog, LegendFile, ReleaseInfo, School, SchoolsFile, SmallArea, SmallAreasFile, Source, Station,
+  AreasFile, FacilityPoint, IndicatorCatalog, LandPoint, LegendFile, ReleaseInfo, School, SchoolsFile, SmallArea, SmallAreasFile, Source, Station,
   StationsFile, ValueRow, ValuesFile,
 } from "./types";
 
@@ -133,6 +133,11 @@ function placeRows<T>(name: string, key: string): T[] {
       return [];
     }
   });
+}
+
+/** 地価公示・都道府県地価調査の地点（全国。places/<name>/<都道府県>.json をまとめたもの）。公開版にないときは空 */
+export function loadLandPoints(name: "land_price" | "land_survey_price" = "land_price"): LandPoint[] {
+  return placeRows<LandPoint>(name, "points");
 }
 
 /** 駅の乗降客数の点（全国）と年度（"2019-04-01" の形。values と同じ順）。公開版にないときは空 */

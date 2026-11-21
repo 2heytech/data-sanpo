@@ -246,6 +246,20 @@ describe("写真のタイル", () => {
       }
     }
   });
+  it("寄り道の写真は、地図の縮尺 13 で広い範囲を並べる（#250）", () => {
+    const png = OLD_PHOTO_ERAS[3];
+    expect(photoTileSize(png, 1, 13)).toEqual({ z: 14, px: 256 });
+    expect(photoTileSize(LATEST_PHOTO_ERA, 2, 13)).toEqual({ z: 15, px: 128 });
+    for (const era of [png, OLD_PHOTO_ERAS[4], LATEST_PHOTO_ERA]) {
+      const { z } = photoTileSize(era, era.ext === "png" ? 1 : 2, 13);
+      expect(z).toBeGreaterThanOrEqual(era.minzoom);
+      expect(z).toBeLessThanOrEqual(era.maxzoom);
+    }
+    const tiles = photoTiles(LATEST_PHOTO_ERA, 139.8804, 35.6329, 2, 380, 285, 13);
+    expect(tiles.every((t) => /\/seamlessphoto\/15\/\d+\/\d+\.jpg$/.test(t.url))).toBe(true);
+    expect(Math.min(...tiles.map((t) => t.left))).toBeLessThanOrEqual(-190);
+    expect(Math.max(...tiles.map((t) => t.left + t.px))).toBeGreaterThanOrEqual(190);
+  });
   it("地点はタイルの中の正しい位置に来る（金沢市本町2丁目の z16）", () => {
     const tiles = photoTiles(LATEST_PHOTO_ERA, 136.64998, 36.57713);
     // 地点を含むタイルは left・top が -128〜0

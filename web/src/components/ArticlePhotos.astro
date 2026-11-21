@@ -1,0 +1,89 @@
+---
+// 寄り道の中の「昔と今の航空写真」（設計変更記録 #250）。同じ場所の航空写真を、決めた撮影年代の古い順に並べる。
+// 地域ページの「中心部の昔と今」（#215）と同じく地理院タイルをそのまま並べ（サイトの静的ファイルは増やさない）、
+// 写真を押すと、その場所・年代の航空写真を背景にした地図を開く。記事では町の広い範囲を見せるため、地図の縮尺 13 で並べる。
+// 年代は、書く人がその場所が写っていることを確かめて選ぶ（地域ページのように写っている年代を探さない）
+import { PHOTO_ERAS } from "../map/photoEras";
+import { photoTiles } from "../lib/centerPhoto";
+import { mapHref } from "../lib/urlstate";
+
+interface Props {
+  /** 写真の真ん中 */
+  lat: number;
+  lng: number;
+  /** 地図で選ぶ市区町村（muni-…） */
+  area: string;
+  /** 撮影年代の ID（古い順。photo1961・photo1974・photo など。photo は最新の写真） */
+  eras: string[];
+  /** 場所（「千葉県浦安市の舞浜」）。説明と、写真を押すときの読み上げに使う */
+  place: string;
+  /** 地図の縮尺（MapLibre の縮尺。13 で幅 400 画素ほどに約3km） */
+  zoom?: number;
+}
+const { lat, lng, area, eras, place, zoom = 13 } = Astro.props;
+// 欄のいちばん大きいときの大きさ（CSS 画素）。これを覆うだけのタイルを並べる
+const BOX = { width: 380, height: 285 };
+const panels = eras.flatMap((id) => {
+  const era = PHOTO_ERAS.find((e) => e.id === id);
+  if (!era) throw new Error(`航空写真の年代 ${id} がありません`);
+  const label = era.id === "photo" ? "今（最新の写真）" : era.label;
+  // PNG の年代（1961〜1969年など）は1枚が重いので、1段下のタイルを大きく並べる（地域ページの高精細でない画面と同じ）
+  const tiles = photoTiles(era, lng, lat, era.ext === "png" ? 1 : 2, BOX.width, BOX.height, zoom);
+  return [{ era, label, tiles, href: mapHref({ area, base: era.id, view: { zoom, lat, lng } }) }];
+});
+const tileStyle = (t: { left: number; top: number }) => `left:calc(50% + ${t.left}px);top:calc(50% + ${t.top}px)`;
+---
+<figure class="article-photos">
+  <div class="photo-row" style={`--n:${panels.length}`}>
+    {panels.map((p) => (
+      <figure class="article-photo">
+        <a class="photo-frame" href={p.href} aria-label={`${place}の${p.label}の航空写真を地図で見る`}>
+          <span class="tiles">
+            {p.tiles.map((t) => <img src={t.url} alt="" width={t.px} height={t.px} loading="lazy" decoding="async" style={tileStyle(t)} />)}
+          </span>
+          <span class="map-chip" aria-hidden="true">地図で見る</span>
+        </a>
+        <figcaption>{p.label}</figcaption>
+      </figure>
+    ))}
+  </div>
+  <figcaption class="muted small">
+    {`${place}（同じ範囲・同じ縮尺）。航空写真: 国土地理院（`}<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>）
+  </figcaption>
+</figure>
+
+<script>
+  // 撮影範囲の外などでタイルがない（404）ときは、壊れた画像の印を出さずに隠す（下の地の色が見える）
+  const hide = (img: HTMLImageElement) => { img.style.visibility = "hidden"; };
+  document.addEventListener("error", (e) => {
+    if (e.target instanceof HTMLImageElement && e.target.closest(".article-photo")) hide(e.target);
+  }, true);
+  for (const img of document.querySelectorAll<HTMLImageElement>(".article-photo img")) {
+    if (img.complete && img.naturalWidth === 0 && img.currentSrc) hide(img);
+  }
+</script>
+
+<style>
+  .article-photos { margin: 16px 0 22px; }
+  .photo-row {
+    display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 10px 12px;
+    max-width: calc(var(--n) * 380px + (var(--n) - 1) * 12px);
+  }
+  .article-photo { margin: 0; }
+  .photo-frame {
+    position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  }
+  .photo-frame img { position: absolute; max-width: none; }
+  .photo-frame:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .map-chip {
+    position: absolute; right: 8px; bottom: 8px; padding: 3px 10px; border-radius: 999px;
+    background: rgba(28, 39, 51, 0.78); color: #ffffff; font-size: 0.78rem; font-weight: 700;
+  }
+  .photo-frame:hover .map-chip { background: var(--accent); }
+  .article-photo figcaption { margin-top: 5px; font-weight: 700; font-size: 0.92rem; }
+  .article-photos > figcaption { margin-top: 6px; max-width: 46em; }
+  @media (max-width: 560px) {
+    .photo-row { grid-template-columns: minmax(0, 1fr); max-width: 380px; }
+  }
+</style>
