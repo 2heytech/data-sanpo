@@ -9,6 +9,10 @@ import NeighborCompare from "../../components/NeighborCompare.astro";
 import ProfileIntro from "../../components/ProfileIntro.astro";
 import StatList from "../../components/StatList.astro";
 import AreaArticles from "../../components/AreaArticles.astro";
+import FurusatoPicks from "../../components/FurusatoPicks.astro";
+import PrNotice from "../../components/PrNotice.astro";
+import { PREF_PICK_COUNT, furusatoAmountText, furusatoPicks, furusatoPrefLead } from "../../lib/furusatoPicks";
+import { rakutenAffiliateUrl, rakutenFurusatoSearchUrl } from "../../lib/rakuten";
 import { publishedArticles } from "../../lib/articles";
 import { articlesForPrefecture } from "../../lib/articleLinks";
 import { articleMentions } from "../../lib/articleMentions";
@@ -147,6 +151,22 @@ const prefIndicatorLinks = PREF_INDICATOR_PAGES.flatMap((p) => {
 const allRanksHref = new Map(prefIndicatorLinks.map((l) => [l.id, l.href]));
 
 // 市区町村別の人口増加率の地図の画像（設計変更記録 #142）。市区町村の表の前に置き、共有画像にも使う
+// ふるさと納税の返礼品（楽天のリンク、設計変更記録 #252）。県の受入額（上位なら順位も）と、県内で受入額の多い市区町村、
+// 県全体の返礼品を探すボタン。政令指定都市は市全体の値だけで区の値がないので、ほかのページの順位と同じく並ばない
+const furusatoInd = indicators.get("furusato_amount");
+const furusatoPeriod = furusatoInd?.periods.find((p) => p.period === latestPeriod(furusatoInd));
+const furusatoPrefRows = furusatoInd && furusatoPeriod ? rows(furusatoInd.id, furusatoPeriod.period, "prefectures") : [];
+const furusatoLead = furusatoPeriod ? furusatoPrefLead({
+  prefName: pref.name, value: furusatoPrefRows.find((r) => r.entity_id === `pref-${pref.code}`)?.value, periodLabel: furusatoPeriod.label,
+  standing: areas.prefectures.length > 1 ? rankIfVaried(furusatoPrefRows, `pref-${pref.code}`) : null,
+}) : null;
+const furusatoTop = furusatoInd && furusatoPeriod
+  ? ranked(rows(furusatoInd.id, furusatoPeriod.period, "municipalities").filter((r) => byId.has(r.entity_id))).slice(0, PREF_PICK_COUNT) : [];
+const furusatoItems = furusatoPicks(furusatoTop.map((r) => ({
+  label: `${r.rank}位`, name: byId.get(r.entity_id)!.name, pref: pref.name, sub: furusatoAmountText(r.value) ?? undefined,
+})));
+const furusatoHref = rakutenAffiliateUrl(rakutenFurusatoSearchUrl(pref.name, ""));
+const furusatoOn = !!furusatoHref;
 const image = prefectureImage(pref);
 const others = areas.prefectures.filter((p) => p.code !== pref.code);
 // この都道府県や、その市区町村が順位の表に出てくる寄り道（設計変更記録 #234）
@@ -171,12 +191,14 @@ const structured = breadcrumbList(Astro.site, [
       <a class="button" href={`/map/?a=pref-${pref.code}`}>地図で{pref.name}を見る</a>
       <a class="button secondary" href={`/areas/#pref-${pref.code}`}>市区町村の一覧</a>
     </div>
+    {furusatoOn && <PrNotice />}
   </header>
 
   <nav class="toc" aria-label="このページの内容">
     {statCount > 0 && <a href="#stats">主な指標と全国の順位</a>}
     {neighborPrefs.length > 0 && statCount > 0 && <a href="#compare">隣の都道府県と比べる</a>}
     <a href="#munis">市区町村（人口の多い順）</a>
+    {furusatoOn && <a href="#furusato">ふるさと納税の返礼品</a>}
     {prefArticles.length > 0 && <a href="#articles">登場する寄り道（{prefArticles.length}）</a>}
     {prefIndicatorLinks.length > 0 && <a href="#pref-indicator-rankings">市区町村ランキング（{prefIndicatorLinks.length}）</a>}
     {rankings.length > 0 && <a href="#pref-top">{pref.name}内の上位</a>}
@@ -231,6 +253,12 @@ const structured = breadcrumbList(Astro.site, [
       特徴の一言は、各市区町村のページの「データで見る」と同じで、全国の中で目立つ指標から作った推測です。</p>
     {popInd && allRanksHref.has(popInd.id) && <p class="all-ranks small"><a href={allRanksHref.get(popInd.id)}>{pref.name}の人口 市区町村ランキング（全国の中の順位つき）</a></p>}
   </section>
+
+  {furusatoHref && (
+    <FurusatoPicks id="furusato" heading={`${pref.name}のふるさと納税の返礼品`}
+      lead={`${furusatoLead ?? ""}${furusatoItems.length ? `受入額の多い${furusatoItems.length}つの市区町村と、${pref.name}全体の返礼品を、楽天ふるさと納税で探せます。` : `${pref.name}の返礼品を、楽天ふるさと納税で探せます。`}`}
+      items={furusatoItems} wide button={{ place: `${pref.name}の`, href: furusatoHref }} />
+  )}
 
   {prefIndicatorLinks.length > 0 && (
     <section class="sheet" id="pref-indicator-rankings">

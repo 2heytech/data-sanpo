@@ -10,10 +10,13 @@ export const RAKUTEN_FURUSATO_TOP = "https://event.rakuten.co.jp/furusato/";
 
 /**
  * 自治体の返礼品を楽天市場で探す検索の URL。同じ名前の市町村（府中市など）を見分けるため都道府県名を付ける。
- * 自治体ごとのショップの URL（f＋団体コード6桁＋ローマ字）はローマ字の部分を作れないので、検索にしている
+ * 自治体ごとのショップの URL（f＋団体コード6桁＋ローマ字）はローマ字の部分を作れないので、検索にしている。
+ * keyword（「米」「果物」など）は、農業の指標のページで名産に近い品が出るように足す言葉（設計変更記録 #252）。
+ * 市区町村名を空にすると、都道府県の中の返礼品を探す
  */
-export function rakutenFurusatoSearchUrl(prefName: string, muniName: string): string {
-  return `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(`ふるさと納税 ${prefName}${muniName}`)}/`;
+export function rakutenFurusatoSearchUrl(prefName: string, muniName: string, keyword = ""): string {
+  const words = ["ふるさと納税", keyword, `${prefName}${muniName}`].filter(Boolean).join(" ");
+  return `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(words)}/`;
 }
 
 /** 楽天の URL をアフィリエイトのリンクにする。ID がなければ null */
