@@ -13,7 +13,7 @@ for kw in ("2025年", "2020年", "間借りは分母に含みます"):
 base = f"{S}/data/{rid[1]}"
 cat = json.loads(get(base + "/indicators.json"))
 by = {i["id"]: i for i in cat["indicators"]}
-for k in ("owner_occupied_share", "private_rented_share", "high_rise_household_share", "jhs_progress_private", "land_survey_price", "land_price_residential"):
+for k in ("owner_occupied_share", "private_rented_share", "high_rise_household_share", "jhs_progress_private", "land_price_residential"):
     i = by[k]
     print("IND", k, [(p["period"], p.get("label"), p.get("levels")) for p in i["periods"]][-4:], "default", i.get("default_period"))
 def row(ind, period, eid, level="municipalities"):
@@ -28,7 +28,7 @@ row("jhs_progress_private", "2023-03-31", "muni-13101")
 row("jhs_progress_private", "2024-03-31", "muni-13101")
 row("jhs_progress_private", "2025-03-31", "muni-13105")
 pl = json.loads(get(f"{base}/places/land_survey_price.json"))
-print("PLACES", [p["period"] for p in pl["periods"]][-3:] if "periods" in pl else list(pl)[:8])
+print("PLACES", list(pl)[:12], [p["period"] for p in pl.get("periods", [])][-3:], str(pl.get("prefectures", ""))[:200])
 try:
     p13 = json.loads(get(f"{base}/places/land_survey_price/13.json"))
     periods = [p["period"] for p in (p13.get("periods") or pl.get("periods"))]
