@@ -97,10 +97,11 @@ const FALLBACK_LINKS = [
          条件の欄と情報の欄を地図の下端のパネルにまとめる（設計変更記録 #194）。パソコンでは .map-sheet は枠を持たず、今までどおり左右の欄になる */}
     <div class="map-search" role="search" aria-label="地域を検索"></div>
     <div class="map-sheet" data-tab="conditions">
+      {/* パネルの上のフチの真ん中のつまみ（#254）。見出しを押すか、つまみ・見出し・切替のボタンの帯を上下に引くと開け閉めする */}
       <button type="button" class="sheet-head" aria-expanded="false" aria-controls="panel-conditions panel-info">
+        <span class="sh-grip" aria-hidden="true"><svg viewBox="0 0 16 10" width="16" height="10"><path d="M2 8 8 2.5 14 8" /></svg></span>
         <span class="sh-row">
           <span class="sh-icon" aria-hidden="true"></span><span class="sh-name"></span><span class="sh-period"></span>
-          <span class="sh-chevron" aria-hidden="true"><svg viewBox="0 0 12 8" width="12" height="8"><path d="M1.5 6.5 6 2l4.5 4.5" /></svg></span>
         </span>
         <span class="sh-legend" aria-hidden="true"><span class="sh-low"></span><span class="sh-bar"></span><span class="sh-high"></span></span>
         <span class="visually-hidden">（指標・時点・凡例と地域の情報のパネル）</span>
@@ -1027,15 +1028,36 @@ const FALLBACK_LINKS = [
       max-height: 55%; /* map/sheet.ts の SHEET_MAX と同じ */
       background: var(--surface); border-radius: 14px 14px 0 0; box-shadow: 0 -2px 12px rgba(0,0,0,.18);
     }
+    /* 押したときと、引いて離したあとの開け閉めの動き（map/sheet.ts の SETTLE_MS と同じ長さ）。引いている間は高さを指に合わせる（#254） */
+    .map-sheet.settling { transition: height .22s cubic-bezier(.25, .8, .25, 1); }
+    .map-sheet.dragging { -webkit-user-select: none; user-select: none; }
+    .sheet-head, .sheet-tabs { touch-action: none; }
     .sheet-head {
       position: relative; flex: none; display: flex; flex-direction: column; justify-content: center; gap: 5px;
       width: 100%; height: var(--sheet-head-h); padding: 12px 14px 8px; border: 0; border-radius: 14px 14px 0 0;
       background: none; font: inherit; color: var(--fg); text-align: left; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
-    /* つまみ */
-    .sheet-head::before {
-      content: ""; position: absolute; top: 5px; left: 50%; width: 36px; height: 4px; margin-left: -18px;
-      border-radius: 2px; background: var(--line-strong);
+    /* つまみ。パネルの上のフチの真ん中に載せ、閉じているときは ⌃（引き上げて開く）、開いているときは ⌄（引き下げて閉じる）（#254） */
+    .sh-grip {
+      position: absolute; top: 0; left: 50%; transform: translate(-50%, -50%);
+      display: grid; place-items: center; width: 60px; height: 26px;
+      border: 1px solid var(--line-strong); border-radius: 13px; background: var(--surface); color: var(--accent);
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+    }
+    .sh-grip svg { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+    .sheet-head[aria-expanded="true"] .sh-grip svg { transform: rotate(180deg); }
+    .sheet-head:active .sh-grip { background: var(--accent-soft); }
+    /* 地図の色分けが出たとき、パネルをまだ開いていなければ、つまみを2回弾ませる */
+    .map-sheet.hint .sh-grip { animation: sh-hint 1s ease-in-out .4s 2; }
+    @keyframes sh-hint {
+      0%, 50%, 100% { transform: translate(-50%, -50%); }
+      22% { transform: translate(-50%, calc(-50% - 7px)); }
+      70% { transform: translate(-50%, calc(-50% - 3px)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .map-sheet.hint .sh-grip { animation: none; }
+      .map-sheet.settling, .sh-grip svg { transition: none; }
     }
     .sheet-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
     .sh-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -1043,9 +1065,6 @@ const FALLBACK_LINKS = [
     .sh-icon svg { width: 20px; height: 20px; }
     .sh-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.95rem; font-weight: 700; }
     .sh-period { flex: none; font-size: 0.85rem; font-weight: 700; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
-    .sh-chevron { flex: none; display: grid; place-items: center; width: 24px; height: 20px; color: var(--accent); }
-    .sh-chevron svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
-    .map-sheet.open .sh-chevron svg { transform: rotate(180deg); }
     .sh-legend { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 0.72rem; line-height: 1.2; color: var(--muted); font-variant-numeric: tabular-nums; }
     .sh-legend > span:not(.sh-bar) { flex: none; white-space: nowrap; }
     .sh-legend.none > .sh-low { flex: 1; overflow: hidden; text-overflow: ellipsis; }

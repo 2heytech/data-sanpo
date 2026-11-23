@@ -142,6 +142,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     progress(1);
     loadingEl.classList.add("done");
     window.setTimeout(() => loadingEl.remove(), 500);
+    // スマホでパネルをまだ開いていなければ、つまみを弾ませて、引けば開くことを知らせる（#254）
+    sheet.hint();
   };
   progress(0.3);
   const cache = new Map<string, Promise<unknown>>();
