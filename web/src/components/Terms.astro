@@ -1,7 +1,11 @@
 ---
 // 利用規約とプライバシー。「このサイトについて」のページの中に表示する（docs/design-changes.md #47）。
 import { RAKUTEN_AFFILIATE_ID, RAKUTEN_API } from "../lib/rakuten";
-import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
+import { CF_WEB_ANALYTICS_TOKEN, GA_MEASUREMENT_ID } from "../lib/analytics";
+// Google アナリティクス（#255）を使う版では、Cookie を使うのはそれだけであることを、広告の項目にも書く
+const cookieNote = GA_MEASUREMENT_ID
+  ? "本サイトが Cookie を使うのは、上のアクセス解析（Google アナリティクス）だけです。"
+  : "本サイト自体は、Cookie を使った利用者の識別や追跡はしていません。";
 ---
   <p>この規約は、データさんぽ（以下「本サイト」）の利用について定めるものです。本サイトを利用した時点で、この規約に同意したものとみなします。</p>
 
@@ -41,6 +45,21 @@ import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
       利用者を識別・追跡する情報は記録しません（<a href="https://www.cloudflare.com/privacypolicy/">Cloudflare のプライバシーポリシー</a>）。
     </p>
   )}
+  {GA_MEASUREMENT_ID && (
+    <>
+      <p>
+        サイトの使われ方を詳しく知り、改善に役立てるため、Google LLC の <a href="https://marketingplatform.google.com/about/analytics/">Google アナリティクス</a> を使用しています。
+        Google アナリティクスは Cookie を使って、同じブラウザからの訪問を見分け、見たページ、参照元、滞在時間、ブラウザ・端末の種類、おおよその国・地域などを集計します。
+        あわせて、地図で表示・選択した指標、リンクや出典の書き方・地図の画像のコピーと保存、楽天ふるさと納税のリンクを押したことを送ります。
+        氏名・メールアドレスなど個人を特定する情報は送りません。Google アナリティクスは IP アドレスを記録しません。
+        広告のための機能（Google シグナル・広告のパーソナライズ）は使っていません。
+      </p>
+      <p>
+        集めた情報は Google のプライバシーポリシーに基づいて管理されます（<a href="https://policies.google.com/privacy?hl=ja">Google のプライバシーポリシー</a>、<a href="https://policies.google.com/technologies/partner-sites?hl=ja">Google のサービスを使用するサイトやアプリから収集した情報の Google による使用</a>）。
+        送信を止めたいときは、ブラウザの設定で Cookie を無効にするか、<a href="https://tools.google.com/dlpage/gaoptout?hl=ja">Google アナリティクス オプトアウト アドオン</a>を使ってください。止めても本サイトはそのまま使えます。
+      </p>
+    </>
+  )}
   <p>
     どの指標がよく使われているかを知るため、地図ページを開いたときと指標を切り替えたときに、表示した指標の名前（ID）と、
     開いたときか切り替えたときかの区別だけを当サイトに送り、回数として集計しています。地域・時点・位置情報は送らず、
@@ -59,11 +78,11 @@ import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
         {RAKUTEN_API
           ? "地域のページで「ふるさと納税の返礼品」の欄まで画面を送ると、返礼品の例を表示するため、楽天の商品検索の仕組み（楽天ウェブサービス）に問い合わせ、商品の画像を楽天から読み込みます（下の外部送信の表）。それ以外は、リンクを押さない限り楽天へ情報は送られません。"
           : "リンクを押さない限り、本サイトのページを開いただけで楽天へ情報が送られることはありません。"}
-        本サイト自体は、Cookie を使った利用者の識別や追跡はしていません。
+        {cookieNote}
       </p>
     </>
   ) : (
-    <p>広告は掲載していません。本サイト自体は、Cookie を使った利用者の識別や追跡はしていません。</p>
+    <p>広告は掲載していません。{cookieNote}</p>
   )}
 
   <h4 id="external">利用者の情報の外部送信</h4>
@@ -84,6 +103,13 @@ import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
             <td>地域のページの「ふるさと納税の返礼品」の欄に返礼品の例を表示する（欄まで画面を送ったときだけ。<a href="https://privacy.rakuten.co.jp/">楽天グループの個人情報保護方針</a>）</td>
           </tr>
         )}
+        {GA_MEASUREMENT_ID && (
+          <tr>
+            <td>Google LLC（Google アナリティクス）</td>
+            <td>閲覧したページの URL・題名、参照元、Cookie に保存した識別子、ブラウザ・端末の種類、画面の大きさ、言語、IP アドレス（おおよその地域を調べるのに使われ、記録はされません）、地図で表示・選択した指標、コピー・保存・楽天のリンクを押したこと</td>
+            <td>サイトの利用状況の分析（<a href="https://policies.google.com/privacy?hl=ja">プライバシーポリシー</a>。<a href="https://tools.google.com/dlpage/gaoptout?hl=ja">送信を止める方法</a>）</td>
+          </tr>
+        )}
         {CF_WEB_ANALYTICS_TOKEN && (
           <tr>
             <td>Cloudflare, Inc.（Cloudflare Web Analytics）</td>
@@ -98,4 +124,4 @@ import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
   <h3 id="changes">4. 規約の変更</h3>
   <p>この規約は、必要に応じて変更することがあります。変更後の規約は、このページに掲載した時点から適用します。</p>
 
-  <p class="muted">2026年10月3日 制定・2026年11月4日 改定（広告と外部送信の項目）</p>
+  <p class="muted">2026年10月3日 制定・2026年11月4日 改定（広告と外部送信の項目）{GA_MEASUREMENT_ID && "・2026年11月25日 改定（アクセス解析と外部送信の項目）"}</p>

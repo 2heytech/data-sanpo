@@ -1,7 +1,7 @@
 ---
 import { ICON_INDICATOR, ICON_MUNICIPALITY, ICON_PREFECTURE } from "../lib/navIcons";
 import FeedbackLink from "../components/FeedbackLink.astro";
-import { CF_WEB_ANALYTICS_TOKEN } from "../lib/analytics";
+import { CF_WEB_ANALYTICS_TOKEN, GA_MEASUREMENT_ID } from "../lib/analytics";
 import { RELEASE, loadAreas } from "../lib/data";
 import { ALLOW_INDEXING } from "../lib/indexing";
 import "../styles/global.css";
@@ -150,6 +150,7 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     {[preload ?? []].flat().map((href) => <link rel="modulepreload" href={href} />)}
     {preloadData.map((href) => <link rel="preload" as="fetch" crossorigin="anonymous" href={href} />)}
     <script>
+      import { clip, track } from "../lib/track";
       // ホーム画面から開いたときの「戻る」（設計変更記録 #199。出すかどうかは上の is:inline のスクリプトが決める）
       document.getElementById("app-back")?.addEventListener("click", () => history.back());
       // 外部サイトへのリンクは別タブで開く（地図の情報欄など、後から差し込まれるリンクも含む）
@@ -161,6 +162,12 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
         if (a && a.origin !== location.origin && /^https?:$/.test(a.protocol) && !a.target) {
           a.target = "_blank";
           a.rel = "noopener";
+        }
+        // 楽天ふるさと納税（広告）のリンクを押したことを Google アナリティクスに送る（設計変更記録 #255）。
+        // 場所は、返礼品の例の画像（item）・上位のまちの一覧（list）・ボタン（button）の区別。どのページかは GA がページの URL で分ける
+        if (a && (a.relList.contains("sponsored") || a.hostname === "hb.afl.rakuten.co.jp")) {
+          const kind = a.closest(".furusato-items") ? "item" : a.classList.contains("button") ? "button" : "list";
+          track("furusato_click", { link_kind: kind, link_text: clip(a.textContent ?? "") });
         }
       });
       // 読み物のページ: スマホで下へ送っている間はヘッダーを隠し、上へ戻すと出す。長いページを上へ戻り始めたら「上へ戻る」を出す（設計変更記録 #227）。
@@ -202,6 +209,33 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
     {CF_WEB_ANALYTICS_TOKEN && (
       <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js"
         data-cf-beacon={JSON.stringify({ token: CF_WEB_ANALYTICS_TOKEN })}></script>
+    )}
+    {/* Google アナリティクス（設計変更記録 #255）。公開サイトのドメインで開いたときだけ読む（手元や画面写真用のビルドでは送らない）。
+        地図などの表示を遅らせないよう、ページの読み込みが終わってブラウザの手が空いてから（遅くとも3秒後に）gtag.js を読む。
+        それまでに起きた操作のイベントは dataLayer にため、gtag.js が読み込まれたときにまとめて送られる。
+        広告のための機能（Google シグナル・広告のパーソナライズ）は使わない。
+        is:inline のスクリプトはそのままページに出るので、説明はここに書く（#143）。define:vars の名前は上の siteHost と重ねない */}
+    {GA_MEASUREMENT_ID && (
+      <script is:inline define:vars={{ gaId: GA_MEASUREMENT_ID, gaHost: Astro.site?.host ?? "" }}>
+        if (gaHost && location.hostname === gaHost) {
+          window.dataLayer = window.dataLayer || [];
+          window.gtag = function () { window.dataLayer.push(arguments); };
+          window.gtag("js", new Date());
+          window.gtag("config", gaId, { allow_google_signals: false, allow_ad_personalization_signals: false });
+          var gaLoad = function () {
+            var s = document.createElement("script");
+            s.async = true;
+            s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(gaId);
+            document.head.appendChild(s);
+          };
+          var gaLater = function () {
+            if ("requestIdleCallback" in window) requestIdleCallback(gaLoad, { timeout: 3000 });
+            else setTimeout(gaLoad, 300);
+          };
+          if (document.readyState === "complete") gaLater();
+          else addEventListener("load", gaLater, { once: true });
+        }
+      </script>
     )}
   </head>
   <body class={wide ? "wide" : ""}>

@@ -5,6 +5,7 @@
 // SNS などへ送るボタンは置かない（#156）。
 import type { IControl, Map as MapLibreMap } from "maplibre-gl";
 import { tickStep } from "../lib/classify";
+import { track } from "../lib/track";
 
 /** 凡例の中身（左の欄の凡例と、画像の凡例で同じものを使う） */
 export interface LegendModel {
@@ -91,6 +92,8 @@ export function initShare(o: ShareOptions): void {
   o.map.addControl(control, "bottom-right");
 
   async function open() {
+    // 開いた回数と、その中で保存・コピーした回数を Google アナリティクスに送る（設計変更記録 #255）
+    track("share_open", { content_type: "map" });
     const t = ++token;
     const view = o.view();
     setLink();
@@ -138,16 +141,22 @@ export function initShare(o: ShareOptions): void {
     try {
       await navigator.clipboard.writeText(urlInput.value);
       copyButton.textContent = "コピーしました";
+      track("share", { method: "map_link_copy", content_type: "map" });
     } catch {
       urlInput.select();
     }
   });
   urlInput.addEventListener("focus", () => urlInput.select());
+  // 画像の保存は、画像ができてリンクが有効なときだけ数える
+  download.addEventListener("click", () => {
+    if (download.hasAttribute("href")) track("share", { method: "map_image_save", content_type: "map" });
+  });
   imageCopyButton.addEventListener("click", async () => {
     if (!blob) return;
     try {
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       imageCopyButton.textContent = "画像をコピーしました";
+      track("share", { method: "map_image_copy", content_type: "map" });
     } catch {
       // 権限がないときなど。保存するか、画像を長押し・右クリックしてコピーしてもらう
       imageCopyButton.textContent = "画像をコピーできませんでした";
