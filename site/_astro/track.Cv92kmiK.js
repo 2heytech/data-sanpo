@@ -1,0 +1,1 @@
+function e(e,t=100){let n=e.replace(/\s+/g,` `).trim();return n.length>t?n.slice(0,t):n}function t(e,t={}){try{window.gtag?.(`event`,e,t)}catch{}}export{t as n,e as t};

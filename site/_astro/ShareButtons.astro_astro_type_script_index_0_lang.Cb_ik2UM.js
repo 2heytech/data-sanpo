@@ -1,0 +1,1 @@
+import{n as e}from"./track.Cv92kmiK.js";for(let t of document.querySelectorAll(`[data-share-copy]`))t.addEventListener(`click`,async()=>{e(`share`,{method:t.dataset.shareKind,content_type:`page`});try{await navigator.clipboard.writeText(t.dataset.shareCopy),t.textContent=`コピーしました`}catch{window.prompt(t.textContent??``,t.dataset.shareCopy)}});

@@ -1,0 +1,1 @@
+{"indicator_id":"guest_outside_share","period":"2017-01-01","method":"nice","scheme":"oranges","zero_blank":false,"pooled_periods":11,"levels":{"prefecture":{"breaks":[65.0,67.5,70.0,72.5,75.0,77.5,80.0,82.5,85.0,87.5],"min":60.145,"max":91.227,"count":47}}}

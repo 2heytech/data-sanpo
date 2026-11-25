@@ -1,0 +1,1 @@
+{"indicator_id":"crime_npa_serious","period":"2022-01-01","method":"nice","scheme":"reds","zero_blank":true,"pooled_periods":6,"levels":{"prefecture":{"breaks":[40.0,50.0,60.0,70.0,90.0,100.0,120.0,200.0,250.0,400.0,1000.0],"min":18.0,"max":1323.0,"count":47}}}

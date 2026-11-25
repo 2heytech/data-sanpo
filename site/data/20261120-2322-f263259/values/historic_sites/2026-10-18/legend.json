@@ -1,0 +1,1 @@
+{"indicator_id":"historic_sites","period":"2026-10-18","method":"nice","scheme":"oranges","zero_blank":true,"pooled_periods":1,"levels":{"municipality":{"breaks":[2.0,3.0,5.0,7.0,8.0,10.0,14.0,15.0,16.0,17.0,20.0,22.0,25.0,30.0],"min":0.0,"max":31.0,"count":1896},"prefecture":{"breaks":[20.0,25.0,26.0,30.0,35.0,37.0,40.0,45.0,50.0,55.0,60.0],"min":12.0,"max":125.0,"count":47}}}
