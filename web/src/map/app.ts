@@ -8,6 +8,7 @@ import { colorsFor, fillColorExpression, NO_DATA_COLOR, textWidth, tickStep } fr
 import { bandLabel, compactNumber, formatBasis, formatFraction, formatNumber, formatValue, rankIfVaried } from "../lib/format";
 import { AreaSearch, type SearchHit } from "../lib/search";
 import { countIndicatorUse, type UsageHow } from "../lib/usage";
+import { track } from "../lib/track";
 import type {
   AreasFile, Indicator, IndicatorCatalog, Level, LegendFile, Municipality, SearchIndex,
   SmallArea, SmallAreasFile, Source, ValueRow, ValuesFile,
@@ -1600,10 +1601,15 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
     facetBasisWrap.hidden = unique(members.map((m) => m.facets!.basis)).length < 2;
     facetsEl.hidden = facetTypeWrap.hidden && facetBasisWrap.hidden;
   }
+  // 指標の利用回数（#32、サイトの窓口）と、Google アナリティクスのイベント（#255）に、同じ区別（開いた・切り替えた）で送る
+  function useIndicator(id: string, how: UsageHow) {
+    countIndicatorUse(id, how);
+    track("select_indicator", { indicator_id: id, method: how });
+  }
   function setIndicator(next: Indicator, how: UsageHow | null) {
     stopPlay();
     indicator = next;
-    if (how) countIndicatorUse(indicator.id, how);
+    if (how) useIndicator(indicator.id, how);
     if (periodFollowsZoom) period = autoPeriodFor(indicator, wantsFine());
     else if (!indicator.periods.some((p) => p.period === period)) period = indicator.default_period;
     syncIndicatorControls();
@@ -1712,7 +1718,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   });
   syncIndicatorControls();
   fillPeriods();
-  countIndicatorUse(indicator.id, "open");
+  useIndicator(indicator.id, "open");
   indicatorSelect.addEventListener("change", () => {
     const v = indicatorSelect.value;
     const next = v.startsWith("family:") ? familyMembers(v.slice(7))[0] : indicators.find((i) => i.id === v);

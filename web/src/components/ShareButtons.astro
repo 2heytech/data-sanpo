@@ -12,13 +12,16 @@ const url = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : Astro.ur
 const credit = `出典：データさんぽ「${title}」（${url}）${providers.length ? `。元データ：${providers.join("・")}` : ""}`;
 ---
 <section class="share-row" aria-label="このページのリンクと出典">
-  <button type="button" class="share-chip" data-share-copy={url} title={`「${title}」のリンクをコピー`}>このページのリンクをコピー</button>
-  <button type="button" class="share-chip" data-share-copy={credit} title={`「${title}」の出典の書き方をコピー`}>出典の書き方をコピー</button>
+  <button type="button" class="share-chip" data-share-copy={url} data-share-kind="link_copy" title={`「${title}」のリンクをコピー`}>このページのリンクをコピー</button>
+  <button type="button" class="share-chip" data-share-copy={credit} data-share-kind="credit_copy" title={`「${title}」の出典の書き方をコピー`}>出典の書き方をコピー</button>
 </section>
 
 <script>
+  import { track } from "../lib/track";
   for (const b of document.querySelectorAll<HTMLButtonElement>("[data-share-copy]")) {
     b.addEventListener("click", async () => {
+      // 押した回数を Google アナリティクスに送る（設計変更記録 #255。どのページかはページの URL で分かる）
+      track("share", { method: b.dataset.shareKind, content_type: "page" });
       try {
         await navigator.clipboard.writeText(b.dataset.shareCopy!);
         b.textContent = "コピーしました";
