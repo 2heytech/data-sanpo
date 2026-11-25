@@ -11,4 +11,4 @@ if (raw && !CF_WEB_ANALYTICS_TOKEN) {
 // Google アナリティクス（GA4。設計変更記録 #255）。地図で選んだ指標・共有・楽天のリンクなど、操作ごとの回数を見るために使う。
 // 測定 ID はページに載る公開値なので、ここに書く。空なら何も出さない。
 // 読み込むのは公開サイトのドメインで開いたときだけ（手元・画面写真用のビルドを開いても送らない。判定は Base.astro）
-export const GA_MEASUREMENT_ID = "";
+export const GA_MEASUREMENT_ID = "G-86JN82EKNH";
