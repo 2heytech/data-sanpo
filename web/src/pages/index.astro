@@ -8,7 +8,8 @@ import Base from "../layouts/Base.astro";
 import CategoryIcon from "../components/CategoryIcon.astro";
 import IndicatorChips from "../components/IndicatorChips.astro";
 import ThemeChips from "../components/ThemeChips.astro";
-import { DATA_BASE, loadAreas, loadIndicators } from "../lib/data";
+import { DATA_BASE, loadAreas, loadIndicators, loadValues } from "../lib/data";
+import { prefIndicatorLinks } from "../lib/prefectureRanking";
 import { indicatorCatalog } from "../lib/indicatorCatalog";
 import { formatDate, publishedArticles } from "../lib/articles";
 import { articleImage, indicatorImage } from "../lib/shareImages";
@@ -25,6 +26,16 @@ const REGIONS: [string, number, number][] = [
 const regions = REGIONS.map(([name, from, to]) => ({
   name, prefs: areas.prefectures.filter((p) => Number(p.code) >= from && Number(p.code) <= to),
 })).filter((r) => r.prefs.length > 0);
+// 都道府県ごとの人口ランキング（県内のすべての市区町村を人口の順に並べたページ。設計変更記録 #237）。
+// 都道府県ページの中だけでなく、トップからもたどれるようにする（#256）。ほかの指標のランキングへは、そのページから移れる
+const indicatorMap = new Map(indicators.map((i) => [i.id, i]));
+const valueRows = (id: string, period: string, chunk: "municipalities" | "prefectures") => loadValues(id, period, chunk)?.rows ?? [];
+// 上の「地域から探す」と同じ地方ごとの表にすると同じ並びが2つ続くので、都道府県コードの順に1つの並びにする
+const popRankLinks = areas.prefectures.flatMap((p) => {
+  const link = prefIndicatorLinks(indicatorMap, p.code, areas.municipalities.filter((m) => m.prefecture === p.code), valueRows,
+    areas.prefectures.length).find((l) => l.id === "population_total");
+  return link ? [{ name: p.name, href: link.href }] : [];
+});
 // 冒頭の地図: 市区町村別の人口増加率（直近の国勢調査）。指標ページの画像（#190）の地図の部分だけを見せる
 const heroIndicator = indicators.find((i) => i.id === "population_change_rate");
 const heroImage = heroIndicator ? indicatorImage(heroIndicator) : null;
@@ -148,6 +159,13 @@ const examples = [
     </dl>
     <p class="area-buttons"><a class="button secondary" href="/areas/">市区町村の一覧（{areas.municipalities.length.toLocaleString("ja-JP")}）</a>
       <a class="button secondary" href="/prefectures/">都道府県の一覧</a></p>
+    {popRankLinks.length > 0 && (
+      <>
+        <h3 class="pop-rank-head">都道府県ごとの人口ランキング</h3>
+        <p class="muted small">県内のすべての市区町村を人口の多い順に並べ、全国の中の順位も添えたページです。面積・高齢化率など、ほかの指標のランキングにもそこから移れます。</p>
+        <ul class="pop-rank-links">{popRankLinks.map((l) => <li><a href={l.href}>{l.name}</a></li>)}</ul>
+      </>
+    )}
   </section>
 </Base>
 
@@ -380,6 +398,9 @@ const examples = [
   .examples strong { color: var(--ink); }
   .examples span { font-size: 0.9rem; }
   .area-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0; }
+  .pop-rank-head { margin: 22px 0 4px; font-size: 1rem; }
+  .pop-rank-links { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .pop-rank-links a { font-size: 0.9rem; }
   .button.big { font-size: 1.3rem; padding: 16px 52px; box-shadow: 0 6px 18px rgba(11, 92, 173, .35); }
   #indicators, #areas { scroll-margin-top: 100px; }
   #indicators .total {

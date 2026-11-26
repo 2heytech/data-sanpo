@@ -175,6 +175,21 @@ export function hasPrefIndicatorPage(ind: Indicator, prefCode: string, munis: Mu
   return has;
 }
 
+export interface PrefIndicatorLink { id: string; href: string; label: string }
+
+/**
+ * 都道府県の市区町村ランキングのページへのリンク（ページのある指標だけ、PREF_INDICATOR_PAGES の順）。
+ * 都道府県ページに加えて、地域ページ・トップページからもたどれるようにする（設計変更記録 #256）。munis はその都道府県の市区町村
+ */
+export function prefIndicatorLinks(indicators: Map<string, Indicator>, prefCode: string, munis: Municipality[], rows: Rows,
+  prefectureCount: number): PrefIndicatorLink[] {
+  return PREF_INDICATOR_PAGES.flatMap((p) => {
+    const ind = indicators.get(p.id);
+    return ind && hasPrefIndicatorPage(ind, prefCode, munis, rows, prefectureCount)
+      ? [{ id: ind.id, href: prefIndicatorPath(prefCode, ind.id), label: prefIndicatorName(ind, p) }] : [];
+  });
+}
+
 /** 順位ごとにまとめた名前（同じ値は同じ順位。名前は3つまで） */
 function rankGroups(rows: PrefRankRow[], ind: Indicator, upTo: number) {
   const groups: { rank: number; names: string[]; text: string }[] = [];
