@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PREF_INDICATOR_PAGES, hasPrefIndicatorPage, prefIndicatorDescription, prefIndicatorFacts, prefIndicatorName, prefIndicatorPath,
-  prefIndicatorRanking, prefIndicatorTitle, topPhrase,
+  prefIndicatorLinks, prefIndicatorRanking, prefIndicatorTitle, topPhrase,
 } from "../src/lib/prefectureRanking";
 import { DESCRIPTION_MAX } from "../src/lib/areaSummary";
 import { designatedCities } from "../src/lib/designatedCities";
@@ -67,6 +67,18 @@ describe("prefIndicatorRanking", () => {
     const r = prefIndicatorRanking(i, "28", munis, (_id, p, chunk) => { seen.push(p); return values[chunk]; })!;
     expect(r.period.label).toBe("2025年");
     expect(seen[0]).toBe("2025-10-01");
+  });
+});
+
+describe("prefIndicatorLinks", () => {
+  it("ページのある指標だけを、PREF_INDICATOR_PAGES の順に、呼び名つきで返す", () => {
+    const indicators = new Map([ind("taxable_income_per_taxpayer"), ind("aged_65_plus_share"), ind("population_density", { name: "人口密度" })]
+      .map((i) => [i.id, i]));
+    expect(prefIndicatorLinks(indicators, "28", munis, rows, 47)).toEqual([
+      { id: "population_density", href: "/prefectures/28/population_density/", label: "人口密度" },
+      { id: "aged_65_plus_share", href: "/prefectures/28/aged_65_plus_share/", label: "高齢化率（65歳以上の割合）" },
+    ]);
+    expect(prefIndicatorLinks(indicators, "28", munis, rows, 1)).toEqual([]);
   });
 });
 

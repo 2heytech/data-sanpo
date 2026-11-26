@@ -26,7 +26,7 @@ import {
 } from "../../lib/prefecturePage";
 import { loadAreaProfile, loadPrefectureProfile } from "../../lib/profiles";
 import { prefectureImage } from "../../lib/shareImages";
-import { PREF_INDICATOR_PAGES, hasPrefIndicatorPage, prefIndicatorName, prefIndicatorPath } from "../../lib/prefectureRanking";
+import { prefIndicatorLinks as prefRankingLinks } from "../../lib/prefectureRanking";
 import { statGroups, type StatItem } from "../../lib/statList";
 import { breadcrumbList } from "../../lib/structured";
 import { mapHref } from "../../lib/urlstate";
@@ -143,11 +143,7 @@ const rankings = PREF_RANKING_IDS.map((id) => indicators.get(id)).filter((i) => 
   });
 
 // 県内のすべての市区町村を指標の順に並べたページ（設計変更記録 #237）
-const prefIndicatorLinks = PREF_INDICATOR_PAGES.flatMap((p) => {
-  const ind = indicators.get(p.id);
-  return ind && hasPrefIndicatorPage(ind, pref.code, munis, rows, areas.prefectures.length)
-    ? [{ id: ind.id, href: prefIndicatorPath(pref.code, ind.id), label: prefIndicatorName(ind, p) }] : [];
-});
+const prefIndicatorLinks = prefRankingLinks(indicators, pref.code, munis, rows, areas.prefectures.length);
 const allRanksHref = new Map(prefIndicatorLinks.map((l) => [l.id, l.href]));
 
 // 市区町村別の人口増加率の地図の画像（設計変更記録 #142）。市区町村の表の前に置き、共有画像にも使う
