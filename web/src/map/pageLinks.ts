@@ -51,7 +51,7 @@ export function pageLinksHtml(links: PageLink[], label = "くわしく見るペ�
     + `<span><strong>${esc(l.title)}</strong><small>${esc(l.note)}</small></span>${ICON_NEXT}</a>`).join("")}</nav>`;
 }
 
-// 選んだ地域の返礼品を楽天ふるさと納税で探すリンク（広告、設計変更記録 #257）。くわしく見るページの下に1つだけ置く。
+// 選んだ地域の返礼品を楽天ふるさと納税で探すリンク（広告、設計変更記録 #257）。推移の表の下に1つだけ置く（#259）。
 // 地図の上には重ねず、右の欄（スマホでは下のパネルの「地域の情報」）の中だけに出す。アフィリエイトID がなければ出さない
 const ICON_GIFT = '<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8.5h14V12M12 8v12.5"/>'
   + '<path d="M12 8C11 5.5 9.5 4 8 4.5S7 8 12 8zM12 8c1-2.5 2.5-4 4-3.5S17 8 12 8z"/>';
