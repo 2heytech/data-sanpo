@@ -3,6 +3,9 @@
 // 何が見られるかを添えたボタンの形で並べる
 import { esc } from "../lib/html";
 import { ICON_INDICATOR, ICON_MUNICIPALITY, ICON_PREFECTURE } from "../lib/navIcons";
+import { isDesignatedWard } from "../lib/designatedCities";
+import { affiliateLink, rakutenFurusatoSearchUrl } from "../lib/rakutenUrl";
+import type { Municipality } from "../lib/types";
 
 export interface PageLink {
   href: string;
@@ -46,4 +49,48 @@ export function pageLinksHtml(links: PageLink[], label = "くわしく見るペ�
   return `<nav class="detail-pages" aria-label="${esc(label)}">${links.map((l) => `<a href="${esc(l.href)}">`
     + `<svg class="icon dp-icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[l.kind]}</svg>`
     + `<span><strong>${esc(l.title)}</strong><small>${esc(l.note)}</small></span>${ICON_NEXT}</a>`).join("")}</nav>`;
+}
+
+// 選んだ地域の返礼品を楽天ふるさと納税で探すリンク（広告、設計変更記録 #257）。くわしく見るページの下に1つだけ置く。
+// 地図の上には重ねず、右の欄（スマホでは下のパネルの「地域の情報」）の中だけに出す。アフィリエイトID がなければ出さない
+const ICON_GIFT = '<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8.5h14V12M12 8v12.5"/>'
+  + '<path d="M12 8C11 5.5 9.5 4 8 4.5S7 8 12 8zM12 8c1-2.5 2.5-4 4-3.5S17 8 12 8z"/>';
+const ICON_OUT = '<svg class="icon df-out" viewBox="0 0 16 16" aria-hidden="true">'
+  + '<path d="M9.5 2.5h4v4M13.5 2.5 7.5 8.5M12 9.5v3.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-8a.5.5 0 0 1 .5-.5H7"/></svg>';
+
+export interface FurusatoLink {
+  href: string;
+  /** 「都城市のふるさと納税の返礼品」 */
+  title: string;
+  /** 返礼品の例を楽天の API で探すときの都道府県名と市区町村名（都道府県を選んだときは空） */
+  pref: string;
+  name: string;
+}
+
+/**
+ * 選んだ市区町村（町丁・字等ならその市区町村）の返礼品を探すリンク。市区町村を選んでいなければ都道府県の中を探す。
+ * 政令指定都市の区は区ごとの寄附先がないので、市の返礼品を探す（地域ページの欄と同じ。#189）
+ */
+export function furusatoLink(affiliateId: string, o: {
+  prefName: string;
+  municipality: Pick<Municipality, "name" | "region"> | null;
+}): FurusatoLink | null {
+  if (!o.prefName) return null;
+  const m = o.municipality;
+  const target = m ? (isDesignatedWard(m) ? m.region! : m.name) : "";
+  const href = affiliateLink(affiliateId, rakutenFurusatoSearchUrl(o.prefName, target));
+  return href ? { href, title: `${target || o.prefName}のふるさと納税の返礼品`, pref: o.prefName, name: target } : null;
+}
+
+/**
+ * リンクの見出しと、返礼品の例を並べる場所（楽天の API で取れたら地図の処理が画像付きで埋める。取れなければ隠したまま）。
+ * GA の furusato_click の link_text は、選んだ地域の名前を入れない固定の言葉にする（#255 の「選んだ地域はイベントに入れない」）
+ */
+export function furusatoLinkHtml(link: FurusatoLink): string {
+  return `<div class="detail-furusato" data-furusato-kind="map">`
+    + `<a class="df-head" href="${esc(link.href)}" target="_blank" rel="sponsored noopener" data-track-text="地図の地域の情報">`
+    + `<svg class="icon df-icon" viewBox="0 0 24 24" aria-hidden="true">${ICON_GIFT}</svg>`
+    + `<span><strong>${esc(link.title)}</strong><small><span class="ad-mark">広告</span>楽天ふるさと納税で探す（別のタブ）</small></span>`
+    + `${ICON_OUT}</a>`
+    + `<div class="furusato-items df-items" hidden><ul></ul><p class="credit"></p></div></div>`;
 }

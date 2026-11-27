@@ -1,0 +1,27 @@
+---
+// ページの最後（共有のボタンのすぐ上）に置く、楽天ふるさと納税で返礼品を探す帯（広告、設計変更記録 #257）。
+// 地域ページ・都道府県ページで、表を最後まで読んだ人の目に入るようにする。中ほどの「ふるさと納税の返礼品」の欄（#252）と同じ検索を開く。
+// 楽天の API のキーがあれば、返礼品の例を画像付きで並べる（components/FurusatoItems.astro）。地域ページでは中ほどの欄と同じ品を
+// 繰り返さないよう5件目から（offset）にする。リンクがない（アフィリエイトID がない）ときは何も出さない。
+// GA の furusato_click では link_kind を page_end（画像は page_end_item）にして、中ほどの欄と分ける
+import FurusatoItems from "./FurusatoItems.astro";
+
+interface Props {
+  /** 「都城市のふるさと納税の返礼品」 */
+  heading: string;
+  text: string;
+  href: string | null;
+  /** 返礼品の例を探す都道府県名と市区町村名（市区町村名が空なら都道府県の中） */
+  pref: string;
+  name: string;
+  offset?: number;
+}
+const { heading, text, href, pref, name, offset = 0 } = Astro.props;
+---
+{href && (
+  <aside class="sheet furusato-box furusato-end" data-furusato-kind="page_end" aria-label={`${heading}（広告）`}>
+    <p class="fe-text"><strong>{heading}</strong><span class="ad-mark">広告</span><span class="fe-sub">{text}</span></p>
+    <FurusatoItems pref={pref} name={name} offset={offset} />
+    <a class="button ext-link" href={href} target="_blank" rel="sponsored noopener">楽天ふるさと納税で見る</a>
+  </aside>
+)}

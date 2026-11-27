@@ -11,6 +11,7 @@ import { mapFallbackData } from "../../lib/mapFallbackData";
 import { ICON_ARTICLE, ICON_INDICATOR } from "../../lib/navIcons";
 import { newestFirst, publishedArticles } from "../../lib/articles";
 import { pageLinksHtml } from "../../map/pageLinks";
+import { RAKUTEN_AFFILIATE_ID, RAKUTEN_API } from "../../lib/rakuten";
 const { version } = JSON.parse(readFileSync("node_modules/maplibre-gl/package.json", "utf8"));
 const maplibreUrl = `/vendor/maplibre-gl-${version}/maplibre-gl.mjs`;
 // ページを読み始めたらすぐ取りに行くもの（設計変更記録 #221）。地図のプログラムが動き出してから1つずつ取りに行くと、
@@ -92,7 +93,8 @@ const FALLBACK_LINKS = [
 ];
 ---
 <Base menu="地図" preload={maplibreModules} preloadData={firstData} description="全国の市区町村・町丁目を、人口・高齢化・年収・地価などで色分けした地図。地名で探して拡大すれば、となりのまちとの違いや年ごとの移り変わりがひと目で分かります。" wide>
-  <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl} data-official-sites={officialSitesUrl}>
+  <div class="map-app" data-base={DATA_BASE} data-maplibre={maplibreUrl} data-official-sites={officialSitesUrl} data-rakuten={RAKUTEN_AFFILIATE_ID || undefined}
+    data-rakuten-app={RAKUTEN_API?.appId} data-rakuten-key={RAKUTEN_API?.accessKey}>
     {/* スマホ（幅 860px 以下）では、地域の検索を地図の上に常に出し（地図の処理が左の欄の検索欄をここへ移す）、
          条件の欄と情報の欄を地図の下端のパネルにまとめる（設計変更記録 #194）。パソコンでは .map-sheet は枠を持たず、今までどおり左右の欄になる */}
     <div class="map-search" role="search" aria-label="地域を検索"></div>
@@ -944,6 +946,29 @@ const FALLBACK_LINKS = [
   .detail-pages small { display: block; font-size: 0.75rem; color: var(--muted); }
   .detail-pages .icon { width: 20px; height: 20px; color: var(--accent); stroke-width: 1.8; }
   .detail-pages .icon.dp-next { width: 14px; height: 14px; stroke-width: 2.2; }
+  /* 選んだ地域の返礼品を楽天ふるさと納税で探すリンクと、返礼品の例の画像（広告、#257）。ページへのリンクと同じ形の見出しで、面を淡い藍にして見分ける。
+     画像は3つを1列に並べ、商品名は2行までにする */
+  .detail-furusato { margin: 8px 0 0; border: 1px solid #b9d0ea; border-radius: 10px; background: var(--accent-soft); }
+  .detail-furusato .df-head {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px;
+    color: var(--accent-ink); text-decoration: none; line-height: 1.45;
+  }
+  .detail-furusato .df-head:hover { background: #dce8f6; }
+  .detail-furusato .df-head > span { flex: 1; min-width: 0; }
+  .detail-furusato strong { display: block; font-size: 0.92rem; }
+  .detail-furusato small { display: block; font-size: 0.75rem; color: var(--muted); }
+  .detail-furusato .ad-mark { margin: 0 6px 0 0; padding: 0 4px; font-size: 0.68rem; line-height: 1.4; vertical-align: 0.05em; background: var(--surface); }
+  .detail-furusato .icon { flex: none; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+  .detail-furusato .df-icon { width: 20px; height: 20px; color: var(--accent); stroke-width: 1.8; }
+  .detail-furusato .df-out { width: 14px; height: 14px; stroke-width: 1.8; }
+  .detail-furusato .df-items { padding: 0 12px 8px; }
+  .detail-furusato .df-items ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; overflow: visible; padding: 0; }
+  .detail-furusato .df-items li { flex: none; }
+  .detail-furusato .df-items img { background: var(--surface); }
+  .detail-furusato .df-items .item-name { font-size: 0.72rem; line-height: 1.35; -webkit-line-clamp: 2; color: var(--ink); }
+  .detail-furusato .df-items .item-price { font-size: 0.7rem; }
+  .detail-furusato .df-items .credit { margin: 4px 0 0; font-size: 0.68rem; color: var(--muted); }
+  .detail-furusato .df-items .credit a { color: var(--muted); }
   .map-intro .detail-pages { margin: 4px 0 12px; }
   .map-intro p.mi-more { margin: 0; }
   .indicator-page {

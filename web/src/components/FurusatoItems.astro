@@ -1,0 +1,46 @@
+---
+// 楽天ふるさと納税の返礼品の例を画像付きで並べる欄（楽天の API、設計変更記録 #195・#257）。
+// 地域ページの「ふるさと納税の返礼品」の欄と、地域ページ・都道府県ページの最後の帯の中に置く。
+// 欄が画面に近づいたときだけ楽天へ問い合わせる（ページを開いただけでは送らない。近づく少し前に取り始め、見えたときには並んでいるようにする）。
+// 同じ自治体の欄が2つあるページでは、問い合わせは1回で、offset で最後の欄を5件目からにする。
+// API のキーがない版では何も出さない。取れなかったとき・品が見つからないときは隠したまま（リンクのボタンだけになる）
+import { RAKUTEN_API } from "../lib/rakuten";
+
+interface Props {
+  pref: string;
+  /** 市区町村名。空なら都道府県の中の返礼品 */
+  name: string;
+  offset?: number;
+}
+const { pref, name, offset = 0 } = Astro.props;
+---
+{RAKUTEN_API && (
+  <div class="furusato-items" hidden data-pref={pref} data-name={name} data-offset={offset}
+    data-app={RAKUTEN_API.appId} data-key={RAKUTEN_API.accessKey} data-aff={RAKUTEN_API.affiliateId}>
+    <p class="muted small">{name || pref}の返礼品の例（楽天ふるさと納税の検索結果から。押すと楽天のページを開きます）</p>
+    <ul></ul>
+    <p class="muted small credit"></p>
+  </div>
+)}
+
+<script>
+  import { RAKUTEN_CREDIT_HTML, fetchFurusatoItems, itemsFrom, renderFurusatoItems } from "../lib/rakutenItems";
+
+  async function load(box: HTMLElement) {
+    const { pref = "", name = "", app = "", key = "", aff = "", offset = "0" } = box.dataset;
+    const items = itemsFrom(await fetchFurusatoItems({ appId: app, accessKey: key, affiliateId: aff }, pref, name), Number(offset), 4);
+    if (items.length === 0) return;
+    renderFurusatoItems(box.querySelector("ul")!, items);
+    box.querySelector(".credit")!.innerHTML = RAKUTEN_CREDIT_HTML;
+    box.hidden = false;
+  }
+
+  for (const box of document.querySelectorAll<HTMLElement>(".furusato-items[data-app]")) {
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      load(box).catch(() => {});
+    }, { rootMargin: "600px" });
+    io.observe(box.closest("section, aside") ?? box);
+  }
+</script>

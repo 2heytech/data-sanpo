@@ -164,10 +164,14 @@ const websiteLd = Astro.url.pathname === "/" && Astro.site
           a.rel = "noopener";
         }
         // 楽天ふるさと納税（広告）のリンクを押したことを Google アナリティクスに送る（設計変更記録 #255）。
-        // 場所は、返礼品の例の画像（item）・上位のまちの一覧（list）・ボタン（button）の区別。どのページかは GA がページの URL で分ける
+        // 場所は、返礼品の例の画像（item）・上位のまちの一覧（list）・ボタン（button）の区別。どのページかは GA がページの URL で分ける。
+        // 地図の地域の情報の欄（map）とページの最後の帯（page_end）は、囲みの data-furusato-kind で分け、その中の返礼品の画像は map_item・page_end_item にする（#257）。
+        // data-track-text があれば、リンクの文字の代わりにそれを送る（地図では選んだ地域の名前を送らない）
         if (a && (a.relList.contains("sponsored") || a.hostname === "hb.afl.rakuten.co.jp")) {
-          const kind = a.closest(".furusato-items") ? "item" : a.classList.contains("button") ? "button" : "list";
-          track("furusato_click", { link_kind: kind, link_text: clip(a.textContent ?? "") });
+          const place = a.closest<HTMLElement>("[data-furusato-kind]")?.dataset.furusatoKind;
+          const item = !!a.closest(".furusato-items");
+          const kind = place ? (item ? `${place}_item` : place) : item ? "item" : a.classList.contains("button") ? "button" : "list";
+          track("furusato_click", { link_kind: kind, link_text: clip(a.dataset.trackText ?? a.textContent ?? "") });
         }
       });
       // 読み物のページ: スマホで下へ送っている間はヘッダーを隠し、上へ戻すと出す。長いページを上へ戻り始めたら「上へ戻る」を出す（設計変更記録 #227）。

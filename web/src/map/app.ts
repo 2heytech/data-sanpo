@@ -35,7 +35,8 @@ import { newerPeriod } from "../lib/periods";
 import { IndicatorSearch, type SearchDoc } from "../lib/indicatorSearch";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 import { esc } from "../lib/html";
-import { detailPageLinks, pageLinksHtml } from "./pageLinks";
+import { detailPageLinks, furusatoLink, furusatoLinkHtml, pageLinksHtml } from "./pageLinks";
+import { RAKUTEN_CREDIT_HTML, fetchFurusatoItems, renderFurusatoItems, type FurusatoItem, type RakutenApi } from "../lib/rakutenItems";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
 // 切り替えは、次の段階の地名がある程度読める縮尺まで待つ（市区町村名は MUNI_LABEL_ZOOM、町丁目名は AREA_LABEL_ZOOM から）
@@ -174,6 +175,13 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   // 都道府県・市区町村の公式サイト（Wikidata から集めた URL、設計変更記録 #135）。初めて地域を選んだときに読む。
   // 開発用の架空データでは地名が実在しないので読まない（地図のページが data-official-sites を空にする）
   const sitesUrl = root.dataset.officialSites;
+  // 楽天アフィリエイトの ID（ビルド時にあるときだけ地図のページが data-rakuten に入れる）。地域の情報の欄の返礼品のリンクに使う（設計変更記録 #257）
+  const rakutenId = root.dataset.rakuten ?? "";
+  // 返礼品の例の画像（楽天市場商品検索 API、#257）。キーがある版だけ地図のページが data-rakuten-app・data-rakuten-key に入れる
+  const rakutenApi: RakutenApi | null = rakutenId && root.dataset.rakutenApp && root.dataset.rakutenKey
+    ? { appId: root.dataset.rakutenApp, accessKey: root.dataset.rakutenKey, affiliateId: rakutenId } : null;
+  // 取れた返礼品（地域ごと）。指標や時点を変えて欄を描き直すたびに問い合わせず、画像がちらつかないようすぐ並べる
+  const furusatoShown = new Map<string, FurusatoItem[]>();
   let officialSites: Promise<Record<string, string>> | null = null;
   const officialSite = async (id: string): Promise<string | undefined> => {
     if (!sitesUrl) return undefined;
@@ -1254,6 +1262,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       indicator: { id: indicator.id, name: indicator.name },
       prefectureOnly: prefectureOnly(),
     }));
+    // 選んだ地域の返礼品を楽天ふるさと納税で探すリンク（広告、#257）。くわしく見るページと同じく、選んだ地域（町丁・字等ならその市区町村）で作る
+    const furusato = selPref ? furusatoLink(rakutenId, {
+      prefName: prefName(selPref), municipality: selMuni ? munis.get(selMuni) ?? null : null,
+    }) : null;
     detailEl.innerHTML = `
       ${crumbsHtml(id)}
       <h2 class="detail-title">${title}</h2>
@@ -1267,11 +1279,37 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       ${!pref && !covers(prefectureCodeOf(id)) ? `<p class="note small">この指標は${esc(indicator.prefectures!.map(prefName).join("・"))}だけの値です。</p>` : ""}
       ${rankHtml(ranks)}
       ${pages}
+      ${furusato ? furusatoLinkHtml(furusato) : ""}
       ${compare}
       ${trend}
       ${site ? `<ul class="detail-links"><li><a href="${esc(site)}" target="_blank" rel="noopener">
           <span>${esc(entityName(homeId).name)}の公式サイト<small>別のタブで開きます</small></span>${ICON_EXTERNAL}</a></li></ul>` : ""}
       <p class="detail-sources">${srcHtml}<span aria-hidden="true">・</span><a href="/sources/">出典の一覧</a></p>`;
+    if (furusato) showFurusatoItems(furusato, token);
+  }
+
+  // 選んだ地域の返礼品の例を、楽天の API から取って画像付きで並べる（#257）。地域を選んだときにすぐ取り始める。
+  // 続けて別の地域を選んでいる間は問い合わせないよう、少し待ってから取る。取れなかったときは見出しのリンクだけにする
+  const FURUSATO_ITEMS = 3;
+  function showFurusatoItems(link: { pref: string; name: string }, token: number) {
+    if (!rakutenApi) return;
+    const key = `${link.pref}|${link.name}`;
+    const fill = (items: FurusatoItem[]) => {
+      const box = detailEl.querySelector<HTMLElement>(".df-items");
+      if (token !== detailToken || !box || items.length === 0) return;
+      renderFurusatoItems(box.querySelector("ul")!, items.slice(0, FURUSATO_ITEMS), "地図の返礼品の例");
+      box.querySelector(".credit")!.innerHTML = RAKUTEN_CREDIT_HTML;
+      box.hidden = false;
+    };
+    const ready = furusatoShown.get(key);
+    if (ready) return fill(ready);
+    setTimeout(() => {
+      if (token !== detailToken) return;
+      fetchFurusatoItems(rakutenApi, link.pref, link.name).then((items) => {
+        if (items.length) furusatoShown.set(key, items);
+        fill(items);
+      });
+    }, 300);
   }
 
   // 題名の上の「都道府県 › 郡・市」。都道府県名は都道府県のページ、町丁・字等の市区町村名は市区町村のページへのリンク

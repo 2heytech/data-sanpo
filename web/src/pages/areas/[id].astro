@@ -6,6 +6,7 @@ import AreaShape from "../../components/AreaShape.astro";
 import NeighborCompare from "../../components/NeighborCompare.astro";
 import ProfileIntro from "../../components/ProfileIntro.astro";
 import FurusatoLink from "../../components/FurusatoLink.astro";
+import FurusatoEnd from "../../components/FurusatoEnd.astro";
 import PrNotice from "../../components/PrNotice.astro";
 import SmallAreaRanking from "../../components/SmallAreaRanking.astro";
 import { smallAreaTables } from "../../lib/smallAreaTables";
@@ -26,7 +27,8 @@ import { statGroups } from "../../lib/statList";
 import { jukiPopulation, populationChangeIndicator, populationHistory } from "../../lib/populationHistory";
 import { jukiLines, signed } from "../../lib/jukiPopulation";
 import { furusatoAreaLead } from "../../lib/furusatoPicks";
-import { RAKUTEN_AFFILIATE_ID } from "../../lib/rakuten";
+import { RAKUTEN_AFFILIATE_ID, rakutenAffiliateUrl, rakutenFurusatoSearchUrl } from "../../lib/rakuten";
+import { isDesignatedWard } from "../../lib/designatedCities";
 import { prefIndicatorLinks } from "../../lib/prefectureRanking";
 import type { Municipality, ValueRow } from "../../lib/types";
 
@@ -132,6 +134,10 @@ const furusatoLead = furusato ? furusatoAreaLead({
   name: muni.name, prefName: pref, value: furusato.row?.value, periodLabel: furusato.period.label,
   inPref: furusato.ranks[0], national: furusato.ranks[1],
 }) : null;
+// ページの最後の返礼品のリンクの帯（#257）。中ほどの欄と同じく、政令指定都市の区は市の返礼品を探す
+const ward = isDesignatedWard(muni);
+const furusatoTarget = ward ? muni.region! : muni.name;
+const furusatoEndHref = pref ? rakutenAffiliateUrl(rakutenFurusatoSearchUrl(pref, furusatoTarget)) : null;
 // 冒頭の目次（設計変更記録 #193・#215）。スマホでは表やとなりのまちとの比べがずっと下にあるので、最初にそこへ移れるようにする
 const toc = [
   ...(history.length ? [{ id: "population", label: "人口の移り変わり" }] : []),
@@ -270,6 +276,9 @@ const toc = [
     <p>各指標の意味・計算方法・注意点・出典は、指標名から開く<strong>指標のページ</strong>にまとめています。サイト全体の出典と利用条件は<a href="/sources/">出典と利用条件</a>をご覧ください。</p>
     <p>町丁目ごとの値は<a href={`/map/?a=${muni.id}`}>地図</a>で拡大すると確認できます（{muni.small_area_count.toLocaleString("ja-JP")}地域）。</p>
   </section>
+  {/* ページの最後の、返礼品を探すリンクの帯（広告、設計変更記録 #257） */}
+  <FurusatoEnd heading={`${furusatoTarget}のふるさと納税の返礼品`} href={furusatoEndHref} pref={pref} name={furusatoTarget} offset={4}
+    text={ward ? `${muni.name}を含む${furusatoTarget}の返礼品を、楽天ふるさと納税で探せます。` : `${furusatoTarget}の返礼品を、楽天ふるさと納税で探せます。`} />
   <ShareButtons title={pageTitle} />
 </Base>
 

@@ -4,6 +4,7 @@ import { descriptionFact, fitDescription, popRank } from "./areaSummary";
 import { formatNumber, formatValue, ranked, shareWords } from "./format";
 import { municipalityPeriods } from "./periods";
 import type { Indicator, Municipality, Period, ValueRow } from "./types";
+import { isDesignatedWard } from "./designatedCities";
 
 /**
  * 県内の上位を並べる指標。順位は値の大きい順で、良い・悪いの意味は付けない。
@@ -179,8 +180,8 @@ export function prefectureNeighbors(munis: Municipality[]): Map<string, { code: 
   return out;
 }
 
-/** 政令指定都市の区（札幌市中央区など）か（区部の東京23区は市区町村そのものなので含めない） */
-export const isDesignatedWard = (m: Municipality): boolean => !!m.region?.endsWith("市") && m.name.startsWith(m.region) && m.name.endsWith("区");
+// 政令指定都市の区かどうかは、地図の処理からも使えるよう designatedCities.ts に置いている（#257）
+export { isDesignatedWard };
 
 /** 政令指定都市の区を区ごとに数えている市の名前 */
 export function wardCitiesOf(munis: Municipality[]): string[] {
