@@ -1479,7 +1479,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       const article = articleOfIndicator.get(indicator.id);
       indicatorArticleLink.hidden = !article;
       if (article) {
-        indicatorArticleLink.href = `/articles/${article[0]}/`;
+        indicatorArticleLink.href = `/articles/${encodeURIComponent(article[0])}/`;
         indicatorArticleLink.querySelector(".ia-title")!.textContent = article[1];
       }
     }
