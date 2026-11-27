@@ -13,11 +13,18 @@ const RAW_OR_COMMENT = /(<(script|style|textarea|pre)\b[^>]*>[\s\S]*?<\/\2\s*>)|
 /** HTML のコメント（<!-- -->）を消す。消したものも返す */
 export function stripHtmlComments(html: string): { html: string; removed: string[] } {
   const removed: string[] = [];
-  const out = html.replace(RAW_OR_COMMENT, (m: string, raw?: string) => {
-    if (raw) return raw;
-    removed.push(m);
-    return "";
-  });
+  // 消したあとに前後がつながって新しいコメントになる並び（<!<!-- a -->-- b --> など）も残さないよう、
+  // 変わらなくなるまで繰り返す（CodeQL の指摘、設計変更記録 #258）
+  let out = html;
+  let prev: string;
+  do {
+    prev = out;
+    out = prev.replace(RAW_OR_COMMENT, (m: string, raw?: string) => {
+      if (raw) return raw;
+      removed.push(m);
+      return "";
+    });
+  } while (out !== prev);
   return { html: out, removed };
 }
 

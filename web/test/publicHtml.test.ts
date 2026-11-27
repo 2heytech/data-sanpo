@@ -8,6 +8,12 @@ describe("stripHtmlComments", () => {
     expect(r.removed).toHaveLength(2);
   });
 
+  it("消したあとにつながってできたコメントも消す（#258）", () => {
+    const r = stripHtmlComments("<p><!<!-- a -->-- b -->本文</p>");
+    expect(r.html).toBe("<p>本文</p>");
+    expect(r.removed).toHaveLength(2);
+  });
+
   it("スクリプト・スタイル・pre の中は変えない", () => {
     const html = `<script>const s = "<!-- x -->";</script><style>a{content:"<!--"}</style><pre><!-- 例 --></pre>`;
     expect(stripHtmlComments(html)).toEqual({ html, removed: [] });
