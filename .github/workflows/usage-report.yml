@@ -23,8 +23,10 @@ jobs:
       - name: Report
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # 読み取り専用のトークンだけを渡す（公開に使う CLOUDFLARE_API_TOKEN は渡さない。設計変更記録 #258）
           CLOUDFLARE_ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # 入力はコマンドに直接埋め込まず、環境変数で渡す
+          DAYS: ${{ inputs.days }}
         # 集計が失敗したら tee に隠れず失敗として出す
         shell: bash -o pipefail {0}
-        run: python web/scripts/usage-report.py "${{ inputs.days }}" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: python web/scripts/usage-report.py "$DAYS" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -5,7 +5,7 @@
 
 const ENDPOINT = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701";
 /** 楽天ウェブサービスのクレジット表示（楽天の指定のテキスト版のリンク。API を使って表示したときだけ出す） */
-export const RAKUTEN_CREDIT_HTML = '<a href="https://developers.rakuten.com/" target="_blank">Supported by Rakuten Developers</a>';
+export const RAKUTEN_CREDIT_HTML = '<a href="https://developers.rakuten.com/" target="_blank" rel="noopener">Supported by Rakuten Developers</a>';
 
 export interface RakutenApi { appId: string; accessKey: string; affiliateId: string }
 
@@ -24,6 +24,19 @@ interface RawItem {
 }
 
 const NO_GIFT = /返礼品(は|が)?(ありません|なし|無し)/;
+
+/**
+ * 楽天（rakuten.co.jp）の https の URL ならそのまま返し、それ以外は空にする。
+ * API の結果の URL をリンクや画像にそのまま使わないため（javascript: やほかのサイトの URL を出さない、設計変更記録 #258）
+ */
+export function rakutenHttpsUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && (u.hostname === "rakuten.co.jp" || u.hostname.endsWith(".rakuten.co.jp")) ? url : "";
+  } catch {
+    return "";
+  }
+}
 const TRAVEL = /楽天トラベル.?クーポン/;
 
 /**
@@ -44,8 +57,9 @@ export function pickFurusatoItems(data: unknown, pref: string, name: string): Fu
       const src = typeof img === "string" ? img : img?.imageUrl ?? "";
       // どの品の名前も「【ふるさと納税】」で始まり、2行までの名前の場所を取るので、表示では外す
       return {
-        name: (it.itemName ?? "").replace(/^\s*【ふるさと納税】\s*/, ""), price: Number(it.itemPrice ?? 0), href: it.affiliateUrl || it.itemUrl || "",
-        image: src.replace(/_ex=\d+x\d+/, "_ex=240x240"),
+        name: (it.itemName ?? "").replace(/^\s*【ふるさと納税】\s*/, ""), price: Number(it.itemPrice ?? 0),
+        href: rakutenHttpsUrl(it.affiliateUrl || it.itemUrl || ""),
+        image: rakutenHttpsUrl(src.replace(/_ex=\d+x\d+/, "_ex=240x240")),
       };
     })
     .filter((it) => it.href);
