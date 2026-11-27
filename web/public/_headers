@@ -43,8 +43,11 @@
 /og.png
   Cache-Control: public, max-age=3600
 
+# どのページも https だけで開くようブラウザに覚えさせ（HSTS、1年）、ほかのサイトの枠の中に表示させない。
+# <base> の書き換え・プラグイン（object・embed）・ほかのサイトへのフォームの送信も止める（設計変更記録 #258）
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), camera=(), microphone=()
-  Content-Security-Policy: frame-ancestors 'self'
+  Content-Security-Policy: frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'
+  Strict-Transport-Security: max-age=31536000
