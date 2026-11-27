@@ -4,6 +4,10 @@
 // （都道府県の値と同じ決まり。欠けた区を0とみなさない）。平均など区から足せない値の指標は計算しない。
 import type { Indicator, Municipality, ValueRow } from "./types";
 
+/** 政令指定都市の区（札幌市中央区など）か（区部の東京23区は市区町村そのものなので含めない） */
+export const isDesignatedWard = (m: Pick<Municipality, "name" | "region">): boolean =>
+  !!m.region?.endsWith("市") && m.name.startsWith(m.region) && m.name.endsWith("区");
+
 export interface DesignatedCity {
   /** 市の名前（「横浜市」） */
   name: string;

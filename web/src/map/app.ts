@@ -35,7 +35,7 @@ import { newerPeriod } from "../lib/periods";
 import { IndicatorSearch, type SearchDoc } from "../lib/indicatorSearch";
 import { balancedFits, growingTextSize, labelFit, mainPartBbox, type LabelItem } from "../lib/labels";
 import { esc } from "../lib/html";
-import { detailPageLinks, pageLinksHtml } from "./pageLinks";
+import { detailPageLinks, furusatoLink, furusatoLinkHtml, pageLinksHtml } from "./pageLinks";
 
 // 縮尺に合わせて、都道府県 → 市区町村 → 町丁目の値に切り替える（#52）
 // 切り替えは、次の段階の地名がある程度読める縮尺まで待つ（市区町村名は MUNI_LABEL_ZOOM、町丁目名は AREA_LABEL_ZOOM から）
@@ -174,6 +174,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
   // 都道府県・市区町村の公式サイト（Wikidata から集めた URL、設計変更記録 #135）。初めて地域を選んだときに読む。
   // 開発用の架空データでは地名が実在しないので読まない（地図のページが data-official-sites を空にする）
   const sitesUrl = root.dataset.officialSites;
+  // 楽天アフィリエイトの ID（ビルド時にあるときだけ地図のページが data-rakuten に入れる）。地域の情報の欄の返礼品のリンクに使う（設計変更記録 #257）
+  const rakutenId = root.dataset.rakuten ?? "";
   let officialSites: Promise<Record<string, string>> | null = null;
   const officialSite = async (id: string): Promise<string | undefined> => {
     if (!sitesUrl) return undefined;
@@ -1254,6 +1256,10 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       indicator: { id: indicator.id, name: indicator.name },
       prefectureOnly: prefectureOnly(),
     }));
+    // 選んだ地域の返礼品を楽天ふるさと納税で探すリンク（広告、#257）。くわしく見るページと同じく、選んだ地域（町丁・字等ならその市区町村）で作る
+    const furusato = selPref ? furusatoLink(rakutenId, {
+      prefName: prefName(selPref), municipality: selMuni ? munis.get(selMuni) ?? null : null,
+    }) : null;
     detailEl.innerHTML = `
       ${crumbsHtml(id)}
       <h2 class="detail-title">${title}</h2>
@@ -1267,6 +1273,7 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       ${!pref && !covers(prefectureCodeOf(id)) ? `<p class="note small">この指標は${esc(indicator.prefectures!.map(prefName).join("・"))}だけの値です。</p>` : ""}
       ${rankHtml(ranks)}
       ${pages}
+      ${furusato ? furusatoLinkHtml(furusato) : ""}
       ${compare}
       ${trend}
       ${site ? `<ul class="detail-links"><li><a href="${esc(site)}" target="_blank" rel="noopener">
