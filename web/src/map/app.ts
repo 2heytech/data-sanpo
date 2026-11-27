@@ -1262,7 +1262,8 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       indicator: { id: indicator.id, name: indicator.name },
       prefectureOnly: prefectureOnly(),
     }));
-    // 選んだ地域の返礼品を楽天ふるさと納税で探すリンク（広告、#257）。くわしく見るページと同じく、選んだ地域（町丁・字等ならその市区町村）で作る
+    // 選んだ地域の返礼品を楽天ふるさと納税で探すリンク（広告、#257）。くわしく見るページと同じく、選んだ地域（町丁・字等ならその市区町村）で作る。
+    // 置き場所は推移の表の下（指標の値・順位・推移を先に読めるように、#259）
     const furusato = selPref ? furusatoLink(rakutenId, {
       prefName: prefName(selPref), municipality: selMuni ? munis.get(selMuni) ?? null : null,
     }) : null;
@@ -1279,9 +1280,9 @@ export async function initMapApp(root: HTMLElement, base: string, maplibreUrl: s
       ${!pref && !covers(prefectureCodeOf(id)) ? `<p class="note small">この指標は${esc(indicator.prefectures!.map(prefName).join("・"))}だけの値です。</p>` : ""}
       ${rankHtml(ranks)}
       ${pages}
-      ${furusato ? furusatoLinkHtml(furusato) : ""}
       ${compare}
       ${trend}
+      ${furusato ? furusatoLinkHtml(furusato) : ""}
       ${site ? `<ul class="detail-links"><li><a href="${esc(site)}" target="_blank" rel="noopener">
           <span>${esc(entityName(homeId).name)}の公式サイト<small>別のタブで開きます</small></span>${ICON_EXTERNAL}</a></li></ul>` : ""}
       <p class="detail-sources">${srcHtml}<span aria-hidden="true">・</span><a href="/sources/">出典の一覧</a></p>`;
