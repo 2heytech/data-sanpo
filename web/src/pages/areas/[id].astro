@@ -277,7 +277,7 @@ const toc = [
     <p>町丁目ごとの値は<a href={`/map/?a=${muni.id}`}>地図</a>で拡大すると確認できます（{muni.small_area_count.toLocaleString("ja-JP")}地域）。</p>
   </section>
   {/* ページの最後の、返礼品を探すリンクの帯（広告、設計変更記録 #257） */}
-  <FurusatoEnd heading={`${furusatoTarget}のふるさと納税の返礼品`} href={furusatoEndHref}
+  <FurusatoEnd heading={`${furusatoTarget}のふるさと納税の返礼品`} href={furusatoEndHref} pref={pref} name={furusatoTarget} offset={4}
     text={ward ? `${muni.name}を含む${furusatoTarget}の返礼品を、楽天ふるさと納税で探せます。` : `${furusatoTarget}の返礼品を、楽天ふるさと納税で探せます。`} />
   <ShareButtons title={pageTitle} />
 </Base>

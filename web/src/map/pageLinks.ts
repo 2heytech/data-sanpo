@@ -62,6 +62,9 @@ export interface FurusatoLink {
   href: string;
   /** 「都城市のふるさと納税の返礼品」 */
   title: string;
+  /** 返礼品の例を楽天の API で探すときの都道府県名と市区町村名（都道府県を選んだときは空） */
+  pref: string;
+  name: string;
 }
 
 /**
@@ -76,13 +79,18 @@ export function furusatoLink(affiliateId: string, o: {
   const m = o.municipality;
   const target = m ? (isDesignatedWard(m) ? m.region! : m.name) : "";
   const href = affiliateLink(affiliateId, rakutenFurusatoSearchUrl(o.prefName, target));
-  return href ? { href, title: `${target || o.prefName}のふるさと納税の返礼品` } : null;
+  return href ? { href, title: `${target || o.prefName}のふるさと納税の返礼品`, pref: o.prefName, name: target } : null;
 }
 
-/** GA の furusato_click の link_text は、選んだ地域の名前を入れない固定の言葉にする（#255 の「選んだ地域はイベントに入れない」） */
+/**
+ * リンクの見出しと、返礼品の例を並べる場所（楽天の API で取れたら地図の処理が画像付きで埋める。取れなければ隠したまま）。
+ * GA の furusato_click の link_text は、選んだ地域の名前を入れない固定の言葉にする（#255 の「選んだ地域はイベントに入れない」）
+ */
 export function furusatoLinkHtml(link: FurusatoLink): string {
-  return `<a class="detail-furusato" href="${esc(link.href)}" target="_blank" rel="sponsored noopener" data-furusato-kind="map" data-track-text="地図の地域の情報">`
+  return `<div class="detail-furusato" data-furusato-kind="map">`
+    + `<a class="df-head" href="${esc(link.href)}" target="_blank" rel="sponsored noopener" data-track-text="地図の地域の情報">`
     + `<svg class="icon df-icon" viewBox="0 0 24 24" aria-hidden="true">${ICON_GIFT}</svg>`
     + `<span><strong>${esc(link.title)}</strong><small><span class="ad-mark">広告</span>楽天ふるさと納税で探す（別のタブ）</small></span>`
-    + `${ICON_OUT}</a>`;
+    + `${ICON_OUT}</a>`
+    + `<div class="furusato-items df-items" hidden><ul></ul><p class="credit"></p></div></div>`;
 }

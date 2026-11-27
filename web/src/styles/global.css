@@ -274,14 +274,17 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 .furusato-chips .r { min-width: 2.4em; color: var(--muted); font-size: 0.8rem; font-weight: 400; font-variant-numeric: tabular-nums; }
 .furusato-chips .n, .furusato-chips .s { white-space: nowrap; }
 .furusato-chips .s { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
-/* ページの最後の、返礼品を探すリンクの帯（地域ページ・都道府県ページ、#257）。文字を左、ボタンを右に置き、スマホでは縦に並べる */
-.furusato-end { display: flex; align-items: center; gap: 12px 20px; }
-.furusato-end .fe-text { flex: 1; min-width: 0; margin: 0; line-height: 1.6; }
+/* ページの最後の、返礼品を探すリンクの帯（地域ページ・都道府県ページ、#257）。文字を左、ボタンを右に置き、返礼品の例はその下に横いっぱいに並べる。
+   スマホでは文字・返礼品の例・ボタンの順に縦に並べる */
+.furusato-end { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "text button" "items items"; align-items: center; gap: 12px 20px; }
+.furusato-end .fe-text { grid-area: text; min-width: 0; margin: 0; line-height: 1.6; }
 .furusato-end .fe-text strong { font-size: 1.05rem; }
 .furusato-end .fe-sub { display: block; color: var(--muted); font-size: 0.9rem; }
-.furusato-end .button { flex: none; }
+.furusato-end .button { grid-area: button; }
+.furusato-end .furusato-items { grid-area: items; min-width: 0; }
+.furusato-end .furusato-items > p:first-child { margin: 0; }
 @media (max-width: 640px) {
-  .furusato-end { flex-direction: column; align-items: stretch; }
+  .furusato-end { grid-template-columns: minmax(0, 1fr); grid-template-areas: "text" "items" "button"; }
   .furusato-end .button { display: flex; justify-content: center; text-align: center; }
   .furusato-items ul { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; padding-bottom: 6px; }
   .furusato-items li { flex: 0 0 40%; scroll-snap-align: start; }

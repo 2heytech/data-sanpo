@@ -34,12 +34,14 @@ describe("furusatoLink", () => {
   it("市区町村を選んだときは、都道府県名つきでその市区町村の返礼品を探す", () => {
     const link = furusatoLink(ID, { prefName: "宮崎県", municipality: { name: "都城市", region: null } })!;
     expect(link.title).toBe("都城市のふるさと納税の返礼品");
+    expect([link.pref, link.name]).toEqual(["宮崎県", "都城市"]);
     expect(link.href.startsWith(`https://hb.afl.rakuten.co.jp/hgc/${ID}/`)).toBe(true);
     expect(searched(link.href)).toContain("ふるさと納税 宮崎県都城市");
   });
   it("政令指定都市の区は市の返礼品を探し、東京23区は区そのものを探す", () => {
     const ward = furusatoLink(ID, { prefName: "神奈川県", municipality: { name: "横浜市鶴見区", region: "横浜市" } })!;
     expect(ward.title).toBe("横浜市のふるさと納税の返礼品");
+    expect(ward.name).toBe("横浜市");
     expect(searched(ward.href)).toContain("神奈川県横浜市/");
     const tokyo = furusatoLink(ID, { prefName: "東京都", municipality: { name: "港区", region: "区部" } })!;
     expect(tokyo.title).toBe("港区のふるさと納税の返礼品");
@@ -47,6 +49,7 @@ describe("furusatoLink", () => {
   it("都道府県を選んだときは、都道府県の中の返礼品を探す", () => {
     const link = furusatoLink(ID, { prefName: "北海道", municipality: null })!;
     expect(link.title).toBe("北海道のふるさと納税の返礼品");
+    expect(link.name).toBe("");
     expect(searched(link.href)).toContain("ふるさと納税 北海道/");
   });
   it("アフィリエイトID がない・形が違う・都道府県が分からないときは出さない", () => {
@@ -55,10 +58,13 @@ describe("furusatoLink", () => {
     expect(furusatoLink(ID, { prefName: "", municipality: { name: "都城市", region: null } })).toBeNull();
   });
   it("別タブ・sponsored で開き、「広告」を付け、GA には地域の名前を送らない印を付ける", () => {
-    const html = furusatoLinkHtml({ href: "https://hb.afl.rakuten.co.jp/x?a=1&b=2", title: "A<B" });
+    const html = furusatoLinkHtml({ href: "https://hb.afl.rakuten.co.jp/x?a=1&b=2", title: "A<B", pref: "宮崎県", name: "都城市" });
     expect(html).toContain('target="_blank" rel="sponsored noopener"');
     expect(html).toContain('href="https://hb.afl.rakuten.co.jp/x?a=1&amp;b=2"');
-    expect(html).toContain('data-furusato-kind="map" data-track-text="地図の地域の情報"');
+    expect(html).toContain('<div class="detail-furusato" data-furusato-kind="map">');
+    expect(html).toContain('data-track-text="地図の地域の情報"');
+    // 返礼品の例の画像は、取れるまで隠しておく
+    expect(html).toContain('<div class="furusato-items df-items" hidden>');
     expect(html).toContain("<strong>A&lt;B</strong>");
     expect(html).toContain('<span class="ad-mark">広告</span>');
   });

@@ -287,7 +287,7 @@ const structured = breadcrumbList(Astro.site, [
   )}
 
   {/* ページの最後の、返礼品を探すリンクの帯（広告、設計変更記録 #257）。中ほどの欄のボタンと同じく県全体を探す */}
-  <FurusatoEnd heading={`${pref.name}のふるさと納税の返礼品`} href={furusatoHref}
+  <FurusatoEnd heading={`${pref.name}のふるさと納税の返礼品`} href={furusatoHref} pref={pref.name} name=""
     text={`${pref.name}の市区町村などの返礼品を、楽天ふるさと納税でまとめて探せます。`} />
 
   <ShareButtons title={title} />
